@@ -6,7 +6,7 @@ For more information, please consult http://asg.web.cmu.edu/cyrus/imapd/.
 Cyrus has various levels of debugging aid, which can and should be used to
 offer more information about any problems you are facing with Cyrus.
 
-First, edit /etc/default/cyrus2.3, and set CYRUS_VERBOSE to a number higher
+First, edit /etc/default/cyrus-imapd, and set CYRUS_VERBOSE to a number higher
 than zero.  The higher the number, more debug information is provided. Numbers
 above 30 will cause Cyrus services to pause for 15s before executing (so that
 you can do something to it, such as attach strace or a debugger to the
@@ -56,11 +56,11 @@ easy to do so:
 
 1. Install all source dependencies to build the package (needs root):
    apt-get install build-essential fakeroot
-   apt-get build-dep cyrus-imapd-2.3
+   apt-get build-dep cyrus-imapd-2.4
 
 2. Download and rebuild Cyrus with debug information:
-   apt-get source cyrus-imapd-2.3
-   cd cyrus-imapd-2.3*
+   apt-get source cyrus-imapd-2.4
+   cd cyrus-imapd-2.4*
    DEB_BUILD_OPTIONS=debug,noopt,nostrip dpkg-buildpackage -uc -us -rfakeroot
 
 3. Install the Cyrus packages with debug information (needs root):
@@ -91,7 +91,7 @@ or ddd (for interactive debugging and back-tracing) quite easily.
 Set the shell command to be run in /etc/imapd.conf, option debug_command.
 Then, add the command line switch "-D" to the Cyrus services you want to
 run the debug_command in /etc/cyrus.conf, and restart cyrmaster using
-/etc/init.d/cyrus2.3 restart.
+/etc/init.d/cyrus-imapd restart.
 
 The debugging command must be given as a single line in the configuration file.
 

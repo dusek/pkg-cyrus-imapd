@@ -1,4 +1,4 @@
-Template: cyrus-common-2.3/warnbackendchange
+Template: cyrus-common-2.4/warnbackendchange
 Type: error
 _Description: Modified database backends
  Comparison between /usr/lib/cyrus/cyrus-db-types.txt and
@@ -9,11 +9,11 @@ _Description: Modified database backends
  might need to be converted manually to the new format, using the
  cvt_cyrusdb(8) utility.
  .
- Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database
+ Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database
  for more information.  Do not start cyrmaster until you have converted
  the databases to the new format.
 
-Template: cyrus-common-2.3/removespools
+Template: cyrus-common-2.4/removespools
 Type: boolean
 Default: false
 _Description: Remove the mail and news spools?

@@ -136,11 +136,10 @@ support. On etch and above, the support is included in the postfix package.
    postfix lmtp transport in master.cf, renaming it to "cyrus", and 
    using that.
 
-4. Note that to use the virtual domains feature in Cyrus v2.3,
-   you need to tell postfix to use the lmtp transport as the 
-   virtual_transport. If you also want "local" mail recipients, i.e.
-   those that are addressed to hosts listed in mydestination, to
-   be delivered to Cyrus v2.3, you also need to use lmtp as the 
-   mailbox_transport.
+4. Note that to use the virtual domains feature in Cyrus, you need to
+   tell postfix to use the lmtp transport as the virtual_transport. If
+   you also want "local" mail recipients, i.e.  those that are
+   addressed to hosts listed in mydestination, to be delivered to
+   Cyrus, you also need to use lmtp as the mailbox_transport.
 
    That's it!

@@ -1,4 +1,4 @@
-Cyrus IMAPd 2.3 - Debian source package documentation
+Cyrus IMAPd - Debian source package documentation
 -----------------------------------------------------
 
 General guidelines:
@@ -128,3 +128,5 @@ Always follow the current NMU procedures.
 If the NMU is not an urgent upload or one approved beforehand, please
 use the delayed upload queue to give us at least 5 days before it gets
 installed.  Obviously, this does not apply to bin-NMUs.
+
+ -- Ondřej Surý <ondrej@debian.org>, Wed, 17 Nov 2010 17:37:22 +0100

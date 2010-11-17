@@ -32,7 +32,7 @@ umask 022
 [ -x /usr/sbin/ctl_mboxlist ] \
 && [ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] \
 || exit 0
-# Check if Cyrus 2.3 is installed (vs. removed but not purged)
+# Check if Cyrus is installed (vs. removed but not purged)
 grep -qE '^PACKAGE_VERSION[[:blank:]]+2[.]3' \
 	/usr/lib/cyrus/cyrus-hardwired-config.txt >/dev/null 2>&1 || exit 0
 

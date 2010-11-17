@@ -1,5 +1,5 @@
 #!/usr/bin/make -f
-# debian/rules for CMU Cyrus IMAP version 2.3
+# debian/rules for CMU Cyrus IMAP version 2.4
 # GNU copyright 1997 by Joey Hess.
 # Copyright (c) 2001,2010 by Henrique de Moraes Holschuh
 # Published under the GNU GPL license
@@ -15,8 +15,8 @@
 # DebHelper control
 export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
 
-export MAINPKG=cyrus-common-2.3
-export DOCPKG=cyrus-doc-2.3
+export MAINPKG=cyrus-common-2.4
+export DOCPKG=cyrus-doc-2.4
 export TMPPKG := $(CURDIR)/debian/tmp
 export PKGDIR := $(CURDIR)/debian/$(MAINPKG)
 export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
@@ -196,10 +196,10 @@ override_dh_auto_install:
 	# And other misc useful tools
 	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/sbin/arbitronsort
 	# Install imtest and its symlinks
-	mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.3/usr/bin
+	mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.4/usr/bin
 	for i in $(TMPPKG)/usr/bin/*test ; do \
 		rm -f "$$i" || true ;\
-		(cd $(CURDIR)/debian/cyrus-clients-2.3/usr/bin &&\
+		(cd $(CURDIR)/debian/cyrus-clients-2.4/usr/bin &&\
 		 ln -s imtest `basename $$i`) ;\
 	done
 	# Lintian overrides
@@ -217,23 +217,23 @@ override_dh_auto_install:
 	#
 	# Install contrib/ files
 	mkdir -p $(DOCDIR)/contrib
-	xargs < debian/cyrus-common-2.3.contrib -rti cp -r '{}' $(DOCDIR)/contrib
+	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
-	dh_installdocs -p cyrus-admin-2.3 -p cyrus-doc-2.3
-	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.3 -p libcyrus-imap-perl23
+	dh_installdocs -p cyrus-admin-2.4 -p cyrus-doc-2.4
+	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.4 -p libcyrus-imap-perl23
 
 override_dh_installinit:
 	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus-imapd
 
 override_dh_installexamples:
-	dh_installexamples -p cyrus-admin-2.3
-	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl23 -p cyrus-clients-2.3
+	dh_installexamples -p cyrus-admin-2.4
+	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl23 -p cyrus-clients-2.4
 
 override_dh_installchangelogs:
-	dh_installchangelogs -p cyrus-admin-2.3 doc/changes.html
-	dh_installchangelogs -p cyrus-doc-2.3
-	dh_installchangelogs -p $(MAINPKG) -p cyrus-clients-2.3 doc/changes.html
+	dh_installchangelogs -p cyrus-admin-2.4 doc/changes.html
+	dh_installchangelogs -p cyrus-doc-2.4
+	dh_installchangelogs -p $(MAINPKG) -p cyrus-clients-2.4 doc/changes.html
 	dh_installchangelogs -p libcyrus-imap-perl23 perl/imap/Changes
 
 override_dh_installcron:

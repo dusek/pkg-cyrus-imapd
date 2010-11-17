@@ -70,8 +70,8 @@ about:
    However, you will have to configure it yourself.  No pre-packaged
    configuration of Murder is available at this time...  The documentation is
    all there, and the Cyrus packages will happily preserve your Cyrus Murder
-   configuration.  You do not have to install the cyrus-imapd-2.3 or
-   cyrus-pop3d-2.3 packages in hosts that only need the proxy daemons running,
+   configuration.  You do not have to install the cyrus-imapd-2.4 or
+   cyrus-pop3d-2.4 packages in hosts that only need the proxy daemons running,
    but do note that the /etc/pam.d/imap and /etc/pam.d/pop files are in those
    packages (and they are needed by the proxies), so you will have to create
    the files manually.
@@ -93,7 +93,7 @@ about:
 General notes and hints:
 ------------------------
 
- o *** ALWAYS READ /usr/share/doc/cyrus-common-2.3/NEWS.Debian *** after
+ o *** ALWAYS READ /usr/share/doc/cyrus-common-2.4/NEWS.Debian *** after
    you upgrade the package. This, and every other NEWS.Debian can automatically
    be shown to you before the upgrade, see the apt-listchanges package for more
    information.
@@ -103,7 +103,7 @@ General notes and hints:
    support the C datatype "long long". Things will break in very bad ways.
    Yes, it is a big glitch, and no, there are no easy workarounds.
    see https://bugzilla.andrew.cmu.edu/show_bug.cgi?id=1212
-   This has been fixed for the upcoming Cyrus 2.3.
+   This has been fixed for the upcoming Cyrus 2.4.
 
  o Either turn off logging of the DEBUG level, or don't complain about cyrus
    verbosity on the logs.  Don't ever ask in the mailing lists about messages
@@ -154,7 +154,7 @@ General notes and hints:
    subfolders are children of INBOX, and one where they are all in the same
    hierarchical level).
 
-   See /usr/share/doc/cyrus-doc-2.3/html/altnamespace.html for details. If
+   See /usr/share/doc/cyrus-doc-2.4/html/altnamespace.html for details. If
    you deal with a large population of winboze users, this option can save
    you some headaches.
 
@@ -164,7 +164,7 @@ General notes and hints:
    and the slash separate folders (the "^" character is reserved in this
    mode).
 
-   See /usr/share/doc/cyrus-common-2.3/html/altnamespace.html for details.
+   See /usr/share/doc/cyrus-common-2.4/html/altnamespace.html for details.
 
  o When using SASL, do keep in mind that cyrus runs under user cyrus, and not
    root.  It cannot read shadow files (unless you add the user cyrus to group
@@ -202,8 +202,8 @@ General notes and hints:
    from Cyrus, you will need to use ext3, reiserfs, xfs or something similar.
 
  o You may want to enable/disable synchronous metadata writes to your mail
-   store dirs (check /usr/share/doc/cyrus-doc-2.3/html/install.html for more
-   info, in package cyrus-docs-2.3).  The cyrus-makedirs script tries to do the
+   store dirs (check /usr/share/doc/cyrus-doc-2.4/html/install.html for more
+   info, in package cyrus-docs-2.4).  The cyrus-makedirs script tries to do the
    right thing for ext2 and ext3 filesystems.  Failure to correctly update the
    metadata in the right order can completely screw up your Cyrus store on a
    power-loss or another disk failure.
@@ -251,7 +251,7 @@ Known bugs
 ----------
 
   Please see
-http://bugs.debian.org/cgi-bin/pkgreport.cgi?which=src&data=cyrus-imapd-2.3&
+http://bugs.debian.org/cgi-bin/pkgreport.cgi?which=src&data=cyrus-imapd-2.4&
 archive=no&version=
   for a list of any known bugs.
 
@@ -329,5 +329,5 @@ Fagerholm <fabbe@paniq.net> for stress testing the daemons, and useful
 feedback; Gilles Bouthenot <gilles.bouthenot@fcomte.iufm.fr> for good
 feedback; and Henrique de Moraes Holschuh for maintaining the 2.1 branch.
 
- -- The Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+ -- Ondřej Surý <ondrej@debian.org>, Wed, 17 Nov 2010 17:39:08 +0100
 

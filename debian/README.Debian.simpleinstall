@@ -31,7 +31,7 @@ and get email inside it for those users:
  2. Make sure /etc/sasldb2 is readable by group sasl.  Pay attention
     to overrides (dpkg-statoverride)!
 
- 3. Make sure user cyrus belongs to group sasl (cyrus-common-2.3's install
+ 3. Make sure user cyrus belongs to group sasl (cyrus-common-2.x's install
     tries to do this automatically for you).
 
  4. Edit /etc/cyrus.conf, and make sure the services you need are
@@ -49,7 +49,7 @@ and get email inside it for those users:
     will use "/" as the hierarchy separator instead of the default ".".
     I suggest you just leave unixhierarchysep set to false for now.
 
- 6. Restart Cyrus  (/etc/init.d/cyrus2.3 restart)
+ 6. Restart Cyrus  (/etc/init.d/cyrus-imapd restart)
 
  7. Use saslpasswd2 -c  to create an account for your admin:
     saslpasswd2 -c cyrus
@@ -69,7 +69,7 @@ and get email inside it for those users:
     You must use "user/bob", "user/anna" instead if you have the
     unixhierarchysep option enabled in imapd.conf.
 
-    For this to work, you obviously need the cyrus-admin-2.3 package
+    For this to work, you obviously need the cyrus-admin-2.x package
     installed.
 
 11. Try to login as a normal user, using imtest or a IMAP/POP3 client.
@@ -97,7 +97,7 @@ and get email inside it for those users:
     embedded NULLs or any other crap.
 
 
-That's it.  See /usr/share/doc/cyrus-common-2.3/README.{postfix,exim,sendmail}
+That's it.  See /usr/share/doc/cyrus-common-2.x/README.{postfix,exim,sendmail}
 for help on how to setup your MTA to correctly deliver to Cyrus.
 
 
