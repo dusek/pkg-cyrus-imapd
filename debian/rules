@@ -219,22 +219,12 @@ override_dh_auto_install:
 	mkdir -p $(DOCDIR)/contrib
 	xargs < debian/cyrus-common-2.3.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
-override_dh_link:
-	# Remove linked directories
-	rm -rf debian/cyrus-dev-2.3/usr/share/doc/cyrus-dev-2.3
-	rm -rf debian/cyrus-replication-2.3/usr/share/doc/cyrus-replication-2.3
-	rm -rf debian/cyrus-pop3d-2.3/usr/share/doc/cyrus-pop3d-2.3
-	rm -rf debian/cyrus-nntpd-2.3/usr/share/doc/cyrus-nntpd-2.3
-	rm -rf debian/cyrus-murder-2.3/usr/share/doc/cyrus-murder-2.3
-	rm -rf debian/cyrus-imapd-2.3/usr/share/doc/cyrus-imapd-2.3
-	dh_link
-
 override_dh_installdocs:
 	dh_installdocs -p cyrus-admin-2.3 -p cyrus-doc-2.3
 	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.3 -p libcyrus-imap-perl23
 
 override_dh_installinit:
-	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus2.3
+	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus-imapd
 
 override_dh_installexamples:
 	dh_installexamples -p cyrus-admin-2.3
@@ -247,4 +237,4 @@ override_dh_installchangelogs:
 	dh_installchangelogs -p libcyrus-imap-perl23 perl/imap/Changes
 
 override_dh_installcron:
-	dh_installcron --name=cyrus23
+	dh_installcron --name=cyrus-imapd
