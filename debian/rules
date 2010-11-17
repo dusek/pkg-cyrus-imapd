@@ -67,24 +67,22 @@ override_dh_auto_configure:
 	 --bindir=/usr/sbin --sbindir=/usr/sbin \
 	 --includedir=/usr/include/cyrus --mandir=/usr/share/man \
 	 --datadir=/usr/share/cyrus --sysconfdir=/etc \
-	 --with-statedir=/var/state \
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
 	 --mandir=/usr/share/man \
 	 --with-cyrus-prefix=/usr/lib/cyrus \
 	 --with-lock=fcntl \
 	 --with-perl=/usr/bin/perl \
-	 --with-openssl=/usr --with-auth=unix \
+	 --with-openssl=/usr \
 	 --with-bdb=db-$(BDB_VERSION) \
 	 --with-bdb-libdir=/usr/lib --with-bdb-incdir=/usr/include \
 	 --enable-murder --enable-nntp --enable-replication \
-	 --disable-listext --enable-annotatemore --with-sasl=/usr \
-	 --enable-idled --with-drac=/usr \
+	 --disable-listext --with-sasl=/usr \
+	 --enable-idled \
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
 	 --with-com_err=/usr \
 	 --with-pidfile=/var/run/cyrmaster.pid \
 	 --with-syslogfacility=MAIL \
-	 --with-seen-db=skiplist --with-mboxlist-db=skiplist \
 	 --with-ucdsnmp=/usr
 	echo 'To build this package, configure was called as follows:' \
 		> debian/README.configure-options
@@ -220,3 +218,13 @@ override_dh_auto_install:
 	# Install contrib/ files
 	mkdir -p $(DOCDIR)/contrib
 	xargs < debian/cyrus-common-2.3.contrib -rti cp -r '{}' $(DOCDIR)/contrib
+
+override_dh_link:
+	# Remove linked directories
+	rm -rf debian/cyrus-dev-2.3/usr/share/doc/cyrus-dev-2.3
+	rm -rf debian/cyrus-replication-2.3/usr/share/doc/cyrus-replication-2.3
+	rm -rf debian/cyrus-pop3d-2.3/usr/share/doc/cyrus-pop3d-2.3
+	rm -rf debian/cyrus-nntpd-2.3/usr/share/doc/cyrus-nntpd-2.3
+	rm -rf debian/cyrus-murder-2.3/usr/share/doc/cyrus-murder-2.3
+	rm -rf debian/cyrus-imapd-2.3/usr/share/doc/cyrus-imapd-2.3
+	dh_link
