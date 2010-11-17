@@ -130,7 +130,7 @@ override_dh_auto_build:
 	rm -f pod2htm*
 
 override_dh_auto_install:
-	dh_auto_build -- DESTDIR=$(TMPPKG)
+	dh_auto_install -- DESTDIR=$(TMPPKG)
 	# fix totaly broken location of the include files;
 	# while at it, also avoid namespace collision, and move
 	# lots of admin-only/system-only stuff to sbin and lib
