@@ -58,7 +58,7 @@ override_dh_auto_clean:
 
 override_dh_auto_configure:
 	# Rebuild the build system
-	autoreconf -I cmulocal
+	autoreconf -I cmulocal -f -i
 	dh_auto_configure CFLAGS="${CFLAGS} -fno-strict-aliasing -Wall -pipe" $(CONFFLAGS) -- \
 	 --with-extraident=$(EXTRA_IDENT) \
 	 --prefix=/usr/share --exec-prefix=/usr --libexecdir=/usr/sbin \
