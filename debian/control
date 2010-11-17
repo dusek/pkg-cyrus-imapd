@@ -16,7 +16,7 @@ Depends: ssmtp | mail-transport-agent, adduser (>= 3.34), dpkg (>> 1.9.0), netba
 Recommends: cyrus-imapd-2.4 | cyrus-pop3d-2.4 | cyrus-murder-2.4 | cyrus-nntpd-2.4 | cyrus-admin-2.4
 Suggests: cyrus-clients-2.4, cyrus-admin-2.4, cyrus-imapd-2.4, cyrus-pop3d-2.4, cyrus-murder-2.4, cyrus-replication-2.4, cyrus-nntpd-2.4, cyrus-doc-2.4, sasl2-bin, apt-listchanges (>= 2.35)
 Conflicts: suidmanager (<< 0.50), cyrus-common (<< 2.4), cyrus21-common, cyrus22-common (<< 2.4), cyrus-common-2.2 (<< 2.4), cyrus-common-2.3 (<< 2.4)
-Replaces: cyrus21-common, cyrus22-common (<< 2.4), cyrus-common-2.2 (<< 2.4), cyrus-common-2.4 (<< 2.4)
+Replaces: cyrus21-common, cyrus22-common (<< 2.4), cyrus-common-2.2 (<< 2.4), cyrus-common-2.3 (<< 2.4)
 Provides: cyrus21-common, cyrus22-common, cyrus-common-2.2, cyrus-common-2.3
 Description: Cyrus mail system - common files
  Cyrus is an IMAP server designed to handle massive quantities of mail,
