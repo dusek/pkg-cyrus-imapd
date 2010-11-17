@@ -222,20 +222,20 @@ override_dh_auto_install:
 
 override_dh_installdocs:
 	dh_installdocs -p cyrus-admin-2.4 -p cyrus-doc-2.4
-	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.4 -p libcyrus-imap-perl23
+	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.4 -p libcyrus-imap-perl24
 
 override_dh_installinit:
 	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus-imapd
 
 override_dh_installexamples:
 	dh_installexamples -p cyrus-admin-2.4
-	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl23 -p cyrus-clients-2.4
+	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl24 -p cyrus-clients-2.4
 
 override_dh_installchangelogs:
 	dh_installchangelogs -p cyrus-admin-2.4 doc/changes.html
 	dh_installchangelogs -p cyrus-doc-2.4
 	dh_installchangelogs -p $(MAINPKG) -p cyrus-clients-2.4 doc/changes.html
-	dh_installchangelogs -p libcyrus-imap-perl23 perl/imap/Changes
+	dh_installchangelogs -p libcyrus-imap-perl24 perl/imap/Changes
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
