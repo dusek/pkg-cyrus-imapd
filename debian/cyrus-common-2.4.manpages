@@ -22,3 +22,6 @@ debian/tmp/usr/share/man/man8/mbexamine.8
 debian/tmp/usr/share/man/man8/smmapd.8
 debian/tmp/usr/share/man/man8/cyr_expire.8
 debian/tmp/usr/share/man/man8/unexpunge.8
+debian/tmp/usr/share/man/man8/cyr_dbtool
+debian/tmp/usr/share/man/man8/cyr_df
+debian/tmp/usr/share/man/man8/cyr_expire
