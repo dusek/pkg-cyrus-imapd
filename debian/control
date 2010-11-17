@@ -181,7 +181,7 @@ Section: mail
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Conflicts: news-transport-system, cyrus-nntpd-2.2 (<< 2.4), cyrus-nntpd-2.3 (<< 2.4)
 Replaces: cyrus21-nntpd, cyrus22-nntpd (<< 2.4), cyrus-nntpd-2.2 (<< 2.4), cyrus-nntpd-2.3 (<< 2.4)
-Provides: news-transport-system, cyrus21-nntpd, cyrus22-nntpd, cyrus-nntpd-2.2, cyrus-nntpd-2.4
+Provides: news-transport-system, cyrus21-nntpd, cyrus22-nntpd, cyrus-nntpd-2.2, cyrus-nntpd-2.3
 Description: Cyrus mail system (NNTP support)
  This package contains the NNTP (Network News Transfer Protocol) portion of
  the Cyrus IMAPd suite.
