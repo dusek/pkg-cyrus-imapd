@@ -39,13 +39,17 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nonblock_ioctl.c,v 1.12 2008/03/24 17:43:09 murch Exp $
+ * $Id: nonblock_ioctl.c,v 1.13 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
 #include <sys/ioctl.h>
 
 #include "nonblock.h"
+
+/* for fatal */
+#include "xmalloc.h"
+#include "exitcodes.h"
 
 const char *nonblock_method_desc = "ioctl";
 
@@ -62,6 +66,6 @@ int mode;
     mode = mode ? 1 : 0;
 
     if (ioctl(fd, FIONBIO, (char *)&mode) < 0) {
-	fatal("Internal error: ioctl FIONBIO failed");
+	fatal("Internal error: ioctl FIONBIO failed", EC_SOFTWARE);
     }
 }

@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: backend.c,v 1.60 2009/04/23 17:10:05 murch Exp $
+ * $Id: backend.c,v 1.63 2010/08/04 18:57:36 wescraig Exp $
  */
 
 #include <config.h>
@@ -77,21 +77,43 @@
 #include "util.h"
 
 enum {
-    AUTO_BANNER = -1,
-    AUTO_NO = 0,
-    AUTO_YES = 1
+    AUTO_CAPA_BANNER = -1,
+    AUTO_CAPA_NO = 0,
 };
+
+static char *parse_capability(const char str[],
+			      struct protocol_t *prot, unsigned long *capa)
+{
+    char *ret = NULL, *tmp;
+    struct capa_t *c;
+
+    /* look for capabilities in the string */
+    for (c = prot->capa_cmd.capa; c->str; c++) {
+	if ((tmp = strstr(str, c->str)) != NULL) {
+	    *capa = *capa | c->flag;
+
+	    if (c->flag == CAPA_AUTH) {
+		if (prot->capa_cmd.parse_mechlist)
+		    ret = prot->capa_cmd.parse_mechlist(str, prot);
+		else
+		    ret = xstrdup(tmp+strlen(c->str));
+	    }
+	}
+    }
+
+    return ret;
+}
 
 static char *ask_capability(struct protstream *pout, struct protstream *pin,
 			    struct protocol_t *prot, unsigned long *capa,
-			    int automatic)
+			    char *banner, int automatic)
 {
     char str[4096];
-    char *ret = NULL, *tmp;
-    struct capa_t *c;
+    char *mechlist = NULL, *ret;
     const char *resp;
 
-    resp = (automatic == AUTO_BANNER) ? prot->banner.resp : prot->capa_cmd.resp;
+    resp = (automatic == AUTO_CAPA_BANNER) ?
+	prot->banner.resp : prot->capa_cmd.resp;
 
     if (!automatic) {
 	/* no capability command */
@@ -109,29 +131,23 @@ static char *ask_capability(struct protstream *pout, struct protstream *pin,
     do {
 	if (prot_fgets(str, sizeof(str), pin) == NULL) break;
 
-	/* look for capabilities in the string */
-	for (c = prot->capa_cmd.capa; c->str; c++) {
-	    if ((tmp = strstr(str, c->str)) != NULL) {
-		*capa = *capa | c->flag;
-
-		if (c->flag == CAPA_AUTH) {
-		    if (prot->capa_cmd.parse_mechlist)
-			ret = prot->capa_cmd.parse_mechlist(str, prot);
-		    else
-			ret = xstrdup(tmp+strlen(c->str));
-		}
-	    }
+	if ((ret = parse_capability(str, prot, capa))) {
+	    if (mechlist) free(mechlist);
+	    mechlist = ret;
 	}
+
 	if (!resp) {
 	    /* multiline response with no distinct end (IMAP banner) */
 	    prot_NONBLOCK(pin);
 	}
 
+	if (banner) strncpy(banner, str, 2048);
+
 	/* look for the end of the capabilities */
     } while (!resp || strncasecmp(str, resp, strlen(resp)));
     
     prot_BLOCK(pin);
-    return ret;
+    return mechlist;
 }
 
 static int do_compress(struct backend *s, struct simple_cmd_t *compress_cmd)
@@ -187,9 +203,8 @@ static int do_starttls(struct backend *s, struct tls_cmd_t *tls_cmd)
     if (r == -1) return -1;
 
     r = sasl_setprop(s->saslconn, SASL_SSF_EXTERNAL, &ssf);
-    if (r != SASL_OK) return -1;
-
-    r = sasl_setprop(s->saslconn, SASL_AUTH_EXTERNAL, auth_id);
+    if (r == SASL_OK)
+	r = sasl_setprop(s->saslconn, SASL_AUTH_EXTERNAL, auth_id);
     if (auth_id) free(auth_id);
     if (r != SASL_OK) return -1;
 
@@ -198,6 +213,65 @@ static int do_starttls(struct backend *s, struct tls_cmd_t *tls_cmd)
 
     return 0;
 #endif /* HAVE_SSL */
+}
+
+static char *intersect_mechlists( char *config, char *server )
+{
+    char *newmechlist = xzmalloc( strlen( config ) + 1 );
+    char *cmech = NULL, *smech = NULL, *s;
+    int count = 0;
+    char csave, ssave;
+
+    do {
+	if ( isalnum( *config ) || *config == '_' || *config == '-' ) {
+	    if ( cmech == NULL ) {
+		cmech = config;
+	    }
+	} else {
+	    if ( cmech != NULL ) {
+		csave = *config;
+		*config = '\0';
+
+		s = server;
+		do {
+		    if ( isalnum( *s ) || *s == '_' || *s == '-' ) {
+			if ( smech == NULL ) {
+			    smech = s;
+			}
+		    } else {
+			if ( smech != NULL ) {
+			    ssave = *s;
+			    *s = '\0';
+
+			    if ( strcasecmp( cmech, smech ) == 0 ) {
+				if ( count > 0 ) {
+				    strcat( newmechlist, " " );
+				}
+				strcat( newmechlist, cmech );
+				count++;
+
+				*s = ssave;
+				smech = NULL;
+				break;
+			    }
+
+			    *s = ssave;
+			    smech = NULL;
+			}
+		    }
+		} while ( *s++ );
+
+		*config = csave;
+		cmech = NULL;
+	    }
+	}
+    } while ( *config++ );
+
+    if ( count == 0 ) {
+	free( newmechlist );
+	return( NULL );
+    }
+    return( newmechlist );
 }
 
 static int backend_authenticate(struct backend *s, struct protocol_t *prot,
@@ -214,6 +288,19 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
     char buf[2048], optstr[128], *p;
     const char *mech_conf, *pass;
 
+    /* set the IP addresses */
+    addrsize=sizeof(struct sockaddr_storage);
+    if (getpeername(s->sock, (struct sockaddr *)&saddr_r, &addrsize) != 0)
+	return SASL_FAIL;
+    if(iptostring((struct sockaddr *)&saddr_r, addrsize, remoteip, 60) != 0)
+	return SASL_FAIL;
+  
+    addrsize=sizeof(struct sockaddr_storage);
+    if (getsockname(s->sock, (struct sockaddr *)&saddr_l, &addrsize)!=0)
+	return SASL_FAIL;
+    if(iptostring((struct sockaddr *)&saddr_l, addrsize, localip, 60) != 0)
+	return SASL_FAIL;
+
     if (!cb) {
 	local_cb = 1;
 	strlcpy(optstr, s->hostname, sizeof(optstr));
@@ -228,30 +315,19 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
 			      pass);
     }
 
-    /* set the IP addresses */
-    addrsize=sizeof(struct sockaddr_storage);
-    if (getpeername(s->sock, (struct sockaddr *)&saddr_r, &addrsize) != 0)
-	return SASL_FAIL;
-    if(iptostring((struct sockaddr *)&saddr_r, addrsize, remoteip, 60) != 0)
-	return SASL_FAIL;
-  
-    addrsize=sizeof(struct sockaddr_storage);
-    if (getsockname(s->sock, (struct sockaddr *)&saddr_l, &addrsize)!=0)
-	return SASL_FAIL;
-    if(iptostring((struct sockaddr *)&saddr_l, addrsize, localip, 60) != 0)
-	return SASL_FAIL;
-
     /* Require proxying if we have an "interesting" userid (authzid) */
     r = sasl_client_new(prot->sasl_service, s->hostname, localip, remoteip, cb,
 			(userid  && *userid ? SASL_NEED_PROXY : 0) |
 			(prot->sasl_cmd.parse_success ? SASL_SUCCESS_DATA : 0),
 			&s->saslconn);
     if (r != SASL_OK) {
+	if (local_cb) free_callbacks(cb);
 	return r;
     }
 
     r = sasl_setprop(s->saslconn, SASL_SEC_PROPS, &secprops);
     if (r != SASL_OK) {
+	if (local_cb) free_callbacks(cb);
 	return r;
     }
 
@@ -269,9 +345,18 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
 
     do {
 	/* If we have a mech_conf, use it */
-	if (mech_conf) {
+	if (mech_conf && *mechlist) {
+	    char *conf = xstrdup(mech_conf);
+	    char *newmechlist = intersect_mechlists( conf, *mechlist );
+
+	    if ( newmechlist == NULL ) {
+		syslog( LOG_INFO, "%s did not offer %s", s->hostname,
+			mech_conf );
+	    }
+
+	    free(conf);
 	    free(*mechlist);
-	    *mechlist = xstrdup(mech_conf);
+	    *mechlist = newmechlist;
 	}
 
 	if (*mechlist) {
@@ -289,7 +374,7 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
     } while (r == SASL_NOMECH && CAPA(s, CAPA_STARTTLS) &&
 	     do_starttls(s, &prot->tls_cmd) != -1 &&
 	     (*mechlist = ask_capability(s->out, s->in, prot,
-					 &s->capability,
+					 &s->capability, NULL,
 					 prot->tls_cmd.auto_capa)));
 
     /* xxx unclear that this is correct */
@@ -375,6 +460,7 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
     timedout = 0;
     action.sa_flags = 0;
     action.sa_handler = timed_out;
+    sigemptyset(&action.sa_mask);
     if(sigaction(SIGALRM, &action, NULL) < 0) 
     {
 	syslog(LOG_ERR, "Setting timeout in backend_connect failed: sigaction: %m");
@@ -415,10 +501,11 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
     prot_setflushonread(ret->in, ret->out);
     ret->prot = prot;
     
-    if (prot->banner.is_capa) {
+    if (prot->banner.auto_capa) {
 	/* try to get the capabilities from the banner */
 	mechlist = ask_capability(ret->out, ret->in, prot,
-				  &ret->capability, AUTO_BANNER);
+				  &ret->capability, ret->banner,
+				  AUTO_CAPA_BANNER);
 	if (mechlist || ret->capability) {
 	    /* found capabilities in banner -> don't ask */
 	    ask = 0;
@@ -436,12 +523,13 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
 	    }
 	} while (strncasecmp(buf, prot->banner.resp,
 			     strlen(prot->banner.resp)));
+	strncpy(ret->banner, buf, 2048);
     }
 
     if (ask) {
 	/* get the capabilities */
 	mechlist = ask_capability(ret->out, ret->in, prot,
-				  &ret->capability, AUTO_NO);
+				  &ret->capability, NULL, AUTO_CAPA_NO);
     }
 
     /* now need to authenticate to backend server,
@@ -449,10 +537,15 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
     if ((server[0] != '/') ||
 	(strcmp(prot->sasl_service, "lmtp") &&
 	 strcmp(prot->sasl_service, "csync"))) {
-	char *mlist = xstrdup(mechlist); /* backend_auth is destructive */
+	char *mlist = NULL;
+	const char *my_status;
+
+    if ( mechlist ) {
+        mlist = xstrdup(mechlist); /* backend_auth is destructive */
+    }
 
 	if ((r = backend_authenticate(ret, prot, &mlist, userid,
-				      cb, auth_status))) {
+				      cb, &my_status))) {
 	    syslog(LOG_ERR, "couldn't authenticate to backend server: %s",
 		   sasl_errstring(r, NULL, NULL));
 	    if (!ret_backend) free(ret);
@@ -465,9 +558,9 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
 	    sasl_getprop(ret->saslconn, SASL_SSF, &ssf);
 	    if (*((sasl_ssf_t *) ssf)) {
 		/* if we have a SASL security layer, compare SASL mech lists
-		   to check for a MITM attack */
+		   before/after AUTH to check for a MITM attack */
 		char *new_mechlist;
-		int auto_capa = prot->sasl_cmd.auto_capa;
+		int auto_capa = (prot->sasl_cmd.auto_capa == AUTO_CAPA_AUTH_SSF);
 
 		if (!strcmp(prot->service, "sieve")) {
 		    /* XXX  Hack to handle ManageSieve servers.
@@ -483,13 +576,18 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
 		    if ((ch = prot_getc(ret->in)) != EOF) {
 			prot_ungetc(ch, ret->in);
 		    } else {
-			auto_capa = AUTO_NO;
+			auto_capa = AUTO_CAPA_AUTH_NO;
 		    }
 		    prot_BLOCK(ret->in);
 		}
 
+        /*
+         * A flawed check: backend_authenticate() may be given a
+         * NULL mechlist, negotiate SSL, and get a new mechlist.
+         * This new, correct mechlist won't be visible here.
+         */
 		new_mechlist = ask_capability(ret->out, ret->in, prot,
-					      &ret->capability, auto_capa);
+					      &ret->capability, NULL, auto_capa);
 		if (new_mechlist && strcmp(new_mechlist, mechlist)) {
 		    syslog(LOG_ERR, "possible MITM attack:"
 			   "list of available SASL mechanisms changed");
@@ -498,17 +596,25 @@ struct backend *backend_connect(struct backend *ret_backend, const char *server,
 		    ret = NULL;
 		}
 
-		free(new_mechlist);
+		if (new_mechlist) free(new_mechlist);
+	    }
+	    else if (prot->sasl_cmd.auto_capa == AUTO_CAPA_AUTH_OK) {
+		/* try to get the capabilities from the AUTH success response */
+		ret->capability = 0;
+		if (mechlist) free(mechlist);
+		mechlist = parse_capability(my_status, prot,
+						&ret->capability);
 	    }
 	}
 
 	if (mlist) free(mlist);
+	if (auth_status) *auth_status = my_status;
     }
 
     if (mechlist) free(mechlist);
 
     /* start compression if requested and both client/server support it */
-    if (config_getswitch(IMAPOPT_PROXY_COMPRESS) &&
+    if (config_getswitch(IMAPOPT_PROXY_COMPRESS) && ret &&
 	CAPA(ret, CAPA_COMPRESS) &&
 	prot->compress_cmd.cmd &&
 	do_compress(ret, &prot->compress_cmd)) {
@@ -529,7 +635,7 @@ int backend_ping(struct backend *s)
     char buf[1024];
 
     if (!s || !s->prot->ping_cmd.cmd) return 0;
-    if (!s->sock == -1) return -1; /* Disconnected Socket */
+    if (s->sock == -1) return -1; /* Disconnected Socket */
     
     prot_printf(s->out, "%s\r\n", s->prot->ping_cmd.cmd);
     prot_flush(s->out);
@@ -606,5 +712,5 @@ void backend_disconnect(struct backend *s)
     }
 
     /* free last_result buffer */
-    freebuf(&s->last_result);
+    buf_free(&s->last_result);
 }

@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: protocol.h,v 1.11 2009/04/23 17:10:07 murch Exp $
+ * $Id: protocol.h,v 1.12 2010/01/06 17:01:38 murch Exp $
  */
 
 #ifndef _INCLUDED_PROTOCOL_H
@@ -64,7 +64,8 @@ enum {
 struct protocol_t;
 
 struct banner_t {
-    int is_capa;		/* banner is capability response */
+    u_char auto_capa;		/* capability response sent automatically
+				   in banner? */
     char *resp;			/* end of banner response */
 };
 
@@ -80,16 +81,16 @@ struct capa_cmd_t {
     char *(*parse_mechlist)(const char *str, struct protocol_t *prot);
 				/* [OPTIONAL] parse capability string,
 				   returns space-separated list of mechs */
-    struct capa_t capa[MAX_CAPA+1];/* capabilities to parse for
+    struct capa_t capa[MAX_CAPA+1];/* list of capabilities to parse for
 				      (MUST end with NULL entry) */
 };
 
 struct tls_cmd_t {
-    const char *cmd;		/* tls command string */
-    const char *ok;		/* start tls prompt */
+    const char *cmd;		/* TLS command string */
+    const char *ok;		/* start TLS prompt */
     const char *fail;		/* failure response */
-    int auto_capa;		/* capability response sent automatically
-				   after TLS */
+    u_char auto_capa;		/* capability response sent automatically
+				   after TLS? */
 };
 
 struct simple_cmd_t {

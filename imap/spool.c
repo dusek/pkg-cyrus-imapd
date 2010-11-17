@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: spool.c,v 1.15 2009/03/31 04:11:20 brong Exp $
+ * $Id: spool.c,v 1.16 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -350,13 +350,14 @@ int spool_fill_hdrcache(struct protstream *fin, FILE *fout, hdrcache_t cache,
 
     /* let's fill that header cache */
     for (;;) {
-	char *name, *body;
+	char *name = NULL, *body = NULL;
 
 	if ((r = parseheader(fin, fout, &name, &body, skipheaders)) < 0) {
 	    break;
 	}
 	if (!name) {
 	    /* reached the end of headers */
+	    free(body);
 	    break;
 	}
 

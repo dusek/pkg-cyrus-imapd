@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: util.c,v 1.38 2009/03/31 04:11:23 brong Exp $
+ * $Id: util.c,v 1.40 2010/06/28 12:06:43 brong Exp $
  */
 
 #include <config.h>
@@ -48,6 +48,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <grp.h>
+#include <limits.h>
 #include <pwd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -400,3 +401,204 @@ int become_cyrus(void)
         uid = newuid;
     return result;
 }
+
+static int cmdtime_enabled = 0;
+static struct timeval cmdtime_start, cmdtime_end, nettime_start, nettime_end;
+static double totaltime, cmdtime, nettime;
+
+double timesub(struct timeval * start, struct timeval * end) {
+  return (double)(end->tv_sec - start->tv_sec) +
+    (double)(end->tv_usec - start->tv_usec)/1000000.0;
+}
+
+void cmdtime_settimer(int enable) {
+  cmdtime_enabled = enable;
+}
+
+void cmdtime_starttimer() {
+  if (!cmdtime_enabled) { return; }
+  gettimeofday(&cmdtime_start, 0);
+  totaltime = cmdtime = nettime = 0.0;
+}
+
+void cmdtime_endtimer(double * pcmdtime, double * pnettime) {
+  if (!cmdtime_enabled) { return; }
+  gettimeofday(&cmdtime_end, 0);
+  totaltime = timesub(&cmdtime_start, &cmdtime_end);
+  cmdtime = totaltime - nettime;
+  *pcmdtime = cmdtime;
+  *pnettime = nettime;
+}
+
+void cmdtime_netstart() {
+  if (!cmdtime_enabled) { return; }
+  gettimeofday(&nettime_start, 0);
+}
+
+void cmdtime_netend() {
+  if (!cmdtime_enabled) { return; }
+  gettimeofday(&nettime_end, 0);
+  nettime += timesub(&nettime_start, &nettime_end);
+}
+
+int parseint32(const char *p, const char **ptr, int32_t *res)
+{
+    int32_t result = 0;
+    int gotchar = 0;
+
+    if (!p) return -1;
+
+    /* INT_MAX == 2147483647 */
+    while (cyrus_isdigit(*p)) {
+	if (result > 214748364 || (result == 214748364 && (*p > '7')))
+	    fatal("num too big", EC_IOERR);
+	result = result * 10 + *p++ - '0';
+	gotchar = 1;
+    }
+
+    if (!gotchar) return -1;
+
+    if (ptr) *ptr = p;
+    if (res) *res = result;
+
+    return 0;
+}
+
+int parseuint32(const char *p, const char **ptr, uint32_t *res)
+{
+    uint32_t result = 0;
+    int gotchar = 0;
+
+    if (!p) return -1;
+
+    /* UINT_MAX == 4294967295U */
+    while (cyrus_isdigit(*p)) {
+	if (result > 429496729 || (result == 429496729 && (*p > '5')))
+	    fatal("num too big", EC_IOERR);
+	result = result * 10 + *p++ - '0';
+	gotchar = 1;
+    }
+
+    if (!gotchar) return -1;
+
+    if (ptr) *ptr = p;
+    if (res) *res = result;
+
+    return 0;
+}
+
+/* buffer handling functions */
+
+#define BUF_GROW 1024
+void buf_ensure(struct buf *buf, int n)
+{
+    int newlen = (buf->len + n + BUF_GROW);  /* XXX - size mod logic? */
+
+    if (buf->alloc >= (buf->len + n))
+	return;
+
+    if (buf->alloc) {
+	buf->s = xrealloc(buf->s, newlen);
+    }
+    else {
+	char *s = xmalloc(newlen);
+	if (buf->len) /* copy on write */
+	    memcpy(s, buf->s, buf->len);
+	buf->s = s;
+    }
+
+    buf->alloc = newlen;
+}
+
+const char *buf_cstring(struct buf *buf)
+{
+    if (!(buf->flags & BUF_CSTRING)) {
+	buf_ensure(buf, 1);
+	buf->s[buf->len] = '\0';
+	buf->flags |= BUF_CSTRING;
+    }
+
+    return buf->s;
+}
+
+void buf_getmap(struct buf *buf, const char **base, int *len)
+{
+    *base = buf->s;
+    *len = buf->len;
+}
+
+unsigned buf_len(struct buf *buf)
+{
+    return buf->len;
+}
+
+void buf_reset(struct buf *buf)
+{
+    buf->len = 0;
+    buf->flags &= ~BUF_CSTRING;
+}
+
+void buf_setcstr(struct buf *buf, char *str)
+{
+    buf_setmap(buf, str, strlen(str));
+}
+
+void buf_setmap(struct buf *buf, char *base, int len)
+{
+    buf_reset(buf);
+    if (len) {
+	buf_ensure(buf, len);
+	memcpy(buf->s, base, len);
+	buf->len = len;
+    }
+}
+
+void buf_copy(struct buf *dst, struct buf *src)
+{
+    buf_setmap(dst, src->s, src->len);
+}
+
+void buf_append(struct buf *dst, struct buf *src)
+{
+    buf_appendmap(dst, src->s, src->len);
+}
+
+void buf_appendcstr(struct buf *buf, char *str)
+{
+    buf_appendmap(buf, str, strlen(str));
+}
+
+void buf_appendbit32(struct buf *buf, bit32 num)
+{
+    char item[4];
+    *((bit32 *)item) = htonl(num);
+    buf_appendmap(buf, item, 4);
+}
+
+void buf_appendmap(struct buf *buf, char *base, int len)
+{
+    if (len) {
+	buf_ensure(buf, len);
+	memcpy(buf->s + buf->len, base, len);
+	buf->len += len;
+	buf->flags &= ~BUF_CSTRING;
+    }
+}
+
+void buf_putc(struct buf *buf, char c)
+{
+    buf_ensure(buf, 1);
+    buf->s[buf->len++] = c;
+    buf->flags &= ~BUF_CSTRING;
+}
+
+void buf_free(struct buf *buf)
+{
+    if (buf->alloc)
+	free(buf->s);
+    buf->alloc = 0;
+    buf->s = NULL;
+    buf->len = 0;
+    buf->flags = 0;
+}
+

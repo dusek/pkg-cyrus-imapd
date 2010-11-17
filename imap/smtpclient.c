@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: smtpclient.c,v 1.3 2008/03/24 17:09:19 murch Exp $
+ * $Id: smtpclient.c,v 1.4 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -64,7 +64,10 @@ pid_t open_sendmail(const char *argv[], FILE **sm)
     FILE *ret;
     pid_t p;
 
-    pipe(fds);
+    if (pipe(fds)) {
+	printf("451 lmtpd: didn't start pipe()?!?\r\n");
+	fatal("couldn't start pipe()", EC_OSERR);
+    }
     if ((p = fork()) == 0) {
 	/* i'm the child! run sendmail! */
 	close(fds[1]);

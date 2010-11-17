@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: notifyd.h,v 1.3 2008/03/24 19:59:32 murch Exp $
+ * $Id: notifyd.h,v 1.4 2010/01/06 17:01:54 murch Exp $
  */
 
 #include <config.h>
@@ -48,6 +48,7 @@
 #include "notify_log.h"
 #include "notify_mailto.h"
 #include "notify_zephyr.h"
+#include "notify_external.h"
 
 /* Notify method dispatch table definition */
 typedef struct {
@@ -66,5 +67,6 @@ notifymethod_t methods[] = {
 #ifdef HAVE_ZEPHYR
     { "zephyr",	notify_zephyr },	/* send a zephyrgram */
 #endif
+    { "external", notify_external },	/* send via external program */
     { NULL,	NULL }
 };

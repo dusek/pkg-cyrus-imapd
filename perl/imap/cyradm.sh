@@ -39,7 +39,7 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: cyradm.sh,v 1.20 2008/04/04 12:47:10 murch Exp $
+# $Id: cyradm.sh,v 1.21 2010/01/06 17:01:55 murch Exp $
 case "x$BASH_VERSION" in
 x) exec perl -MCyrus::IMAP::Shell -e shell -- ${1+"$@"} ;;
 *) exec perl -MCyrus::IMAP::Shell -e shell -- "$@" ;;
@@ -240,6 +240,10 @@ mailboxes).
 =item C<squat>
 
 Indicates that the mailbox should have a squat index created for it.
+
+=item C</explicit/annotation>
+
+Sets the annotation I</explicit/annotation> on I<mailbox> to I<value>.
 
 =back 
 

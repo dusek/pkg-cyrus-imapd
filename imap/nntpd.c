@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nntpd.c,v 1.77 2009/12/16 02:51:42 brong Exp $
+ * $Id: nntpd.c,v 1.83 2010/04/23 20:53:49 murch Exp $
  */
 
 /*
@@ -54,6 +54,9 @@
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
 #endif
 #include <stdio.h>
 #include <errno.h>
@@ -94,6 +97,7 @@
 #include "mkgmtime.h"
 #include "mupdate-client.h"
 #include "nntp_err.h"
+#include "proc.h"
 #include "prot.h"
 #include "proxy.h"
 #include "retry.h"
@@ -103,6 +107,7 @@
 #include "sync_log.h"
 #include "telemetry.h"
 #include "tls.h"
+#include "userdeny.h"
 #include "util.h"
 #include "version.h"
 #include "wildmat.h"
@@ -113,19 +118,6 @@
 extern int optind;
 extern char *optarg;
 extern int opterr;
-
-/* Stuff to make index.c link */
-int imapd_exists;
-struct protstream *imapd_out = NULL;
-struct auth_state *imapd_authstate = NULL;
-char *imapd_userid = NULL;
-int imapd_condstore_client = 0;
-
-void printastring(const char *s __attribute__((unused)))
-{
-    fatal("not implemented", EC_SOFTWARE);
-}
-/* end stuff to make index.c link */
 
 /* PROXY STUFF */
 /* we want a list of our outgoing connections here and which one we're
@@ -145,9 +137,10 @@ sasl_conn_t *nntp_saslconn; /* the sasl connection context */
 
 int nntp_timeout;
 char newsprefix[100] = "";
+struct wildmat *newsgroups = NULL;
 char *nntp_userid = 0, *newsmaster;
 struct auth_state *nntp_authstate = 0, *newsmaster_authstate;
-static struct mailbox *nntp_group = 0;
+struct index_state *group_state;
 struct sockaddr_storage nntp_localaddr, nntp_remoteaddr;
 int nntp_haveaddr = 0;
 char nntp_clienthost[NI_MAXHOST*2+1] = "[local]";
@@ -174,8 +167,6 @@ static unsigned nntp_capa = MODE_READ | MODE_FEED; /* general-purpose */
 static sasl_ssf_t extprops_ssf = 0;
 static int nntps = 0;
 int nntp_starttls_done = 0;
-
-static struct mailbox mboxstruct;
 
 /* the sasl proxy policy context */
 static struct proxy_context nntp_proxyctx = {
@@ -223,7 +214,7 @@ static void free_wildmats(struct wildmat *wild);
 static void cmdloop(void);
 static int open_group(char *name, int has_prefix,
 		      struct backend **ret, int *postable);
-static int parserange(char *str, unsigned long *uid, unsigned long *last,
+static int parserange(char *str, uint32_t *uid, uint32_t *last,
 		      char **msgid, struct backend **be);
 static time_t parse_datetime(char *datestr, char *timestr, char *gmt);
 static void cmd_article(int part, char *msgid, unsigned long uid);
@@ -243,12 +234,6 @@ static void cmd_post(char *msgid, int mode);
 static void cmd_starttls(int nntps);
 void usage(void);
 void shut_down(int code) __attribute__ ((noreturn));
-
-
-extern void setproctitle_init(int argc, char **argv, char **envp);
-extern int proc_register(const char *progname, const char *clienthost, 
-			 const char *userid, const char *mailbox);
-extern void proc_cleanup(void);
 
 extern int saslserver(sasl_conn_t *conn, const char *mech,
 		      const char *init_resp, const char *resp_prefix,
@@ -302,26 +287,26 @@ static struct protocol_t nntp_protocol =
    sure it's up to date */
 static int mlookup(const char *name, char **server, char **aclp, void *tid)
 {
-    int r, type;
-
-    if(server) *server = NULL;
-
-    r = mboxlist_detail(name, &type, NULL, NULL, server, aclp, tid);
+    struct mboxlist_entry mbentry;
+    int r;
+    
+    r = mboxlist_lookup(name, &mbentry, tid);
     if (r == IMAP_MAILBOX_NONEXISTENT && config_mupdate_server) {
 	kick_mupdate();
-	r = mboxlist_detail(name, &type, NULL, NULL, server, aclp, tid);
+	r = mboxlist_lookup(name, &mbentry, tid);
     }
 
-    if (type & MBTYPE_REMOTE) {
-	/* xxx hide the fact that we are storing partitions */
-	if(server && *server) {
+    if (aclp) *aclp = mbentry.acl;
+
+    if (server) {
+	*server = NULL;
+	if (mbentry.mbtype & MBTYPE_REMOTE) {
 	    char *c;
+	    *server = mbentry.partition;
 	    c = strchr(*server, '!');
 	    if(c) *c = '\0';
 	}
     }
-    else if (server)
-	*server = NULL;
 
     return r;
 }
@@ -373,10 +358,8 @@ static void nntp_reset(void)
     proc_cleanup();
 
     /* close local mailbox */
-    if (nntp_group) {
-	mailbox_close(nntp_group);
-	nntp_group = 0;
-    }
+    if (group_state)
+	index_close(&group_state);
 
     /* close backend connections */
     i = 0;
@@ -479,6 +462,8 @@ int service_init(int argc __attribute__((unused)),
     if ((prefix = config_getstring(IMAPOPT_NEWSPREFIX)))
 	snprintf(newsprefix, sizeof(newsprefix), "%s.", prefix);
 
+    newsgroups = split_wildmats((char *) config_getstring(IMAPOPT_NEWSGROUPS));
+
     /* initialize duplicate delivery database */
     if (duplicate_init(NULL, 0) != 0) {
 	syslog(LOG_ERR, 
@@ -493,6 +478,10 @@ int service_init(int argc __attribute__((unused)),
     /* open the quota db, we'll need it for expunge */
     quotadb_init(0);
     quotadb_open(NULL);
+
+    /* open the user deny db */
+    denydb_init(0);
+    denydb_open(NULL);
 
     /* setup for sending IMAP IDLE notifications */
     idle_enabled();
@@ -591,6 +580,9 @@ int service_main(int argc __attribute__((unused)),
 	if (getsockname(0, (struct sockaddr *)&nntp_localaddr, &salen) == 0) {
 	    nntp_haveaddr = 1;
 	}
+
+	/* Create pre-authentication telemetry log based on client IP */
+	nntp_logfd = telemetry_log(hbuf, nntp_in, nntp_out, 0);
     }
 
     /* other params should be filled in */
@@ -636,7 +628,7 @@ int service_main(int argc __attribute__((unused)),
     if (config_serverinfo) prot_printf(nntp_out, " %s", config_servername);
     if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON) {
 	prot_printf(nntp_out, " Cyrus NNTP%s %s",
-		    config_mupdate_server ? " Murder" : "", CYRUS_VERSION);
+		    config_mupdate_server ? " Murder" : "", cyrus_version());
     }
     if (shutdown) {
 	prot_printf(nntp_out, "server unavailable, %s\r\n", unavail);
@@ -677,12 +669,13 @@ void shut_down(int code)
 {
     int i;
 
+    in_shutdown = 1;
+
     proc_cleanup();
 
     /* close local mailbox */
-    if (nntp_group) {
-	mailbox_close(nntp_group);
-    }
+    if (group_state)
+	index_close(&group_state);
 
     /* close backend connections */
     i = 0;
@@ -704,6 +697,9 @@ void shut_down(int code)
     quotadb_close();
     quotadb_done();
 
+    denydb_close();
+    denydb_done();
+
     annotatemore_close();
     annotatemore_done();
 
@@ -724,6 +720,8 @@ void shut_down(int code)
     tls_shutdown_serverengine();
 #endif
 
+    if (newsgroups) free_wildmats(newsgroups);
+
     cyrus_done();
 
     exit(code);
@@ -740,7 +738,7 @@ void fatal(const char* s, int code)
     }
     recurse_code = code;
     if (nntp_out) {
-	prot_printf(nntp_out, "205 Fatal error: %s\r\n", s);
+	prot_printf(nntp_out, "400 Fatal error: %s\r\n", s);
 	prot_flush(nntp_out);
     }
     if (stage) append_removestage(stage);
@@ -794,6 +792,32 @@ static int reset_saslconn(sasl_conn_t **conn)
 }
 
 /*
+ * Checks to make sure that the given mailbox is actually something
+ * that we're serving up as a newsgroup.  Returns 1 if yes, 0 if no.
+ */
+static int is_newsgroup(const char *mbox)
+{
+    struct wildmat *wild;
+
+    /* don't use personal mailboxes */
+    if (!mbox || !*mbox ||
+	(!strncasecmp(mbox, "INBOX", 5) && (!mbox[5] || mbox[5] == '.')) ||
+	!strncmp(mbox, "user.", 5) ||
+	strncmp(mbox, newsprefix, strlen(newsprefix))) return 0;
+
+    /* check shared mailboxes against the 'newsgroups' wildmat */
+    wild = newsgroups;
+    while (wild->pat && wildmat(mbox, wild->pat) != 1) wild++;
+
+    /* if we don't have a match, or its a negative match, don't use it */
+    if (!wild->pat || wild->not) return 0;
+
+    /* otherwise, its usable */
+    return 1;
+}
+    
+
+/*
  * Top-level command loop parsing
  */
 static void cmdloop(void)
@@ -802,8 +826,9 @@ static void cmdloop(void)
     static struct buf cmd, arg1, arg2, arg3, arg4;
     char *p, *result, buf[1024];
     const char *err;
-    unsigned long uid, last;
+    uint32_t uid, last;
     struct backend *be;
+    char curgroup[MAX_MAILBOX_BUFFER] = "";
 
     allowanonymous = config_getswitch(IMAPOPT_ALLOWANONYMOUSLOGIN);
 
@@ -815,7 +840,7 @@ static void cmdloop(void)
 	/* Check for shutdown file */
 	if (shutdown_file(buf, sizeof(buf)) ||
 	    (nntp_userid &&
-	     !access_ok(nntp_userid, config_ident, buf, sizeof(buf)))) {
+	     userdeny(nntp_userid, config_ident, buf, sizeof(buf)))) {
 	    prot_printf(nntp_out, "400 %s\r\n", buf);
 	    shut_down(0);
 	}
@@ -829,21 +854,16 @@ static void cmdloop(void)
 	    continue;
 	}
 
-	if (nntp_group &&
+	if (group_state &&
 	    config_getswitch(IMAPOPT_DISCONNECT_ON_VANISHED_MAILBOX)) {
-	    struct stat sbuf;
-
-	    if (mailbox_stat(nntp_group->path, nntp_group->mpath,
-			     NULL, &sbuf, NULL) != 0) {
-		if (errno == ENOENT) {
-		    /* Mailbox has been (re)moved */
-		    syslog(LOG_WARNING,
-			   "Newsgroup %s has been (re)moved out from under client",
-			   nntp_group->name);
-		    prot_printf(nntp_out,
-				"400 Newsgroup has been (re)moved\r\n");
-		    shut_down(0);
-		}
+	    if (group_state->mailbox->i.options & OPT_MAILBOX_DELETED) {
+		/* Mailbox has been (re)moved */
+		syslog(LOG_WARNING,
+		       "Newsgroup %s has been (re)moved out from under client",
+		       group_state->mailbox->name);
+		prot_printf(nntp_out,
+			    "400 Newsgroup has been (re)moved\r\n");
+		shut_down(0);
 	    }
 	}
 
@@ -881,6 +901,10 @@ static void cmdloop(void)
 	   Mode/Quit/Starttls/Stat/Takethis allowed when not logged in */
 	if (!nntp_userid && !allowanonymous &&
 	    !strchr("ACHILMQST", cmd.s[0])) goto nologin;
+
+	/* In case a [LIST]GROUP fails or
+	   a retrieval by msgid makes us switch groups */
+	strcpy(curgroup, group_state ? group_state->mailbox->name : "");
 
 	switch (cmd.s[0]) {
 	case 'A':
@@ -922,7 +946,7 @@ static void cmdloop(void)
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
 	    else if (!nntp_userid && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Article")) {
-		char curgroup[MAX_MAILBOX_BUFFER], *msgid;
+		char *msgid;
 
 		mode = ARTICLE_ALL;
 
@@ -935,9 +959,6 @@ static void cmdloop(void)
 		}
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
-
-		/* in case a msgid makes us switch groups */
-		strcpy(curgroup, nntp_group ? nntp_group->name : "");
 
 		if (parserange(arg1.s, &uid, NULL, &msgid, &be) != -1) {
 		    if (be) {
@@ -961,11 +982,7 @@ static void cmdloop(void)
 			cmd_article(mode, msgid, uid);
 		}
 
-		/* return to previously selected group */
-		if (*curgroup && nntp_group &&
-		    strcmp(curgroup, nntp_group->name)) {
-		       open_group(curgroup, 1, NULL, NULL);
-		}
+		if (msgid) goto prevgroup;
 	    }
 	    else goto badcmd;
 	    break;
@@ -1016,22 +1033,43 @@ static void cmdloop(void)
 
 	case 'G':
 	    if (!strcmp(cmd.s, "Group")) {
-		if (c != ' ') goto missingargs;
-		c = getword(nntp_in, &arg1); /* group */
-		if (c == EOF) goto missingargs;
+		arg2.len = 0; /* GROUP command (no range) */
+
+	      group:
+#define LISTGROUP (arg2.len)
+
+		if (!LISTGROUP && c != ' ') goto missingargs;
+		if (c == ' ') {
+		    c = getword(nntp_in, &arg1); /* group */
+		    if (c == EOF) goto missingargs;
+		}
+		if (LISTGROUP && c == ' ') {
+		    c = getword(nntp_in, &arg2); /* range (optional) */
+		    if (c == EOF) goto missingargs;
+		}
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
 
-		r = open_group(arg1.s, 0, &be, NULL);
-		if (r) goto nogroup;
+		be = backend_current;
+		if (arg1.len &&
+		    (!is_newsgroup(arg1.s) ||
+		     (r = open_group(arg1.s, 0, &be, NULL)))) goto nogroup;
 		else if (be) {
-		    prot_printf(be->out, "GROUP %s\r\n", arg1.s);
+		    prot_printf(be->out, "%s", cmd.s);
+		    if (arg1.len) {
+			prot_printf(be->out, " %s", arg1.s);
+			  if (LISTGROUP) prot_printf(be->out, " %s", arg2.s);
+		    }
+		    prot_printf(be->out, "\r\n");
+
 		    r = read_response(be, 0, &result);
 		    if (r) goto nogroup;
 
 		    prot_printf(nntp_out, "%s", result);
 
 		    if (!strncmp(result, "211", 3)) {
+			if (LISTGROUP) pipe_to_end_of_response(be, 0);
+
 			if (backend_current && backend_current != be) {
 			    /* remove backend_current from the protgroup */
 			    protgroup_delete(protin, backend_current->in);
@@ -1042,6 +1080,11 @@ static void cmdloop(void)
 			protgroup_insert(protin, backend_current->in);
 		    }
 		}
+		else if (!group_state) goto noopengroup;
+		else if (LISTGROUP &&
+			 parserange(arg2.s, &uid, &last, NULL, NULL) != 0) {
+		    /* parserange() will handle error code -- do nothing */
+		}
 		else {
 		    if (backend_current) {
 			/* remove backend_current from the protgroup */
@@ -1049,17 +1092,34 @@ static void cmdloop(void)
 		    }
 		    backend_current = NULL;
 
-		    nntp_exists = nntp_group->exists;
+		    nntp_exists = group_state->exists;
 		    nntp_current = nntp_exists > 0;
 
 		    prot_printf(nntp_out, "211 %u %lu %lu %s\r\n",
 				nntp_exists,
-				nntp_exists ? index_getuid(1) :
-				nntp_group->last_uid+1,
-				nntp_exists ? index_getuid(nntp_exists) :
-				nntp_group->last_uid,
-				arg1.s);
+				nntp_exists ? index_getuid(group_state, 1) :
+				group_state->last_uid+1,
+				nntp_exists ? index_getuid(group_state, nntp_exists) :
+				group_state->last_uid,
+				group_state->mailbox->name + strlen(newsprefix));
+
+		    if (LISTGROUP) {
+			int msgno, last_msgno;
+
+			msgno = index_finduid(group_state, uid);
+			if (!msgno || index_getuid(group_state, msgno) != uid) {
+			    msgno++;
+			}
+			last_msgno = index_finduid(group_state, last);
+
+			for (; msgno <= last_msgno; msgno++) {
+			    prot_printf(nntp_out, "%u\r\n",
+					index_getuid(group_state, msgno));
+			}
+			prot_printf(nntp_out, ".\r\n");
+		    }
 		}
+#undef LISTGROUP
 	    }
 	    else goto badcmd;
 	    break;
@@ -1078,7 +1138,7 @@ static void cmdloop(void)
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
 	    else if (!nntp_userid && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Hdr")) {
-		char curgroup[MAX_MAILBOX_BUFFER], *msgid;
+		char *msgid;
 
 	      hdr:
 		if (arg2.s) *arg2.s = 0;
@@ -1092,9 +1152,6 @@ static void cmdloop(void)
 		}
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
-
-		/* in case a msgid makes us switch groups */
-		strcpy(curgroup, nntp_group ? nntp_group->name : "");
 
 		if (parserange(arg2.s, &uid, &last, &msgid, &be) != -1) {
 		    if (be) {
@@ -1118,11 +1175,7 @@ static void cmdloop(void)
 			cmd_hdr(cmd.s, arg1.s, NULL, msgid, uid, last);
 		}
 
-		/* return to previously selected group */
-		if (*curgroup && nntp_group &&
-		    strcmp(curgroup, nntp_group->name)) {
-		       open_group(curgroup, 1, NULL, NULL);
-		}
+		if (msgid) goto prevgroup;
 	    }
 	    else goto badcmd;
 	    break;
@@ -1158,6 +1211,8 @@ static void cmdloop(void)
 		if (c != '\n') goto extraargs;
 
 		cmd_list(arg1.len ? arg1.s : NULL, arg2.len ? arg2.s : NULL);
+
+		goto prevgroup;  /* In case we did LIST [ACTIVE] */
 	    }
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
 	    else if (!nntp_userid && !allowanonymous) goto nologin;
@@ -1168,97 +1223,27 @@ static void cmdloop(void)
 		if (backend_current) {
 		    prot_printf(backend_current->out, "LAST\r\n");
 		}
-		else if (!nntp_group) goto noopengroup;
+		else if (!group_state) goto noopengroup;
 		else if (!nntp_current) goto nocurrent;
 		else if (nntp_current == 1) {
 		    prot_printf(nntp_out,
 				"422 No previous article in this group\r\n");
 		}
 		else {
-		    char *msgid = index_get_msgid(nntp_group, --nntp_current);
+		    char *msgid = index_get_msgid(group_state, --nntp_current);
 
 		    prot_printf(nntp_out, "223 %u %s\r\n",
-				index_getuid(nntp_current),
+				index_getuid(group_state, nntp_current),
 				msgid ? msgid : "<0>");
 
 		    if (msgid) free(msgid);
 		}
 	    }
 	    else if (!strcmp(cmd.s, "Listgroup")) {
-		arg1.len = 0;
-		arg2.s = arg2.s ? strcpy(arg2.s, "1-") : "1-";
-		be = backend_current;
-
-		if (c == ' ') {
-		    c = getword(nntp_in, &arg1); /* group (optional) */
-		    if (c == EOF) goto missingargs;
-		    if (c == ' ') {
-			c = getword(nntp_in, &arg2); /* range (optional) */
-			if (c == EOF) goto missingargs;
-		    }
-		}
-		if (c == '\r') c = prot_getc(nntp_in);
-		if (c != '\n') goto extraargs;
-
-		if (arg1.len) {
-		    r = open_group(arg1.s, 0, &be, NULL);
-		    if (r) goto nogroup;
-		}
-
-		if (be) {
-		    if (arg1.len)
-			prot_printf(be->out, "LISTGROUP %s %s\r\n",
-				    arg1.s, arg2.s);
-		    else
-			prot_printf(be->out, "LISTGROUP\r\n");
-
-		    r = read_response(be, 0, &result);
-		    if (r) goto noopengroup;
-
-		    prot_printf(nntp_out, "%s", result);
-
-		    if (!strncmp(result, "211", 3)) {
-			pipe_to_end_of_response(be, 0);
-
-			if (backend_current && backend_current != be) {
-			    /* remove backend_current from the protgroup */
-			    protgroup_delete(protin, backend_current->in);
-			}
-			backend_current = be;
-
-			/* add backend_current to the protgroup */
-			protgroup_insert(protin, backend_current->in);
-		    }
-		}
-		else if (!nntp_group) goto noopengroup;
-		else if (parserange(arg2.s, &uid, &last, NULL, NULL) != -1) {
-		    int msgno, last_msgno;
-
-		    if (backend_current) {
-			/* remove backend_current from the protgroup */
-			protgroup_delete(protin, backend_current->in);
-		    }
-		    backend_current = NULL;
-
-		    nntp_exists = nntp_group->exists;
-		    nntp_current = nntp_exists > 0;
-
-		    prot_printf(nntp_out, "211 %u %lu %lu %s\r\n",
-				nntp_exists,
-				nntp_exists ? index_getuid(1) :
-				nntp_group->last_uid+1,
-				nntp_exists ? index_getuid(nntp_exists) :
-				nntp_group->last_uid,
-				nntp_group->name + strlen(newsprefix));
-
-		    msgno = index_finduid(uid);
-		    if (!msgno || index_getuid(msgno) != uid) msgno++;
-		    last_msgno = index_finduid(last);
-
-		    for (; msgno <= last_msgno; msgno++)
-			prot_printf(nntp_out, "%u\r\n", index_getuid(msgno));
-		    prot_printf(nntp_out, ".\r\n");
-		}
+		arg1.len = 0;   	   /* group is optional */
+		buf_setcstr(&arg2, "1-");  /* default range is all */
+		buf_cstring(&arg2);	   /* appends a '\0' */
+		goto group;
 	    }
 	    else goto badcmd;
 	    break;
@@ -1333,17 +1318,17 @@ static void cmdloop(void)
 		if (backend_current) {
 		    prot_printf(backend_current->out, "NEXT\r\n");
 		}
-		else if (!nntp_group) goto noopengroup;
+		else if (!group_state) goto noopengroup;
 		else if (!nntp_current) goto nocurrent;
 		else if (nntp_current == nntp_exists) {
 		    prot_printf(nntp_out,
 				"421 No next article in this group\r\n");
 		}
 		else {
-		    char *msgid = index_get_msgid(nntp_group, ++nntp_current);
+		    char *msgid = index_get_msgid(group_state, ++nntp_current);
 
 		    prot_printf(nntp_out, "223 %u %s\r\n",
-				index_getuid(nntp_current),
+				index_getuid(group_state, nntp_current),
 				msgid ? msgid : "<0>");
 
 		    if (msgid) free(msgid);
@@ -1354,7 +1339,7 @@ static void cmdloop(void)
 
 	case 'O':
 	    if (!strcmp(cmd.s, "Over")) {
-		char curgroup[MAX_MAILBOX_BUFFER], *msgid;
+		char *msgid;
 
 	      over:
 		if (arg1.s) *arg1.s = 0;
@@ -1365,9 +1350,6 @@ static void cmdloop(void)
 		}
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
-
-		/* in case a msgid makes us switch groups */
-		strcpy(curgroup, nntp_group ? nntp_group->name : "");
 
 		msgid = NULL;
 		if (parserange(arg1.s, &uid, &last,
@@ -1393,11 +1375,7 @@ static void cmdloop(void)
 			cmd_over(msgid, uid, last);
 		}
 
-		/* return to previously selected group */
-		if (*curgroup && nntp_group &&
-		    strcmp(curgroup, nntp_group->name)) {
-		       open_group(curgroup, 1, NULL, NULL);
-		}
+		if (msgid) goto prevgroup;
 	    }
 	    else goto badcmd;
 	    break;
@@ -1460,7 +1438,7 @@ static void cmdloop(void)
 		goto over;
 	    }
 	    else if (!strcmp(cmd.s, "Xpat")) {
-		char curgroup[MAX_MAILBOX_BUFFER], *msgid;
+		char *msgid;
 
 		if (c != ' ') goto missingargs;
 		c = getword(nntp_in, &arg1); /* header */
@@ -1479,9 +1457,6 @@ static void cmdloop(void)
 
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
-
-		/* in case a msgid makes us switch groups */
-		strcpy(curgroup, nntp_group ? nntp_group->name : "");
 
 		if (parserange(arg2.s, &uid, &last, &msgid, &be) != -1) {
 		    if (be) {
@@ -1502,11 +1477,7 @@ static void cmdloop(void)
 			cmd_hdr(cmd.s, arg1.s, arg3.s, msgid, uid, last);
 		}
 
-		/* return to previously selected group */
-		if (*curgroup && nntp_group &&
-		    strcmp(curgroup, nntp_group->name)) {
-		       open_group(curgroup, 1, NULL, NULL);
-		}
+		if (msgid) goto prevgroup;
 	    }
 	    else goto badcmd;
 	    break;
@@ -1551,6 +1522,14 @@ static void cmdloop(void)
       nogroup:
 	prot_printf(nntp_out, "411 No such newsgroup (%s)\r\n",
 		    error_message(r));
+
+      prevgroup:
+	/* Return to previously selected group */
+	if (*curgroup &&
+	    (!group_state || strcmp(curgroup, group_state->mailbox->name))) {
+	    open_group(curgroup, 1, NULL, NULL);
+	}
+
 	continue;
 
       noopengroup:
@@ -1563,14 +1542,14 @@ static void cmdloop(void)
     }
 }
 
+/*
+ * duplicate_find() callback function to fetch a message by msgid
+ */
 struct findrock {
     const char *mailbox;
     unsigned long uid;
 };
 
-/*
- * duplicate_find() callback function to fetch a message by msgid
- */
 static int find_cb(const char *msgid __attribute__((unused)),
 		   const char *mailbox,
 		   time_t mark __attribute__((unused)),
@@ -1578,9 +1557,8 @@ static int find_cb(const char *msgid __attribute__((unused)),
 {
     struct findrock *frock = (struct findrock *) rock;
 
-    /* make sure its a message in a mailbox that we're serving via NNTP */
-    if (!strncmp(mailbox, "user.", 5) ||
-	strncmp(mailbox, newsprefix, strlen(newsprefix))) return 0;
+    /* skip mailboxes that we don't serve as newsgroups */
+    if (!is_newsgroup(mailbox)) return 0;
 
     frock->mailbox = mailbox;
     frock->uid = uid;
@@ -1588,7 +1566,7 @@ static int find_cb(const char *msgid __attribute__((unused)),
     return CYRUSDB_DONE;
 }
 
-static int find_msgid(char *msgid, char **mailbox, unsigned long *uid)
+static int find_msgid(char *msgid, char **mailbox, uint32_t *uid)
 {
     struct findrock frock = { NULL, 0 };
 
@@ -1608,30 +1586,11 @@ static int find_msgid(char *msgid, char **mailbox, unsigned long *uid)
     return 1;
 }
 
-static int parsenum(char *str, char **rem)
-{
-    char *p = str;
-    int result = 0;
-
-    while (*p && Uisdigit(*p)) {
-	result = result * 10 + *p++ - '0';
-	if (result < 0) {
-	    /* xxx overflow */
-	}
-    }
-
-    if (rem) {
-	*rem = p;
-	return (*p && p == str ? -1 : result);
-    }
-
-    return (*p ? -1 : result);
-}
-
-static int parserange(char *str, unsigned long *uid, unsigned long *last,
+static int parserange(char *str, uint32_t *uid, uint32_t *last,
 		      char **msgid, struct backend **ret)
 {
-    char *p = NULL, *mboxname;
+    const char *p = NULL;
+    char *mboxname;
     int r = 0;
 
     *uid = 0;
@@ -1644,10 +1603,10 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
 	if (backend_current) {
 	    if (ret) *ret = backend_current;
 	}
-	else if (!nntp_group) goto noopengroup;
+	else if (!group_state) goto noopengroup;
 	else if (!nntp_current) goto nocurrent;
 	else {
-	    *uid = index_getuid(nntp_current);
+	    *uid = index_getuid(group_state, nntp_current);
 	    if (last) *last = *uid;
 	}
     }
@@ -1655,23 +1614,27 @@ static int parserange(char *str, unsigned long *uid, unsigned long *last,
 	/* message-id, find server and/or mailbox */
 	if (!msgid) goto badrange;
 	if (!find_msgid(str, &mboxname, uid)) goto nomsgid;
-	if (!nntp_group || strcmp(mboxname, nntp_group->name)) {
+
+	*msgid = str;
+
+	/* open group if its different from our current one */
+	if (!group_state || strcmp(mboxname, group_state->mailbox->name)) {
 	    if ((r = open_group(mboxname, 1, ret, NULL))) goto nomsgid;
-	    *msgid = str;
 	}
-	/* else, within the current group, so treat as by uid */
     }
     else if (backend_current)
 	*ret = backend_current;
-    else if (!nntp_group) goto noopengroup;
-    else if ((*uid = parsenum(str, &p)) <= 0) goto badrange;
+    else if (!group_state) goto noopengroup;
+    else if (parseuint32(str, &p, uid) || uid == 0) goto badrange;
     else if (p && *p) {
 	/* extra stuff, check for range */
 	if (!last || (*p != '-')) goto badrange;
-	if (*++p)
-	    *last = parsenum(p, NULL);
+	if (*++p) {
+	    if (parseuint32(p, NULL, last))
+		*last = 0;
+	}
 	else
-	    *last = index_getuid(nntp_exists);
+	    *last = UINT32_MAX;  /* open range -> use highest possible UID */
     }
 
     if (last && !*last) *last = *uid;
@@ -1704,7 +1667,7 @@ static const int numdays[] = {
 #define isleap(year) (!((year) % 4) && (((year) % 100) || !((year) % 400)))
 
 /*
- * Parse a date/time specification per draft-ietf-nntpext-base.
+ * Parse a date/time specification per RFC3977 section 7.3.
  */
 static time_t parse_datetime(char *datestr, char *timestr, char *gmt)
 {
@@ -1774,10 +1737,8 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
     struct backend *backend_next = NULL;
 
     /* close local group */
-    if (nntp_group) {
-	mailbox_close(nntp_group);
-	nntp_group = 0;
-    }
+    if (group_state) 
+	index_close(&group_state);
 
     if (!has_prefix) {
 	snprintf(mailboxname, sizeof(mailboxname), "%s%s", newsprefix, name);
@@ -1811,22 +1772,12 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
     }
     else {
 	/* local group */
-	int doclose = 0;
-
-	r = mailbox_open_header(name, nntp_authstate, &mboxstruct);
-
-	if (!r) {
-	    doclose = 1;
-	    r = mailbox_open_index(&mboxstruct);
-	}
-
-	if (r) {
-	    if (doclose) mailbox_close(&mboxstruct);
-	    return r;
-	}
-
-	nntp_group = &mboxstruct;
-	index_operatemailbox(nntp_group);
+	struct index_init init;
+	memset(&init, 0, sizeof(struct index_init));
+	init.userid = nntp_userid;
+	init.authstate = nntp_authstate;
+	r = index_open(name, &init, &group_state);
+	if (r) return r;
 
 	if (ret) *ret = NULL;
     }
@@ -1847,7 +1798,7 @@ static void cmd_capabilities(char *keyword __attribute__((unused)))
     if (nntp_authstate || (config_serverinfo == IMAP_ENUM_SERVERINFO_ON)) {
 	prot_printf(nntp_out,
 		    "IMPLEMENTATION Cyrus NNTP%s %s\r\n",
-		    config_mupdate_server ? " Murder" : "", CYRUS_VERSION);
+		    config_mupdate_server ? " Murder" : "", cyrus_version());
     }
 
     /* add STARTTLS */
@@ -1912,9 +1863,8 @@ static int xref_cb(const char *msgid __attribute__((unused)),
     struct xref_rock *xrock = (struct xref_rock *) rock;
     size_t len = strlen(xrock->buf);
 
-    /* make sure its a message in a mailbox that we're serving via NNTP */
-    if (*mailbox && !strncmp(mailbox, newsprefix, strlen(newsprefix)) &&
-	strncmp(mailbox, "user.", 5)) {
+    /* skip mailboxes that we don't serve as newsgroups */
+    if (is_newsgroup(mailbox)) {
 	snprintf(xrock->buf + len, xrock->size - len,
 		 " %s:%lu", mailbox + strlen(newsprefix), uid);
     }
@@ -1937,19 +1887,16 @@ static void build_xref(char *msgid, char *buf, size_t size, int body_only)
 static void cmd_article(int part, char *msgid, unsigned long uid)
 {
     int msgno, by_msgid = (msgid != NULL);
-    char fname[MAX_MAILBOX_PATH+1];
+    char *fname;
     FILE *msgfile;
 
-    msgno = index_finduid(uid);
-    if (!msgno || index_getuid(msgno) != uid) {
+    msgno = index_finduid(group_state, uid);
+    if (!msgno || index_getuid(group_state, msgno) != uid) {
 	prot_printf(nntp_out, "423 No such article in this newsgroup\r\n");
 	return;
     }
 
-    strlcpy(fname, nntp_group->path, sizeof(fname));
-    strlcat(fname, "/", sizeof(fname));
-    mailbox_message_get_fname(nntp_group, uid, fname + strlen(fname),
-			      sizeof(fname) - strlen(fname));
+    fname = mailbox_message_fname(group_state->mailbox, uid);
 
     msgfile = fopen(fname, "r");
     if (!msgfile) {
@@ -1957,9 +1904,10 @@ static void cmd_article(int part, char *msgid, unsigned long uid)
 	return;
     }
 
-    nntp_current = msgno;
-
-    if (!by_msgid) msgid = index_get_msgid(nntp_group, msgno);
+    if (!by_msgid) {
+	nntp_current = msgno;
+	msgid = index_get_msgid(group_state, msgno);
+    }
 
     prot_printf(nntp_out, "%u %lu %s\r\n",
 		220 + part, by_msgid ? 0 : uid, msgid ? msgid : "<0>");
@@ -1970,7 +1918,6 @@ static void cmd_article(int part, char *msgid, unsigned long uid)
 	int output = (part != ARTICLE_BODY);
 
 	while (fgets(buf, sizeof(buf), msgfile)) {
-
 	    if (!body && buf[0] == '\r' && buf[1] == '\n') {
 		/* blank line between header and body */
 		body = 1;
@@ -2034,12 +1981,12 @@ static void cmd_authinfo_user(char *user)
     }
 
     if (nntp_userid) {
-	prot_printf(nntp_out, "502 Must give AUTHINFO PASS command\r\n");
-	return;
+	free(nntp_userid);
+	nntp_userid = NULL;
     }
 
     if (!(p = canonify_userid(user, NULL, NULL))) {
-	prot_printf(nntp_out, "502 Invalid user\r\n");
+	prot_printf(nntp_out, "481 Invalid user\r\n");
 	syslog(LOG_NOTICE,
 	       "badlogin: %s plaintext %s invalid user",
 	       nntp_clienthost, beautify_string(user));
@@ -2052,6 +1999,14 @@ static void cmd_authinfo_user(char *user)
 
 static void cmd_authinfo_pass(char *pass)
 {
+    /* Conceal password in telemetry log */
+    if (nntp_logfd != -1 && pass) {
+	int r; /* avoid warnings */
+	r = ftruncate(nntp_logfd,
+		  lseek(nntp_logfd, -2, SEEK_CUR) - strlen(pass));
+	r = write(nntp_logfd, "...\r\n", 5);
+    }
+
     if (nntp_authstate) {
 	prot_printf(nntp_out, "502 Already authenticated\r\n");
 	return;
@@ -2072,7 +2027,7 @@ static void cmd_authinfo_pass(char *pass)
 	else {
 	    syslog(LOG_NOTICE, "badlogin: %s anonymous login refused",
 		   nntp_clienthost);
-	    prot_printf(nntp_out, "502 Invalid login\r\n");
+	    prot_printf(nntp_out, "481 Invalid login\r\n");
 	    return;
 	}
     }
@@ -2084,7 +2039,7 @@ static void cmd_authinfo_pass(char *pass)
 	syslog(LOG_NOTICE, "badlogin: %s plaintext %s %s",
 	       nntp_clienthost, nntp_userid, sasl_errdetail(nntp_saslconn));
 	sleep(3);
-	prot_printf(nntp_out, "502 Invalid login\r\n");
+	prot_printf(nntp_out, "481 Invalid login\r\n");
 	free(nntp_userid);
 	nntp_userid = 0;
 
@@ -2099,7 +2054,8 @@ static void cmd_authinfo_pass(char *pass)
 
 	nntp_authstate = auth_newstate(nntp_userid);
 
-	/* Create telemetry log */
+	/* Close IP-based telemetry log and create new log based on userid */
+	if (nntp_logfd != -1) close(nntp_logfd);
 	nntp_logfd = telemetry_log(nntp_userid, nntp_in, nntp_out, 0);
     }
 }
@@ -2112,14 +2068,29 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
     char *ssfmsg = NULL;
     const void *val;
 
+    /* Conceal initial response in telemetry log */
+    if (nntp_logfd != -1 && resp) {
+	int r; /* avoid warnings */
+	r = ftruncate(nntp_logfd,
+		  lseek(nntp_logfd, -2, SEEK_CUR) - strlen(resp));
+	r = write(nntp_logfd, "...\r\n", 5);
+    }
+
     if (nntp_userid) {
 	prot_printf(nntp_out, "502 Already authenticated\r\n");
 	return;
     }
 
+    /* Stop telemetry logging during SASL exchange */
+    if (nntp_logfd != -1 && mech) {
+	prot_setlog(nntp_in, PROT_NO_FD);
+	prot_setlog(nntp_out, PROT_NO_FD);
+    }
+
     if (cmd[0] == 'g') {
-	/* if client didn't specify any mech we give them the list */
+	/* AUTHINFO GENERIC */
 	if (!mech) {
+	    /* If client didn't specify any mech we give them the list */
 	    const char *sasllist;
 	    int mechnum;
 
@@ -2142,9 +2113,15 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
 	r = saslserver(nntp_saslconn, mech, resp, "AUTHINFO GENERIC ", "381 ",
 		       "", nntp_in, nntp_out, &sasl_result, &success_data);
     }
-    else
+    else {
+	/* AUTHINFO SASL */
 	r = saslserver(nntp_saslconn, mech, resp, "", "383 ", "=",
 		       nntp_in, nntp_out, &sasl_result, &success_data);
+    }
+
+    /* Restart any telemetry logging */
+    prot_setlog(nntp_in, nntp_logfd);
+    prot_setlog(nntp_out, nntp_logfd);
 
     if (r) {
 	int code;
@@ -2167,7 +2144,7 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
 	    switch (sasl_result) {
 	    case SASL_NOMECH:
 	    case SASL_TOOWEAK:
-		code = 501;
+		code = 503;
 		break;
 	    case SASL_ENCRYPT:
 		code = 483;
@@ -2215,7 +2192,7 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
     }
     nntp_userid = xstrdup((const char *) val);
 
-    proc_register("nntpd", nntp_clienthost, nntp_userid, (char *)0);
+    proc_register("nntpd", nntp_clienthost, nntp_userid, NULL);
 
     syslog(LOG_NOTICE, "login: %s %s %s%s %s", nntp_clienthost, nntp_userid,
 	   mech, nntp_starttls_done ? "+TLS" : "", "User logged in");
@@ -2249,8 +2226,19 @@ static void cmd_authinfo_sasl(char *cmd, char *mech, char *resp)
     prot_setsasl(nntp_in,  nntp_saslconn);
     prot_setsasl(nntp_out, nntp_saslconn);
 
-    /* Create telemetry log */
+    /* Close IP-based telemetry log and create new log based on userid */
+    if (nntp_logfd != -1) close(nntp_logfd);
     nntp_logfd = telemetry_log(nntp_userid, nntp_in, nntp_out, 0);
+
+    if (ssf) {
+	/* close any selected group */
+	if (group_state)
+	    index_close(&group_state);
+	if (backend_current) {
+	    proxy_downserver(backend_current);
+	    backend_current = NULL;
+	}
+    }
 }
 
 static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
@@ -2262,9 +2250,9 @@ static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 
     lcase(hdr);
 
-    msgno = index_finduid(uid);
-    if (!msgno || index_getuid(msgno) != uid) msgno++;
-    last_msgno = index_finduid(last);
+    msgno = index_finduid(group_state, uid);
+    if (!msgno || index_getuid(group_state, msgno) != uid) msgno++;
+    last_msgno = index_finduid(group_state, last);
 
     for (; msgno <= last_msgno; msgno++) {
 	char *body;
@@ -2275,11 +2263,11 @@ static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 
 	/* see if we're looking for metadata */
 	if (hdr[0] == ':') {
-	    if (!strcasecmp(":size", hdr)) {
+	    if (!strcasecmp(":bytes", hdr)) {
 		char xref[8192];
-		unsigned long size = index_getsize(nntp_group, msgno);
+		unsigned long size = index_getsize(group_state, msgno);
 
-		if (!by_msgid) msgid = index_get_msgid(nntp_group, msgno);
+		if (!by_msgid) msgid = index_get_msgid(group_state, msgno);
 		build_xref(msgid, xref, sizeof(xref), 0);
 		if (!by_msgid) free(msgid);
 
@@ -2288,27 +2276,27 @@ static void cmd_hdr(char *cmd, char *hdr, char *pat, char *msgid,
 	    }
 	    else if (!strcasecmp(":lines", hdr))
 		prot_printf(nntp_out, "%u %lu\r\n",
-			    by_msgid ? 0 : index_getuid(msgno),
-			    index_getlines(nntp_group, msgno));
+			    by_msgid ? 0 : index_getuid(group_state, msgno),
+			    index_getlines(group_state, msgno));
 	    else
 		prot_printf(nntp_out, "%u \r\n",
-			    by_msgid ? 0 : index_getuid(msgno));
+			    by_msgid ? 0 : index_getuid(group_state, msgno));
 	}
 	else if (!strcmp(hdr, "xref") && !pat /* [X]HDR only */) {
 	    char xref[8192];
 
-	    if (!by_msgid) msgid = index_get_msgid(nntp_group, msgno);
+	    if (!by_msgid) msgid = index_get_msgid(group_state, msgno);
 	    build_xref(msgid, xref, sizeof(xref), 1);
 	    if (!by_msgid) free(msgid);
 
 	    prot_printf(nntp_out, "%u %s\r\n",
-			by_msgid ? 0 : index_getuid(msgno), xref);
+			by_msgid ? 0 : index_getuid(group_state, msgno), xref);
 	}
-	else if ((body = index_getheader(nntp_group, msgno, hdr)) &&
+	else if ((body = index_getheader(group_state, msgno, hdr)) &&
 		 (!pat ||			/* [X]HDR */
 		  wildmat(body, pat))) {	/* XPAT with match */
 		prot_printf(nntp_out, "%u %s\r\n",
-			    by_msgid ? 0 : index_getuid(msgno), body);
+			    by_msgid ? 0 : index_getuid(group_state, msgno), body);
 	}
     }
 
@@ -2435,10 +2423,8 @@ int list_cb(char *name, int matchlen, int maycreate __attribute__((unused)),
 	return 0;
     }
 
-    /* skip personal mailboxes */
-    if ((!strncasecmp(name, "INBOX", 5) && (!name[5] || name[5] == '.')) ||
-	!strncmp(name, "user.", 5))
-	return 0;
+    /* skip mailboxes that we don't want to serve as newsgroups */
+    if (!is_newsgroup(name)) return 0;
 
     /* don't repeat */
     if (matchlen == (int) strlen(lastname) &&
@@ -2447,7 +2433,7 @@ int list_cb(char *name, int matchlen, int maycreate __attribute__((unused)),
     strncpy(lastname, name, matchlen);
     lastname[matchlen] = '\0';
 
-    /* see if the mailbox matches one of our wildmats */
+    /* see if the mailbox matches one of our specified wildmats */
     wild = lrock->wild;
     while (wild->pat && wildmat(name, wild->pat) != 1) wild++;
 
@@ -2508,15 +2494,13 @@ int do_active(char *name, void *rock)
 	}
     }
     else {
-	prot_printf(nntp_out, "%s %lu %lu %c\r\n", name+strlen(newsprefix),
-		    nntp_group->exists ? index_getuid(nntp_group->exists) :
-		    nntp_group->last_uid,
-		    nntp_group->exists ? index_getuid(1) :
-		    nntp_group->last_uid+1,
+	prot_printf(nntp_out, "%s %u %u %c\r\n", name+strlen(newsprefix),
+		    group_state->exists ? index_getuid(group_state, group_state->exists) :
+		    group_state->mailbox->i.last_uid,
+		    group_state->exists ? index_getuid(group_state, 1) :
+		    group_state->mailbox->i.last_uid+1,
 		    postable ? 'y' : 'n');
-
-	mailbox_close(nntp_group);
-	nntp_group = 0;
+	index_close(&group_state);
     }
 
     return 0;
@@ -2625,10 +2609,8 @@ static void cmd_list(char *arg1, char *arg2)
 	free_wildmats(lrock.wild);
 	free(erock.wild);
 
-	if (nntp_group) {
-	    mailbox_close(nntp_group);
-	    nntp_group = 0;
-	}
+	if (group_state)
+	    index_close(&group_state);
     }
     else if (!(nntp_capa & MODE_READ)) {
 	prot_printf(nntp_out, "502 Permission denied\r\n");
@@ -2736,7 +2718,7 @@ static void cmd_mode(char *arg)
 	}
 	if (nntp_authstate || (config_serverinfo == IMAP_ENUM_SERVERINFO_ON)) {
 	    prot_printf(nntp_out, " Cyrus NNTP%s %s",
-			config_mupdate_server ? " Murder" : "", CYRUS_VERSION);
+			config_mupdate_server ? " Murder" : "", cyrus_version());
 	}
 	prot_printf(nntp_out, " server ready, posting %s\r\n",
 		    (nntp_capa & MODE_READ) ? "allowed" : "prohibited");
@@ -2767,14 +2749,15 @@ static void cmd_newgroups(time_t tstamp __attribute__((unused)))
 #endif
 }
 
+
+/*
+ * duplicate_find() callback function to list NEWNEWS
+ */
 struct newrock {
     time_t tstamp;
     struct wildmat *wild;
 };
 
-/*
- * duplicate_find() callback function to list NEWNEWS
- */
 static int newnews_cb(const char *msgid, const char *rcpt, time_t mark,
 		      unsigned long uid, void *rock)
 {
@@ -2791,20 +2774,20 @@ static int newnews_cb(const char *msgid, const char *rcpt, time_t mark,
 
     /* Make sure we don't return duplicate msgids,
      * the message is newer than the tstamp, and
-     * the message isn't in a personal mailbox.
+     * the message is in mailbox we serve as a newsgroup..
      */
     if (strcmp(msgid, lastid) && mark >= nrock->tstamp &&
-	uid && rcpt[0] && strncmp(rcpt, "user.", 5)) {
+	uid && is_newsgroup(rcpt)) {
 	struct wildmat *wild = nrock->wild;
 
-	strlcpy(lastid, msgid, sizeof(lastid));
-
-	/* see if the mailbox matches one of our wildmats */
+	/* see if the mailbox matches one of our specified wildmats */
 	while (wild->pat && wildmat(rcpt, wild->pat) != 1) wild++;
 
 	/* we have a match, and its not a negative match */
-	if (wild->pat && !wild->not)
+	if (wild->pat && !wild->not) {
 	    prot_printf(nntp_out, "%s\r\n", msgid);
+	    strlcpy(lastid, msgid, sizeof(lastid));
+	}
     }
 
     return 0;
@@ -2829,19 +2812,19 @@ static void cmd_newnews(char *wild, time_t tstamp)
 
 static void cmd_over(char *msgid, unsigned long uid, unsigned long last)
 {
-    unsigned msgno, last_msgno;
+    uint32_t msgno, last_msgno;
     struct nntp_overview *over;
     int found = 0;
 
-    msgno = index_finduid(uid);
-    if (!msgno || index_getuid(msgno) != uid) msgno++;
-    last_msgno = index_finduid(last);
+    msgno = index_finduid(group_state, uid);
+    if (!msgno || index_getuid(group_state, msgno) != uid) msgno++;
+    last_msgno = index_finduid(group_state, last);
 
     for (; msgno <= last_msgno; msgno++) {
 	if (!found++)
 	    prot_printf(nntp_out, "224 Overview information follows:\r\n");
 
-	if ((over = index_overview(nntp_group, msgno))) {
+	if ((over = index_overview(group_state, msgno))) {
 	    char xref[8192];
 
 	    build_xref(over->msgid, xref, sizeof(xref), 0);
@@ -2961,7 +2944,10 @@ static int parse_groups(const char *groups, message_data_t *msg)
 
 	/* construct the mailbox name */
 	sprintf(rcpt, "%s%.*s", newsprefix, (int) n, p);
-	
+
+	/* skip mailboxes that we don't serve as newsgroups */
+	if (!is_newsgroup(rcpt)) continue;
+
 	/* Only add mailboxes that exist */
 	if (!mlookup(rcpt, NULL, NULL, NULL)) {
 	    msg->rcpt[msg->rcpt_num] = rcpt;
@@ -3311,8 +3297,7 @@ static int deliver(message_data_t *msg)
 		continue;
 	    }
 
-	    r = append_setup(&as, rcpt, MAILBOX_FORMAT_NORMAL,
-			     nntp_userid, nntp_authstate, ACL_POST, 0);
+	    r = append_setup(&as, rcpt, nntp_userid, nntp_authstate, ACL_POST, 0);
 
 	    if (!r) {
 		prot_rewind(msg->data);
@@ -3336,8 +3321,7 @@ static int deliver(message_data_t *msg)
 		    }            
 		}                
 		else {           
-		    r = append_commit(&as, 0, NULL, &uid, NULL);
-		    if (!r) sync_log_append(rcpt);
+		    r = append_commit(&as, 0, NULL, &uid, NULL, NULL);
 		}
 	    }
 
@@ -3374,6 +3358,7 @@ static int deliver(message_data_t *msg)
     return r;
 }
 
+#if 0  /* XXX  Need to review control message auth/authz and implementation */
 static int newgroup(message_data_t *msg)
 {
     int r;
@@ -3392,8 +3377,6 @@ static int newgroup(message_data_t *msg)
 
     /* XXX check body of message for useful MIME parts */
 
-    if (!r) sync_log_mailbox(mailboxname);
-
     return r;
 }
 
@@ -3410,10 +3393,14 @@ static int rmgroup(message_data_t *msg)
     snprintf(mailboxname, sizeof(mailboxname), "%s%.*s",
 	     newsprefix, (int) strcspn(group, " \t\r\n"), group);
 
+    /* skip mailboxes that we don't serve as newsgroups */
+    if (!is_newsgroup(mailboxname)) r = IMAP_MAILBOX_NONEXISTENT;
+
     /* XXX should we delete right away, or wait until empty? */
 
-    r = mboxlist_deletemailbox(mailboxname, 0,
-			       newsmaster, newsmaster_authstate, 1, 0, 0);
+    if (!r) r = mboxlist_deletemailbox(mailboxname, 0,
+				       newsmaster, newsmaster_authstate,
+				       1, 0, 0);
 
     if (!r) sync_log_mailbox(mailboxname);
 
@@ -3434,7 +3421,7 @@ static int mvgroup(message_data_t *msg)
 
     len = strcspn(group, " \t\r\n");
     snprintf(oldmailboxname, sizeof(oldmailboxname), "%s%.*s",
-	     newsprefix, len, group);
+	     newsprefix, (int)len, group);
 
     /* isolate new newsgroup */
     group += len; /* skip old newsgroup */
@@ -3442,7 +3429,7 @@ static int mvgroup(message_data_t *msg)
 
     len = strcspn(group, " \t\r\n");
     snprintf(newmailboxname, sizeof(newmailboxname), "%s%.*s",
-	     newsprefix, (int) len, group);
+	     newsprefix, (int)len, group);
 
     r = mboxlist_renamemailbox(oldmailboxname, newmailboxname, NULL, 0,
 			       newsmaster, newsmaster_authstate, 0, 0);
@@ -3458,57 +3445,40 @@ static int mvgroup(message_data_t *msg)
  * mailbox_exchange() callback function to delete cancelled articles
  */
 static unsigned expunge_cancelled(struct mailbox *mailbox __attribute__((unused)),
-				  void *rock,
-				  unsigned char *index,
-				  int expunge_flags __attribute__((unused)))
+				  struct index_record *record,
+				  void *rock)
 {
-    unsigned uid = ntohl(*((bit32 *)(index+OFFSET_UID)));
-
     /* only expunge the UID that we obtained from the msgid */
-    return (uid == *((unsigned long *) rock));
+    return (record->uid == *((unsigned long *) rock));
 }
 
 /*
  * duplicate_find() callback function to cancel articles
  */
 static int cancel_cb(const char *msgid __attribute__((unused)),
-		     const char *mailbox,
+		     const char *name,
 		     time_t mark __attribute__((unused)),
 		     unsigned long uid,
 		     void *rock)
 {
-    /* make sure its a message in a mailbox that we're serving via NNTP */
-    if (*mailbox && !strncmp(mailbox, newsprefix, strlen(newsprefix)) &&
-	strncmp(mailbox, "user.", 5)) {
-	struct mailbox mbox;
-	int r, doclose = 0;
+    struct mailbox *mailbox = NULL;
 
-	r = mailbox_open_header(mailbox, 0, &mbox);
+    /* make sure its a message in a mailbox that we're serving via NNTP */
+    if (is_newsgroup(name)) {
+	int r;
+
+	r = mailbox_open_iwl(name, &mailbox);
 
 	if (!r &&
-	    !(cyrus_acl_myrights(newsmaster_authstate, mbox.acl) & ACL_DELETEMSG))
+	    !(cyrus_acl_myrights(newsmaster_authstate, mailbox->acl) & ACL_DELETEMSG))
 	    r = IMAP_PERMISSION_DENIED;
 
-	if (!r) {
-	    doclose = 1;
-	    if (mbox.header_fd != -1)
-		mailbox_lock_header(&mbox);
-	    mbox.header_lock_count = 1;
-
-	    r = mailbox_open_index(&mbox);
-	}
-
-	if (!r) {
-	    mailbox_lock_index(&mbox);
-	    mbox.index_lock_count = 1;
-	    mailbox_expunge(&mbox, expunge_cancelled, &uid, 0);
-	}
-
-	if (doclose) mailbox_close(&mbox);
+	if (!r) r = mailbox_expunge(mailbox, expunge_cancelled, &uid, NULL);
+	if (!r) r = mailbox_commit(mailbox);
+	if (mailbox) mailbox_close(&mailbox);
 
 	/* if we failed, pass the return code back in the rock */
 	if (r) *((int *) rock) = r;
-	else sync_log_mailbox(mbox.name);
     }
 
     return 0;
@@ -3535,6 +3505,7 @@ static int cancel(message_data_t *msg)
 
     return r;
 }
+#endif
 
 /* strip any post addresses from a header body.
  * returns 1 if a nonpost address was found, 0 otherwise.
@@ -3799,13 +3770,6 @@ static void feedpeer(char *peer, message_data_t *msg)
     return;
 }
 
-void printstring(const char *s __attribute__((unused)))
-{
-    /* needed to link against annotate.o */
-    fatal("printstring() executed, but its not used for nntpd!",
-	  EC_SOFTWARE);
-}
-
 #define ALLOC_SIZE 10
 
 static void news2mail(message_data_t *msg)
@@ -3925,13 +3889,17 @@ static void news2mail(message_data_t *msg)
 
 static void cmd_post(char *msgid, int mode)
 {
+    char *mboxname;
     FILE *f = NULL;
     message_data_t *msg;
     int r = 0;
 
     /* check if we want this article */
-    if (msgid && find_msgid(msgid, NULL, NULL)) {
+    if (msgid && find_msgid(msgid, &mboxname, NULL)) {
 	/* already have it */
+	syslog(LOG_INFO,
+	       "dupelim: news article id %s already present in mailbox %s",
+	       msgid, mboxname);
 	r = NNTP_DONT_SEND;
     }
 
@@ -3966,7 +3934,7 @@ static void cmd_post(char *msgid, int mode)
 	if (!r) {
 	    prot_printf(nntp_out, "%u %s Article received ok\r\n",
 			post_codes[mode].ok, msg->id ? msg->id : "");
-
+#if 0  /* XXX  Need to review control message auth/authz and implementation */
 	    /* process control messages */
 	    if (msg->control && !config_mupdate_server) {
 		int r1 = 0;
@@ -3991,7 +3959,7 @@ static void cmd_post(char *msgid, int mode)
 			   msg->control);
 		}
 	    }
-
+#endif
 	    if (msg->id) {
 		const char *peers = config_getstring(IMAPOPT_NEWSPEER);
 
@@ -4054,7 +4022,12 @@ static void cmd_starttls(int nntps)
 
     if (nntp_starttls_done == 1) {
 	prot_printf(nntp_out, "502 %s\r\n", 
-		    "Already successfully executed STARTTLS");
+		    "TLS is already active");
+	return;
+    }
+    if (nntp_authstate) {
+	prot_printf(nntp_out, "502 %s\r\n", 
+		    "Already authenticated");
 	return;
     }
 
@@ -4127,10 +4100,19 @@ static void cmd_starttls(int nntps)
     prot_settls(nntp_out, tls_conn);
 
     nntp_starttls_done = 1;
+
+    /* close any selected group */
+    if (group_state)
+	index_close(&group_state);
+    if (backend_current) {
+	proxy_downserver(backend_current);
+	backend_current = NULL;
+    }
 }
 #else
 static void cmd_starttls(int nntps __attribute__((unused)))
 {
+    /* XXX should never get here */
     fatal("cmd_starttls() called, but no OpenSSL", EC_SOFTWARE);
 }
 #endif /* HAVE_SSL */
@@ -4150,7 +4132,7 @@ static struct wildmat *split_wildmats(char *str)
      * split the list of wildmats
      *
      * we split them right to left because this is the order in which
-     * we want to test them (per draft-ietf-nntpext-base 5.2)
+     * we want to test them (per RFC3977 section 4.2)
      */
     do {
 	if ((c = strrchr(str, ',')))

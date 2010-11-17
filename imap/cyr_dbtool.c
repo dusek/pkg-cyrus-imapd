@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cyr_dbtool.c,v 1.7 2008/10/14 14:53:40 murch Exp $
+ * $Id: cyr_dbtool.c,v 1.8 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -121,11 +121,7 @@ int printer_cb(void *rock __attribute__((unused)),
     const char *key, int keylen,
     const char *data, int datalen)
 {
-    fwrite(key, sizeof(char), keylen, stdout);
-    fputc('\t', stdout);
-    fwrite(data, sizeof(char), datalen, stdout);
-    fputc('\n', stdout);
-
+    printf("%.*s\t%.*s\n", keylen, key, datalen, data);
     return 0;
 }
 
@@ -225,8 +221,7 @@ int main(int argc, char *argv[])
         while ( loop ) {
           if (is_get) {
             DB_OLD->fetch(odb, key, keylen, &res, &reslen, &tid);
-            fwrite(res, sizeof(char), reslen, stdout);
-            printf("\n");
+            printf("%.*s\n", reslen, res);
           } else if (is_set) {
             DB_OLD->store(odb, key, keylen, value, vallen, &tid);
           } else if (is_delete) {

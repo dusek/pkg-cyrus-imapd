@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: telemetry.c,v 1.9 2008/03/24 17:09:20 murch Exp $
+ * $Id: telemetry.c,v 1.12 2010/06/28 12:03:12 brong Exp $
  */
 
 #include <config.h>
@@ -50,8 +50,10 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <fcntl.h>
 #include <string.h>
+#include <syslog.h>
 
 #include "prot.h"
 #include "global.h"
@@ -63,6 +65,7 @@ int telemetry_log(const char *userid, struct protstream *pin,
     char buf[1024];
     int fd = -1;
     time_t now;
+    int n;
 
     if(usetimestamp) {
 	struct timeval tv;
@@ -86,11 +89,51 @@ int telemetry_log(const char *userid, struct protstream *pin,
 	now = time(NULL);
 	snprintf(buf, sizeof(buf), "---------- %s %s\n", 
 		 userid, ctime(&now));
-	write(fd, buf, strlen(buf));
+	n = write(fd, buf, strlen(buf));
 
 	prot_setlog(pin, fd);
 	prot_setlog(pout, fd);
     }
     
     return fd;
+}
+
+void telemetry_rusage(char *userid)
+{
+    static struct rusage	previous;
+    struct rusage		current;
+    struct timeval		sys, user;
+
+    if (userid && *userid) {
+	if (getrusage(RUSAGE_SELF, &current) != 0) {
+	    syslog(LOG_ERR, "getrusage: %s", userid);
+	    return;
+	}
+
+	user.tv_sec = current.ru_utime.tv_sec - previous.ru_utime.tv_sec;
+	user.tv_usec = current.ru_utime.tv_usec - previous.ru_utime.tv_usec;
+	if (user.tv_usec < 0) {
+	    user.tv_sec--;
+	    user.tv_usec += 1000000;
+	}
+
+	sys.tv_sec = current.ru_stime.tv_sec - previous.ru_stime.tv_sec;
+	sys.tv_usec = current.ru_stime.tv_usec - previous.ru_stime.tv_usec;
+	if (sys.tv_usec < 0) {
+	    sys.tv_sec--;
+	    sys.tv_usec += 1000000;
+	}
+
+	/*
+	 * Some systems provide significantly more data, but POSIX
+	 * guarantees user & sys CPU time.
+	 */
+	syslog(LOG_NOTICE, "USAGE %s user: %lu.%.6d sys: %lu.%.6d", userid,
+	       (unsigned long)user.tv_sec, (int)user.tv_usec,
+	       (unsigned long)sys.tv_sec, (int)sys.tv_usec);
+
+	previous = current;
+    }
+
+    return;
 }

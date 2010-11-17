@@ -41,7 +41,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: lex.c,v 1.29 2009/03/31 04:11:24 brong Exp $
+ * $Id: lex.c,v 1.30 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -299,7 +299,7 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
 	unsigned long lup;
 
 	for (lup=0;lup<count;lup++)
-	  prot_getc(stream);
+	  (void)prot_getc(stream);
       }
       lexer_state=LEXER_STATE_NORMAL;
       return STRING;

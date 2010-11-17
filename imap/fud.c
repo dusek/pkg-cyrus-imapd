@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: fud.c,v 1.57 2009/02/09 05:01:56 brong Exp $
+ * $Id: fud.c,v 1.59 2010/06/28 12:04:16 brong Exp $
  */
 
 #include <config.h>
@@ -63,19 +63,20 @@
 #include <errno.h>
 #include <pwd.h>
 
+#include "acl.h"
 #include "assert.h"
 #include "mboxlist.h"
 #include "global.h"
 #include "exitcodes.h"
 #include "imap_err.h"
 #include "mailbox.h"
+#include "map.h"
+#include "mboxname.h"
+#include "proc.h"
+#include "seen.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
-#include "acl.h"
-#include "seen.h"
-#include "mboxname.h"
-#include "map.h"
 
 #define REQ_OK		0
 #define REQ_DENY	1
@@ -89,9 +90,6 @@ static struct namespace fud_namespace;
 /* config.c info.  note that technically we may need partition data, but
  * only if we're not on a frontend, so we won't flat-out require it here */
 const int config_need_data = 0;
-
-/* forward decls */
-extern void setproctitle_init(int argc, char **argv, char **envp);
 
 int handle_request(const char *who, const char *name, 
 		   struct sockaddr_storage sfrom, socklen_t sfromsiz);
@@ -113,7 +111,7 @@ int begin_handling(void)
         socklen_t sfromsiz = sizeof(sfrom);
         int r;
         char    buf[MAXLOGNAME + MAXDOMNAME + MAX_MAILBOX_BUFFER];
-        char    username[MAXLOGNAME + MAXDOMNAME];
+        char    username[MAXLOGNAME + MAXDOMNAME + 1];
         char    mbox[MAX_MAILBOX_BUFFER];
         char    *q;
         int     off;
@@ -158,6 +156,8 @@ int begin_handling(void)
 void shut_down(int code) __attribute__((noreturn));
 void shut_down(int code)
 {
+    in_shutdown = 1;
+
     seen_done();
     mboxlist_close();
     mboxlist_done();
@@ -181,7 +181,6 @@ int service_init(int argc, char **argv, char **envp)
 
     mboxlist_init(0);
     mboxlist_open(NULL);
-    mailbox_initialize();
 
     return 0;
 }
@@ -200,7 +199,7 @@ int service_main(int argc __attribute__((unused)),
 
     /* Set namespace */
     if ((r = mboxname_init_namespace(&fud_namespace, 1)) != 0) {
-	syslog(LOG_ERR, error_message(r));
+	syslog(LOG_ERR, "%s", error_message(r));
 	fatal(error_message(r), EC_CONFIG);
     }
 
@@ -350,16 +349,15 @@ int handle_request(const char *who, const char *name,
 		   struct sockaddr_storage sfrom, socklen_t sfromsiz)
 {
     int r;
-    struct mailbox mailbox;
-    struct seen *seendb;
+    struct mailbox *mailbox = NULL;
     time_t lastread;
     time_t lastarrived;
     unsigned recentuid;
-    char *seenuids;
     unsigned numrecent;
     char mboxname[MAX_MAILBOX_BUFFER];
-    char *location, *acl;
-    int mbflag;
+    struct mboxlist_entry mbentry;
+    struct auth_state *mystate;
+    int internalseen;
 
     numrecent = 0;
     lastread = 0;
@@ -368,26 +366,26 @@ int handle_request(const char *who, const char *name,
     r = (*fud_namespace.mboxname_tointernal)(&fud_namespace,name,who,mboxname);
     if (r) return r; 
 
-    r = mboxlist_detail(mboxname, &mbflag, &location, NULL, NULL, &acl, NULL);
-    if(r || mbflag & MBTYPE_RESERVE) {
+    r = mboxlist_lookup(mboxname, &mbentry, NULL);
+    if(r || mbentry.mbtype & MBTYPE_RESERVE) {
 	send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
 	return r;
     }
 
-    if(mbflag & MBTYPE_REMOTE) {
-	struct auth_state *mystate;
+    mystate = auth_newstate("anonymous");
+
+    if(mbentry.mbtype & MBTYPE_REMOTE) {
 	char *p = NULL;
 
 	/* xxx hide that we are storing partitions */
-	p = strchr(location, '!');
+	p = strchr(mbentry.partition, '!');
 	if(p) *p = '\0';
 
 	/* Check the ACL */
-	mystate = auth_newstate("anonymous");
-	if(cyrus_acl_myrights(mystate, acl) & ACL_USER0) {
+	if(cyrus_acl_myrights(mystate, mbentry.acl) & ACL_USER0) {
 	    /* We want to proxy this one */
 	    auth_freestate(mystate);
-	    return do_proxy_request(who, name, location, sfrom, sfromsiz);
+	    return do_proxy_request(who, name, mbentry.partition, sfrom, sfromsiz);
 	} else {
 	    /* Permission Denied */
 	    auth_freestate(mystate);
@@ -399,70 +397,60 @@ int handle_request(const char *who, const char *name,
     /*
      * Open/lock header 
      */
-    r = mailbox_open_header(mboxname, NULL, &mailbox);
+    r = mailbox_open_irl(mboxname, &mailbox);
     if (r) {
         send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
 	return r; 
     }
 
-    r = mailbox_open_index(&mailbox);
-    if (r) {
-	mailbox_close(&mailbox);
-        send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
-	return r;
-    }
-
-    if (mboxname_isusermailbox(mboxname, 0) && !(mailbox.myrights & ACL_USER0)) {
-	mailbox_close(&mailbox);
-        send_reply(sfrom, sfromsiz, REQ_DENY, who, name, 0, 0, 0);
-	return 0;
-    }
-   
-    r = seen_open(&mailbox, who, 0, &seendb);
-
-/*
-	mailbox_close(&mailbox);
-        send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
-	return r;
-    }
-*/
-
-    if (!r) {
-	seenuids = NULL;
-	r = seen_read(seendb, &lastread, &recentuid, &lastarrived, &seenuids);
-	if (seenuids) free(seenuids);
-	seen_close(seendb);
-	if (r) {
+    if (mboxname_isusermailbox(mboxname, 0)) {
+	int myrights = cyrus_acl_myrights(mystate, mailbox->acl);
+	if (!(myrights & ACL_USER0)) {
+	    auth_freestate(mystate);
 	    mailbox_close(&mailbox);
-	    send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
-	    return r;
+	    send_reply(sfrom, sfromsiz, REQ_DENY, who, name, 0, 0, 0);
+	    return 0;
 	}
-    } else {
-	/* Fake Data -- couldn't open seen database */
-	lastread = 0;
-	recentuid = 0;
-	lastarrived = 0;
-	seenuids = "";
     }
-    
-    lastarrived = mailbox.last_appenddate;
-    {
-	const char *base;
-	unsigned long len = 0;
-	unsigned int msg;
-	unsigned uid;
-	
-	map_refresh(mailbox.index_fd, 0, &base, &len,
-		    mailbox.start_offset +
-		    mailbox.exists * mailbox.record_size,
-		    "index", mailbox.name);
-	for (msg = 0; msg < mailbox.exists; msg++) {
-	    uid = ntohl(*((bit32 *)(base + mailbox.start_offset +
-				    msg * mailbox.record_size +
-				    OFFSET_UID)));
-	    if (uid > recentuid) numrecent++;
+    auth_freestate(mystate);
+   
+    internalseen = mailbox_internal_seen(mailbox, who);
+    if (internalseen) {
+	lastread = mailbox->i.recenttime;
+	recentuid = mailbox->i.recentuid;
+    } else {
+	struct seen *seendb;
+	struct seendata sd;
+	r = seen_open(who, 0, &seendb);
+
+	if (!r) {
+	    r = seen_read(seendb, mailbox->uniqueid, &sd);
+	    seen_close(seendb);
 	}
-	map_free(&base, &len);
+
+	if (r) {
+	    /* Fake Data -- couldn't open seen database */
+	    lastread = 0;
+	    recentuid = 0;
+	}
+	else {
+	    lastread = sd.lastread;
+	    recentuid = sd.lastuid;
+	    seen_freedata(&sd);
+	}
+    }
+
+    lastarrived = mailbox->i.last_appenddate;
+    {
+	struct index_record record;
+	uint32_t recno;
+	for (recno = 1; recno <= mailbox->i.num_records; recno++) {
+	    if (mailbox_read_index_record(mailbox, recno, &record))
+		continue;
+	    if (record.system_flags & FLAG_EXPUNGED)
+		continue;
+	    if (record.uid > recentuid) numrecent++;
+	}
     }
 
     mailbox_close(&mailbox);

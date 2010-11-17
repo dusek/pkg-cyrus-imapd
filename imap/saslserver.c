@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: saslserver.c,v 1.11 2008/03/24 17:09:19 murch Exp $
+ * $Id: saslserver.c,v 1.12 2010/01/06 17:01:39 murch Exp $
  */
 
 #include <config.h>
@@ -64,8 +64,8 @@ int saslserver(sasl_conn_t *conn, const char *mech,
     char base64[BASE64_BUF_SIZE+1];
     char *clientin = NULL;
     unsigned int clientinlen = 0;
-    const char *serverout;
-    unsigned int serveroutlen;
+    const char *serverout = NULL;
+    unsigned int serveroutlen = 0;
     int r = SASL_OK;
 
     if (success_data) *success_data = NULL;

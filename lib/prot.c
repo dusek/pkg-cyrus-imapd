@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: prot.c,v 1.98 2009/11/05 00:19:19 brong Exp $
+ * $Id: prot.c,v 1.100 2010/06/28 12:06:43 brong Exp $
  */
 
 #include <config.h>
@@ -65,10 +65,12 @@
 
 #include "assert.h"
 #include "exitcodes.h"
+#include "imparse.h"
 #include "libcyr_cfg.h"
 #include "map.h"
 #include "nonblock.h"
 #include "prot.h"
+#include "signals.h"
 #include "util.h"
 #include "xmalloc.h"
 
@@ -102,6 +104,10 @@ int write;
     newstream->big_buffer = PROT_NO_FD;
     if(write)
 	newstream->cnt = PROT_BUFSIZE;
+
+    newstream->can_unget = 0;
+    newstream->bytes_in = 0;
+    newstream->bytes_out = 0;
 
     return newstream;
 }
@@ -213,7 +219,7 @@ sasl_conn_t *conn;
 
     if (s->write && s->ptr != s->buf) {
 	/* flush any pending output */
-	if(prot_flush_internal(s,0) == EOF)
+	if (prot_flush_internal(s, 0) == EOF)
 	    return EOF;
     }
    
@@ -517,6 +523,8 @@ int prot_rewind(struct protstream *s)
     s->cnt = 0;
     s->error = 0;
     s->eof = 0;
+    s->can_unget = 0;
+    s->bytes_in = 0;
     return 0;
 }
 
@@ -638,11 +646,11 @@ int prot_fill(struct protstream *s)
 		r = select(s->fd + 1, &rfds, (fd_set *)0, (fd_set *)0,
 			   &timeout);
 		now = time(NULL);
-	    } while ((r == 0 || (r == -1 && errno == EINTR)) &&
+	    } while ((r == 0 || (r == -1 && errno == EINTR && !signals_poll())) &&
 		     (now < read_timeout));
 	    if ((r == 0) || 
                 /* ignore EINTR if we've timed out */
-                (r == -1 && errno == EINTR && now >= read_timeout)) {
+                (r == -1 && errno == EINTR && !signals_poll() && now >= read_timeout)) {
 		if (!s->dontblock) {
 		    s->error = xstrdup("idle for too long");
 		    return EOF;
@@ -662,6 +670,7 @@ int prot_fill(struct protstream *s)
 	s->timeout_mark = time(NULL) + s->read_timeout;
 	
 	do {
+	    cmdtime_netstart();
 #ifdef HAVE_SSL	  
 	    /* just do a SSL read instead if we're under a tls layer */
 	    if (s->tls_conn != NULL) {
@@ -672,8 +681,9 @@ int prot_fill(struct protstream *s)
 #else  /* HAVE_SSL */
 	    n = read(s->fd, s->buf, PROT_BUFSIZE);
 #endif /* HAVE_SSL */
-	} while (n == -1 && errno == EINTR);
-		
+	    cmdtime_netend();
+	} while (n == -1 && errno == EINTR && !signals_poll());
+
 	if (n <= 0) {
 	    if (n) s->error = xstrdup(strerror(errno));
 	    else s->eof = 1;
@@ -706,13 +716,13 @@ int prot_fill(struct protstream *s)
 
 	time(&newtime);
 	snprintf(timebuf, sizeof(timebuf), "<%ld<", newtime);
-	write(s->logfd, timebuf, strlen(timebuf));
+	n = write(s->logfd, timebuf, strlen(timebuf));
 
 	left = s->cnt;
 	ptr = s->ptr;
 	do {
 	    n = write(s->logfd, ptr, left);
-	    if (n == -1 && (errno != EINTR)) {
+	    if (n == -1 && (errno != EINTR || signals_poll())) {
 		break;
 	    }
 
@@ -724,6 +734,8 @@ int prot_fill(struct protstream *s)
     }
 
     s->cnt--;		/* we return the first char */
+    s->can_unget = 1;
+    s->bytes_in++;
     return *s->ptr++;
 }
 
@@ -747,11 +759,11 @@ static void prot_flush_log(struct protstream *s)
 	
 	time(&newtime);
 	snprintf(timebuf, sizeof(timebuf), ">%ld>", newtime);
-	write(s->logfd, timebuf, strlen(timebuf));
+	n = write(s->logfd, timebuf, strlen(timebuf));
 
 	do {
 	    n = write(s->logfd, ptr, left);
-	    if (n == -1 && errno != EINTR) {
+	    if (n == -1 && (errno != EINTR || signals_poll())) {
 		break;
 	    }
 	    if (n > 0) {
@@ -760,7 +772,7 @@ static void prot_flush_log(struct protstream *s)
 	    }
 	} while (left);
 
-	fsync(s->logfd);
+	(void)fsync(s->logfd);
     }
 }
 
@@ -845,6 +857,7 @@ static int prot_flush_writebuffer(struct protstream *s,
     int n;
     
     do {
+	cmdtime_netstart();
 #ifdef HAVE_SSL
 	if (s->tls_conn != NULL) {
 	    n = SSL_write(s->tls_conn, (char *)buf, len);
@@ -854,7 +867,8 @@ static int prot_flush_writebuffer(struct protstream *s,
 #else  /* HAVE_SSL */
 	n = write(s->fd, buf, len);
 #endif /* HAVE_SSL */
-    } while (n == -1 && errno == EINTR);
+	cmdtime_netend();
+    } while (n == -1 && errno == EINTR && !signals_poll());
 
     return n;
 }
@@ -1009,7 +1023,7 @@ int prot_flush_internal(struct protstream *s, int force)
 
 	    do {
 		n = write(s->big_buffer, ptr, left);
-		if (n == -1 && errno != EINTR) {
+		if (n == -1 && (errno != EINTR || signals_poll())) {
 		    syslog(LOG_ERR, "write to protstream buffer failed: %s",
 			   strerror(errno));
 		    
@@ -1042,7 +1056,7 @@ int prot_flush_internal(struct protstream *s, int force)
  done:
     /* are we done with the big buffer? If so, free it. This includes
      * when we exit with error */
-    if(s->big_buffer != PROT_NO_FD &&
+    if (s->big_buffer != PROT_NO_FD &&
        (s->bigbuf_pos == s->bigbuf_len || s->error)) {
 	map_free(&(s->bigbuf_base), &(s->bigbuf_siz));
 	close(s->big_buffer);
@@ -1050,7 +1064,7 @@ int prot_flush_internal(struct protstream *s, int force)
 	s->big_buffer = PROT_NO_FD;
     }
 
-    if(force) {
+    if (force) {
 	/* we don't need to call nonblock() again, because it will be
 	 * set correctly on the next prot_flush_internal() anyway */
 	s->dontblock = save_dontblock;
@@ -1120,16 +1134,22 @@ int prot_write(struct protstream *s, const char *buf, unsigned len)
     memcpy(s->ptr, buf, len);
     s->ptr += len;
     s->cnt -= len;
+    s->bytes_out += len;
     if (s->error || s->eof) return EOF;
 
     assert(s->cnt > 0);
     return 0;
 }
 
+int prot_putbuf(struct protstream *s, struct buf *buf)
+{
+    return prot_write(s, buf->s, buf->len);
+}
+
 /*
  * Stripped-down version of printf() that works on protection streams
  * Only understands '%lld', '%llu', '%ld', '%lu', '%d', %u', '%s',
- * '%c', and '%%' in the format string.
+ * '%tu', '%td', '%c', and '%%' in the format string.
  */
 int prot_printf(struct protstream *s, const char *fmt, ...)
 {
@@ -1148,7 +1168,7 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 	prot_write(s, fmt, percent-fmt);
 	switch (*++percent) {
 	case '%':
-	    prot_putc('%', s);
+	    (void)prot_putc('%', s);
 	    break;
 
 	case 'l':
@@ -1207,6 +1227,29 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 	    prot_write(s, buf, strlen(buf));
 	    break;
 
+	case 't': {
+	    size_t tu;
+	    ssize_t td;
+
+	    switch (*++percent) {
+	    case 'u':
+		tu = va_arg(pvar, size_t);
+		snprintf(buf, sizeof(buf), "%tu", tu);
+		prot_write(s, buf, strlen(buf));
+		break;
+
+	    case 'd':
+		td = va_arg(pvar, ssize_t);
+		snprintf(buf, sizeof(buf), "%td", td);
+		prot_write(s, buf, strlen(buf));
+		break;
+
+	    default:
+		abort();
+	    }
+	    break;
+	}
+
 	case 's':
 	    p = va_arg(pvar, char *);
 	    prot_write(s, p, strlen(p));
@@ -1214,7 +1257,7 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 
 	case 'c':
 	    i = va_arg(pvar, int);
-	    prot_putc(i, s);
+	    (void)prot_putc(i, s);
 	    break;
 
 	default:
@@ -1226,6 +1269,54 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
     va_end(pvar);
     if (s->error || s->eof) return EOF;
     return 0;
+}
+
+int prot_printliteral(struct protstream *out, const char *s, size_t size)
+{
+    int r;
+    r = prot_printf(out, "{" SIZE_T_FMT "+}\r\n", size);
+    if (r) return r;
+    return prot_write(out, s, size);
+}
+
+/*
+ * Print 's' as a quoted-string or literal (but not an atom)
+ */
+int prot_printstring(struct protstream *out, const char *s)
+{
+    const char *p;
+    int len = 0;
+
+    if (!s) return prot_printf(out, "NIL");
+
+    /* Look for any non-QCHAR characters */
+    for (p = s; *p && len < 1024; p++) {
+	len++;
+	if (*p & 0x80 || *p == '\r' || *p == '\n'
+	    || *p == '\"' || *p == '%' || *p == '\\') break;
+    }
+
+    /* if it's too long, literal it */
+    if (*p || len >= 1024) {
+	return prot_printliteral(out, s, strlen(s));
+    }
+
+    return prot_printf(out, "\"%s\"", s);
+}
+
+/*
+ * Print 's' as an atom, quoted-string, or literal
+ */
+int prot_printastring(struct protstream *out, const char *s)
+{
+    if (!s) return prot_printf(out, "NIL");
+
+    /* special cases for atoms */
+    if (!*s) return prot_printf(out, "\"\"");
+    if (imparse_isatom(s)) return prot_printf(out, "%s", s);
+
+    /* not an atom, so pass to printstring */
+    return prot_printstring(out, s);
 }
 
 /*
@@ -1240,23 +1331,20 @@ int prot_read(struct protstream *s, char *buf, unsigned size)
 
     if (!size) return 0;
 
-    if (s->cnt) {
-	/* Some data in the input buffer, return that */
-	if (size > s->cnt) size = s->cnt;
-	memcpy(buf, s->ptr, size);
-	s->ptr += size;
-	s->cnt -= size;
-	return size;
+    /* If no data in the input buffer, get some */
+    if (!s->cnt) {
+	c = prot_fill(s);
+	if (c == EOF) return 0;
+	prot_ungetc(c, s);
     }
 
-    c = prot_fill(s);
-    if (c == EOF) return 0;
-    buf[0] = c;
-    if (--size > s->cnt) size = s->cnt;
-    memcpy(buf+1, s->ptr, size);
+    if (size > s->cnt) size = s->cnt;
+    memcpy(buf, s->ptr, size);
     s->ptr += size;
     s->cnt -= size;
-    return size+1;
+    s->can_unget += size;
+    s->bytes_in += size;  /* prot_fill added the 1 already */
+    return size;
 }
 
 /*
@@ -1437,6 +1525,7 @@ char *prot_fgets(char *buf, unsigned size, struct protstream *s)
     while (size && (c = prot_getc(s)) != EOF) {
 	size--;
 	*p++ = c;
+        s->bytes_in++;
 	if (c == '\n') break;
     }
     if (p == buf) return 0;
@@ -1538,14 +1627,12 @@ struct protstream *protgroup_getelement(struct protgroup *group,
 					size_t element) 
 {
     assert(group);
-    if(element >= group->next_element) return NULL;
-    else return group->group[element];
-}
 
-/* function versions of the macros */
-#undef prot_getc
-#undef prot_ungetc
-#undef prot_putc
+    if (element >= group->next_element)
+	return NULL;
+
+    return group->group[element];
+}
 
 int prot_getc(struct protstream *s)
 {
@@ -1553,17 +1640,24 @@ int prot_getc(struct protstream *s)
 
     if (s->cnt > 0) {
 	--s->cnt;
+	s->can_unget++;
+	s->bytes_in++;
 	return *(s->ptr)++;
-    } else {
-	return prot_fill(s);
     }
+
+    return prot_fill(s);
 }
 
 int prot_ungetc(int c, struct protstream *s)
 {
     assert(!s->write);
 
+    if (!s->can_unget)
+	fatal("Can't unwind any more", EC_SOFTWARE);
+
     s->cnt++;
+    s->can_unget--;
+    s->bytes_in--;
     *--(s->ptr) = c;
 
     return c;
@@ -1575,9 +1669,10 @@ int prot_putc(int c, struct protstream *s)
     assert(s->cnt > 0);
 
     *s->ptr++ = c;
-    if (--s->cnt == 0) {
+
+    s->bytes_out++;
+    if (--s->cnt == 0)
 	return prot_flush_internal(s,0);
-    } else {
-	return 0;
-    }
+
+    return 0;
 }

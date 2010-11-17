@@ -45,7 +45,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: test.c,v 1.30 2009/03/31 04:11:30 brong Exp $
+ * $Id: test.c,v 1.31 2010/01/06 17:02:00 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -194,12 +194,17 @@ int parseheader(FILE *f, char **headname, char **contents) {
 		    ungetc(c, f);
 		    goto got_header;
 		}
-		/* ignore this whitespace, but we'll copy all the rest in */
-		break;
-	    } else {
-		/* just an ordinary character */
-		body[off++] = c;
+                /* http://www.faqs.org/rfcs/rfc2822.html
+		 *
+		 * > Unfolding is accomplished by simply removing any CRLF
+		 * > that is immediately followed by WSP
+		 *
+		 * So keep the actual WSP character
+		 */
 	    }
+	    /* just an ordinary character */
+	    body[off++] = c;
+	    break;
 	}
     }
 

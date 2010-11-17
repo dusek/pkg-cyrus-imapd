@@ -40,7 +40,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: actions.c,v 1.47 2009/09/22 01:47:11 brong Exp $
+ * $Id: actions.c,v 1.48 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -187,7 +187,7 @@ int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
     /* implementation */
     prot_printf(conn,
 		"\"IMPLEMENTATION\" \"Cyrus timsieved%s %s\"\r\n",
-		config_mupdate_server ? " (Murder)" : "", CYRUS_VERSION);
+		config_mupdate_server ? " (Murder)" : "", cyrus_version());
     
     /* SASL */
     if ((!authenticated || sasl_ssf) &&
@@ -269,6 +269,8 @@ int getscript(struct protstream *conn, mystring_t *name)
   prot_printf(conn,"\r\n");
   
   prot_printf(conn, "OK\r\n");
+
+  fclose(stream);
 
   return TIMSIEVE_OK;
 }

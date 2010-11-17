@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: libconfig.h,v 1.9 2008/09/23 17:34:38 murch Exp $
+ * $Id: libconfig.h,v 1.11 2010/04/19 19:54:26 murch Exp $
  */
 
 #ifndef INCLUDED_LIBCONFIG_H
@@ -78,8 +78,10 @@ extern int config_hashimapspool;
 extern int config_implicitrights;
 extern enum enum_value config_virtdomains;
 extern enum enum_value config_mupdate_config;
-extern int config_maxquoted;
-extern int config_maxword;
+extern int config_auditlog;
+extern unsigned config_maxquoted;
+extern unsigned config_maxword;
+extern int config_qosmarking;
 
 /* config requirement flags */
 #define CONFIG_NEED_PARTITION_DATA (1<<0)

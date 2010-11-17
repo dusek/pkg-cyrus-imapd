@@ -41,7 +41,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sieve-lex.l,v 1.23 2008/03/24 20:08:46 murch Exp $
+ * $Id: sieve-lex.l,v 1.24 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -53,6 +53,8 @@
 
 #include "tree.h"
 #include "sieve.h"
+
+#define YY_NO_INPUT
 
 static int tonum(char *c);
 static char *chkstr(char *);

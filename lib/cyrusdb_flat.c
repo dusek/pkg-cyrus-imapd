@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cyrusdb_flat.c,v 1.39 2008/03/24 17:43:08 murch Exp $
+ * $Id: cyrusdb_flat.c,v 1.40 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
@@ -62,7 +62,7 @@
 #include "exitcodes.h"
 #include "map.h"
 #include "bsearch.h"
-#include "lock.h"
+#include "cyr_lock.h"
 #include "retry.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -271,7 +271,7 @@ static int starttxn_or_refetch(struct db *db, struct txn **mytid)
 	/* no txn, but let's try to be reasonably up-to-date */
 
 	if (stat(db->fname, &sbuf) == -1) {
-	    syslog(LOG_ERR, "IOERROR: stating %s: %m", db->fname);
+	    syslog(LOG_ERR, "IOERROR: stating flat %s: %m", db->fname);
 	    return CYRUSDB_IOERROR;
 	}
 
@@ -287,7 +287,7 @@ static int starttxn_or_refetch(struct db *db, struct txn **mytid)
 	    dup2(newfd, db->fd);
 	    close(newfd);
 	    if (stat(db->fname, &sbuf) == -1) {
-		syslog(LOG_ERR, "IOERROR: stating %s: %m", db->fname);
+		syslog(LOG_ERR, "IOERROR: stating flat %s: %m", db->fname);
 		return CYRUSDB_IOERROR;
 	    }
 	    
@@ -453,7 +453,7 @@ static int foreach(struct db *db,
 
 	    if(mytid) {
 		/* transaction present, this means we do the slow way */
-		if (keylen > savebuflen) {
+		if (!savebuf || keylen > savebuflen) {
 		    int dblsize = 2 * savebuflen;
 		    int addsize = keylen + 32;
 		    
@@ -606,7 +606,7 @@ static int mystore(struct db *db,
 	syslog(LOG_ERR, "IOERROR: writing %s: %m", fnamebuf);
 	close(writefd);
 	if (mytid) abort_txn(db, *mytid);
-        /* xxx return error ? */
+        return CYRUSDB_IOERROR;
     }
     r = 0;
 

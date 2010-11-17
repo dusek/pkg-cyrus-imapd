@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: version.c,v 1.23 2009/04/23 17:10:07 murch Exp $
+ * $Id: version.c,v 1.25 2010/02/03 16:37:42 murch Exp $
  */
 
 #include <config.h>
@@ -57,12 +57,12 @@
 #endif
 
 #include <string.h>
+#include "../xversion.h"
 #include "version.h"
-#include "xversion.h"
 #include "prot.h"
 #include "cyrusdb.h"
 #include "map.h"
-#include "lock.h"
+#include "cyr_lock.h"
 #include "nonblock.h"
 #include "idle.h"
 
@@ -73,12 +73,28 @@
 static char id_resp_command[MAXIDVALUELEN];
 static char id_resp_arguments[MAXIDVALUELEN] = "";
 
+/* EXTRA_IDENT is a hack to add some version information for which compile
+ * was used to build this version (at CMU, but we don't care what you do with
+ * it).
+ */
+
+#ifdef EXTRA_IDENT
+#define CYRUS_VERSION _CYRUS_VERSION "-" EXTRA_IDENT
+#else
+#define CYRUS_VERSION _CYRUS_VERSION
+#endif
+
+const char *cyrus_version()
+{
+    return CYRUS_VERSION;
+}
+
 /*
  * Grab the command line args for the ID response.
  */
 void id_getcmdline(int argc, char **argv)
 {
-    snprintf(id_resp_command, MAXIDVALUELEN, *argv);
+    snprintf(id_resp_command, MAXIDVALUELEN, "%s", *argv);
     while (--argc > 0) {
 	snprintf(id_resp_arguments + strlen(id_resp_arguments),
 		 MAXIDVALUELEN - strlen(id_resp_arguments),
@@ -102,7 +118,7 @@ void id_response(struct protstream *pout)
 		" \"version\" \"%s %s\""
 		" \"vendor\" \"Project Cyrus\""
 		" \"support-url\" \"http://cyrusimap.web.cmu.edu\"",
-		CYRUS_VERSION, CYRUS_CVSDATE);
+		CYRUS_VERSION, CYRUS_GITVERSION);
 
     /* add the os info */
     if (uname(&os) != -1)
@@ -146,7 +162,7 @@ void id_response(struct protstream *pout)
 	     "; Running w/%s", SSLeay_version(SSLEAY_VERSION));
 #ifdef EGD_SOCKET
     snprintf(env_buf + strlen(env_buf), MAXIDVALUELEN - strlen(env_buf),
-	     " (with EGD)")
+	     " (with EGD)");
 #endif
 #endif
 #ifdef HAVE_ZLIB

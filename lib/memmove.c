@@ -40,13 +40,16 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: memmove.c,v 1.9 2008/03/24 17:43:09 murch Exp $
+ * $Id: memmove.c,v 1.10 2010/01/06 17:01:46 murch Exp $
  */
+
+/* for size_t */
+#include <sys/types.h>
 
 void *memmove(s, ct, n)
 void *s;
 const void *ct;
-unsigned int n;
+size_t n;
 {
     char *c_s = s;
     const char *c_ct = ct;

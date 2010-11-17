@@ -42,7 +42,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: addr.y,v 1.14 2008/03/24 20:08:46 murch Exp $
+ * $Id: addr.y,v 1.15 2010/01/06 17:01:58 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -56,6 +56,8 @@
 #include "script.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
+
+#define ADDRERR_SIZE 500
     
 int yyerror(char *msg);
 extern int yylex(void);
@@ -109,6 +111,6 @@ int yyerror(char *s)
 {
     extern char addrerr[ADDRERR_SIZE];
     
-    strlcpy(addrerr, s, sizeof(addrerr));
+    strlcpy(addrerr, s, ADDRERR_SIZE);
     return 0;
 }

@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: imap_proxy.h,v 1.6 2009/06/29 17:21:05 murch Exp $
+ * $Id: imap_proxy.h,v 1.7 2010/01/06 17:01:32 murch Exp $
  */
 
 #ifndef _IMAP_PROXY_H
@@ -61,20 +61,20 @@ enum {
     CAPA_IDLE		= (1 << 3),
     CAPA_MUPDATE	= (1 << 4),
     CAPA_MULTIAPPEND	= (1 << 5),
-    CAPA_LISTSUBSCRIBED	= (1 << 6),
-    CAPA_ACLRIGHTS	= (1 << 7)
+    CAPA_ACLRIGHTS	= (1 << 6),
+    CAPA_LISTEXTENDED	= (1 << 7)
 };
 
 extern struct protocol_t imap_protocol;
 
 void proxy_gentag(char *tag, size_t len);
 
-struct backend *proxy_findinboxserver(void);
+struct backend *proxy_findinboxserver(const char *userid);
 
 int pipe_until_tag(struct backend *s, const char *tag, int force_notfatal);
 int pipe_including_tag(struct backend *s, const char *tag, int force_notfatal);
 int pipe_command(struct backend *s, int optimistic_literal);
-int pipe_lsub(struct backend *s, const char *tag,
+int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 	      int force_notfatal, const char *resp);
 
 void proxy_copy(const char *tag, char *sequence, char *name, int myrights,

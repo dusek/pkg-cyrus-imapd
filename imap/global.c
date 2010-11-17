@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: global.c,v 1.33 2009/10/13 15:10:36 murch Exp $
+ * $Id: global.c,v 1.35 2010/04/22 17:29:53 murch Exp $
  */
 
 #include <config.h>
@@ -72,8 +72,8 @@
 #include "mupdate_err.h"
 #include "mutex.h"
 #include "prot.h" /* for PROT_BUFSIZE */
+#include "userdeny.h"
 #include "util.h"
-#include "wildmat.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
@@ -85,6 +85,8 @@ static enum {
 } cyrus_init_run = NOT_RUNNING;
 
 static int cyrus_init_nodb = 0;
+
+int in_shutdown = 0;
 
 int config_fulldirhash;				/* 0 */
 int config_implicitrights;			/* "lkxa" */
@@ -100,6 +102,11 @@ struct cyrusdb_backend *config_tlscache_db;
 struct cyrusdb_backend *config_ptscache_db;
 struct cyrusdb_backend *config_statuscache_db;
 struct cyrusdb_backend *config_userdeny_db;
+
+#define MAX_SESSIONID_SIZE 256
+char session_id_buf[MAX_SESSIONID_SIZE];
+int session_id_time = 0;
+int session_id_count = 0;
 
 /* Called before a cyrus application starts (but after command line parameters
  * are read) */
@@ -500,13 +507,13 @@ int is_userid_anonymous(const char *user)
 static int acl_ok(const char *user, struct auth_state *authstate)
 {
     struct namespace namespace;
-    char *acl;
+    struct mboxlist_entry mbentry;
     char bufuser[MAX_MAILBOX_BUFFER], inboxname[MAX_MAILBOX_BUFFER];
     int r;
 
     /* Set namespace */
     if ((r = mboxname_init_namespace(&namespace, 0)) != 0) {
-	syslog(LOG_ERR, error_message(r));
+	syslog(LOG_ERR, "%s", error_message(r));
 	fatal(error_message(r), EC_CONFIG);
     }
     
@@ -522,131 +529,13 @@ static int acl_ok(const char *user, struct auth_state *authstate)
 					     bufuser, inboxname);
 
     if (r || !authstate ||
-	mboxlist_lookup(inboxname, &acl, NULL)) {
+	mboxlist_lookup(inboxname, &mbentry, NULL)) {
 	r = 0;  /* Failed so assume no proxy access */
     }
     else {
-	r = (cyrus_acl_myrights(authstate, acl) & ACL_ADMIN) != 0;
+	r = (cyrus_acl_myrights(authstate, mbentry.acl) & ACL_ADMIN) != 0;
     }
     return r;
-}
-
-#define DENYDB config_userdeny_db
-#define FNAME_USERDENYDB "/user_deny.db"
-#define USERDENY_VERSION 2
-
-/*
- * access_ok() checks to see if 'user' is allowed access to 'service'
- * Returns 1 if so, 0 if not.
- */
-int access_ok(const char *user, const char *service, char *msgbuf, int size)
-{
-    static char *fname = NULL;
-    struct db *db = NULL;
-    int r, ret = 1;  /* access always granted by default */
-
-    if (!fname) {
-	/* create path to database */
-	fname = xmalloc(strlen(config_dir) + sizeof(FNAME_USERDENYDB) + 1);
-	strcpy(fname, config_dir);
-	strcat(fname, FNAME_USERDENYDB);
-    }
-
-    /* try to open database */
-    r = DENYDB->open(fname, 0, &db);
-    if (r) {
-	/* ignore non-existent DB, report all other errors */
-	if (errno != ENOENT) {
-	    syslog(LOG_WARNING, "DENYDB_ERROR: error opening '%s': %s",
-		   fname, cyrusdb_strerror(r));
-	}
-
-    } else {
-	/* fetch entry for user */
-	const char *data = NULL;
-	int datalen;
-
-	syslog(LOG_DEBUG, "fetching user_deny.db entry for '%s'", user);
-	do {
-	    r = DENYDB->fetch(db, user, strlen(user), &data, &datalen, NULL);
-	} while (r == CYRUSDB_AGAIN);
-
-	if (r || !data || !datalen) {
-	    /* ignore non-existent/empty entry, report all other errors */
-	    if (r != CYRUSDB_NOTFOUND) {
-		syslog(LOG_WARNING,
-		       "DENYDB_ERROR: error reading entry '%s': %s",
-		       user, cyrusdb_strerror(r));
-	    }
-	} else {
-	    /* parse the data */
-	    char *buf, *wild;
-	    unsigned long version;
-
-	    buf = xstrndup(data, datalen);  /* use a working copy */
-
-	    /* check version */
-	    if (((version = strtoul(buf, &wild, 10)) < 1) ||
-		(version > USERDENY_VERSION)) {
-		syslog(LOG_WARNING,
-		       "DENYDB_ERROR: invalid version for entry '%s': %lu",
-		       user, version);
-	    } else if (*wild++ != '\t') {
-		syslog(LOG_WARNING,
-		       "DENYDB_ERROR: missing wildmat for entry '%s'", user);
-	    } else {
-		char *pat, *msg = "Access to this service has been blocked";
-		int not;
-
-		/* check if we have a deny message */
-		switch (version) {
-		case USERDENY_VERSION:
-		    if ((msg = strchr(wild, '\t'))) *msg++ = '\0';
-		    break;
-		}
-
-		/* scan wildmat right to left for a match against our service */
-		syslog(LOG_DEBUG, "wild: '%s'   service: '%s'", wild, service);
-		do {
-		    /* isolate next pattern */
-		    if ((pat = strrchr(wild, ','))) {
-			*pat++ = '\0';
-		    } else {
-			pat = wild;
-		    }
-
-		    /* XXX  trim leading & trailing whitespace? */
-
-		    /* is it a negated pattern? */
-		    not = (*pat == '!');
-		    if (not) ++pat;
-
-		    syslog(LOG_DEBUG, "pat %d:'%s'", not, pat);
-
-		    /* see if pattern matches our service */
-		    if (wildmat(service, pat)) {
-			/* match ==> we're done */
-			ret = not;
-			if (msgbuf) strlcpy(msgbuf, msg, size);
-			break;
-		    }
-
-		    /* continue until we reach head of wildmat */
-		} while (pat != wild);
-	    }
-
-	    free(buf);
-	}
-
-
-	r = DENYDB->close(db);
-	if (r) {
-	    syslog(LOG_WARNING, "DENYDB_ERROR: error closing: %s",
-		   cyrusdb_strerror(r));
-	}
-    }
-
-    return ret;
 }
 
 /* should we allow users to proxy?  return SASL_OK if yes,
@@ -704,7 +593,7 @@ int mysasl_proxy_policy(sasl_conn_t *conn,
     }
 
     /* is requested_user denied access?  authenticated admins are exempt */
-    if (!userisadmin && !access_ok(requested_user, config_ident, NULL, 0)) {
+    if (!userisadmin && userdeny(requested_user, config_ident, NULL, 0)) {
 	syslog(LOG_ERR, "user '%s' denied access to service '%s'",
 	       requested_user, config_ident);
 	sasl_seterror(conn, SASL_NOLOG,
@@ -804,13 +693,23 @@ int shutdown_file(char *buf, int size)
     if (!shutdownfilename[0])
 	snprintf(shutdownfilename, sizeof(shutdownfilename), 
 		 "%s/msg/shutdown", config_dir);
-    if ((f = fopen(shutdownfilename, "r")) == NULL) return 0;
 
-    fgets(buf, size, f);
-    if ((p = strchr(buf, '\r')) != NULL) *p = 0;
-    if ((p = strchr(buf, '\n')) != NULL) *p = 0;
+    f = fopen(shutdownfilename, "r");
+    if (!f) return 0;
 
-    syslog(LOG_DEBUG, "Shutdown file: %s, closing connection", buf);
+    if (!fgets(buf, size, f)) {
+	*buf = '\0';
+
+	syslog(LOG_DEBUG, "Shutdown file exists with no contents");
+    }
+    else {
+	if ((p = strchr(buf, '\r')) != NULL) *p = 0;
+	if ((p = strchr(buf, '\n')) != NULL) *p = 0;
+
+	syslog(LOG_DEBUG, "Shutdown file: %s, closing connection", buf);
+    }
+
+    fclose(f);
 
     return 1;
 }
@@ -874,4 +773,28 @@ char *find_free_partition(unsigned long *tavail)
 
     if (tavail) *tavail = stats.tavail;
     return stats.name;
+}
+
+/* Set up the Session ID Buffer */
+void session_new_id()
+{
+    const char *base;
+    int now = time(NULL);    
+    if (now != session_id_time) {
+        session_id_time = now;
+        session_id_count = 0;
+    }
+    ++session_id_count;
+    base = config_getstring(IMAPOPT_SYSLOG_PREFIX);
+    if (!base) base = config_servername;
+    snprintf(session_id_buf, MAX_SESSIONID_SIZE, "%.128s-%d-%d-%d",
+             base, getpid(), session_id_time, session_id_count);
+}
+
+/* Return the session id */
+const char *session_id()
+{
+    if (!session_id_count) 
+        session_new_id();
+    return (const char *)session_id_buf;
 }

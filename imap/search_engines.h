@@ -39,20 +39,20 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: search_engines.h,v 1.3 2008/03/24 17:09:19 murch Exp $
+ * $Id: search_engines.h,v 1.4 2010/01/06 17:01:40 murch Exp $
  */
 
 #ifndef INCLUDED_SEARCH_ENGINES_H
 #define INCLUDED_SEARCH_ENGINES_H
 
-#include "imapd.h"
+#include "index.h"
 
 /* Fill the msg_list with a list of message IDs which could match the
  * searchargs.
  * Return the number of message IDs inserted.
  */
 extern int search_prefilter_messages(unsigned* msg_list,
-				     struct mailbox *mailbox,
+				     struct index_state *state,
 				     struct searchargs *searchargs);
 
 #endif

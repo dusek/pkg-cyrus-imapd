@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: syncnews.c,v 1.29 2008/03/24 17:09:20 murch Exp $
+ * $Id: syncnews.c,v 1.30 2010/01/06 17:01:42 murch Exp $
  */
 
 #include <config.h>
@@ -244,8 +244,7 @@ void do_syncnews(void)
      */
     for (i = 0; i < group_num; i++) {
 	if (!group_seen[i]) {
-	    r = mboxlist_createmailbox(group[i],
-				       MBTYPE_NETNEWS, "news",
+	    r = mboxlist_createmailbox(group[i], 0, "news",
 				       1, "anonymous", NULL, 0, 0, 0);
 
 	    if (r == IMAP_MAILBOX_BADNAME) {

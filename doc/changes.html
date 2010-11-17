@@ -1,12 +1,123 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<!-- $Id: changes.html,v 1.182 2009/12/21 12:36:10 murch Exp $ -->
+<!-- $Id: changes.html,v 1.186 2010/04/22 17:29:53 murch Exp $ -->
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta name="generator" content="HTML Tidy, see www.w3.org" />
 <title>Changes to the Cyrus IMAP Server</title>
 </head>
 <body>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.3</h1>
+<ul>
+<li>Rewrite index_upgrade to always parse the message
+  files and re-create cyrus.cache, to avoid upgrade
+  upgrade failures where cache errors occured.</li>
+<li>Fixed sync_reset handling of user deletions</li>
+<li>Fixed proc file handling of LOGIN and
+  folder unselect</li>
+<li>use cyrus.expunge file (if still present) to
+  delete bogus records from a failed index upgrade
+  (cause by bugs in earlier version)</li>
+<li>detect version 2.5 in XFER to support use with
+  master git branch in a murder</li>
+<li>made pop3 expunge much more efficient</li>
+<li>handle missing seen file in XFER</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.2</h1>
+<ul>
+<li>Many fixes to replication edge case handling</li>
+<li>Added missing flags to reconstruct</li>
+<li>Replicate DELETED.user folders in sync_client -u
+  (matches XFER behaviour now)</li>
+<li>Make sync_client only connect after forking
+  in rolling mode.  Fixes two things - ssl crashes
+  due to shared resource conflicts, and also means
+  master will start up even if the replica is not
+  contactable</li>
+<li>Fixed crash on cyr_expire and ipurge annotation
+  based expiry</li>
+<li>Many XFER fixes for compatibility across versions:
+ <ul>
+ <li>allowing XFER in from delayed_expunge mailboxes</li>
+ <li>allowing XFER back all the way to Cyrus 2.2.12.
+  This was accomplished by adding logic that can
+  generate backwards-compatible older version indexes,
+  and version detection from the imapd banner.</li>
+ <li>correctly fixing seen information for
+  sub-mailboxes on XFER in</li>
+ </ul></li>
+<li>Multi-target replication.  Strictly this is a new
+ feature - there was a broken implementation in 2.4.0,
+ which is how this snuck in to the bugfix release.
+ It's not super-well documented yet, but it works by
+ creating a separate log file for each destination
+ "channel", and then running one sync_client process
+ per channel, so replication can fall behind on one
+ without affecting replication to the other.</li>
+<li>Fixed some crashes and errors which occured when
+ upgrading and opening corrupted mailboxes</li>
+<li>Modified AFS ptloader configure options to allow
+ building on more modern systems</li>
+</ul>
+
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.1</h1>
+<ul>
+<li>Fix build on Solaris</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.0</h1>
+<ul>
+<li>Fix cyrdump to work with -C for alternate config</li>
+<li>Change master to process all pending child messages once per
+  loop, which fixes a DoS situation if there is too much message churn
+  in a slower box - thanks to Henrique de Moraes Holschuh 
+  &lt;hmh@debian.org&gt;</li>
+<li>Reconstruct added flags -R, -U, -o, -O to give options
+  handling corrupt or missing files</li>
+<li>Reconstruct fixed a pile of bugs, including a nasty one
+  which created mailboxes with a UIDVALIDITY of 0</li>
+<li>Fixed EXPUNGE in murder</li>
+<li>Fixed LSUB where subscribed mailboxes are on
+  different murder backends</li>
+<li>New build system using git commit ID rather than CVS
+  date information to uniquely identify a release or
+  development build via the "ID" command.  Also changes
+  the CYRUS_VERSION string for builds directly from git.</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.3.x</h1>
+<ul>
+<li>All databases are now default skiplist, and ctl_cyrusdb
+  will automatically convert database type on startup.</li>
+<li>make_sha1 and make_md5 are removed (replaced by GUID and
+  reconstruct changes)</li>
+<li>Charset subsystem rewritten - Unicode 5.2 rather than
+ Unicode 2, and UTF-8 support in sieve.</li>
+<li>Core mailbox handling code largely rewritten with new APIs, CRC
+  checksums, new locking mechanisms, merging of cyrus.index and
+  cyrus.expunge, inclusion of user \Seen flag, and much more.</li>
+<li>Replication code largely rewritten to provide better performance,
+  consistency checking, and recovery from "split-brain" scenarios.</li>
+<li>Added support for LIST-EXTENDED IMAP extension.  Removed
+support for deprecated (compile-time) LISTEXT IMAP extension.
+<i>Based on work by Martin Konold &lt;martin.konold@erfrakon.de&gt;</i></li> 
+<li>Added support for ESEARCH IMAP extension.</li>
+<li>Added support for WITHIN extension to IMAP SEARCH.</li>
+<li>Added support for ENABLE IMAP extension.</li>
+<li>Added support for QRESYNC IMAP extension.</li>
+<li>Added support for URLAUTH=BINARY IMAP extension.</li>
+<li>Removed legacy IMAP[2|3|4] cruft.  We now only support IMAPrev1 +
+  extensions.</li>
+<li>Added support for marking QoS on traffic. (courtesy of Philip
+  Prindeville &lt;philipp@redfish-solutions.com&gt;)</li>
+<li>Modified <tt>user_deny.db</tt> code to open database once at
+  service startup time.</li>
+<li>... and hundreds of tiny things too numerous to mention in
+  a short change log ...</li>
+</ul>
 
 <h1>Changes to the Cyrus IMAP Server since 2.3.15</h1>
 <ul>
@@ -21,7 +132,7 @@
   obeying IMAP flags in the POP server.</li>
 <li>Added optimized method of handling an empty maildrop in pop3d.
   Requires <tt>statuscache</tt> to be enabled. (based on work of
-  Cyril Servant <elfejoyeux@gmail.com>) </li>
+  Cyril Servant &lt;elfejoyeux@gmail.com&gt;) </li>
 <li>Added <tt>annotation_definitions</tt> option for specifying
   external (third-party) annotations. (courtesy of Thomas
   Viehmann <tv@beamnet.de>)</li>
@@ -48,7 +159,8 @@ disk space usage.</li>
   mailboxes.db and mupdate clients while scarfing the UPDATE
   response, which can be quite time consuming over slow links.</li>
 <li>Added support for MUPDATE COMPRESS and IMAP COMPRESS commands
-  which help speed up bulk data commands over slow links.</li>
+  which help speed up bulk data commands over slow links.
+  <i>Inspired by work of Dave Cridland &lt;dave@cridland.net&gt;</i></li>
 <li>Allow frontend servers in a Murder to proxy the CREATE, DELETE,
   SETACL, SETQUOTA, and GETQUOTA commands for toplevel mailboxes.  In
   order for a frontend to know where to CREATE a toplevel mailbox,
@@ -2465,7 +2577,7 @@ message for this common configuration error.</li>
 </ul>
 
 <hr />
-last modified: $Date: 2009/12/21 12:36:10 $ <br />
+last modified: $Date: 2010/04/22 17:29:53 $ <br />
 <a href="index.html">Return</a> to the Cyrus IMAP Server Home Page
 </body>
 </html>

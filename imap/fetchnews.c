@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: fetchnews.c,v 1.21 2008/08/27 08:28:46 selsky Exp $
+ * $Id: fetchnews.c,v 1.22 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -62,7 +62,7 @@
 #include "exitcodes.h"
 #include "global.h"
 #include "gmtoff.h"
-#include "lock.h"
+#include "cyr_lock.h"
 #include "prot.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -293,7 +293,7 @@ int main(int argc, char *argv[])
 	    break;
 
 	case 'f': /* timestamp file */
-	    snprintf(sfile, sizeof(sfile), optarg);
+	    snprintf(sfile, sizeof(sfile), "%s", optarg);
 	    break;
 
 	case 'a': /* authname */

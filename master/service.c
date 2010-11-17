@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: service.c,v 1.59 2008/03/24 17:47:41 murch Exp $
+ * $Id: service.c,v 1.61 2010/06/28 12:03:54 brong Exp $
  */
 
 #include <config.h>
@@ -61,6 +61,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -223,7 +224,7 @@ static int unlockaccept(void)
     if (lockfd != -1) {
 	alockinfo.l_type = F_UNLCK;
 	while ((rc = fcntl(lockfd, F_SETLKW, &alockinfo)) < 0 && 
-	       errno == EINTR)
+	       errno == EINTR && !signals_poll())
 	    /* noop */;
 
 	if (rc < 0) {
@@ -436,6 +437,8 @@ int main(int argc, char **argv, char **envp)
 		fd = accept(LISTEN_FD, NULL, NULL);
 		if (fd < 0) {
 		    switch (errno) {
+		    case EINTR:
+            signals_poll();
 		    case ENETDOWN:
 #ifdef EPROTO
 		    case EPROTO:
@@ -449,7 +452,6 @@ int main(int argc, char **argv, char **envp)
 		    case EOPNOTSUPP:
 		    case ENETUNREACH:
 		    case EAGAIN:
-		    case EINTR:
 			break;
 
 		    case EINVAL:
@@ -512,8 +514,47 @@ int main(int argc, char **argv, char **envp)
 		close(fd);
 		continue;
 	    }
+
+	    /* turn on TCP keepalive if set */
+	    if (config_getswitch(IMAPOPT_TCP_KEEPALIVE)) {
+		int r;
+		int optval = 1;
+		socklen_t optlen = sizeof(optval);
+
+		r = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
+		if (r < 0) {
+		    syslog(LOG_ERR, "unable to setsocketopt(SO_KEEPALIVE): %m");
+		}
+#ifdef TCP_KEEPCNT
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_CNT);
+		if (optval) {
+		    r = setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPCNT): %m");
+		    }
+		}
+#endif
+#ifdef TCP_KEEPIDLE
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_IDLE);
+		if (optval) {
+		    r = setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPIDLE): %m");
+		    }
+		}
+#endif
+#ifdef TCP_KEEPINTVL
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_INTVL);
+		if (optval) {
+		    r = setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPINTVL): %m");
+		    }
+		}
+#endif
+	    }
 	}
-	
+
 	notify_master(STATUS_FD, MASTER_SERVICE_UNAVAILABLE);
 	syslog(LOG_DEBUG, "accepted connection");
 

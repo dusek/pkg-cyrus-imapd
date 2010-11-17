@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: master.c,v 1.115 2009/09/24 14:41:06 murch Exp $
+ * $Id: master.c,v 1.117 2010/04/19 19:54:26 murch Exp $
  */
 
 #include <config.h>
@@ -115,7 +115,7 @@
 #include "master.h"
 #include "service.h"
 
-#include "lock.h"
+#include "cyr_lock.h"
 #include "util.h"
 #include "xmalloc.h"
 
@@ -128,6 +128,8 @@ enum {
 static int verbose = 0;
 static int listen_queue_backlog = 32;
 static int pidfd = -1;
+
+static volatile int in_shutdown = 0;
 
 const char *MASTER_CONFIG_FILENAME = DEFAULT_MASTER_CONFIG_FILENAME;
 
@@ -388,14 +390,14 @@ void service_create(struct service *s)
 	listen = xstrdup(s->listen);
 
         if ((port = parse_listen(listen)) == NULL) {
-            /* listen IS the port */
+	    /* listen IS the port */
 	    port = listen;
 	    listen_addr = NULL;
         } else {
-            /* s->listen is now just the address */
+	    /* listen is now just the address */
 	    listen_addr = parse_host(listen);
 	    if (*listen_addr == '\0')
-		listen_addr = NULL;	    
+		listen_addr = NULL;
         }
 
 	error = getaddrinfo(listen_addr, port, &hints, &res0);
@@ -438,6 +440,15 @@ void service_create(struct service *s)
 	    if (r < 0) {
 		syslog(LOG_ERR, "unable to setsocketopt(IPV6_V6ONLY): %m");
 	    }
+	}
+#endif
+
+	/* set IP ToS if supported */
+#if defined(SOL_IP) && defined(IP_TOS)
+	r = setsockopt(s->socket, SOL_IP, IP_TOS,
+		       (void *) &config_qosmarking, sizeof(config_qosmarking));
+	if (r < 0) {
+	    syslog(LOG_WARNING, "unable to setsocketopt(IP_TOS): %m");
 	}
 #endif
 
@@ -845,10 +856,10 @@ void reap_child(void)
 	    default:
 		syslog(LOG_CRIT, 
 		       "service %s pid %d in ILLEGAL STATE: exited. Serious software bug or memory corruption detected!",
-		       SERVICENAME(s->name), pid);
+		       s ? SERVICENAME(s->name) : "unknown", pid);
 		syslog(LOG_DEBUG,
 		       "service %s pid %d in ILLEGAL state: forced to valid UNKNOWN state",
-		       SERVICENAME(s->name), pid);
+		       s ? SERVICENAME(s->name) : "unknown", pid);
 		c->service_state = SERVICE_STATE_UNKNOWN;
 	    }
 	    if (s) {
@@ -857,8 +868,8 @@ void reap_child(void)
 		case SERVICE_STATE_READY:
 		    s->nactive--;
 		    s->ready_workers--;
-		    if (WIFSIGNALED(status) ||
-			(WIFEXITED(status) && WEXITSTATUS(status))) {
+		    if (!in_shutdown && (WIFSIGNALED(status) ||
+			(WIFEXITED(status) && WEXITSTATUS(status)))) {
 			syslog(LOG_WARNING, 
 			       "service %s pid %d in READY state: terminated abnormally",
 			       SERVICENAME(s->name), pid);
@@ -874,8 +885,8 @@ void reap_child(void)
 		    
 		case SERVICE_STATE_BUSY:
 		    s->nactive--;
-		    if (WIFSIGNALED(status) ||
-			(WIFEXITED(status) && WEXITSTATUS(status))) {
+		    if (!in_shutdown && (WIFSIGNALED(status) ||
+			(WIFEXITED(status) && WEXITSTATUS(status)))) {
 			syslog(LOG_DEBUG,
 			       "service %s pid %d in BUSY state: terminated abnormally",
 			       SERVICENAME(s->name), pid);
@@ -894,7 +905,6 @@ void reap_child(void)
 		} 
 	    } else {
 	    	/* children from spawn_schedule (events) or
-		 * children that messaged us before being registered or
 		 * children of services removed by reread_conf() */
 		if (c->service_state != SERVICE_STATE_READY) {
 		    syslog(LOG_WARNING,
@@ -906,17 +916,11 @@ void reap_child(void)
 	    c->service_state = SERVICE_STATE_DEAD;
 	    c->janitor_deadline = time(NULL) + 2;
 	} else {
-	    /* weird. Are we multithreaded now? we don't know this child */
-	    syslog(LOG_WARNING,
-		   "receiving signals from unregistered child %d. Handling it anyway",
+	    /* Are we multithreaded now? we don't know this child */
+	    syslog(LOG_ERR,
+		   "received SIGCHLD from unknown child pid %d, ignoring",
 		   pid);
-	    c = get_centry();
-	    c->pid = pid;
-	    c->service_state = SERVICE_STATE_DEAD;
-	    c->janitor_deadline = time(NULL) + 2;
-	    c->si = SERVICE_NONE;
-	    c->next = ctable[pid % child_table_size];
-	    ctable[pid % child_table_size] = c;
+	    /* FIXME: is this something we should take lightly? */
 	}
 	if (verbose && c && (c->si != SERVICE_NONE))
 	    syslog(LOG_DEBUG, "service %s now has %d ready workers\n", 
@@ -987,6 +991,31 @@ void child_janitor(time_t now)
     }
 }
 
+/* Allow a clean shutdown on SIGQUIT */
+void sigquit_handler(int sig __attribute__((unused)))
+{
+    struct sigaction action;
+
+    /* Ignore SIGQUIT ourselves */
+    sigemptyset(&action.sa_mask);
+    action.sa_flags = 0;
+    action.sa_handler = SIG_IGN;
+    if (sigaction(SIGQUIT, &action, (struct sigaction *) 0) < 0) {
+	syslog(LOG_ERR, "sigaction: %m");
+    }
+
+    /* send our process group a SIGQUIT */
+    if (kill(0, SIGQUIT) < 0) {
+	syslog(LOG_ERR, "sigquit_handler: kill(0, SIGQUIT): %m");
+    }
+
+    /* Set a flag so main loop knows to shut down when
+       all children have exited */
+    in_shutdown = 1;
+
+    syslog(LOG_INFO, "attempting clean shutdown on SIGQUIT");
+}
+
 static volatile sig_atomic_t gotsigchld = 0;
 
 void sigchld_handler(int sig __attribute__((unused)))
@@ -1052,6 +1081,12 @@ void sighandler_setup(void)
 	fatal("unable to install signal handler for SIGALRM: %m", 1);
     }
 
+    /* Allow a clean shutdown on SIGQUIT */
+    action.sa_handler = sigquit_handler;
+    if (sigaction(SIGQUIT, &action, NULL) < 0) {
+	fatal("unable to install signal handler for SIGQUIT: %m", 1);
+    }
+
     /* Handle SIGTERM and SIGINT the same way -- kill
      * off our children! */
     action.sa_handler = sigterm_handler;
@@ -1069,6 +1104,36 @@ void sighandler_setup(void)
     }
 }
 
+/*
+ * Receives a message from a service.
+ *
+ * Returns zero if all goes well
+ * 1 if no msg available
+ * 2 if bad message received (incorrectly sized)
+ * -1 on error (errno set)
+ */
+int read_msg(int fd, struct notify_message *msg)
+{
+    ssize_t r;
+    size_t off = 0;
+    int s = sizeof(struct notify_message);
+
+    while (s > 0) {
+        do
+            r = read(fd, msg + off, s);
+        while ((r == -1) && (errno == EINTR));
+        if (r <= 0) break;
+        s -= r;
+        off += r;
+    }
+    if ( ((r == 0) && (off == 0)) ||
+         ((r == -1) && (errno == EAGAIN)) )
+        return 1;
+    if (r == -1) return -1;
+    if (s != 0) return 2;
+    return 0;
+}
+
 void process_msg(const int si, struct notify_message *msg) 
 {
     struct centry *c;
@@ -1081,13 +1146,21 @@ void process_msg(const int si, struct notify_message *msg)
     
     /* Did we find it? */
     if (!c || c->pid != msg->service_pid) {
-	syslog(LOG_WARNING, "service %s pid %d: while trying to process message 0x%x: not registered yet", 
-	       SERVICENAME(s->name), msg->service_pid, msg->message);
-	/* resilience paranoia. Causes small performance loss when used */
+	/* If we don't know about the child, that means it has expired from
+	 * the child list, due to large message delivery delays.  This is
+	 * indeed possible, although it is rare (Debian bug report).
+	 *
+	 * Note that this analysis depends on master's single-threaded
+	 * nature */
+	syslog(LOG_WARNING,
+		"service %s pid %d: receiving messages from long dead children",
+	       SERVICENAME(s->name), msg->service_pid);
+	/* re-add child to list */
 	c = get_centry();
 	c->si = si;
 	c->pid = msg->service_pid;
-	c->service_state = SERVICE_STATE_UNKNOWN;
+	c->service_state = SERVICE_STATE_DEAD;
+	c->janitor_deadline = time(NULL) + 2;
 	c->next = ctable[c->pid % child_table_size];
 	ctable[c->pid % child_table_size] = c;
     }
@@ -1149,6 +1222,11 @@ void process_msg(const int si, struct notify_message *msg)
 	    c->service_state = SERVICE_STATE_READY;
 	    s->ready_workers++;
 	    break;
+
+	case SERVICE_STATE_DEAD:
+	    /* echoes from the past... just ignore */
+	    break;
+
 	default:
 	    /* Shouldn't get here */
 	    break;
@@ -1179,6 +1257,11 @@ void process_msg(const int si, struct notify_message *msg)
 	    c->service_state = SERVICE_STATE_BUSY;
 	    s->ready_workers--;
 	    break;
+
+	case SERVICE_STATE_DEAD:
+	    /* echoes from the past... just ignore */
+	    break;
+
 	default:
 	    /* Shouldn't get here */
 	    break;
@@ -1212,6 +1295,12 @@ void process_msg(const int si, struct notify_message *msg)
 	    c->service_state = SERVICE_STATE_BUSY;
 	    s->nconnections++;
 	    s->ready_workers--;
+
+	case SERVICE_STATE_DEAD:
+	    /* echoes from the past... do the accounting */
+	    s->nconnections++;
+	    break;
+
 	default:
 	    /* Shouldn't get here */
 	    break;
@@ -1246,6 +1335,12 @@ void process_msg(const int si, struct notify_message *msg)
 		   "service %s pid %d in UNKNOWN state: serving one more multi-threaded connection, forced to READY state",
 		   SERVICENAME(s->name), c->pid);
 	    break;
+
+	case SERVICE_STATE_DEAD:
+	    /* echoes from the past... do the accounting */
+	    s->nconnections++;
+	    break;
+
 	default:
 	    /* Shouldn't get here */
 	    break;
@@ -1310,7 +1405,7 @@ void add_start(const char *name, struct entry *e,
 
 void add_service(const char *name, struct entry *e, void *rock)
 {
-    int ignore_err = (int) rock;
+    int ignore_err = rock ? 1 : 0;
     char *cmd = xstrdup(masterconf_getstring(e, "cmd", ""));
     int prefork = masterconf_getint(e, "prefork", 0);
     int babysit = masterconf_getswitch(e, "babysit", 0);
@@ -1332,7 +1427,7 @@ void add_service(const char *name, struct entry *e, void *rock)
 
 	if (ignore_err) {
 	    syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
-	    return;
+	    goto done;
 	}
 
 	fatal(buf, EX_CONFIG);
@@ -1357,7 +1452,7 @@ void add_service(const char *name, struct entry *e, void *rock)
 
 	if (ignore_err) {
 	    syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
-	    return;
+	    goto done;
 	}
 
 	fatal(buf, EX_CONFIG);
@@ -1382,10 +1477,13 @@ void add_service(const char *name, struct entry *e, void *rock)
     if (!Services[i].name) Services[i].name = xstrdup(name);
     if (Services[i].listen) free(Services[i].listen);
     Services[i].listen = listen;
+    listen = NULL; /* avoid freeing it */
     if (Services[i].proto) free(Services[i].proto);
     Services[i].proto = proto;
+    proto = NULL; /* avoid freeing it */
 
     Services[i].exec = tokenize(cmd);
+    cmd = NULL; /* avoid freeing it */
     if (!Services[i].exec) fatal("out of memory", EX_UNAVAILABLE);
 
     /* is this service actually there? */
@@ -1393,7 +1491,6 @@ void add_service(const char *name, struct entry *e, void *rock)
 	char buf[1024];
 	snprintf(buf, sizeof(buf),
 		 "cannot find executable for service '%s'", name);
-	
 	/* if it is not, we're misconfigured, die. */
 	fatal(buf, EX_CONFIG);
     }
@@ -1407,7 +1504,7 @@ void add_service(const char *name, struct entry *e, void *rock)
 	Services[i].desired_workers = prefork;
 	Services[i].babysit = babysit;
 	Services[i].max_workers = atoi(max);
-	if (Services[i].max_workers == -1) {
+	if (Services[i].max_workers < 0) {
 	    Services[i].max_workers = INT_MAX;
 	}
     } else {
@@ -1416,7 +1513,6 @@ void add_service(const char *name, struct entry *e, void *rock)
 	Services[i].desired_workers = prefork;
 	Services[i].max_workers = 1;
     }
-    free(max);
  
     if (reconfig) {
 	/* reconfiguring an existing service, update any other instances */
@@ -1440,11 +1536,18 @@ void add_service(const char *name, struct entry *e, void *rock)
 	       Services[i].desired_workers,
 	       Services[i].max_workers,
 	       (int) Services[i].maxfds);
+
+done:
+    free(cmd);
+    free(listen);
+    free(proto);
+    free(max);
+    return;
 }
 
 void add_event(const char *name, struct entry *e, void *rock)
 {
-    int ignore_err = (int) rock;
+    int ignore_err = rock ? 1 : 0;
     char *cmd = xstrdup(masterconf_getstring(e, "cmd", ""));
     int period = 60 * masterconf_getint(e, "period", 0);
     int at = masterconf_getint(e, "at", -1), hour, min;
@@ -1799,10 +1902,11 @@ int main(int argc, char **argv)
 	 * and obtain a new process group.
 	 */
 	if (setsid() == -1) {
+	    int r;
 	    int exit_result = EX_OSERR;
 	    
 	    /* Tell our parent that we failed. */
-	    write(startup_pipe[1], &exit_result, sizeof(exit_result));
+	    r = write(startup_pipe[1], &exit_result, sizeof(exit_result));
 	
 	    fatal("setsid failure", EX_OSERR);
 	}
@@ -1814,9 +1918,10 @@ int main(int argc, char **argv)
     pidfd = open(pidfile, O_CREAT|O_RDWR, 0644);
     if(pidfd == -1) {
 	int exit_result = EX_OSERR;
+	int r;
 
 	/* Tell our parent that we failed. */
-	write(startup_pipe[1], &exit_result, sizeof(exit_result));
+	r = write(startup_pipe[1], &exit_result, sizeof(exit_result));
 
 	syslog(LOG_ERR, "can't open pidfile: %m");
 	exit(EX_OSERR);
@@ -1825,9 +1930,10 @@ int main(int argc, char **argv)
 
 	if(lock_nonblocking(pidfd)) {
 	    int exit_result = EX_OSERR;
+	    int r;
 
 	    /* Tell our parent that we failed. */
-	    write(startup_pipe[1], &exit_result, sizeof(exit_result));
+	    r = write(startup_pipe[1], &exit_result, sizeof(exit_result));
 	    
 	    fatal("cannot get exclusive lock on pidfile (is another master still running?)", EX_OSERR);
 	} else {
@@ -1837,9 +1943,10 @@ int main(int argc, char **argv)
 				    pidfd_flags | FD_CLOEXEC);
 	    if (pidfd_flags == -1) {
 		int exit_result = EX_OSERR;
+		int r;
 		
 		/* Tell our parent that we failed. */
-		write(startup_pipe[1], &exit_result, sizeof(exit_result));
+		r = write(startup_pipe[1], &exit_result, sizeof(exit_result));
 
 		fatal("unable to set close-on-exec for pidfile: %m", EX_OSERR);
 	    }
@@ -1850,13 +1957,15 @@ int main(int argc, char **argv)
 	       ftruncate(pidfd, 0) == -1 ||
 	       write(pidfd, buf, strlen(buf)) == -1) {
 		int exit_result = EX_OSERR;
+		int r;
 
 		/* Tell our parent that we failed. */
-		write(startup_pipe[1], &exit_result, sizeof(exit_result));
+		r = write(startup_pipe[1], &exit_result, sizeof(exit_result));
 
 		fatal("unable to write to pidfile: %m", EX_OSERR);
 	    }
-	    fsync(pidfd);
+	    if (fsync(pidfd))
+		fatal("unable to sync pidfile: %m", EX_OSERR);
 	}
     }
 
@@ -1935,7 +2044,7 @@ int main(int argc, char **argv)
 
     now = time(NULL);
     for (;;) {
-	int r, i, maxfd;
+	int r, i, maxfd, total_children = 0;
 	struct timeval tv, *tvptr;
 	struct notify_message msg;
 #if defined(HAVE_UCDSNMP) || defined(HAVE_NETSNMP)
@@ -1943,7 +2052,8 @@ int main(int argc, char **argv)
 #endif
 
 	/* run any scheduled processes */
-	spawn_schedule(now);
+	if (!in_shutdown)
+	    spawn_schedule(now);
 
 	/* reap first, that way if we need to babysit we will */
 	if (gotsigchld) {
@@ -1954,40 +2064,48 @@ int main(int argc, char **argv)
 	
 	/* do we have any services undermanned? */
 	for (i = 0; i < nservices; i++) {
-	    if (Services[i].exec /* enabled */ &&
-		(Services[i].nactive < Services[i].max_workers) &&
-		(Services[i].ready_workers < Services[i].desired_workers)) {
-		spawn_service(i);
-	    } else if (Services[i].exec
-		       && Services[i].babysit
-		       && Services[i].nactive == 0) {
-		syslog(LOG_ERR,
-		       "lost all children for service: %s.  " \
-		       "Applying babysitter.",
-		       Services[i].name);
-		spawn_service(i);
-	    } else if (!Services[i].exec /* disabled */ &&
-		       Services[i].name /* not yet removed */ &&
-		       Services[i].nactive == 0) {
-		if (verbose > 2)
-		    syslog(LOG_DEBUG, "remove: service %s pipe %d %d",
-			   Services[i].name,
-			   Services[i].stat[0], Services[i].stat[1]);
-
-		/* Only free the service info on the primary */
-		if (Services[i].associate == 0) {
-		    free(Services[i].name);
+	    total_children += Services[i].nactive;
+	    if (!in_shutdown) {
+		if (Services[i].exec /* enabled */ &&
+		    (Services[i].nactive < Services[i].max_workers) &&
+		    (Services[i].ready_workers < Services[i].desired_workers)) {
+		    spawn_service(i);
+		} else if (Services[i].exec
+			  && Services[i].babysit
+			  && Services[i].nactive == 0) {
+		    syslog(LOG_ERR,
+			  "lost all children for service: %s.  " \
+			  "Applying babysitter.",
+			  Services[i].name);
+		    spawn_service(i);
+		} else if (!Services[i].exec /* disabled */ &&
+			  Services[i].name /* not yet removed */ &&
+			  Services[i].nactive == 0) {
+		    if (verbose > 2)
+			syslog(LOG_DEBUG, "remove: service %s pipe %d %d",
+			      Services[i].name,
+			      Services[i].stat[0], Services[i].stat[1]);
+    
+		    /* Only free the service info on the primary */
+		    if (Services[i].associate == 0) {
+			free(Services[i].name);
+		    }
+		    Services[i].name = NULL;
+		    Services[i].nforks = 0;
+		    Services[i].nactive = 0;
+		    Services[i].nconnections = 0;
+		    Services[i].associate = 0;
+    
+		    if (Services[i].stat[0] > 0) close(Services[i].stat[0]);
+		    if (Services[i].stat[1] > 0) close(Services[i].stat[1]);
+		    memset(Services[i].stat, 0, sizeof(Services[i].stat));
 		}
-		Services[i].name = NULL;
-		Services[i].nforks = 0;
-		Services[i].nactive = 0;
-		Services[i].nconnections = 0;
-		Services[i].associate = 0;
-
-		if (Services[i].stat[0] > 0) close(Services[i].stat[0]);
-		if (Services[i].stat[1] > 0) close(Services[i].stat[1]);
-		memset(Services[i].stat, 0, sizeof(Services[i].stat));
 	    }
+	}
+        
+	if (in_shutdown && total_children == 0) {
+	   syslog(LOG_NOTICE, "All children have exited, closing down");
+	   exit(0);
 	}
 
 	if (gotsighup) {
@@ -2064,16 +2182,22 @@ int main(int argc, char **argv)
 	    int j;
 
 	    if (FD_ISSET(x, &rfds)) {
-		r = read(x, &msg, sizeof(msg));
-		if (r != sizeof(msg)) {
-		    syslog(LOG_ERR, "got incorrectly sized response from child: %x", i);
+		while ((r = read_msg(x, &msg)) == 0)
+		    process_msg(i, &msg);
+
+		if (r == 2) {
+		    syslog(LOG_ERR,
+			"got incorrectly sized response from child: %x", i);
 		    continue;
 		}
-		
-		process_msg(i, &msg);
+		if (r < 0) {
+		    syslog(LOG_ERR,
+			"error while receiving message from child %x: %m", i);
+		    continue;
+		}
 	    }
 
-	    if (Services[i].exec &&
+	    if (!in_shutdown && Services[i].exec &&
 		Services[i].nactive < Services[i].max_workers) {
 		/* bring us up to desired_workers */
 		for (j = Services[i].ready_workers;

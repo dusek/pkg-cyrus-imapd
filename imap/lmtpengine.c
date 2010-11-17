@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: lmtpengine.c,v 1.131 2009/04/23 01:30:32 murch Exp $
+ * $Id: lmtpengine.c,v 1.132 2010/01/06 17:01:35 murch Exp $
  */
 
 #include <config.h>
@@ -145,13 +145,6 @@ static struct {
 } saslprops = {NULL,NULL,0,NULL};
 
 
-void printstring(const char *s __attribute__((unused)))
-{
-    /* needed to link against annotate.o */
-    fatal("printstring() executed, but its not used for LMTP!",
-	  EC_SOFTWARE);
-}
-
 #ifdef USING_SNMPGEN
 /* round to nearest 1024 bytes and return number of Kbytes.
  used for SNMP updates. */
@@ -173,7 +166,7 @@ static void send_lmtp_error(struct protstream *pout, int r)
 {
     switch (r) {
     case 0:
-	prot_printf(pout, "250 2.1.5 Ok\r\n");
+	prot_printf(pout, "250 2.1.5 Ok SESSIONID=<%s>\r\n", session_id());
 	break;
 
     case IMAP_IOERROR:
@@ -213,10 +206,10 @@ static void send_lmtp_error(struct protstream *pout, int r)
     case IMAP_QUOTA_EXCEEDED:
 	if(config_getswitch(IMAPOPT_LMTP_OVER_QUOTA_PERM_FAILURE)) {
 	    /* Not Default - Perm Failure */
-	    prot_printf(pout, "552 5.2.2 Over quota\r\n");
+	    prot_printf(pout, "552 5.2.2 Over quota SESSIONID=<%s>\r\n", session_id());
 	} else {
 	    /* Default - Temp Failure */
-	    prot_printf(pout, "452 4.2.2 Over quota\r\n");
+	    prot_printf(pout, "452 4.2.2 Over quota SESSIONID=<%s>\r\n", session_id());
 	}
 	break;
 
@@ -269,7 +262,7 @@ static void send_lmtp_error(struct protstream *pout, int r)
     case MUPDATE_BADPARAM:
     default:
 	/* Some error we're not expecting. */
-	prot_printf(pout, "554 5.0.0 Unexpected internal error\r\n");
+	prot_printf(pout, "451 4.3.0 Unexpected internal error\r\n");
 	break;
     }
 }
@@ -662,7 +655,7 @@ static int savemsg(struct clientdata *cd,
     rfc822date_gen(datestr, sizeof(datestr), now);
     addlen = 8 + strlen(cd->lhlo_param) + strlen(cd->clienthost);
     if (m->authuser) addlen += 28 + strlen(m->authuser) + 5; /* +5 for ssf */
-    addlen += 25 + strlen(config_servername) + strlen(CYRUS_VERSION);
+    addlen += 25 + strlen(config_servername) + strlen(cyrus_version());
 #ifdef HAVE_SSL
     if (cd->tls_conn) {
 	addlen += 3 + tls_get_info(cd->tls_conn, tls_info, sizeof(tls_info));
@@ -686,7 +679,7 @@ static int savemsg(struct clientdata *cd,
     /* We are always atleast "with LMTPA" -- no unauth delivery */
     p += sprintf(p, " by %s", config_servername);
     if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON) {
-	p += sprintf(p, " (Cyrus %s)", CYRUS_VERSION);
+	p += sprintf(p, " (Cyrus %s)", cyrus_version());
     }
     p += sprintf(p, " with LMTP%s%s",
 		 cd->starttls_done ? "S" : "",
@@ -741,7 +734,7 @@ static int savemsg(struct clientdata *cd,
     }
 
     /* get date */
-    if (!(body = spool_getheader(m->hdrcache, "date"))) {
+    if (!spool_getheader(m->hdrcache, "date")) {
 	/* no date, create one */
 	addbody = xstrdup(datestr);
 	fprintf(f, "Date: %s\r\n", addbody);
@@ -1107,8 +1100,10 @@ void lmtpmode(struct lmtp_func *func,
 						   the AUTH command */
 	ssf = 2;
 	auth_id = "postman";
-	sasl_setprop(cd.conn, SASL_SSF_EXTERNAL, &ssf);
-	sasl_setprop(cd.conn, SASL_AUTH_EXTERNAL, auth_id);
+	if (sasl_setprop(cd.conn, SASL_SSF_EXTERNAL, &ssf) != SASL_OK)
+	    fatal("Failed to set SASL property", EC_TEMPFAIL);
+	if (sasl_setprop(cd.conn, SASL_AUTH_EXTERNAL, auth_id) != SASL_OK)
+	    fatal("Failed to set SASL property", EC_TEMPFAIL);
 
 	deliver_logfd = telemetry_log(auth_id, pin, pout, 0);
     } else {
@@ -1119,7 +1114,7 @@ void lmtpmode(struct lmtp_func *func,
     prot_printf(pout, "220 %s", config_servername);
     if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON) {
 	prot_printf(pout, " Cyrus LMTP%s %s",
-		    config_mupdate_server ? " Murder" : "", CYRUS_VERSION);
+		    config_mupdate_server ? " Murder" : "", cyrus_version());
     }
     prot_printf(pout, " server ready\r\n");
 
@@ -1780,7 +1775,7 @@ static void pushmsg(struct protstream *in, struct protstream *out,
     while (prot_fgets(buf, sizeof(buf)-2, in)) {
 	/* dot stuff */
 	if (!isdotstuffed && (lastline_hadendline == 1) && (buf[0]=='.')) {
-	    prot_putc('.', out);
+	    (void)prot_putc('.', out);
 	}
 	p = buf + strlen(buf) - 1;
 	if (*p == '\n') {

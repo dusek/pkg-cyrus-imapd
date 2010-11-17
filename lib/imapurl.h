@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: imapurl.h,v 1.8 2008/03/24 17:43:09 murch Exp $
+ * $Id: imapurl.h,v 1.9 2010/01/06 17:01:45 murch Exp $
  */
 
 #ifndef IMAPURL_H
@@ -74,7 +74,7 @@ struct imapurl {
  *  coded URLs; server should be as large as src.
  */
 int imapurl_fromURL(struct imapurl *url, const char *src);
-int URLtoMailbox(char *dst, char *src);
+int URLtoMailbox(char *dst, const char *src);
 #define UTF8_to_mUTF7(dst, src) URLtoMailbox(dst, src)
 
 /* Convert an IMAP mailbox to a URL path

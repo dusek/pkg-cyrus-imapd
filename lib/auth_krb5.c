@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: auth_krb5.c,v 1.7 2008/03/24 17:43:08 murch Exp $
+ * $Id: auth_krb5.c,v 1.8 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
@@ -137,7 +137,7 @@ static char *mycanonifyid(const char *identifier, size_t len)
 
     /* build dummy princ to compare realms */
     if (krb5_build_principal(context,&princ_dummy,
-			     strlen(realm),realm,"dummy",0))
+			     strlen(realm),realm,"dummy",NULL))
     {
 	krb5_free_principal(context,princ);
 	krb5_free_context(context);

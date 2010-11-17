@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cyrusdb_quotalegacy.c,v 1.20 2009/01/14 15:54:42 murch Exp $
+ * $Id: cyrusdb_quotalegacy.c,v 1.21 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
@@ -80,7 +80,7 @@
 #include "hash.h"
 #include "map.h"
 #include "libcyr_cfg.h"
-#include "lock.h"
+#include "cyr_lock.h"
 #include "retry.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -328,7 +328,7 @@ static int myopen(const char *fname, int flags, struct db **ret)
 
     if (r == -1) {
 	int level = (flags & CYRUSDB_CREATE) ? LOG_ERR : LOG_DEBUG;
-	syslog(level, "IOERROR: stating %s: %m", db->path);
+	syslog(level, "IOERROR: stating quota %s: %m", db->path);
 	free_db(db);
 	return CYRUSDB_IOERROR;
     }
@@ -360,7 +360,7 @@ static int myfetch(struct db *db, char *quota_path,
     if (data) *data = NULL;
     if (datalen) *datalen = 0;
 
-    if (!data) {
+    if (!data || !datalen) {
 	/* just check if the key exists */
 	struct stat sbuf;
 
@@ -667,14 +667,11 @@ static int mystore(struct db *db,
     int r = 0;
 
     /* if we need to truncate the key, do so */
-    if (key[keylen] != '\0') {
-	tmpkey = xmalloc(keylen + 1);
-	memcpy(tmpkey, key, keylen);
-	tmpkey[keylen] = '\0';
-	key = tmpkey;
-    }
+    tmpkey = xmalloc(keylen + 1);
+    memcpy(tmpkey, key, keylen);
+    tmpkey[keylen] = '\0';
 
-    hash_quota(quota_path, sizeof(quota_path), key, db->path);
+    hash_quota(quota_path, sizeof(quota_path), tmpkey, db->path);
     if (tmpkey) free(tmpkey);
 
     if (tid) {

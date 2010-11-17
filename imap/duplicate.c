@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: duplicate.c,v 1.47 2008/03/24 17:09:16 murch Exp $
+ * $Id: duplicate.c,v 1.48 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -166,6 +166,9 @@ void duplicate_log(char *msgid, const char *name, char *action)
 {
     syslog(LOG_INFO, "dupelim: eliminated duplicate message to %s id %s (%s)",
 	   name, msgid, action);
+    if (config_auditlog)
+	syslog(LOG_NOTICE, "auditlog: duplicate sessionid=<%s> action=<%s> message-id=%s user=<%s>",
+	       session_id(), action, msgid, name); 
 }
 
 void duplicate_mark(char *id, int idlen, const char *to, int tolen, time_t mark,

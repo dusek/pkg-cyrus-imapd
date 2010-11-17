@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: service-thread.c,v 1.21 2008/03/24 17:47:41 murch Exp $
+ * $Id: service-thread.c,v 1.22 2010/01/06 17:01:53 murch Exp $
  */
 
 #include <config.h>
@@ -70,6 +70,7 @@
 #include "service.h"
 #include "libconfig.h"
 #include "xmalloc.h"
+#include "signals.h"
 
 extern int optind;
 extern char *optarg;
@@ -265,6 +266,8 @@ int main(int argc, char **argv, char **envp)
 	    fd = accept(LISTEN_FD, NULL, NULL);
 	    if (fd < 0) {
 		switch (errno) {
+		case EINTR:
+        signals_poll();
 		case ENETDOWN:
 #ifdef EPROTO
 		case EPROTO:
@@ -278,7 +281,6 @@ int main(int argc, char **argv, char **envp)
 		case EOPNOTSUPP:
 		case ENETUNREACH:
 		case EAGAIN:
-		case EINTR:
 		case ECONNABORTED:
 		    break;
 		default:

@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: libconfig.c,v 1.24 2009/08/20 15:26:15 murch Exp $
+ * $Id: libconfig.c,v 1.26 2010/04/19 19:54:26 murch Exp $
  */
 
 #include <config.h>
@@ -80,8 +80,10 @@ const char *config_ident = NULL;         /* the service name */
 int config_hashimapspool;	  /* f */
 enum enum_value config_virtdomains;	          /* f */
 enum enum_value config_mupdate_config;	/* IMAP_ENUM_MUPDATE_CONFIG_STANDARD */
-int config_maxword;
-int config_maxquoted;
+int config_auditlog;
+unsigned config_maxword;
+unsigned config_maxquoted;
+int config_qosmarking;
 
 /* declared in each binary that uses libconfig */
 extern const int config_need_data;
@@ -107,7 +109,7 @@ int config_getint(enum imapopt opt)
 #if (SIZEOF_LONG != 4)
     if ((imapopts[opt].val.i > 0x7fffffff)||
 	(imapopts[opt].val.i < -0x7fffffff)) {
-	syslog(LOG_ERR, "config_getint: %s: %lld too large for type",
+	syslog(LOG_ERR, "config_getint: %s: %ld too large for type",
 	       imapopts[opt].optname, imapopts[opt].val.i);
     }
 #endif    
@@ -121,7 +123,7 @@ int config_getswitch(enum imapopt opt)
 #if (SIZEOF_LONG != 4)
     if ((imapopts[opt].val.b > 0x7fffffff)||
 	(imapopts[opt].val.b < -0x7fffffff)) {
-	syslog(LOG_ERR, "config_getswitch: %s: %lld too large for type", 
+	syslog(LOG_ERR, "config_getswitch: %s: %ld too large for type", 
 	       imapopts[opt].optname, imapopts[opt].val.b);
     }
 #endif    
@@ -210,11 +212,21 @@ static void config_ispartition(const char *key,
     if (!strncmp("partition-", key, 10)) *found = 1;
 }
 
+static const unsigned char qos[] = {
+/* cs0..cs7 */		0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0,
+/* af11..af13 */	0x28, 0x30, 0x38,
+/* af21..af23 */	0x48, 0x50, 0x58,
+/* af31..af33 */	0x68, 0x70, 0x78,
+/* af41..af43 */	0x88, 0x90, 0x98,
+/* ef */		0xb8
+};
+
 void config_read(const char *alt_config)
 {
     enum imapopt opt = IMAPOPT_ZERO;
     char buf[4096];
     char *p;
+    int ival;
 
     /* xxx this is leaked, this may be able to be better in 2.2 (cyrus_done) */
     if(alt_config) config_filename = xstrdup(alt_config);
@@ -311,6 +323,9 @@ void config_read(const char *alt_config)
     config_virtdomains = config_getenum(IMAPOPT_VIRTDOMAINS);
     config_defdomain = config_getstring(IMAPOPT_DEFAULTDOMAIN);
 
+    /* are we auditlogging */
+    config_auditlog = config_getswitch(IMAPOPT_AUDITLOG);
+
     /* look up the hostname and info we should present to the user */
     config_servername = config_getstring(IMAPOPT_SERVERNAME);
     if (!config_servername) {
@@ -328,6 +343,9 @@ void config_read(const char *alt_config)
     /* set some limits */
     config_maxquoted = config_getint(IMAPOPT_MAXQUOTED);
     config_maxword = config_getint(IMAPOPT_MAXWORD);
+
+    ival = config_getenum(IMAPOPT_QOSMARKING);
+    config_qosmarking = qos[ival];
 }
 
 #define GROWSIZE 4096

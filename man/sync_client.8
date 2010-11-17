@@ -40,7 +40,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $Id: sync_client.8,v 1.5 2009/12/16 02:54:15 brong Exp $
+.\" $Id: sync_client.8,v 1.6 2010/01/06 17:01:52 murch Exp $
 .SH NAME
 sync_client \- client side of the synchronization (replication) engine
 .SH SYNOPSIS
@@ -171,6 +171,14 @@ daemons from the file specified in
 Repeat until
 .I sync_shutdwon_file
 appears.
+.TP
+.BI \-n
+Use the named channel for rolling replication mode.  If multiple channels
+are specified in
+.I sync_log_channels
+then use one of them.  This option is
+probably best combined with -S to connect to a different server with each
+channel.
 .TP
 .BI \-u
 User mode.

@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: masterconf.c,v 1.15 2009/03/31 04:11:23 brong Exp $
+ * $Id: masterconf.c,v 1.16 2010/01/06 17:01:53 murch Exp $
  */
 
 #include <config.h>
@@ -200,7 +200,7 @@ static void process_section(FILE *f, int *lnptr,
 	if (*p == '}') break;
 
 	for (q = p; Uisalnum(*q); q++) ;
-	if (q) { *q = '\0'; q++; }
+	if (*q) { *q = '\0'; q++; }
 	
 	if (q - p > 0) {
 	    /* there's a value on this line */

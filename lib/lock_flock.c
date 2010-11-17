@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: lock_flock.c,v 1.16 2008/03/24 17:43:09 murch Exp $
+ * $Id: lock_flock.c,v 1.17 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -51,7 +51,7 @@
 #include <unistd.h>
 #endif
 
-#include "lock.h"
+#include "cyr_lock.h"
 
 const char *lock_method_desc = "flock";
 

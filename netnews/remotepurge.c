@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: remotepurge.c,v 1.20 2009/03/31 04:11:23 brong Exp $
+ * $Id: remotepurge.c,v 1.21 2010/01/06 17:01:54 murch Exp $
  */
 
 #include <config.h>
@@ -295,19 +295,13 @@ callback_search(struct imclient *imclient,
 	       struct imclient_reply *reply)
 {
     uid_list_t *uids = (uid_list_t *) rock;
-    char *s;
-    unsigned long num;
+    const char *s;
+    uint32_t num;
 
     s = reply->text;
 
     while (Uisdigit(*s)) {
-	num = 0;
-	
-	while ((*s!='\0') && (*s!=' '))
-	{
-	    num = num*10 + (*s-'0');
-	    s++;
-	}
+	if (parseuint32(s, &s, &num)) break;
 
 	if (uids->size >= uids->allocsize)
 	{
@@ -324,7 +318,6 @@ callback_search(struct imclient *imclient,
 	if (*s == '\0') break;
 	s++;
     }
-   
 }
 
 static int send_delete(const char *mbox, const char *uidlist)

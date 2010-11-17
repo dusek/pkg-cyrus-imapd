@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: mboxkey.c,v 1.7 2008/08/27 08:28:47 selsky Exp $
+ * $Id: mboxkey.c,v 1.8 2010/01/06 17:01:36 murch Exp $
  */
 
 #include <config.h>
@@ -442,9 +442,9 @@ static int mboxkey_merge_cb(void *rockp,
     struct mboxkey_merge_rock *rockdata = (struct mboxkey_merge_rock *)rockp;
     struct db *tgtdb = rockdata->db;
     const char *tgtdata;
-    int tgtdatalen, dirty = 0;
+    int tgtdatalen;
 
-    if(!tgtdb) return IMAP_INTERNAL;
+    if (!tgtdb) return IMAP_INTERNAL;
 
     r = DB->fetchlock(tgtdb, key, keylen, &tgtdata, &tgtdatalen,
 		      &(rockdata->tid));
@@ -461,19 +461,10 @@ static int mboxkey_merge_cb(void *rockp,
 	memcpy(&s, tmp, sizeof(s));
 	version = ntohs(s);
 	assert(version == MBOXKEY_VERSION);
-
-	dirty = 1;
-    } else {
-	dirty = 1;
     }
     
-    if(dirty) {
-	/* write back data from new entry */
-	return DB->store(tgtdb, key, keylen, tmpdata, tmpdatalen,
-			 &(rockdata->tid));
-    } else {
-	return 0;
-    }
+    return DB->store(tgtdb, key, keylen, tmpdata, tmpdatalen,
+		     &(rockdata->tid));
 }
 
 int mboxkey_merge(const char *tmpfile, const char *tgtfile) 

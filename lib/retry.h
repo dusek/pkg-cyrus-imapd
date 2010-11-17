@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: retry.h,v 1.14 2008/03/24 17:43:09 murch Exp $
+ * $Id: retry.h,v 1.15 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef INCLUDED_RETRY_H
@@ -54,6 +54,7 @@
 #endif
 
 #include <sys/uio.h>
+#include "xmalloc.h"
 
 extern int retry_read P((int fd, void *buf, size_t nbyte));
 extern int retry_write P((int fd, const void *buf, size_t nbyte));

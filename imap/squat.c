@@ -40,7 +40,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: squat.c,v 1.11 2008/03/24 17:09:19 murch Exp $
+ * $Id: squat.c,v 1.12 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -109,7 +109,7 @@ SquatSearchIndex* squat_search_open(int fd) {
     goto cleanup_index;
   }
   data_len = buf.st_size - SQUAT_SAFETY_ZONE;
-  if (data_len < sizeof(SquatDiskHeader)) {
+  if ((size_t)data_len < sizeof(SquatDiskHeader)) {
     squat_set_last_error(SQUAT_ERR_INVALID_INDEX_FILE);
     goto cleanup_index;    
   }

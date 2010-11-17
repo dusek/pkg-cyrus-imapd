@@ -40,7 +40,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $Id: ctl_cyrusdb.8,v 1.7 2008/04/04 12:46:50 murch Exp $
+.\" $Id: ctl_cyrusdb.8,v 1.8 2010/01/06 17:01:51 murch Exp $
 .SH NAME
 ctl_cyrusdb \- perform operations common to all Cyrus databases
 .SH SYNOPSIS
@@ -81,6 +81,10 @@ Read configuration options from \fIconfig-file\fR.
 Recover the databases after an application or system failure.  Also performs
 database cleanup like removing mailbox reservations (and any associated
 mailbox files).
+
+All mailbox files are also checked to make sure the file format matches
+the configured database type in imapd.conf.  If not, the file is
+automatically converted using the same logic as cvt_cyrusdb.
 .TP
 .B \-x
 Used with -r to recover the database only.  (Prevents database cleanup).

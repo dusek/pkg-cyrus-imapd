@@ -38,7 +38,7 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: IMAP.pm,v 1.24 2008/04/04 12:47:08 murch Exp $
+# $Id: IMAP.pm,v 1.25 2010/01/06 17:01:54 murch Exp $
 
 package Cyrus::IMAP;
 
@@ -261,15 +261,12 @@ sub authenticate {
 	  $opts{-tlskey} = undef;
       }
 
-      if (defined($opts{-tlskey})) {
-	  $self->_starttls($opts{-tlskey}, $opts{-tlskey}, $opts{-cafile}, $opts{-capath});
+      $self->_starttls($opts{-tlskey}, $opts{-tlskey}, $opts{-cafile}, $opts{-capath});
 
-	  # Refetch all relevent capabilities
-	  ($starttls, $logindisabled, $availmechs) = (0, 0, "");
-	  $self->send(undef, undef, 'CAPABILITY');
-
-	  $opts{-mechanism} = $availmechs if ($opts{-mechanism} eq '');
-      }
+      # Refetch all relevent capabilities
+      ($starttls, $logindisabled, $availmechs) = (0, 0, "");
+      $self->send(undef, undef, 'CAPABILITY');
+      $opts{-mechanism} = $availmechs if ($opts{-mechanism} eq '');
   }
 
   $self->addcallback({-trigger => 'CAPABILITY'});
@@ -286,8 +283,13 @@ sub authenticate {
   }
 
   if (!$rc && $logindisabled) {
-      warn "Login disabled.\n";
-      return undef;
+    $self->_starttls('', '', '', '') || return undef;
+
+    # Refetch all relevent capabilities
+    ($starttls, $logindisabled, $availmechs) = (0, 0, "");
+    $self->send(undef, undef, 'CAPABILITY');
+
+    $opts{-mechanism} = $availmechs if ($opts{-mechanism} eq '');
   }
 
   $opts{-mechanism} ||= 'plain';

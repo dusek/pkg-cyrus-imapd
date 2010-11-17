@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: auth_pts.c,v 1.15 2008/03/24 17:43:08 murch Exp $
+ * $Id: auth_pts.c,v 1.16 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
@@ -59,7 +59,7 @@
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "libcyr_cfg.h"
-#include "lock.h"
+#include "cyr_lock.h"
 #include "retry.h"
 #include "strhash.h"
 #include "xmalloc.h"
@@ -108,8 +108,8 @@ timeout_select (int sock, int op, int sec) {
   tv.tv_sec = sec;
   tv.tv_usec = 0;
 
-  syslog(LOG_DEBUG, "timeout_select: sock = %d, rp = 0x%x, wp = 0x%x, sec = %d", 
-         sock, (unsigned) rp, (unsigned) wp, sec);
+  syslog(LOG_DEBUG, "timeout_select: sock = %d, rp = 0x%lx, wp = 0x%lx, sec = %d", 
+         sock, (unsigned long)rp, (unsigned long)wp, sec);
 
   if ((r = select(sock+1, rp, wp, NULL, &tv)) == 0) {
     /* r == 0 then timed out. we change this into an error */

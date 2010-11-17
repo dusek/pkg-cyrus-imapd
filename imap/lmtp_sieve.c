@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: lmtp_sieve.c,v 1.19 2009/03/31 04:11:18 brong Exp $
+ * $Id: lmtp_sieve.c,v 1.20 2010/01/06 17:01:35 murch Exp $
  */
 
 #include <config.h>
@@ -277,7 +277,7 @@ static int send_rejection(const char *origid,
 	    "Content-Type: message/disposition-notification\r\n\r\n",
 	    (int) p, config_servername);
     fprintf(sm, "Reporting-UA: %s; Cyrus %s/%s\r\n",
-	    config_servername, CYRUS_VERSION, SIEVE_VERSION);
+	    config_servername, cyrus_version(), SIEVE_VERSION);
     if (origreceip)
 	fprintf(sm, "Original-Recipient: rfc822; %s\r\n", origreceip);
     fprintf(sm, "Final-Recipient: rfc822; %s\r\n", mailreceip);
@@ -390,6 +390,9 @@ static int sieve_redirect(void *ac,
 	snmp_increment(SIEVE_REDIRECT, 1);
 	syslog(LOG_INFO, "sieve redirected: %s to: %s",
 	       m->id ? m->id : "<nomsgid>", rc->addr);
+	if (config_auditlog)
+	    syslog(LOG_NOTICE, "auditlog: redirect sessionid=<%s> message-id=%s target=<%s>",
+	           session_id(), m->id ? m->id : "<nomsgid>", rc->addr);
 	return SIEVE_OK;
     } else {
 	if (res == -1) {
@@ -414,6 +417,9 @@ static int sieve_discard(void *ac __attribute__((unused)),
     /* ok, we won't file it, but log it */
     syslog(LOG_INFO, "sieve discarded: %s",
 	   md->id ? md->id : "<nomsgid>");
+    if (config_auditlog)
+	syslog(LOG_NOTICE, "auditlog: discard sessionid=<%s> message-id=%s",
+	       session_id(), md->id ? md->id : "<nomsgid>");
 
     return SIEVE_OK;
 }
@@ -438,7 +444,10 @@ static int sieve_reject(void *ac,
     if (strlen(md->return_path) == 0) {
 	syslog(LOG_INFO, "sieve: discarded reject to <> for %s id %s",
 	       sd->username, md->id ? md->id : "<nomsgid>");
-        return SIEVE_OK;
+	if (config_auditlog)
+	    syslog(LOG_NOTICE, "auditlog: discard-reject sessionid=<%s> message-id=%s",
+	           session_id(), md->id ? md->id : "<nomsgid>");
+	return SIEVE_OK;
     }
 
     body = msg_getheader(md, "original-recipient");
@@ -449,6 +458,9 @@ static int sieve_reject(void *ac,
 	snmp_increment(SIEVE_REJECT, 1);
 	syslog(LOG_INFO, "sieve rejected: %s to: %s",
 	       md->id ? md->id : "<nomsgid>", md->return_path);
+	if (config_auditlog)
+	    syslog(LOG_NOTICE, "auditlog: reject sessionid=<%s> message-id=%s target=<%s>",
+	           session_id(), md->id ? md->id : "<nomsgid>", md->return_path);
 	return SIEVE_OK;
     } else {
 	if (res == -1) {

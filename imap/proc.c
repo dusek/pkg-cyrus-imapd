@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: proc.c,v 1.26 2008/03/24 17:09:18 murch Exp $
+ * $Id: proc.c,v 1.27 2010/01/06 17:01:38 murch Exp $
  */
 
 #include <config.h>
@@ -52,8 +52,9 @@
 #include <syslog.h>
 #include <string.h>
 
-#include "global.h"
 #include "exitcodes.h"
+#include "global.h"
+#include "proc.h"
 #include "xmalloc.h"
 
 #define FNAME_PROCDIR "/proc/"
@@ -61,16 +62,11 @@
 static char *procfname = 0;
 static FILE *procfile = 0;
 
-extern void setproctitle_init(int argc, char **argv, char **envp);
-extern void setproctitle(const char *fmt, ...);
-
-int proc_register(progname, clienthost, userid, mailbox)
-const char *progname;
-const char *clienthost;
-const char *userid;
-const char *mailbox;
+int proc_register(const char *progname, const char *clienthost,
+		  const char *userid, const char *mailbox)
 {
     unsigned pid;
+    int pos;
 
     if (!procfname) {
 	pid = getpid();
@@ -95,7 +91,12 @@ const char *mailbox;
     }
     putc('\n', procfile);
     fflush(procfile);
-    ftruncate(fileno(procfile), ftell(procfile));
+    pos = ftell(procfile);
+    if (pos < 0 || ftruncate(fileno(procfile), pos)) {
+	syslog(LOG_ERR, "IOERROR: creating %s: %m", procfname);
+	fatal("can't write proc file", EC_IOERR);
+    }
+	
 
     setproctitle("%s: %s %s %s", progname, clienthost, 
 		 userid ? userid : "",

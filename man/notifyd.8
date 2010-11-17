@@ -40,7 +40,7 @@
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $Id: notifyd.8,v 1.8 2008/04/04 12:47:00 murch Exp $
+.\" $Id: notifyd.8,v 1.9 2010/01/06 17:01:52 murch Exp $
 .SH NAME
 notifyd \- Cyrus notification server
 .SH SYNOPSIS
@@ -114,6 +114,11 @@ specified as an \fI:option\fR.
 .B zephyr
 Send the notification as a zephyrgram.  If used in a Sieve 'notify'
 action, additional recipients can be specified as \fI:options\fR.
+.TP
+.B external
+Send the notification via an external program.  The path to the
+program is specified using the \fInotify_external\fR option in the
+configuration file.
 .SH FILES
 .TP
 .B /etc/imapd.conf

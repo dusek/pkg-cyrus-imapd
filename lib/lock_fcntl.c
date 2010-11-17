@@ -39,7 +39,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: lock_fcntl.c,v 1.17 2008/03/24 17:43:09 murch Exp $
+ * $Id: lock_fcntl.c,v 1.18 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -49,7 +49,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include "lock.h"
+#include "cyr_lock.h"
 
 const char *lock_method_desc = "fcntl";
 
@@ -92,8 +92,8 @@ const char **failaction;
 	    return -1;
 	}
 
-	fstat(fd, sbuf);
-	r = stat(filename, &sbuffile);
+	r = fstat(fd, sbuf);
+	if (!r) r = stat(filename, &sbuffile);
 	if (r == -1) {
 	    if (failaction) *failaction = "stating";
 	    fl.l_type= F_UNLCK;
