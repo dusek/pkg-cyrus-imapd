@@ -26,3 +26,5 @@
 80-kbsd-no-psstrings.dpatch
 81-dont-test-for-long-names.dpatch
 82-fix_manpage_errors.patch
+cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
+cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
