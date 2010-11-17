@@ -1,0 +1,145 @@
+<!-- Creator     : groff version 1.18.1.4 -->
+<!-- CreationDate: Mon Dec 21 08:17:56 2009 -->
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta name="Content-Style" content="text/css">
+<title>CYR_SYNCLOG *</title>
+</head>
+<body>
+
+<h1 align=center>CYR_SYNCLOG *</h1>
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#EXAMPLES">EXAMPLES</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+<a name="NAME"></a>
+<h2>NAME</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>cyr_synclog &minus; add entries to the replication
+log</p>
+</td>
+</table>
+<a name="SYNOPSIS"></a>
+<h2>SYNOPSIS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>cyr_synclog</b> [ <b>&minus;C</b> <i>config-file</i> ]
+[ <b>&minus;type</b> ] &lt;value&gt;</p>
+</td>
+</table>
+<a name="DESCRIPTION"></a>
+<h2>DESCRIPTION</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><i>cyr_synclog</i> is used to append a value to the log
+file. You can either specify the log type and value, or an
+entire log line.</p>
+<!-- INDENTATION -->
+<p>&minus;u USER</p>
+<!-- INDENTATION -->
+<p>&minus;v SIEVE</p>
+<!-- INDENTATION -->
+<p>&minus;m MAILBOX</p>
+<!-- INDENTATION -->
+<p>&minus;a APPEND</p>
+<!-- INDENTATION -->
+<p>&minus;c ACL</p>
+<!-- INDENTATION -->
+<p>&minus;q QUOTA</p>
+<!-- INDENTATION -->
+<p>&minus;n ANNOTATION</p>
+<!-- INDENTATION -->
+<p>&minus;s SEEN</p>
+<!-- INDENTATION -->
+<p>&minus;b SUBSCRIPTION</p>
+<!-- INDENTATION -->
+<p>Running without any options will print a short usage
+document.</p>
+<!-- INDENTATION -->
+<p><i>cyr_synclog</i> reads any applicable configuration
+options out of the <i>imapd.conf</i>(5) file unless
+specified otherwise by <b>-C</b>.</p>
+</td>
+</table>
+<a name="EXAMPLES"></a>
+<h2>EXAMPLES</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p>Here are some example ways to use cyr_synclog:</p>
+<!-- INDENTATION -->
+<p>cyr_synclog &minus;m user.brong</p>
+<!-- INDENTATION -->
+<p>cyr_synclog &minus;u brong</p>
+<!-- INDENTATION -->
+<p>cyr_synclog &minus;C /etc/imapd-special.conf &minus;s
+user.brong brong</p>
+<!-- INDENTATION -->
+<p>cyr_synclog &quot;SEEN user.brong brong&quot;</p>
+</td>
+</table>
+<a name="OPTIONS"></a>
+<h2>OPTIONS</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;C</b> <i>config-file</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Read configuration options from <i>config-file</i>.</p>
+</td>
+</table>
+<a name="FILES"></a>
+<h2>FILES</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>/etc/imapd.conf</b></p></td>
+</table>
+<a name="SEE ALSO"></a>
+<h2>SEE ALSO</h2>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imapd.conf(5)</b></p>
+</td>
+</table>
+<hr>
+</body>
+</html>
