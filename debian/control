@@ -5,6 +5,8 @@ Maintainer: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.
 Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>, Sven Mueller <sven@debian.org>, Benjamin Seidenberg <benjamin@debian.org>, Ondřej Surý <ondrej@debian.org>, Christoph Berg <myon@debian.org>
 Standards-Version: 3.9.1
 Build-Depends: debhelper (>= 7.0.50~), libwrap0-dev, libpam0g-dev, libdb-dev (>= 4.8) | libdb4.8-dev, libssl-dev, libzephyr-dev, libsasl2-dev (>= 2.1.9), comerr-dev, libsnmp-dev, perl (>= 5.6.0-16), xutils-dev, flex, bison, automake, autotools-dev, po-debconf, quilt (>> 0.46-7), transfig, ghostscript, groff, libkvm-dev [kfreebsd-i386], libkvm-dev [kfreebsd-amd64]
+Vcs-Git: git://git.debian.org/git/pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
+Vcs-Browser: http://git.debian.org/?p=git/pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
 Homepage: http://www.cyrusimap.org/
 
 Package: cyrus-common-2.4
