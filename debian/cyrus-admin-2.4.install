@@ -2,3 +2,6 @@ usr/bin/cyradm
 usr/bin/sieveshell
 usr/bin/installsieve
 usr/share/icons/*
+usr/sbin/cyr_dbtool
+usr/sbin/cyr_df
+
