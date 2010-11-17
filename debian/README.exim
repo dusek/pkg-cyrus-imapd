@@ -1,0 +1,65 @@
+Setting up Cyrus IMAPd for Exim
+===========================================================
+
+This is very incomplete information, if you are an exim user, please send
+in a more complete document.
+
+
+General configuration hints (configuration examples assume you are using
+the Debian Exim4 configuration scheme and paths are relative to
+/etc/exim4):
+
+1. Use Exim version 4.  Exim version 3 just doesn't cut it in the lmtp
+   area, which is very important for performance when dealing with Cyrus
+   IMAPd.
+
+2. Use the LMTP transport to deliver using a unix socket (fastest), or 
+   the SMTP transport in LMTP mode to deliver over a TCP/IP socket.
+
+   For local delivery over a unix socket, add a file into conf.d/transports
+   with the following:
+
+   cyrus_delivery:
+      driver = lmtp
+      socket = /var/run/cyrus/socket/lmtp
+      batch_max = 20
+      user = mail
+
+   (set batch_max to whatever is best for your setup, and make sure you
+    allow enough Cyrus lmtp processes to serve that many lmtp connections)
+
+   If that doesn't work, I suggest you create a group for lmtp delivery,
+   add whichever user exim is running as to it, and use dpkg-statoverride
+   to make /var/run/cyrus/socket/lmtp writeable by that group.
+
+   To then deliver to Cyrus, you will need to comment out the check_local_user
+   stanza in conf.d/router/900_exim4-config_local_user (the entire file), and
+   change the dc_localdelivery variable in /etc/exim4/update-exim4.conf.conf to 
+   'cyrus_delivery'.
+
+   If you still want to deliver some messages to a mail spool then create
+   conf.d/router/899_exim4-config_copy_to_mbox and put this in it, changing
+   the local_parts as necessary:
+
+   copy_to_mbox:
+      debug_print = "R: copy_to_mbox for $local_part@$domain"
+      driver = accept
+      unseen
+      local_parts = postmaster
+      transport = mail_spool
+  
+   This will deliver postmaster mail to both cyrus and
+   /var/mail/postmaster.  You can comment the unseen option to have it only
+   deliver once to the mail_spool.  If you don't set check_local_user or
+   the user option the spool files will be owned by mail.
+
+3. Kill any NULs (ASCII 0x00) inside the message, if you don't want Cyrus
+   to bounce such malformed crap.  Calling "tr -d '\000'" as a filter might
+   do the trick.
+
+4. Sieve often needs to set -f option on /usr/sbin/sendmail when doing
+   redirects.  Exim allows only trusted_users to do this.  It is recommended
+   that you make sure "cyrus" is in the list of trusted_users in 
+   conf.d/main/02_exim4-config_options:
+   trusted_users = uucp:cyrus
+

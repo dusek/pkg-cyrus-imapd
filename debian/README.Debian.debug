@@ -1,0 +1,121 @@
+Cyrus IMAP for Debian, debugging procedures
+-------------------------------------------
+
+For more information, please consult http://asg.web.cmu.edu/cyrus/imapd/.
+
+Cyrus has various levels of debugging aid, which can and should be used to
+offer more information about any problems you are facing with Cyrus.
+
+First, edit /etc/default/cyrus2.3, and set CYRUS_VERBOSE to a number higher
+than zero.  The higher the number, more debug information is provided. Numbers
+above 30 will cause Cyrus services to pause for 15s before executing (so that
+you can do something to it, such as attach strace or a debugger to the
+process).
+
+You can, and should use strace and ltrace to gather more information about what
+was happening to Cyrus when it malfunctioned.  straces are useful when
+networking or signal problems appear to be the issue, and ltraces can give
+hints on what the problem might be.
+
+If a Cyrus service is crashing and cyrmaster logs that the service is being
+killed by a signal, please use the debugging hooks to provide a back-trace
+using gdb (see below).  Back-traces are extremely useful when locating where
+Cyrus is dying, and why.
+
+Debugging information is sent to syslogd, using the DEBUG priority, facilities
+MAIL and DAEMON.
+
+You can also try to set MALLOC_CHECK_=2 in the environment, so that malloc()
+will cause Cyrus to dump core if it detects any sort of corruption.
+
+
+Telemetry logs
+--------------
+
+Cyrus will happily log all communications between the Cyrus store closed-box and
+the outside world.  These logs are sometimes vital to understand exactly what
+is happening and to reproduce bugs.
+
+To enable telemetry logging, create a directory under /var/lib/cyrus/log with
+the same name as the username for which you want the communication sessions to
+be logged.  Cyrus will log all imap, pop3, sieve and lmtp talks authenticated
+as that user (including proxied connections).  Make sure the directory is owned
+by user cyrus.
+
+IMPORTANT:
+Watch out for sensitive information such as passwords when you submit the
+telemetry logs to a public bug-tracking system or mailinglist.
+
+
+Recompiling Cyrus with debugging information
+--------------------------------------------
+
+In order to produce useful back-traces, or to interactively debug Cyrus,
+you must rebuild the package with debugging information.  It is quite
+easy to do so:
+
+1. Install all source dependencies to build the package (needs root):
+   apt-get install build-essential fakeroot
+   apt-get build-dep cyrus-imapd-2.3
+
+2. Download and rebuild Cyrus with debug information:
+   apt-get source cyrus-imapd-2.3
+   cd cyrus-imapd-2.3*
+   DEB_BUILD_OPTIONS=debug,noopt,nostrip dpkg-buildpackage -uc -us -rfakeroot
+
+3. Install the Cyrus packages with debug information (needs root):
+   cd ..
+   dpkg -i *deb     (or something like that)
+
+Now Cyrus should be working fine, using binaries with full debug information
+for gdb.  For interactive debugging, you may want to make sure there are no
+optimizations, in which case you should use "DEB_BUILD_OPTIONS=noopt,nostrip
+dpkg-buildpackage -uc -us -rfakeroot".
+
+Warning: the next time a new version of cyrus is released, apt will download
+the non-debugging version of the Cyrus debs, and install them over the debugging
+packages.
+
+To install the non-debugging, optimized version of Cyrus over the debugging
+one, issue "apt-get --reinstall install (package)" commands for all the Cyrus
+packages you want replaced.
+
+
+Attaching debuggers to Cyrus, and getting traces
+------------------------------------------------
+
+You can tell Cyrus services to run a debugging command just before they
+start doing real work.  This can be used to run strace, ltrace and gdb
+or ddd (for interactive debugging and back-tracing) quite easily.
+
+Set the shell command to be run in /etc/imapd.conf, option debug_command.
+Then, add the command line switch "-D" to the Cyrus services you want to
+run the debug_command in /etc/cyrus.conf, and restart cyrmaster using
+/etc/init.d/cyrus2.3 restart.
+
+The debugging command must be given as a single line in the configuration file.
+
+To get a back-trace using gdb:
+debug_command: /usr/bin/gdb -batch -cd=/tmp -x /usr/lib/cyrus/getbacktrace.gdb /usr/lib/cyrus/bin/%s %d >/tmp/gdb-backtrace.cyrus.%1$s.%2$d <&- 2>&1 &
+
+The above will produce a back-trace of every service run with -D that segfaults
+in the files /tmp/gdb-backtrace.cyrus.*;  /usr/lib/cyrus/getbacktrace.gdb
+simply has the sequence of commands for gdb: c (to continue running the
+service), bt (to get the back-trace if the program didn't exit normally), quit
+(to quit gdb).
+
+For strace, you can use:
+debug_command: /usr/bin/strace -tt -o /tmp/strace.cyrus.%s.%d -p %2$d <&- 2>&1 &
+
+Which will produce straces in /tmp/strace.cyrus.*
+
+For ltrace, you can use:
+debug_command: /usr/bin/ltrace -tt -n 2 -o /tmp/ltrace.cyrus.%s.%d -p %2$d <&- 2>&1 &
+
+Which will produce ltraces in /tmp/ltrace.cyrus.*
+
+Be warned that sensitive information such as passwords may be disclosed in the
+strace and ltrace output, so mangle them before sending such traces to public
+bug-tracking systems or mailing lists.
+
+ -- Henrique de Moraes Holschuh <hmh@debian.org>

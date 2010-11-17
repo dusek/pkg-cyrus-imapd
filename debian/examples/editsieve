@@ -1,0 +1,252 @@
+#!/bin/bash 
+#
+# This script is copyright 2006 Sven Mueller <cyrus@incase.de>
+# Released under the terms of the GNU General public license
+# (GPL) version 2
+# Before distributing changed versions of the script, please ask
+# the original author to include your changes into the original
+# distribution files. Thanks.
+#
+umask 077
+
+# generic defaults
+
+DEFAULTDOMAIN=incase.de
+DEFAULTHOST=localhost
+DEFAULTCONFDIR="${HOME}/.editsieve"
+
+# report usage help
+function usage () {
+	echo "Usage: $0 -h"
+	echo "       $0 --help"
+	echo "       $0 [-c <confdir>] [-n <scriptname>] [-d <domain>|--domain <domain>] "
+	echo "               [-p <password>] [-s <server>] <user>"
+	echo "Parameters:"
+	echo "  -h|--help                     : Display this help"
+	echo "  -c <dir> | --confdir <dir>    : Directory to store configuration and other"
+	echo "                                  data in (like the user's sieve script)."
+	echo "                                  The directory will be created if necessary."
+	echo "                                  Default: ${DEFAULTCONFDIR}"
+	echo "  -d <domain>|--domain <domain> : Specify domain for the user."
+	echo "                                  Default: ${DEFAULTDOMAIN}"
+	echo "  -n <script>|--name <script>   : Use <script> as the name of the script to"
+	if [ "$SCRIPTNAME" ]; then
+	    echo "                                  handle. Default: ${SCRIPTNAME}"
+	else
+	    echo "                                  handle. Default: <user>_<domain>"
+	fi
+	echo "  -s <host> | --server <host>   : Use <host> as the host to connect to."
+	echo "                                  Default: ${DEFAULTHOST}" 
+	echo "  -p <pwd> | --password <pwd>   : Deprecated: Define password to pass to"
+	echo "                                  sieveshell (also on commandline). Using this"
+	echo "                                  option might be convenient, but it is a"
+	echo "                                  security risk. Default: Let sieveshell ask"
+	echo "  <user>                        : User for which to edit the"
+	echo "                                  sieve script. If specified as"
+	echo "                                  user@do.main, use do.main as "
+	echo "                                  the users domain."
+	echo "Note that a conflict between the domain specified with the"
+	echo "--domain parameter and a user specified in @do.main notation"
+	echo "will cause this script to abort."
+	echo 
+}
+
+# Set initial values
+
+USER=""
+CONFDIR="${DEFAULTCONFDIR}"
+HOST="${DEFAULTHOST}"
+
+while [ $# -gt 0 ]; do
+	case "${1}" in
+		-d|--domain)
+			DOMAIN="${2}"
+			shift
+			shift
+			;;
+		-c|--confdir)
+			CONFDIR="${2}"
+			shift
+			shift
+			;;
+		-n|--script|--name)
+			SCRIPTNAME="${2}"
+			shift
+			shift
+			;;
+		-p|--pass*)
+			PASSWORD="-p ${2}"
+			echo "WARNING: Passing passwords on the commandline is a potential security hazard."
+			shift
+			shift
+			;;
+		-s|--server|--host)
+			HOST="$2"
+			shift
+			shift
+			;;
+		-h|--help)
+			usage
+			exit 0
+			;;
+		*)
+			# If USER had already been set, reaching this point
+			# means a second user was named. If so: report an error
+			# and show usage help.
+			if [ "${USER}" != "" ]; then
+				usage
+				echo ""
+				echo "ERROR: Multiple users specified" >&2
+				exit 1
+			fi
+			USER=$1
+			shift
+			;;
+	esac
+done
+
+# check wether a username had been specified
+if [ "${USER}" = "" ]; then
+	echo "ERROR: No user specified" >&2
+	usage
+	exit 1
+fi
+
+# If we can't create files inside ${CONFDIR}, try to create a directory named ${CONFDIR}
+if ! touch "${CONFDIR}"/testfile; then
+	if [ -e "${CONFDIR}" ]; then
+		echo "ERROR: ${CONFDIR} exists, but is no directory or link to a directory"
+		exit 1
+	fi
+	if ! mkdir "${CONFDIR}" ; then
+		echo "ERROR: ${CONFDIR} doesn't exist and can't be created"
+		exit 1
+	fi
+else
+	rm -f "${CONFDIR}/testfile"
+fi
+
+# check wether the domain had been specified
+if [ "${DOMAIN}" = "" ]; then
+	# if the user was specified as user@domain, use the domainpart from there
+	if echo "${USER}" | grep -q "@" ; then
+		DOMAIN=`echo "${USER}" | sed -e 's/.*@//'`
+		USER=`echo "${USER}" | sed -e 's/@.*//'`
+	else
+		# if no domain was specified and the username didn't include the domain,
+		# use the default domain.
+		DOMAIN="${DEFAULTDOMAIN}"
+	fi
+else
+	# DOMAIN had been specified. Check for username in user@domain form
+	if echo "${USER}" | grep -q "@" ; then
+		# Yes, user was specified as user@domain
+		UDOMAIN=`echo "${USER}" | sed -e 's/.*@//'`
+		USER=`echo "${USER}" | sed -e 's/@.*//'`
+		# check wether the domain specified using the --domain switch
+		# conflicts with the one given using the user@domain notation
+		if [ "${UDOMAIN}" != "${DOMAIN}" ]; then
+			# yes they conflict: Abort with suitable error message
+			echo "ERROR: Domain part specified in username but conflicts with"\
+			     "domain specified in -d parameter" >&2
+			exit 1
+		fi
+	fi
+fi
+
+# Set SCRIPTNAME to ${USER}_${DOMAIN} if not already set
+SCRIPTNAME="${SCRIPTNAME:-${USER}_${DOMAIN}}"
+
+echo "Trying to fetch script for ${USER}@${DOMAIN} from ${HOST}"
+if sieveshell -a "${USER}@${DOMAIN}" -u "${USER}@${DOMAIN}" \
+              ${PASSWOIRD} -e "get ${SCRIPTNAME} ${CONFDIR}/${SCRIPTNAME}" ${HOST}
+then
+	# fetch was successfull, keep a copy for later
+	cp -f "${CONFDIR}/${SCRIPTNAME}" "${CONFDIR}/${SCRIPTNAME}.orig"
+else
+	# an error occured while downloading.
+	echo WARNING: Unable to download script >&2 
+	if [ ! -f "${CONFDIR}/${SCRIPTNAME}" ]; then
+	        # there is no pre-existing script in $CONFDIR, 
+		# create a default script
+		echo starting with a default script. >&2
+		# <<-EOF is like <<EOF except that it removes
+		# as much whitespace from the beginning of lines
+		# as there is in the first line
+		cat > "${CONFDIR}/${SCRIPTNAME}" <<-EOF
+		# Mail rules for ${USER}@${DOMAIN}
+		#
+		# load fileinto extension
+		require ["fileinto"];
+		#
+		# file spam into special folder
+		if header :contains "X-Spam-Flag" "YES"
+		{
+		        fileinto "INBOX.Z_SPAM.suspected";
+		        stop;
+		}
+		#
+		EOF
+		echo -n "" > "${CONFDIR}/${SCRIPTNAME}.orig"
+	else
+		echo "${CONFDIR}/${SCRIPTNAME}.orig exists, using it." >&2
+	fi
+fi
+SYNTAXOK=0
+# if $EDITOR is non-empty, use that to call the editor.
+# otherwise, use vi
+EDITOR="${EDITOR:-vi}"
+while [ "$SYNTAXOK" = "0" ]; do
+	"${EDITOR}" "${CONFDIR}/${SCRIPTNAME}"
+	echo "trying to compile rules file"
+	if /usr/lib/cyrus/bin/sievec -C /etc/imapd.conf "${CONFDIR}/${SCRIPTNAME}" "${CONFDIR}/${SCRIPTNAME}.bc" ; then
+		# all fine, sievec was able to compile the script, syntax is thus OK
+		rm "${CONFDIR}/${SCRIPTNAME}.bc"
+		SYNTAXOK=1
+	else
+		# There was some error compiling the script, askü user what to do
+		echo "ERROR: Compiling the script failed."
+		echo "Press 'e'+return (or just return) to edit the file again,"
+		echo "Press 's'+return for a shell (returns to editor after shell exits)"
+		echo "Predd 'a'+return or CTRL-C to abort."
+		echo "Press 'i'+return to ignore"
+		VALID=0
+		while [ "$VALID" = "0" ]; do
+			read a || exit 1
+			if [ "$a" = "i" ] || [ "$a" = "I" ]; then
+				# asume sievec had no problem
+				VALID=1
+				SYNTAXOK=1
+			elif  [ "$a" = "s" ] || [ "$a" = "S" ]; then
+				VALID=1
+				echo "The edited file can be found in ${CONFDIR}/${SCRIPTNAME}"
+				echo "After the shell terminates, you will be returned to the editor"
+				bash
+			elif [ "$a" = "a" ] || [ "$a" = "A" ]; then
+				exit 1
+			elif [ "$a" = "e" ] || [ "$a" = "E" ] || [ "$a" = "" ]; then
+				VALID=1
+			else
+				echo "INVALID CHOICE, try again."
+			fi
+		done
+	fi
+done
+echo "copying file ${SCRIPTNAME} to ${SCRIPTNAME}.edited"
+cp "${CONFDIR}/${SCRIPTNAME}" "${CONFDIR}/${SCRIPTNAME}.edited"
+# check wether the file changed at all. If not, we can skip uploading
+echo trying diff
+if diff -q "${CONFDIR}/${SCRIPTNAME}.orig" "${CONFDIR}/${SCRIPTNAME}"; then
+	echo "Sieve rules unchanged, no upload needed."
+else
+	echo "Sieve rules changed, uploading and activating new file."
+	echo "${USER}@${DOMAIN}"
+	if sieveshell -a "${USER}@${DOMAIN}" -u "${USER}@${DOMAIN}" -e "put ${CONFDIR}/${SCRIPTNAME}
+activate ${SCRIPTNAME}" ${HOST} ; then
+		rm -f "${CONFDIR}/${SCRIPTNAME}.edited" ; echo "Upload OK"
+	else
+		echo "Upload failed! Leaving edited file in ${SCRIPTNAME}.edited"
+	fi
+	rm "${CONFDIR}/${SCRIPTNAME}.orig"
+fi
+

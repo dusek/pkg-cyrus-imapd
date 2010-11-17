@@ -1,0 +1,8 @@
+Cyrus IMAP for Debian, generic SASL-enabled protocol clients
+------------------------------------------------------------
+
+Refer to the cyrus-doc-2.3 package for more information.  There is a lot
+of it, and it will save you hours (or days) of frustating bug-hunting if
+you read them first.
+
+ -- Henrique de Moraes Holschuh <hmh@debian.org>

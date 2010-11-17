@@ -1,0 +1,159 @@
+#! /bin/sh
+# postinst script for cyrus-common-2.3
+# Copyright (c) 2002 by Henrique de Moraes Holschuh
+# Distributed under the GNU General Public License version 2
+#
+# see: dh_installdeb(1)
+
+# debconf hook
+. /usr/share/debconf/confmodule
+
+set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see /usr/doc/packaging-manual/
+#
+# quoting from the policy:
+#     Any necessary prompting should almost always be confined to the
+#     post-installation script, and should be protected with a conditional
+#     so that unnecessary prompting doesn't happen if a package's
+#     installation fails and the `postinst' is called with `abort-upgrade',
+#     `abort-remove' or `abort-deconfigure'.
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+verifydb() {
+   while read -r DBKEY DBVALUE ; do
+	match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
+	[ "x${match}" != "x${DBVALUE}" ] && return 0
+   done
+   return 1
+}
+
+verifydbkey() {
+   while read -r DBKEY DBVALUE ; do
+	if [ "${DBKEY}" = "$2" ] ; then
+	    match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
+	    [ "x${match}" != "x${DBVALUE}" ] && return 0
+	fi
+   done
+   return 1
+}
+
+case "$1" in
+    configure)
+	# Add the cyrus user (requires adduser >= 3.34)
+	echo "Creating/updating cyrus user account..."
+	adduser --quiet --system --ingroup mail --home /var/spool/cyrus \
+           --shell /bin/sh --no-create-home --disabled-password \
+	   --gecos "Cyrus Mailsystem User"  cyrus >/dev/null || {
+	   if getent passwd | grep -s -q -E '^cyrus:'; then
+		   echo "Non-system user cyrus found. I will not overwrite a non-system" >&2
+		   echo "user. Remove the user and reinstall cyrus-common-2.3." >&2
+		   exit 1
+	   fi
+	   # unknown adduser error, simply exit
+	   exit 1
+	}
+
+	# Force correct owner and modes
+	dpkg-statoverride --list /var/lib/cyrus 2>&1 >/dev/null ||
+		dpkg-statoverride --update --add cyrus mail 750 /var/lib/cyrus
+	dpkg-statoverride --list /var/spool/cyrus 2>&1 >/dev/null ||
+		dpkg-statoverride --update --add cyrus mail 755 /var/spool/cyrus
+	dpkg-statoverride --list /var/spool/sieve 2>&1 >/dev/null ||
+		dpkg-statoverride --update --add cyrus mail 755 /var/spool/sieve
+	dpkg-statoverride --list /var/run/cyrus 2>&1 >/dev/null ||
+		dpkg-statoverride --update --add cyrus mail 755 /var/run/cyrus
+	dpkg-statoverride --list /var/run/cyrus/socket 2>&1 >/dev/null ||
+		dpkg-statoverride --update --add cyrus mail 750 \
+				 /var/run/cyrus/socket
+
+	# Add user cyrus to group SASL, if such group exists
+	adduser cyrus sasl || true
+
+	# Convert the spool to the proper mode, if needed (autodetects
+	# only Debian's default spool, this codepath is meant for package
+	# upgrades only)
+	# DISABLED, since rehash seems busted
+	#[ -d /var/spool/cyrus/mail/A ] && {
+	#	echo Converting spools to basic hash scheme...
+	#	#su - cyrus -c "/usr/lib/cyrus/upgrade/rehash basic"
+	#	start-stop-daemon --start --exec /usr/lib/cyrus/upgrade/rehash --chuid cyrus:mail --verbose -- basic
+	#}
+
+	# Parse imapd.conf and generate all required directories...
+	# also kill any left over squatter indexes
+        # only run if old upstream version is lower than the new upstream
+	# version (or if its a fresh install)
+        if [ "$2" = "" ] || dpkg --compare-versions "$( echo $2 | cut -d- -f2)" lt "2.3.14" ; then
+		cyrus-makedirs --cleansquat
+	fi
+
+	# Deal with database type information
+	if [ -f /usr/lib/cyrus/cyrus-db-types.active ] ; then
+		# is it safe to start cyrmaster? compare "key value" pairs
+		# from the (old) active database types file with the new one
+		if verifydb /usr/lib/cyrus/cyrus-db-types.txt \
+		    < /usr/lib/cyrus/cyrus-db-types.active ; then
+		    db_input high cyrus-common-2.3/warnbackendchange || true
+		    db_go || true
+		else
+		    cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+		    db_fset cyrus-common-2.3/warnbackendchange seen false || true
+		fi
+	else
+		[ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
+		  cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+		db_fset cyrus-common-2.3/warnbackendchange seen false || true
+	fi
+
+	# Deal with hardwired config changes
+	if [ -f /usr/lib/cyrus/cyrus-hardwired-config.active ] ; then
+		# do we need to do something about a spool hash type change
+		# if verifydbkey /usr/lib/cyrus/cyrus-hardwired-config.txt USE_DIR_FULL \
+		#    < /usr/lib/cyrus/cyrus-hardwired-config.active ; then
+		# ... (do hash conversion)...
+		# fi
+		cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+		      /usr/lib/cyrus/cyrus-hardwired-config.active
+	else
+		[ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] && \
+		  cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+		        /usr/lib/cyrus/cyrus-hardwired-config.active
+	fi
+
+	# No leaking of debconf file handles to the initscript stuff
+	db_stop
+
+	# Register initscript, and start it (it is ok if start fails)
+	[ -x /etc/init.d/cyrus2.3 ] && {
+		update-rc.d cyrus2.3 defaults >/dev/null
+		invoke-rc.d cyrus2.3 start || true
+	}
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 0
+    ;;
+esac
+
+db_stop
+
+# dh_installdeb will replace this with shell code automatically
+# generated by other debhelper scripts.
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,65 @@
+Todo list
+---------
+
+CONFIRMED TODO FOR 2.2:
+o Cyrus 2.1 has alarm() lock breaking on lib/lock_fcntl().  This has
+  not been ported to 2.2 yet.  And it should not be ported until
+  #358742 is fixed. Note that if the user has to *kill* imapd to
+  unstick the lock, the issue is not in the alarm() code.
+
+
+EXTRA HIGH
+o master leaks memory when a service path is not null
+
+HIGH
+o Update copyright to my new template
+o Shout loudly if anything in .stage needs cleaning up
+o VERIFY SASL LEAKING CRAP TO prot_stream 
+	[info-cyrus  Re: Log messages going into imap/pop stream]
+o Revise rehash, it is busted...
+o Write nice shell wrapper for chk_cyrus and suggest a event to run it
+o Clean up script, that finds all crap over one day old in .stage
+  and delete it (after logging a warning). Add it as event.
+
+o https://bugzilla.andrew.cmu.edu/show_bug.cgi?id=1735
+
+MEDIUM
+o Verify kerberos build is still OK [gssapi]
+o Add switch to enable do-not-add-return-path-if-it-is-already-there to
+  deliver and LMTP input:
+   - Return-path:  Override (default: drop old return-paths, add ours)
+                   add (add if there isn't one in there already)
+  note that no return-path is NOT an option ;-)
+  Obs: - lmtpengine uses msg->return_path to know wether it got a mail from!
+       - dropping old return-paths is non-trivial
+o Fulldir-hash detection using the same mech as db-backend
+o auth_ldap, and runtime-selection of auth backends. Add kerberos backend
+  and kerberos support while at it, as well. [ cyrus 2.2 only ]
+
+LOW
+o Verify alpha build logs, and fix the warnings
+o Better logcheck.ignore
+o verify section of libcyrus-*-perl, as well as the manpages'
+o Fix bogosity on perl manpages .TH
+o netsaint example of full monitoring (imap, pop, lmtp, master via snmp)
+o cyrus2-admin.menu
+o find and package snmp loggers for cyrus (as examples)
+o automated database backend conversion?
+o sanitize usernames and folders to lowercase, no spaces or ill. chars
+  [does this make any sense? shouldn't that be done by user name canon.?]
+
+WON'T DO
+o cyrus2-{pop3d,imapd} should deal with cyrus.conf
+  - not needed; cyrus deals gracefully with missing binaries
+o Debconf configuration
+  - too troublesome; lusers are not welcome to using cyrus
+    without reading docs anyway, and it is all SASL's fault.
+
+BACKBURNER IDEAS
+o master
+  - capabilities, so as to be able to bind to ports <1024
+  - jailing at user level (and what of shared mbx?)
+  - Better handling of fucked up children that refuse to start?
+    + requires 5th forked state in master
+o i18n (GNU gettext, with kerberos guard for logs, messages;
+  sanity-enforced txt files for return messages)

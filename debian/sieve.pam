@@ -1,0 +1,13 @@
+# PAM configuration file for Cyrus SIEVE timsieved service
+#
+# If you want to use Cyrus in a setup where users don't have
+# accounts on the local machine, you'll need to make sure
+# you use something like pam_permit for account checking.
+#
+# Remember that SASL (and therefore Cyrus) accesses PAM 
+# modules through saslauthd, and that SASL can only deal with
+# plaintext passwords if PAM is used.
+#
+
+@include common-auth
+@include common-account

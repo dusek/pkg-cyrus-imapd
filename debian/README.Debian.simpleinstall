@@ -1,0 +1,172 @@
+Cyrus IMAP for Debian, Simple Install Guide
+-------------------------------------------
+
+   "All systems administrators have their horror stories. For me, it was
+    setting up a HP Color Bubblejet under Linux using ghostscript before
+    linuxprinting.org was alive.  Well that was a piece of cake compared
+    to what I am about to describe in this document."
+         --  "Hosting email for virtual domains using Postfix and Cyrus"
+	                                     Haim Dimermanas, 2001-08-01
+
+           "I warned you to read all the documentation first, didn't I?"
+                                    --  Henrique M. Holschuh, 2002-10-01
+
+
+This document describes how to get Cyrus running with a simple configuration
+that you can then tweak to your real needs.
+
+READ README.Debian AS WELL. I MEAN IT!  Cyrus is easy, all the trouble is
+in SASL, and even that becomes easy after you understand how SASL works.
+
+IMPORTANT: Cyrus is a closed-box email system.  Your system will access your
+email through LMTP, IMAP and POP3 *only*.  No direct file access to the email
+store is supposed to take place.
+
+
+To setup Cyrus so that you can administer it (i.e. create users),
+and get email inside it for those users:
+
+ 1. Make sure libsasl2-modules, libsasl2 and sasl2-bin are installed
+
+ 2. Make sure /etc/sasldb2 is readable by group sasl.  Pay attention
+    to overrides (dpkg-statoverride)!
+
+ 3. Make sure user cyrus belongs to group sasl (cyrus-common-2.3's install
+    tries to do this automatically for you).
+
+ 4. Edit /etc/cyrus.conf, and make sure the services you need are
+    enabled.  These are most probably "imap", "pop3", "lmtpunix".
+
+ 5. Edit /etc/imapd.conf, and make sure you have some admin users
+    listed in the entry "admins:".  I suggest using "cyrus" as your
+    admin.
+
+    I also suggest enabling plain text logins, and setting 
+    sasl_minimum_layer: 0
+
+    If you have unixhierarchysep enabled in imapd.conf, change all
+    "." in mailbox names mentioned on this document to "/", since Cyrus 
+    will use "/" as the hierarchy separator instead of the default ".".
+    I suggest you just leave unixhierarchysep set to false for now.
+
+ 6. Restart Cyrus  (/etc/init.d/cyrus2.3 restart)
+
+ 7. Use saslpasswd2 -c  to create an account for your admin:
+    saslpasswd2 -c cyrus
+
+ 8. Use sasldblistusers2 to make sure step 7 worked fine.
+
+ 9. Add other users to SASL likewise (saslpasswd2 -c).
+
+10. Log in cyrus as the administrator, and create the mailboxes:
+    cyradm --user cyrus localhost
+    cm user.bob
+    cm user.anna
+    cm user.clark...
+    ^D
+
+    (notice that there is an "user." in front of the mailbox name!)
+    You must use "user/bob", "user/anna" instead if you have the
+    unixhierarchysep option enabled in imapd.conf.
+
+    For this to work, you obviously need the cyrus-admin-2.3 package
+    installed.
+
+11. Try to login as a normal user, using imtest or a IMAP/POP3 client.
+    If you have trouble with mutt and CRAM-MD5 or DIGEST-MD5, edit
+    /etc/imapd.conf, and look for sasl_mech_list.  Set it to:
+    sasl_mech_list: plain cram-md5
+    (this will disable digest-md5, which causes trouble with mutt).
+
+12. Setup your MTA to deliver email inside Cyrus.  Basically that can
+    be done (easily) by:
+
+    a)  running /usr/sbin/cyrdeliver  (SLOW)
+        You need the lmtpunix service enabled in /etc/cyrus.conf for this
+	to work.
+    b)  delivering using LMTP to /var/run/cyrus/socket/lmtp
+        You need the lmtpunix service enabled in /etc/cyrus.conf for this
+	to work.
+
+	Just make sure (and use dpkg-statoverride to do that) that your
+	MTA can get to /var/run/cyrus/socket/lmtp.  It works just like any
+	file in a Unix system.
+
+    Cyrus REQUIRES a valid RFC2822 message, and will refuse messages with
+    bad headers (such as that From foobar header, notice the missing ':'),
+    embedded NULLs or any other crap.
+
+
+That's it.  See /usr/share/doc/cyrus-common-2.3/README.{postfix,exim,sendmail}
+for help on how to setup your MTA to correctly deliver to Cyrus.
+
+
+LDAP SETUP
+----------
+
+First, do the steps above and verify that your system is working fine.
+
+SASL is perfectly capable of trying various authentication methods one after
+another.  We will change our Cyrus setup for SASL to use a LDAP server lookup
+through saslauthd.
+
+1. Create the configuration for saslauthd to know what it must do:
+
+   Write the following file to /etc/saslauthd.conf:
+----CUTHERE----
+ldap_servers: ldap://127.0.0.1/
+ldap_version: 3
+ldap_timeout: 10
+ldap_time_limit: 10
+ldap_cache_ttl: 30
+ldap_cache_mem: 32768
+ldap_scope: sub
+ldap_search_base: ou=mail,o=mydomain
+ldap_auth_method: bind
+ldap_filter: maildrop=%u
+----CUTHERE----
+   And of course, edit it to fit your LDAP setup.
+
+2. Now, configure saslauthd to use LDAP mode and our config file:
+
+   Modify /etc/default/saslauthd so that it reads:
+   MECHANISMS="ldap"
+   PARAMS="-O /etc/saslauthd.conf"
+
+   (MECHANISMS can be a space-separated list of authentication
+   mechanisms. If you wanted saslauthd to try LDAP, then PAM, you
+   could use MECHANISMS="ldap pam")
+
+3. Start saslauthd
+
+   /etc/init.d/saslauthd restart
+
+4. Make sure Cyrus will be able to talk to saslauthd
+
+   Set the following options in /etc/imapd.conf:
+   sasl_mech_list: PLAIN
+   allowapop: no
+   allowplaintext: yes
+   sasl_minimum_layer: 0
+   sasl_pwcheck_method: saslauthd
+
+   And restart Cyrus.  You'd better understand that the above allows
+   plaintext logins over the network.  There is a LDAP SASL auxprop
+   plugin being worked on that might fix this issue.  As it stands
+   right now, you're better off by only accepting IMAPS (secure IMAP)
+   connections.
+
+   (sasl_pwcheck_method is a space separated list of SASL methods to
+   try.  If you want to have some local users in /etc/sasldb2, for
+   example, you could have "sasl_pwcheck_method: auxprop saslauthd"
+   and also "sasl_auxprop_plugin: sasldb")
+
+   One *extremely* important point to notice is that saslauthd works
+   ONLY with plaintext.  APOP, CRAM-MD5, OTP, DIGEST-MD5 and any other
+   "auxprop" SASL mech will *not* work through saslauthd.
+
+5. That's it.  There is a LDAP auxprop module in the works which can deal
+   with APOP, CRAM-MD5, OTP, DIGEST-MD5 and so on, look for it in the SASL
+   docs and openldap's contrib stuff.
+
+ -- Henrique de Moraes Holschuh <hmh@debian.org>

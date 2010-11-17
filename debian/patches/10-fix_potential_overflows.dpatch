@@ -1,0 +1,69 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 10-fix_potential_overflows.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: fix potential buffer overflows
+## DP: Revised for 2.3.14 by Duncan Gibb <duncan.gibb@siriusit.co.uk>
+## DP: Many of the problems Sven's original patch fixed have since
+## DP: been resolved upsteam (thanks mainly to Bron Gondwana).
+
+@DPATCH@
+diff -urNad git~/imtest/imtest.c git/imtest/imtest.c
+--- git~/imtest/imtest.c	2010-01-16 19:22:57.000000000 -0200
++++ git/imtest/imtest.c	2010-01-16 19:27:30.916091603 -0200
+@@ -1246,7 +1246,7 @@
+ 	
+ 	/* can't have this and a file for input */
+ 	sunsock.sun_family = AF_UNIX;
+-	strcpy(sunsock.sun_path, output_socket);
++	strlcpy(sunsock.sun_path, output_socket, sizeof(sunsock.sun_path));
+ 	unlink(output_socket);
+ 
+ 	listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+diff -urNad git~/master/master.c git/master/master.c
+--- git~/master/master.c	2010-01-16 19:22:57.000000000 -0200
++++ git/master/master.c	2010-01-16 19:27:30.917090960 -0200
+@@ -195,13 +195,17 @@
+     free(a);
+ }
+ 
+-void get_prog(char *path, unsigned size, char *const *cmd)
++void get_prog(char *path, unsigned int size, char *const *cmd)
+ {
+     if (cmd[0][0] == '/') {
+ 	/* master lacks strlcpy, due to no libcyrus */
+ 	snprintf(path, size, "%s", cmd[0]);
++	path[size-1] = '\0';
++    }
++    else {
++	snprintf(path, size, "%s/%s", SERVICE_PATH, cmd[0]);
++	path[size-1] = '\0';
+     }
+-    else snprintf(path, size, "%s/%s", SERVICE_PATH, cmd[0]);
+ }
+ 
+ void get_statsock(int filedes[2])
+diff -urNad git~/master/masterconf.c git/master/masterconf.c
+--- git~/master/masterconf.c	2010-01-16 19:21:09.000000000 -0200
++++ git/master/masterconf.c	2010-01-16 19:27:30.917090960 -0200
+@@ -135,7 +135,7 @@
+ 	} else {
+ 	    /* one word */
+ 	    for (i = 0; i < 255; i++) {
+-		if (Uisspace(*p)) break;
++		if ((!*p) || (Uisspace(*p))) break;
+ 		v[i] = *p++;
+ 	    }
+ 	}
+diff -urNad git~/notifyd/notifyd.c git/notifyd/notifyd.c
+--- git~/notifyd/notifyd.c	2010-01-16 19:21:09.000000000 -0200
++++ git/notifyd/notifyd.c	2010-01-16 19:27:30.917090960 -0200
+@@ -142,7 +142,7 @@
+ 	if (cp) nopt = strtol(cp, NULL, 10);
+ 	if (nopt < 0 || errno == ERANGE) cp = NULL;
+ 
+-	if (cp && nopt &&
++	if (cp && (nopt > 0) &&
+ 	    !(options = (char**) xrealloc(options, nopt * sizeof(char*)))) {
+ 	    fatal("xmalloc(): can't allocate options", EC_OSERR);
+ 	}

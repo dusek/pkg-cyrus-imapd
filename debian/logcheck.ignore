@@ -1,0 +1,64 @@
+
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: skiplist: recovered
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: skiplist: checkpointed
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: duplicate_prune: pruning
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: duplicate_prune: purged
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: executed
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: accepted connection
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: telling master
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: +mydelete:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: (bad)?login:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: starttls: [[:alnum:]]+ with cipher
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: (\[[a-z0-9]+\] )?STARTTLS( negotiation)? failed:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: DIGEST-MD5 server step
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_cyrusdb\[[0-9]+\]: (done +)?recovering cyrus databases
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_cyrusdb\[[0-9]+\]: archiving
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_cyrusdb\[[0-9]+\]: checkpointing
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_cyrusdb\[[0-9]+\]: done checkpointing
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_deliver\[[0-9]+\]: duplicate_prune: pruning back
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/ctl_deliver\[[0-9]+\]: duplicate_prune: purged
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/tls_prune\[[0-9]+\]: (tls_prune: )?purged
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/master\[[0-9]+\]: ready for work
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/master\[[0-9]+\]: about to exec
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/master\[[0-9]+\]: process started
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/master\[[0-9]+\]: process [0-9]+ exited, status 0$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/master\[[0-9]+\]: service [a-zA-Z0-9]+ now has [0-9]+ workers
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: pop3s failed:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: lmtp connection preauth'd as postman
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: dupelim: eliminated duplicate message to
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: duplicate_check:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: duplicate_mark:
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: mystore: committing txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: mystore: starting txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: sieve parse error
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: sieve: discarded
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: abort_txn: aborting txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: delete: starting txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: open: user .* opened
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: mycommit: committing txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: myfetch: reusing txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: myfetch: starting txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: mystore: reusing txn
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: seen_db: user .* opened
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: Connection reset by peer, closing connection
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: SQUAT failed
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: SQUAT returned [0-9]+ messages
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: idle for too long, closing connection
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: annotatemore_store
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: created stage directory
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: imaps TLS negotiation failed
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: synchronizing mailbox
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: mailbox list synchronization
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/[a-zA-Z0-9_]+\[[0-9]+\]: unready for connections
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/squatter\[[0-9]+\]: (done )?(indexing|skipping) mailbox
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/notifyd\[[0-9]+\]: do_notify using method
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/lmtpunix\[[0-9]+\]: IOERROR: fstating sieve script [/a-zA-Z^]+/defaultbc: No such file or directory
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/lmtpunix\[[0-9]+\]: WARNING: sieve script /var/spool/sieve/[/[:alnum:]^]+defaultbc doesn't exist: No such file or directory
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/sieve\[[0-9]+\]: entered bc_action_emit with filelen: [0-9]+$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/(imaps?|pop3s?)\[[0-9]+\]: no secret in database$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/cyr_expire\[[0-9]+\]: expunged 0 out of 0 messages from 0 mailboxes$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/(imaps?|pop3s?)\[[0-9]+\]: Expunged [0-9]+ messages from
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/(lmtp|lmtpunix)\[[0-9]+\]: Delivered: <?[^ >]+>? +to mailbox: .*$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ perl: DIGEST-MD5 client step [0-9]$
+^\w{3} [ :0-9]{11} [._[:alnum:]-]+ cyrus/lmtpunix\[[0-9]+\]: sieve redirected: <?[^ >]+>? +to: [._[:alnum:]-]+@[._[:alnum:]-]+$
+

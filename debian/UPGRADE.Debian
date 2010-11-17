@@ -1,0 +1,211 @@
+For more information, see README.Debian[.gz] in /usr/share/doc/cyrus-common-2.3/
+and the web page below, part of the cyrus-utils project at SourceForge:
+
+  http://cyrus-utils.sourceforge.net/faq
+
+Upgrading from 2.2.x to 2.3
+===========================
+The Debian Cyrus 2.3 packages are currently experimental. A proper upgrade path has not yet been established. Any upgrade you do is at your own risk. WE ARE NOT RESPONSIBLE FOR ANY DATA LOSS CAUSED BY THESE PACKAGES!
+
+Notes:
+The 2.3 series packages are built against BDB version 4.5 as opposed to 4.2 in the 2.2 series. You will need to upgrade your databases accordingly.
+
+Upgrading from 2.2.12 or 2.2.13 versions prior to 2.2.13-5
+==========================================================
+
+In 2.2.13-5, a bug in debian/rules regarding the generation of
+cyrus-db-types.txt was fixed. As a result, the cyrus2.2 init script
+might complain about a database types mismatch. If this happens,
+please make sure that you are really upgrading from a Debian package 
+of cyrus-imapd version 2.2 (either the old experimental cyrus22-imapd
+or the newer cyrus-imapd-2.2 packages). If you do, please remove 
+/usr/lib/cyrus/cyrus-db-types.active and run
+dpkg-reconfigure cyrus-common-2.2
+
+Upgrading from cyrus 2.1
+========================
+
+If you upgrade from cyrus 2.1, all you need to do is to upgrade the 
+database files from the old database backend to the new one. If you use 
+sieve-scripts, you will also need to use sievec on them. The information
+how to do upgrade your database files is contained in the upgrade
+information from cyrus v1.5 below and in more detail in
+/usr/share/doc/cyrus-common-2.3/README.Debian.database. 
+
+The configuration option lmtp_overquota_perm_failure has been renamed 
+lmtp_over_quota_perm_failure. Please update your configuration accordingly.
+
+Please note that the 2.1 packages in Debian use a different format 
+from upstream, thus the upgrade is easier.
+
+Also, please note that The tls_[service]_* configuration options have been
+removed. Now use [servicename]_tls_*, where servicename is the service
+identifier from cyrus.conf for that particular process.
+
+Upgrading sieve scripts
+-----------------------
+
+Cyrus IMAPD 2.3 uses bytecode for sieve scripts. This means that you need to
+compile all existing sieve scripts so that they will work with cyrus 2.3. There
+is a small tool in /usr/lib/cyrus/upgrade, called masssievec which will
+automatically compile all installed scripts when called correctly. Please 
+refer to the script's usage information for details.
+The command line you will probably want to use is (as user cyrus):
+/usr/lib/cyrus/upgrade/masssievec /usr/lib/cyrus/bin/sievec /etc/imapd.conf
+
+Upgrading from cyrus 1.5.x
+==========================
+
+Upgrading cyrus-imapd to cyrus-imapd-2.3 on Debian
+(thanks to David D. Kilzer <ddkilzer@theracingworld.com> for this document)
+-----------------------------------------------
+
+This document describes the procedure for upgrading from the old cyrus-imapd
+(v1.5.x) package to the new cyrus-imapd-2.3 (v2.3) package.  While this is a
+manual process, it is very straightforward.
+
+The procedure for converting a v1.6 cyrus store to v2.3 is not explained here,
+but the tools to convert the sieve scripts are in /usr/lib/cyrus/upgrade.
+
+Your SASL installation may require further conversion steps, as Cyrus v2.3 uses
+SASL v2, while Cyrus v1.5 used SASL v1.5.  /usr/share/doc/libsasl2 has more
+information on SASL v2.  Do pay attention to your SASL v2 installation, such
+as permissions and such.  When in doubt, read the README.simpleinstall
+document, as it describes an initial SASLv2 setup.
+
+NOTE: If you've already installed the cyrus 2.3 packages, skip to step 5.
+
+ 1. Become the "root" user on your local system.
+
+    $ /bin/su -
+    #
+
+ 2. Look for any running cyrus daemons using the ps(1) command.  Use
+    kill(1) to stop any processes that are found.
+
+    # /etc/init.d/pwcheck stop
+    # ps auwwx | grep cyr
+    # ps auwwx | grep pop3d
+    # ps auwwx | grep imapd
+    # ps auwwx | grep nntpd
+
+ 3. Remove the old cyrus packages.
+
+    ######################################################################
+    WARNING  WARNING  WARNING  WARNING  WARNING  WARNING  WARNING  WARNING
+    ######################################################################
+ 
+    Some versions of the cyrus-imapd packages, with versions 1.5.19-9.10
+    up to 1.5.19-20 (shipped in Debian Sarge 3.1r1) will entirely erase
+    the mail spool when purged with no questions asked.
+
+    You must NOT purge these packages before moving /var/lib/cyrus and
+    /var/spool/cyrus to somewhere safe.  Failure to do so will cause data
+    loss.
+
+    # mv /var/lib/cyrus /var/lib/old-cyrus
+    # mv /var/spool/cyrus /var/spool/old-cyrus
+
+    The cyrus-imapd packages in Woody (1.5.19-9.2) are safe, as well as
+    the fixed cyrus-imapd packages 1.5.19-20.1 which should make it to
+    Debian Sarge 3.1r2.
+
+    ######################################################################
+
+    # apt-get --purge remove cyrus-common cyrus-admin cyrus-imapd cyrus-pop3d \
+      cyrus-nntpd   [BUT SEE THE ABOVE WARNING FIRST!!!]
+
+    or use dselect/aptitude/synaptic/your favorite deb management tool.
+
+    IMPORTANT: You must answer "n" to this question:  "Do you want me to
+    remove the Cyrus mail and news spool (y/n) [n] ?"
+
+    NOTE: You could also copy -a the /var/spool/cyrus and /var/lib/cyrus
+    folders somewhere else, just in case.
+
+ 4. Install the new cyrus-imapd-2.3 packages. Make sure no user will try
+    to connect to imapd/pop3d and that no MTA will try to deliver to lmtpd
+    until you do step 5.
+
+    cyrus-common-2.3       [required]
+    cyrus-admin-2.3        [required]
+    cyrus-imapd-2.3        [optional; must have one of imapd or pop3d]
+    cyrus-pop3d-2.3        [optional; must have one of imapd or pop3d]
+    libcyrus-imap-perl23 [required]
+
+    # apt-get install PACKAGE-NAME [PACKAGE_NAME ...]
+
+    or use dselect.
+
+ 5. Stop the cyrmaster process.
+
+    # /etc/init.d/cyrus2.3 stop
+
+ 5a. Make sure Cyrus won't start until the upgrade process is over.
+
+    # cp -f /usr/lib/cyrus/upgrade/cyrus-db-types.upgrading_from_1.5.txt \
+            /usr/lib/cyrus/cyrus-db-types.active
+
+ 6. Change to the "cyrus" user.
+
+    # /bin/su - cyrus
+    $
+
+ 7. Run the rehash program.
+
+    $ /usr/lib/cyrus/upgrade/rehash basic
+
+ 8. Run ctl_mboxlist to update the "mailboxes" file.
+
+    $ cd /var/lib/cyrus
+    $ /usr/sbin/ctl_mboxlist -u < mailboxes
+
+ 9. Run the cyrreconstruct program from the /var/spool/cyrus directory
+    to reconstruct the mailboxes.
+
+    $ cd /var/spool/cyrus
+    $ /usr/sbin/cyrreconstruct -r user.*
+
+    (you may need to cyrreconstruct other mailboxes, if you have any
+    system mailboxes or shared mailboxes not in the user hierarchy)
+
+10. Exit the "cyrus" user, back to "root".
+
+    $ exit
+    #
+
+11. Upgrade all of the db2 files used by Cyrus from to db4.2.
+
+    # find /var/lib/cyrus -name \*.db -print -exec /usr/bin/db4.2_upgrade {} \;
+
+12. Convert the state databases to those used by new Cyrus 2.3
+
+    Read /usr/share/doc/cyrus-common-2.3/README.Debian.database, and follow
+    whatever steps you need to change the backends from db3 to skiplist.
+
+    This step needs some work, if you can send your experiences with it
+    to hmh@debian.org, I will update this document accordingly.
+
+**** The upgrade of Cyrus' stores are now complete ****
+
+You may want to remove any left-over empty directories from the old version,
+and re-run /usr/sbin/cyrus-makedirs just in case you got one of them wrong.
+
+Now, you need to reconfigure the new Cyrus imapd to adequate it to your system
+and SASL requirements. The Cyrus config files are /etc/imapd.conf,
+/etc/cyrus.conf and /etc/default/cyrus2.3.
+
+Depending on your SASL configuration, you may also need to modify
+/etc/pam.d/{imap,pop,sieve,lmtp} and other SASL configuration files.
+
+Do not forget to edit /etc/imapd.conf to e.g. set the "admins: cyrus" line (if
+you use "cyrus" as the name for the administrator).
+
+NOTES about DRAC authentication
+===============================
+
+DRAC has been disabled in cyrus-imapd-2.3, it caused quite some trouble and
+wasn't used by many. You can however build your own version by editing 00list
+in debian/patches and adding 20-drac_auth.dpatch to it at the proper place 
+(i.e. right before the patch numbered 21) and building cyrus-imapd-2.3 with
+dpkg-buildpackage or a similar tool.

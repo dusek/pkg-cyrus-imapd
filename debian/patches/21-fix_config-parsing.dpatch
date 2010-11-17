@@ -1,0 +1,37 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 21-fix_config-parsing.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix parsing of master.conf
+
+@DPATCH@
+diff -urNad git~/master/masterconf.c git/master/masterconf.c
+--- git~/master/masterconf.c	2010-01-16 19:30:00.675090494 -0200
++++ git/master/masterconf.c	2010-01-16 19:30:00.858091347 -0200
+@@ -152,8 +152,13 @@
+     const char *val = masterconf_getstring(e, key, NULL);
+ 
+     if (!val) return def;
+-    if (!Uisdigit(*val) && 
+-	(*val != '-' || !Uisdigit(val[1]))) return def;
++    if (!Uisdigit(*val) &&
++	(*val != '-' || !Uisdigit(val[1]))) {
++	    syslog(LOG_DEBUG,
++		"value '%s' for '%s' does not look like a number.",
++		val, key);
++	    return def;
++    }
+     return atoi(val);
+ }
+ 
+@@ -171,6 +176,10 @@
+ 	     (val[0] == 'o' && val[1] == 'n') || val[0] == 't') {
+ 	return 1;
+     }
++
++    syslog(LOG_DEBUG, "cannot interpret value '%s' for key '%s'. use y/n.",
++	   val, key);
++
+     return def;
+ }
+ 

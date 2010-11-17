@@ -1,0 +1,68 @@
+Setting up Cyrus IMAPd for Sendmail (Debian)
+===========================================================
+
+[This is user-contributed, unverified information]
+
+First, do *not* use the old cyrus*.m4 macros, they won't work well. The one
+you can use is cyrusv2.m4. There are many methods of connecting Cyrus to
+sendmail, and replacing the local mailer with Cyrus lmtpd is just one of
+them.
+
+Andrzej Filip <anfi@priv.onet.pl> says:
+http://anfi.homeunix.net/sendmail/localNalias.html
+   Cyrus Aliases
+   It allows to use user@CYRUS redirections in virtusertable,
+   aliases and .forward file e.g.  I use the following ~anfi/.forward:
+   anfi@CYRUS
+
+http://anfi.homeunix.net/sendmail/localtab.html
+   Local Table
+
+http://anfi.homeunix.net/sendmail/rtcyrus2.html
+   Real Time Cyrus Integration
+   It allows sendmail to check presence of cyrus mailbox in real time, 
+   sendmail rejects message to non existing cyrus mailboxes in reply to 
+   "RCPT TO:"
+
+
+I am not sure how well these will work with sieve.  The one report I have
+for Cyrus + sendmail with working sieve is:
+
+"cyrus/sieve vacation seems to work only if you integrate cyrus via
+cyrusv2.m4 into sendmail (8.12.3-4)."
+
+Sample sendmail.mc that seems to work:
+--------
+[...]
+dnl define BIND_OPTS',`-DNSRCH -DEFNAMES')dnl
+define(`confLOCAL_MAILER', `cyrusv2')dnl
+MAILER(`local')dnl
+MAILER(`smtp')dnl
+MAILER(`cyrusv2')dnl
+dnl MODIFY_MAILER_FLAGS(`cyrus',`+w')dnl
+
+LOCAL_RULE_0
+Rbb + $+ < @ $=w . >    $#cyrusbb $: $1
+[...]
+--------
+
+Here's a sieve test script you can try. Change it as needed for your
+site:
+
+require "fileinto";
+require "vacation";
+require "envelope";
+
+if header :contains "subject" "vactest" {
+         vacation :days 7 :addresses ["me@home.de"] "vactest!";
+}
+
+
+Pierre Gambarotto <pierre.gambarotto@enseeiht.fr> says:
+The minimum in order to make it work with sendmail is:
+
+define(`confLOCAL_MAILER', `cyrusv2')
+define(`CYRUSV2_MAILER_ARGS',`FILE /var/run/cyrus/socket/lmtp')
+MAILER(`cyrusv2')
+
+The CYRUSV2_MAILER_ARGS is the key.

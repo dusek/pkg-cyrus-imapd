@@ -1,0 +1,140 @@
+From: Henrique de Moraes Holschuh <hmh@debian.org>
+Subject: Fixes process (child) handling in Cyrus master
+
+Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
+
+* Allows Cyrus master to process all pending child messages once per
+  loop, which fixes a DoS situation if there is too much message churn
+  in a slower box.  If the pending messages never get processed, child
+  accounting goes bad and eventually master stops spawning the service
+  or handling connections.
+
+  It seems that the problem this patch fixes has also been reported in
+  Cyrus IMAP 2.2.12 by Earl Shannon, and Jules Agee actually tried to
+  get the fix from Debian integrated upstream.
+
+  Jules Agee described the problem quite well in a private message:
+
+     "The problem occurs when the child message queue is very backed up.
+     A child process dies with several messages in the queue. reap_child
+     marks it's state in the child table as dead and decrements the
+     number of ready_workers.  Then the janitor process removes that
+     child's entry from the child table.  When master finally gets
+     around to processing all the messages in the child message queue,
+     it has no idea where the message came from because the child's
+     entry has already been removed from the ctable.  So it creates a
+     new ctable entry, marking the child process state as unknown,
+     assuming the message is from a child process that's still alive.
+     When master finishes processing the messages from that long-dead
+     child, it again (an inaccurately) decrements the count of
+     ready_workers.
+
+     The easiest solution in my opinion is to make sure master stays
+     caught up with messages from its children by processing all child
+     messages on each loop.  After all, it's the duty of a parent."
+
+  Kenneth Murchison reported that they couldn't reproduce it in CMU.
+  However, it is clearly something that depends on pathological loads
+  and kernel behaviour to trigger.
+
+  This fix is a trade off: we risk increasing latency to hand off
+  connections/spawn new services (because we're in a loop processing
+  child messages).  If the messages never stop coming, or come in
+  extremely large bursts, master will backlog connections.  If syslog()
+  or memory allocation decides to introduce large latencies, the cost
+  of processing messages can get too high and master will backlog
+  connections.  Note: this *CAN* happen, and in fact it did happen to
+  Jules until he reduced the amount of data going to syslog.
+
+  Also, even with this patch, master behaviour will remain sane only if
+  we don't clean the child table BEFORE we processes any messages it
+  could have sent that are still in-flight (this *can* happen), as
+  described by Jules.  This is probably a bug in the decisions we take
+  when we promote something from SERVICE_STATE_UNKNOWN to some other
+  state.  We *could* account children when they are migrated from
+  SERVICE_STATE_UNKNOWN to some other state, so that we can do normal
+  accounting afterwards... but we need to do a full failure mode
+  analysis to know if there isn't another failure mode where this
+  causes trouble...
+
+  IMO, there must be a better way to do all this process accounting
+  and child messaging that doesn't require such a complicated
+  state machine.  I wonder how postfix does it?
+
+  Reported-analysed-and-tested-by: Jules Agee <julesa@pcf.com>.
+
+Index: cyrus-imapd-2.3-pkg/master/master.c
+===================================================================
+--- cyrus-imapd-2.3-pkg.orig/master/master.c
++++ cyrus-imapd-2.3-pkg/master/master.c
+@@ -1073,6 +1073,36 @@ void sighandler_setup(void)
+     }
+ }
+ 
++/*
++ * Receives a message from a service.
++ *
++ * Returns zero if all goes well
++ * 1 if no msg available
++ * 2 if bad message received (incorrectly sized)
++ * -1 on error (errno set)
++ */
++int read_msg(int fd, struct notify_message *msg)
++{
++    ssize_t r;
++    size_t off = 0;
++    int s = sizeof(struct notify_message);
++
++    while (s > 0) {
++        do
++            r = read(fd, msg + off, s);
++        while ((r == -1) && (errno == EINTR));
++        if (r <= 0) break;
++        s -= r;
++        off += r;
++    }
++    if ( ((r == 0) && (off == 0)) ||
++         ((r == -1) && (errno == EAGAIN)) )
++        return 1;
++    if (r == -1) return -1;
++    if (s != 0) return 2;
++    return 0;
++}
++
+ void process_msg(const int si, struct notify_message *msg) 
+ {
+     struct centry *c;
+@@ -1412,7 +1442,7 @@ void add_service(const char *name, struc
+ 	Services[i].desired_workers = prefork;
+ 	Services[i].babysit = babysit;
+ 	Services[i].max_workers = atoi(max);
+-	if (Services[i].max_workers == -1) {
++	if (Services[i].max_workers < 0) {
+ 	    Services[i].max_workers = INT_MAX;
+ 	}
+     } else {
+@@ -2072,13 +2102,19 @@ int main(int argc, char **argv)
+ 	    int j;
+ 
+ 	    if (FD_ISSET(x, &rfds)) {
+-		r = read(x, &msg, sizeof(msg));
+-		if (r != sizeof(msg)) {
+-		    syslog(LOG_ERR, "got incorrectly sized response from child: %x", i);
++		while ((r = read_msg(x, &msg)) == 0)
++		    process_msg(i, &msg);
++
++		if (r == 2) {
++		    syslog(LOG_ERR,
++			"got incorrectly sized response from child: %x", i);
++		    continue;
++		}
++		if (r < 0) {
++		    syslog(LOG_ERR,
++			"error while receiving message from child %x: %m", i);
+ 		    continue;
+ 		}
+-		
+-		process_msg(i, &msg);
+ 	    }
+ 
+ 	    if (Services[i].exec &&

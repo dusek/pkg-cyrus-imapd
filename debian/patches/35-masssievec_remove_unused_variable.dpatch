@@ -1,0 +1,18 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 35_masssievec_remove_unused_variable.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Remove the $nosievedir variable which is set once but never used.
+
+@DPATCH@
+diff -urNad git~/tools/masssievec git/tools/masssievec
+--- git~/tools/masssievec	2010-01-16 19:33:57.355091520 -0200
++++ git/tools/masssievec	2010-01-16 19:33:57.482091059 -0200
+@@ -84,7 +84,6 @@
+ 	    push @configs, $1;
+ 	}
+ 	if (/^sieveusehomedir:\s+(1|t|yes|on)/) {
+-	    $nosievedir = 1;
+ 	    print "you are storing sieve scripts in user's home directories, this script cannot deal with that\n";
+ 	    exit;
+ 	}

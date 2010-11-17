@@ -1,0 +1,10 @@
+Document: cyrus2.3-manual
+Title: CMU Cyrus 2.3 Manual
+Author: Carnegie Mellon University
+Abstract: This manual describes how to configure and administer 
+ the Cyrus POP/IMAP mail system, version 2.3
+Section: Network/Communication/Mail
+
+Format: HTML
+Index: /usr/share/doc/cyrus-doc-2.3/html/index.html
+Files: /usr/share/doc/cyrus-doc-2.3/html/*.html

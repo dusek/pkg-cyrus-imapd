@@ -1,0 +1,12 @@
+etc/pam.d
+etc/default
+etc/logcheck/ignore.d.server
+etc/logcheck/violations.ignore.d
+usr/sbin
+usr/lib/cyrus
+usr/lib/cyrus/upgrade
+usr/share/snmp/mibs
+var/lib/cyrus
+var/spool/cyrus
+var/spool/sieve
+var/run/cyrus/socket

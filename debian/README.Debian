@@ -1,0 +1,333 @@
+Cyrus IMAP for Debian
+---------------------
+
+   "All systems administrators have their horror stories. For me, it was
+    setting up a HP Color Bubblejet under Linux using ghostscript before
+    linuxprinting.org was alive.  Well that was a piece of cake compared
+    to what I am about to describe in this document."
+         --  "Hosting email for virtual domains using Postfix and Cyrus"
+	                                     Haim Dimermanas, 2001-08-01
+
+           "I warned you to read all the documentation first, didn't I?"
+                                    --  Henrique M. Holschuh, 2002-10-01
+
+IMPORTANT: Cyrus is a closed-box email system.  Your system will access your
+email through LMTP, IMAP and POP3 *only*.  No direct file access to the email
+store is supposed to take place.
+
+For more information, please consult http://asg.web.cmu.edu/cyrus/imapd/ and
+http://asg.web.cmu.edu/twiki/bin/view/Cyrus/WebHome (Cyrus WiKi).  There is
+also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the LDP HOWTO
+collection.  Upgrade hints are in UPGRADE.Debian.gz  Outdated documentation
+will cause you much grief, so beware of that when hunting anywhere else than
+the Cyrus mailinglist for information.
+
+Backports of the latest packages for Debian Stable are available from
+http://www.backports.org
+
+WARNING: For one to get Cyrus IMAPd to work correctly, one must first get the
+SASL layer to work correctly.  This is far from trivial, so if you don't manage
+at first, don't go around filling bugs against Cyrus IMAPd before you make damn
+sure it is not a SASL configuration error.  Read the hint list later on this
+file as well.  Start by reading README.Debian.simpleinstall.
+
+The Debian packaging of Cyrus has a few quirks which are important to know
+about:
+
+1. Renaming of some Cyrus IMAP utilities
+
+   The quota, reconstruct, master and deliver utilities have been renamed to
+   cyrquota, cyrreconstruct, cyrmaster and cyrdeliver, following the template
+   set by upstream with "cyradm".  This was done because both Cyrus Debian
+   maintainers found the original names to be too generic and likely to cause
+   namespace collisions later.
+
+   Since documentation may refer to these utilities using their original
+   name, you must be aware of this fact.  Also, installsieve is deprecated
+   and will be removed from the Debian package in the future; use sieveshell
+   instead.
+
+2. Relocation of many Cyrus IMAP files
+
+   The default Cyrus install scatters files all over the place.  The Debian
+   package installs only a few files in /usr/bin (cyradm, sieveshell).
+   IMAP/email administrator utilities are installed in /usr/sbin (such as
+   cyrreconstruct).  Programs that must be run by cyrmaster are installed in
+   /usr/lib/cyrus (such as imapd and pop3d).  Sockets go into
+   /var/run/cyrus/socket, per FHS 2.2.  Sieve files go in /var/spool/sieve, but
+   an /etc/sieve compatibility symlink is also installed just in case.
+
+   The imapd.conf and cyrus.conf configuration files are in /etc. The PAM
+   policy files are in /etc/pam.d.
+
+   Feel free to use dpkg-statoverride to change the permission of
+   /var/run/cyrus/socket, the cyrus packages will not override your
+   configuration if dpkg-statoverride is used.  In fact, you will most likely
+   have to do so for postfix to deliver to Cyrus, for example.
+
+3. Cyrus Murder, the Cyrus IMAPd/POP3 aggregator is available.
+
+   However, you will have to configure it yourself.  No pre-packaged
+   configuration of Murder is available at this time...  The documentation is
+   all there, and the Cyrus packages will happily preserve your Cyrus Murder
+   configuration.  You do not have to install the cyrus-imapd-2.3 or
+   cyrus-pop3d-2.3 packages in hosts that only need the proxy daemons running,
+   but do note that the /etc/pam.d/imap and /etc/pam.d/pop files are in those
+   packages (and they are needed by the proxies), so you will have to create
+   the files manually.
+
+   One important note: MUPDATE doesn't support TLS, so you won't be able to
+   use plaintext authentication methods.  The easiest thing to do is to put
+   an entry for your mupdate user in sasldb2 and use DIGEST-MD5.
+
+4. Configurable idled support.
+  
+   Cyrus IMAPd supports three options of using IDLE in IMAP sessions. The first
+   option is not to support IDLE at all. The second is to use internal polling
+   in the IMAP daemon. The third option is to use an external daemon, idled.
+   Upstream only supports configuration of this during compilation, Debian
+   however includes a patch which makes this runtime-configurable. Please
+   set the 'idlemethod' imapd.conf option according to your needs and enable
+   idled in cyrus.conf if you want to use it.
+
+General notes and hints:
+------------------------
+
+ o *** ALWAYS READ /usr/share/doc/cyrus-common-2.3/NEWS.Debian *** after
+   you upgrade the package. This, and every other NEWS.Debian can automatically
+   be shown to you before the upgrade, see the apt-listchanges package for more
+   information.
+
+ o QUOTAS ARE LIMITIED TO 2GB on some platforms.
+   Be careful to not set quotas over that ammount if your platform doesn't
+   support the C datatype "long long". Things will break in very bad ways.
+   Yes, it is a big glitch, and no, there are no easy workarounds.
+   see https://bugzilla.andrew.cmu.edu/show_bug.cgi?id=1212
+   This has been fixed for the upcoming Cyrus 2.3.
+
+ o Either turn off logging of the DEBUG level, or don't complain about cyrus
+   verbosity on the logs.  Don't ever ask in the mailing lists about messages
+   logged in the DEBUG level before reading the source code.
+
+ o Watch out for your /dev/random bitbucket! SASL may use it, and if it
+   empties, it will hang the processes wrapped up by SASL.  This means
+   just about every Cyrus service (lmtp, imap, pop3, sieve)...  Disable
+   APOP in /etc/imapd.conf if you don't need it, as it is a serious draw
+   on randomness resources.
+
+ o One extremely important point to notice is that saslauthd works ONLY
+   with plaintext.  APOP, CRAM-MD5, OTP, DIGEST-MD5 and any other "auxprop"
+   SASL mech will *not* work through saslauthd.  This can and will cause
+   serious issues in Cyrus murder environments.
+
+ o When using ext3, Cyrus really wants data=journal.  However, up to
+   kernel 2.4.20 there are dangerous bugs in that option, so you're better
+   off not using that.  xfs is faster and better for Cyrus, anyway.
+   Please note that sarge was shipped with 2.4.27, and etch will not ship
+   any 2.4 kernels anymore."
+
+   2.4 kernels are NOT shipped with Debian Etch.
+
+ o nscd users: nscd is highly incompatible with ldap, and somewhat buggy
+   otherwise.  If you use nscd and Cyrus segfaults on you, try restarting
+   nscd, or disabling it.
+
+ o "The Debian libldap2 and cyrus-imapd packages are both compiled using the
+   SASL library.  If you use cyrus-imapd together with libnss-ldap, or
+   saslauthd together with libpam-ldap, the resulting double calls to SASL
+   library functions can trigger a double-free bug which may cause the calling
+   process to crash.  To avoid such a crash, you must recompile the libldap2
+   package --without-cyrus-sasl."  --  http://bugs.debian.org/145766 [!@#$%!!!
+   I didn't expect SASL 2.1 to still have this annoying problem]
+
+ o The lmtp service (allocated in Debian Woody to port 2003, and non-existent
+   on Debian Sarge and Etch) is non-standard.  It has no port officially
+   allocated anywhere; it is usually run bound to the localhost interface,
+   unless one needs it for clustering and high-availability scenarios.  If you
+   need it elsewhere, by all means move it -- you only need to edit
+   /etc/services, or change the port for the lmtp service in /etc/cyrus.conf.
+
+ o The lmtp service will only allow Cyrus lmtp administrators to authenticate.
+   Set them in /etc/imapd.conf.
+
+ o Cyrus can now use two different namespaces (the standard one, where all
+   subfolders are children of INBOX, and one where they are all in the same
+   hierarchical level).
+
+   See /usr/share/doc/cyrus-doc-2.3/html/altnamespace.html for details. If
+   you deal with a large population of winboze users, this option can save
+   you some headaches.
+
+ o One can also chose between netnews-style notation for folders
+   (INBOX.subfolder), where the "." character is reserved to separate folders;
+   or UNIX-style notation (INBOX/subfolder), where dots are allowed in names,
+   and the slash separate folders (the "^" character is reserved in this
+   mode).
+
+   See /usr/share/doc/cyrus-common-2.3/html/altnamespace.html for details.
+
+ o When using SASL, do keep in mind that cyrus runs under user cyrus, and not
+   root.  It cannot read shadow files (unless you add the user cyrus to group
+   shadow), or perform any root-only operations directly.  You need to use the
+   saslauthd (or, if available, auxpropd) mechanism to authenticate against
+   root-only data.  And that also means user cyrus must be able to talk to the
+   unix socket saslauthd uses (which is controlled by SASL, not Cyrus IMAPd).
+
+ o Any of the SASL configure options can be inserted in imapd.conf, just
+   prefix it with "sasl_" (e.g.: sasl_mech_list: PLAIN).  The list of SASL
+   options is in /usr/share/doc/libsasl2/options.html.
+
+ o The services are tcp-wrapped.  Their hosts.allow/hosts.deny id is the
+   service name in /etc/cyrus.conf. See hosts_access(5).
+
+ o The PAM service names for use with SASL (via saslauthd) are:
+   "imap", "sieve", "lmtp", "pop", "mupdate".
+
+ o You need to specify your admin users in /etc/imapd.conf before you can
+   add mailboxes, or deliver through authenticated lmtp. Do NOT use root.
+   We suggest user cyrus, which is already used by the system for all
+   things Cyrus IMAPd... but it need not be an existing user.  As long as
+   SASL will authenticate against it, it will work.
+
+ o Do NOT read your admin user's email via IMAP (see the FAQ for details).
+
+ o Don't export your mail store over NFS or AFS (read the FAQ for more info).
+   You have been warned.  You really want a journaled (as in journaling for the
+   metadata), local filesystem for the store.  Failing that, you need
+   something with very strict and correct lock semantics, and full mmap
+   support.
+
+ o Ext2 is slow on very large directories (right now), and sync metadata
+   writes enabled are a huge performance hit. If you need high IO throughput
+   from Cyrus, you will need to use ext3, reiserfs, xfs or something similar.
+
+ o You may want to enable/disable synchronous metadata writes to your mail
+   store dirs (check /usr/share/doc/cyrus-doc-2.3/html/install.html for more
+   info, in package cyrus-docs-2.3).  The cyrus-makedirs script tries to do the
+   right thing for ext2 and ext3 filesystems.  Failure to correctly update the
+   metadata in the right order can completely screw up your Cyrus store on a
+   power-loss or another disk failure.
+
+ o Try mounting the store and cyrus database filesystems with noatime for
+   performance gains.  Load-balance the store using multiple partitions on
+   different physical devices for even better performance gains.
+
+ o Cyrus IMAPd should be fed mail through LMTP.  If at all possible, use
+   the Unix socket for that -- it automatically authenticates as user
+   postman and that will help wonders.  cyrdeliver can also be used to
+   inject mail, but it will simply open an LMTP socket to cyrus and
+   deliver through that -- this is much slower than using LMTP directly.
+   The UNIX socket is in /var/run/cyrus/socket/lmtp.  Use dpkg-statoverride
+   if you need to change the permissions of the socket directory.
+
+ o You can use /usr/sbin/cyrus-makedirs to generate the needed directories
+   for cyrus partitions.  It is run automatically by the package postinst,
+   and it knows to parse the /etc/imapd.conf file to verify if hash
+   subdirectories are needed or not.  It cannot detect what kind of hashing
+   should be used yet.  If you recompile the package with full hashing,
+   change it.
+
+ o Refer to cyrus-utils.sourceforge.net and the info-cyrus mailinglist
+   for mailbox/imap to cyrus conversion scripts.
+
+ o If you don't have pop3 or something else enabled by default in cyrus.conf,
+   installed, disable it.  Otherwise, Cyrus master will log warnings that the
+   service could not be started.
+
+ o If you want to run something that is not in /usr/lib/cyrus/bin in
+   cyrus.conf, just use the full path in cyrus.conf (e.g.:
+   cmd="/usr/sbin/squatter").
+
+ o Sieveshell is really lacking on auth capabilities, and timsieved is quite
+   strict on what auth capabilities it offers.  So, pay attention to
+   sasl_minimum_layer, and see bug #151295 for more details
+   (http://bugs.debian.org/151925).  Also, make sure you have the correct set
+   of SASL2 modules installed in in your system.
+
+ o uw-mailutils has some nice utilities to migrate mail stores from/to imap
+   servers.  You might find it quite useful to migrate a site to Cyrus.
+
+Known bugs
+----------
+
+  Please see
+http://bugs.debian.org/cgi-bin/pkgreport.cgi?which=src&data=cyrus-imapd-2.3&
+archive=no&version=
+  for a list of any known bugs.
+
+
+SNMP logging
+------------
+
+cyrmaster is an agentx SNMP subagent, and it can interface to a agentx SNMP
+master.  It will export data at OID .1.3.6.1.4.1.3.6.1 (cyrusMasterMIB).
+
+The ucd-snmp daemon (package snmpd) is NOT configured to work
+as agentx master agent by default -- you have to do that manually,
+by adding "master agentx" to the /etc/snmp/snmpd.conf file.
+
+cyrmaster will register with the snmp agentx master when it is started,
+so if the snmp master is restarted after cyrmaster, it will not forward
+the snmp requests to cyrmaster anymore.  Check your system for any cron
+scripts that might be restarting the snmp process if that happens.
+
+See /usr/share/snmp/mib/CYRUS-MASTER-MIB.txt for more details.
+
+
+Backing up for rainy days
+------------------------
+
+Cyrus automatically checkpoints and backups some of its databases, using the
+ctl_cyrusdb(8) utility (EVENTS in /etc/cyrus.conf).  It is supposed to be also
+capable of recovering automatically from these backups, and to attempt to do so
+at startup.  However, ctl_cyrusdb -r is NOT FULLY IMPLEMENTED YET... you are on
+your own to recover from corrupt databases.
+
+This recovery can be done using the db3 utilities, and even by smart usage of
+cvt_cyrusdb(8) and ctl_mboxlist(8).  The automatic backups are useful, too,
+even if they are not restored automatically.
+
+The database backups are stored at /var/lib/cyrus/db.backup*, you may want to
+copy the files there to backup media in a cronjob, or something like that.  You
+can kill the TLS cache database, as long as Cyrus is stopped when you do it.
+Loss of the delivery database is not very bad, it just means some users might
+get duplicated messages.
+
+Cyrus does NOT backup the mail store automatically.  To backup the mail store
+partitions, you must stop Cyrus and dump the entire partition to your backup
+media.  The MH-like structure of the Cyrus store do make them suitable for
+incremental backups.  Hot-backups of the store can be made, but you risk losing
+some non-critical metadata when the restore is done.
+
+You can backup all Cyrus non-text databases to a flat text file format using the
+cvt_cyrusdb utility (and recover back from the flat text file format), but you
+should stop Cyrus first.
+
+If you ever need to recover the mail store from backup, you should run
+cyrreconstruct(8) to rebuild the mailbox indexes.
+
+A daily maintenance cronjob uses ctl_mboxlist(8) to dump the mailboxes database
+to /var/backup. That backup copy can be used as a last-resort copy if the hot
+backups become corrupted somehow.
+
+
+Debian source package quirks
+----------------------------
+
+Patching is done using dpatch. Patches from upstream CVS are marked as such.
+
+
+THANKS
+------
+
+Thanks go to the CMU crew for producing Cyrus IMAPd in the first place;
+Michael-John Turner <mj@debian.org> for maintaining the v1.5 branch and setting
+the groundstones for the v2.1 package; David Parker <david@neongoat.com> and
+David D. Kilzer <ddkilzer@theracingworld.com> for their huge help in getting
+the v2.1 packages out-of-the-door, and the upgrade from v1.5 guide; Fabian
+Fagerholm <fabbe@paniq.net> for stress testing the daemons, and useful
+feedback; Gilles Bouthenot <gilles.bouthenot@fcomte.iufm.fr> for good
+feedback; and Henrique de Moraes Holschuh for maintaining the 2.1 branch.
+
+ -- The Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+

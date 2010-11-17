@@ -1,0 +1,162 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 01-fix_Makefile.in.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix all Makefile.in files as necessary
+
+@DPATCH@
+diff -urNad git~/Makefile.in git/Makefile.in
+--- git~/Makefile.in	2010-01-16 19:22:56.000000000 -0200
++++ git/Makefile.in	2010-01-16 19:24:35.824091390 -0200
+@@ -43,7 +43,7 @@
+ # $Id: Makefile.in,v 1.106 2009/12/21 11:42:01 murch Exp $
+ 
+ SUBDIRS = man @PRE_SUBDIRS@ lib @SIEVE_SUBDIRS@ @SERVER_SUBDIRS@ \
+-	imtest @SNMP_SUBDIRS@ @EXTRA_SUBDIRS@
++	imtest perl @SNMP_SUBDIRS@ @EXTRA_SUBDIRS@
+ DISTSUBDIRS = doc
+ 
+ srcdir = @srcdir@
+diff -urNad git~/imap/Makefile.in git/imap/Makefile.in
+--- git~/imap/Makefile.in	2010-01-16 19:21:09.000000000 -0200
++++ git/imap/Makefile.in	2010-01-16 19:24:35.824091390 -0200
+@@ -69,7 +69,7 @@
+ LIBS = $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
+ DEPLIBS = ../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
+ 
+-CFLAGS = @CFLAGS@
++CFLAGS = @CFLAGS@ @WARNERROR@
+ LDFLAGS = @LDFLAGS@ @COM_ERR_LDFLAGS@ 
+ 
+ SHELL = /bin/sh
+diff -urNad git~/installsieve/Makefile.in git/installsieve/Makefile.in
+--- git~/installsieve/Makefile.in	2010-01-16 19:21:09.000000000 -0200
++++ git/installsieve/Makefile.in	2010-01-16 19:24:35.824091390 -0200
+@@ -50,7 +50,7 @@
+ 
+ DEFS = @DEFS@
+ CPPFLAGS = -I. -I$(srcdir) -I$(srcdir)/../lib @CPPFLAGS@ @SASLFLAGS@
+-CFLAGS = @CFLAGS@
++CFLAGS = @CFLAGS@ @WARNERROR@
+ LDFLAGS = @LDFLAGS@
+ 
+ INSTALL = @INSTALL@
+diff -urNad git~/lib/Makefile.in git/lib/Makefile.in
+--- git~/lib/Makefile.in	2010-01-16 19:22:57.000000000 -0200
++++ git/lib/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -63,7 +63,7 @@
+ LIBS = @LIBS@
+ 
+ MAKEDEPEND_CFLAGS = @CFLAGS@
+-CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@
++CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@ @WARNERROR@ -fPIC
+ LDFLAGS = @LDFLAGS@
+ 
+ SHELL = /bin/sh
+diff -urNad git~/master/Makefile.in git/master/Makefile.in
+--- git~/master/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/master/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -56,7 +56,7 @@
+ CPPFLAGS = -I.. -I$(srcdir)/../lib -I$(srcdir)/../imap @CPPFLAGS@ @COM_ERR_CPPFLAGS@
+ DEPLIBS = @DEPLIBS@
+ 
+-CFLAGS = @CFLAGS@
++CFLAGS = @CFLAGS@ @WARNERROR@
+ LDFLAGS = @LDFLAGS@ @COM_ERR_LDFLAGS@
+ LIBS = ../lib/libcyrus_min.a @LIB_UCDSNMP@ @LIBS@ @COM_ERR_LIBS@
+ 
+diff -urNad git~/notifyd/Makefile.in git/notifyd/Makefile.in
+--- git~/notifyd/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/notifyd/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -56,7 +56,7 @@
+ 
+ DEFS = @DEFS@ @LOCALDEFS@
+ CPPFLAGS = -I.. -I$(srcdir)/../sieve -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
+-CFLAGS = @CFLAGS@
++CFLAGS = @CFLAGS@ @WARNERROR@
+ LDFLAGS = @LDFLAGS@
+ 
+ prefix = @prefix@
+diff -urNad git~/perl/Makefile.in git/perl/Makefile.in
+--- git~/perl/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/perl/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -86,9 +86,9 @@
+ 			   BDB_LIB="$(BDB_LIB)" BDB_INC="$(BDB_INC)" \
+ 			   OPENSSL_LIB="$(OPENSSL_LIB)" OPENSSL_INC="$(OPENSSL_INC)" \
+ 			   SASL_LIB="$(SASL_LIB)" SASL_INC="$(SASL_INC)" CC="$(CC)" \
+-			     $(PERL) Makefile.PL PREFIX=$(prefix); \
++			     $(PERL) Makefile.PL INSTALLDIRS=vendor; \
+ 			fi; \
+-			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) all) || exit 1; \
++			$(MAKE) $(MFLAGS) LD_RUN_PATH= DESTDIR=$(DESTDIR) all) || exit 1; \
+ 	done
+ 
+ install::
+diff -urNad git~/perl/sieve/Makefile.in git/perl/sieve/Makefile.in
+--- git~/perl/sieve/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/perl/sieve/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -86,9 +86,9 @@
+ 			   BDB_LIB="$(BDB_LIB)" BDB_INC="$(BDB_INC)" \
+ 			   OPENSSL_LIB="$(OPENSSL_LIB)" OPENSSL_INC="$(OPENSSL_INC)" \
+ 			   SASL_LIB="$(SASL_LIB)" SASL_INC="$(SASL_INC)" CC="$(CC)" \
+-			     $(PERL) Makefile.PL PREFIX=$(prefix); \
++			     $(PERL) Makefile.PL INSTALLDIRS=vendor; \
+ 			fi; \
+-			$(MAKE) $(MFLAGS) DESTDIR=$(DESTDIR) all) || exit 1; \
++			$(MAKE) $(MFLAGS) LD_RUN_PATH= DESTDIR=$(DESTDIR) all) || exit 1; \
+ 	done
+ 
+ install::
+diff -urNad git~/perl/sieve/lib/Makefile.in git/perl/sieve/lib/Makefile.in
+--- git~/perl/sieve/lib/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/perl/sieve/lib/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -58,7 +58,7 @@
+ DEPLIBS = ../../../lib/libcyrus.a ../../../lib/libcyrus_min.a @DEPLIBS@
+ 
+ MAKEDEPEND_CFLAGS = @CFLAGS@
+-CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@
++CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@ -fPIC
+ LDFLAGS = @LDFLAGS@
+ 
+ SHELL = /bin/sh
+diff -urNad git~/sieve/Makefile.in git/sieve/Makefile.in
+--- git~/sieve/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/sieve/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -60,7 +60,7 @@
+ DEFS = @DEFS@ @LOCALDEFS@
+ CPPFLAGS = -I.. -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
+ MAKEDEPEND_CFLAGS = @CFLAGS@
+-CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@
++CFLAGS = @CFLAGS@ @PERL_CCCDLFLAGS@ -fPIC
+ LDFLAGS = @LDFLAGS@
+ 
+ MAKEDEPEND = @MAKEDEPEND@
+@@ -71,6 +71,7 @@
+ LIBS = libsieve.a $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
+ DEPLIBS=../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
+ 
++BINARIES = sievec sieved
+ BUILT_SOURCES = addr.c addr.h addr-lex.c \
+ 	sieve.c sieve.h sieve-lex.c \
+ 	sieve_err.h sieve_err.c
+@@ -136,7 +137,7 @@
+ 	$(COMPILE_ET) $(srcdir)/sieve_err.et
+ 
+ clean:
+-	rm -f sievec sieved test *~ *.o *.a Makefile.bak makedepend.log
++	rm -f sievec sieved test *~ *.o *.a Makefile.bak makedepend.log $(BINARIES)
+ 
+ distclean: clean
+ 	rm -f sieve_err.c sieve_err.h
+diff -urNad git~/timsieved/Makefile.in git/timsieved/Makefile.in
+--- git~/timsieved/Makefile.in	2010-01-16 19:21:10.000000000 -0200
++++ git/timsieved/Makefile.in	2010-01-16 19:24:35.825091514 -0200
+@@ -56,7 +56,7 @@
+ 
+ DEFS = @DEFS@ @LOCALDEFS@
+ CPPFLAGS = -I.. -I$(srcdir)/../sieve -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
+-CFLAGS = @CFLAGS@
++CFLAGS = @CFLAGS@ @WARNERROR@
+ LDFLAGS = @LDFLAGS@
+ 
+ prefix = @prefix@

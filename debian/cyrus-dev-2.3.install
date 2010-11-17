@@ -1,0 +1,3 @@
+usr/lib/*.a
+usr/include/cyrus/*
+usr/share/man/man3/imclient*

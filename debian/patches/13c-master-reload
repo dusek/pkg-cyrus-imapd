@@ -1,0 +1,60 @@
+From: Henrique de Moraes Holschuh <hmh@debian.org>
+Subject: Fixes related to master SIGHUP handling
+
+Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
+
+* Cleans up various data fields for reconfig.
+
+Index: cyrus-imapd-2.3-pkg/master/master.c
+===================================================================
+--- cyrus-imapd-2.3-pkg.orig/master/master.c
++++ cyrus-imapd-2.3-pkg/master/master.c
+@@ -1398,8 +1398,9 @@ void add_service(const char *name, struc
+ 	snprintf(buf, sizeof(buf),
+ 		 "cannot find executable for service '%s'", name);
+ 	
+-	/* if it is not, we're misconfigured, die. */
+-	fatal(buf, EX_CONFIG);
++	/* if it is not, we just skip it */
++	syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
++	return;
+     }
+ 
+     Services[i].maxforkrate = maxforkrate;
+@@ -1419,6 +1420,7 @@ void add_service(const char *name, struc
+ 	if (prefork > 1) prefork = 1;
+ 	Services[i].desired_workers = prefork;
+ 	Services[i].max_workers = 1;
++	Services[i].babysit = 0;
+     }
+     free(max);
+  
+@@ -1458,7 +1460,7 @@ void add_event(const char *name, struct 
+     if (!strcmp(cmd,"")) {
+ 	char buf[256];
+ 	snprintf(buf, sizeof(buf),
+-		 "unable to find command or port for event '%s'", name);
++		 "unable to find command for event '%s'", name);
+ 
+ 	if (ignore_err) {
+ 	    syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
+@@ -1564,13 +1566,18 @@ void reread_conf(void)
+ 		       Services[i].stat[0], Services[i].stat[1]);
+ 
+ 	    /* Only free the service info on the primary */
+-	    if(Services[i].associate == 0) {
++	    if (Services[i].associate == 0) {
++		free(Services[i].name);
+ 		free(Services[i].listen);
+ 		free(Services[i].proto);
+ 	    }
++	    Services[i].name = NULL;
+ 	    Services[i].listen = NULL;
+ 	    Services[i].proto = NULL;
+ 	    Services[i].desired_workers = 0;
++	    Services[i].nforks = 0;
++	    Services[i].nactive = 0;
++	    Services[i].nconnections = 0;
+ 
+ 	    /* send SIGHUP to all children */
+ 	    for (j = 0 ; j < child_table_size ; j++ ) {

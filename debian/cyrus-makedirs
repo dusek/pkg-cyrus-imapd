@@ -1,0 +1,144 @@
+#!/bin/sh -e
+#
+#  cyrus-makedirs  -  Parses a Cyrus imap.d configuration file, and creates
+#                     the correct directory trees for all partitions
+#
+#  Copyright 2001,2002 by Henrique de Moraes Holschuh <hmh@debian.org.
+#  Released under the terms of the GNU General Public License (GPL) version 2
+
+# See lib/util.c, dir_hash_c for Cyrus' directory hashing
+# for the new hash style
+#HASHDIRS="A B C D E F G H I J K L M N O P Q R S T U V W"
+# for the old hash style
+HASHDIRS="a b c d e f g h i j k l m n o p q r s t u v w x y z"
+
+# Sane locale, please
+LC_ALL=C
+export LC_ALL
+
+CYRUSOPTFILESYS=1
+CONF=/etc/imapd.conf
+[ -r /etc/default/cyrus2.3 ] && . /etc/default/cyrus2.3
+
+getconf () {
+	confvalue=`sed --silent -e "/^[[:blank:]]*$1:/ { \
+	s#^[[:blank:]]*$1:[[:blank:]]*## \
+	p
+	}" < "$CONF" | head -1`
+	result=${confvalue:-$2}
+}
+
+killsquat=0
+[ "$1" = "--cleansquat" ] && {
+	killsquat=1
+	shift
+}
+
+
+CONF="${1:-$CONF}"
+[ -r "$CONF" ] || {
+	echo $0: unable to read configuration file $CONF. Aborting...
+	exit 1
+}
+
+getconf configdirectory /var/lib/cyrus
+confdir="$result"
+[ -d "$confdir" ] || {
+	echo $0: $confdir is not an directory. Aborting...
+	exit 2
+}
+
+getconf sievedir /etc/sieve
+sievedir="$result"
+
+getconf sieveusehomedir 0
+case "$result" in
+	1|t|true|yes|on) nosievedir=1
+			;;
+	*)		nosievedir=0
+			;;
+esac
+
+getconf hashimapspool 0
+case "$result" in
+	1|t|true|yes|on) hashspool=1
+			;;
+	*)		hashspool=0
+			;;
+esac
+
+# Partitions list
+partitions=`sed --silent -e "/^[[:blank:]]*partition-[[:alnum:]]\+:/ { \
+            s#^[[:blank:]]*partition-[[:alnum:]]\+:[[:blank:]]*## \
+	    p
+	    } " < "$CONF" | sort | uniq | xargs`
+
+# First, fix up the entire confdir subtree
+echo "Creating/updating cyrus control directories in ${confdir}..."
+[ -d "$confdir" ] || mkdir -p "$confdir"
+chmod 750 "$confdir"
+for i in db proc socket log msg user quota; do
+    [ -d "$confdir/$i" ] || mkdir -p "$confdir/$i"
+    chmod 700 "$confdir/$i"
+done
+chmod 750 $confdir/socket
+for i in user quota ; do
+    for j in $HASHDIRS ; do
+    	[ -d "$confdir/$i/$j" ] || mkdir "$confdir/$i/$j"
+    done
+done
+find "$confdir" -print0 \( -not -user cyrus -or  -not -group mail \) | xargs -r -0 chown cyrus:mail
+
+# Now, create the spool partitions
+for i in $partitions ; do
+	echo "Creating/updating partition spool $i..."
+	[ -d "$i" ] || mkdir -p "$i"
+	chmod 750 "$i"
+	[ $hashspool -eq 1 ] && {
+	   for j in $HASHDIRS ; do
+	        [ -d "$i/$j" ] || mkdir "$i/$j"
+	   done
+	}
+	[ -d "$i/stage." ] || mkdir "$i/stage."
+	find "$i" -print0 \( -not -user cyrus -or  -not -group mail \) | xargs -r -0 chown cyrus:mail
+	# and kill any squatter indexes
+	[ $killsquat -ne 0 ] && find "$i" -name 'cyrus.squat' -type f -exec rm -f "{}" \;
+done
+
+# And the sieve directory structure
+[ $nosievedir -eq 0 ] && {
+	[ -d "$sievedir" ] || mkdir "$sievedir"
+	chmod 755 "$sievedir"
+	for j in $HASHDIRS ; do
+		[ -d "$sievedir/$j" ] || mkdir "$sievedir/$j"
+		chmod 755 "$sievedir/$j"
+	done
+	find "$sievedir" -print0 \( -not -user cyrus -or  -not -group mail \) | xargs -r -0 chown cyrus:mail
+}
+
+[ "x${CYRUSOPTFILESYS}" != "x1" ] && exit 0
+#
+# Fix attributes for every partition
+#
+# ext2:  Don't use ext2 for Cyrus spools. But if you must, enable Sync writes
+# ext3:  Journal data too, since that improves access time a LOT
+#        (maybe in the future, there's a bug in 2.4.18 ext3 w/ +j)
+#
+echo "Trying to optimize Cyrus partitions, edit /etc/default/cyrus2.3 to disable..."
+partsys="${confdir} ${partitions}"
+filesys=`df -P -T ${partsys} | sed -e "1 d" -e "s/ \+/ /g" | cut -d " " -f 2 | xargs`
+for i in ${filesys} ; do
+	case ${i} in
+	ext2)
+  		echo "Setting attributes to +S for  ${partsys%% *}..."
+		find "${partsys%% *}" -type d -exec chattr +S "{}" \;
+		;;
+	ext3)
+  		echo "Setting attributes to -S -j for  ${partsys%% *}..."
+		find "${partsys%% *}" -type d -exec chattr -S -j "{}" \;
+		;;
+	esac
+	partsys="${partsys#* }"
+done
+
+exit 0

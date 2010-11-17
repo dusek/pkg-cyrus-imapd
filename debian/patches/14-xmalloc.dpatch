@@ -1,0 +1,31 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 14-xmalloc.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix xmalloc usage
+
+@DPATCH@
+diff -urNad git~/lib/map_stupidshared.c git/lib/map_stupidshared.c
+--- git~/lib/map_stupidshared.c	2010-01-16 19:21:09.000000000 -0200
++++ git/lib/map_stupidshared.c	2010-01-16 19:28:44.555091738 -0200
+@@ -49,6 +49,7 @@
+ #include <sys/stat.h>
+ #include <syslog.h>
+ 
++#include "xmalloc.h"
+ #include "map.h"
+ #include "exitcodes.h"
+ 
+diff -urNad git~/lib/xmalloc.h git/lib/xmalloc.h
+--- git~/lib/xmalloc.h	2010-01-16 19:21:09.000000000 -0200
++++ git/lib/xmalloc.h	2010-01-16 19:28:44.555091738 -0200
+@@ -58,7 +58,7 @@
+ 
+ /* Functions using xmalloc.h must provide a function called fatal() conforming
+    to the following: */
+-extern void fatal(const char *fatal_message, int fatal_code);
+-/*   __attribute__ ((noreturn));*/
++extern void fatal(const char *fatal_message, int fatal_code)
++   __attribute__ ((noreturn));
+ 
+ #endif /* INCLUDED_XMALLOC_H */

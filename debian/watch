@@ -1,0 +1,2 @@
+version=2
+ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/cyrus-imapd-(2\.3\..*).tar.(?:gz|bz2)

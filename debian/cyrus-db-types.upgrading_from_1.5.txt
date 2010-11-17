@@ -1,0 +1,6 @@
+DBENGINE BerkeleyDB3.2
+DUPLICATE db3_nosync
+MBOX db3
+SEEN db3
+SUBS flat
+TLS db3_nosync

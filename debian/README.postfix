@@ -1,0 +1,146 @@
+Setting up Cyrus IMAPd for Postfix (Debian)
+===========================================================
+
+Cyrus works wonderfully well with Postfix, both in single-system stores (where
+Postfix runs in the same host as Cyrus IMAPd), and remote mail stores (where
+Cyrus IMAPd is in a different host than Postfix).
+
+Delivery to Cyrus should _always_ be done through direct LMTP from Postfix.  It
+is far simpler and faster to do such delivery using Unix sockets, but Unix
+sockets are only an option for single-system stores.  Cyrdeliver is just a
+stdio-to-LMTP proxy, and it slows down mail delivery greatly.
+
+Cyrus requires LMTP deliveries to be authenticated.  It assumes that any
+deliveries done through an Unix socket are trustable, and pre-authenticates
+them as if coming from the "postman" (fictitious) user (but you _can_
+re-authenticate them as another lmtp admin user, if you wish).
+
+Deliveries done through TCP sockets are not limited to the same host, unlike
+the Unix socket ones, and can therefore be used in remote mail stores.
+However, Cyrus requires that the LMTP session be authenticated using one of the
+SASL mechs available to Cyrus (you can switch this off by giving a "-a"
+parameter to lmtpd in cyrus.conf, but that is unsafe since anyone can bypass
+any user authentication controls you might have on mail delivery, that way).
+
+TCP-socket LMTP sessions should be authenticated as one of the Cyrus LMTP
+admins, normal Cyrus users are not enough.  This requires Postfix with SASL
+support.
+
+
+Setting up Postfix for LMTP delivery to Cyrus
+=============================================
+
+Just set up a transport (either using a transport map, or the default_transport
+configuration directive of Postfix).  Do not use cyrdeliver.
+
+I suggest that the lmtp transport be duplicated and renamed to cyrus if you
+use it to talk to anything else (such as amavisd-new, or amavis-ng). That
+way, LMTP connection caching to the Cyrus store gets optimized, and you can
+use the lmtp-named LMTP transport for something else.
+
+WARNING: Postfix 2.0 does not downcase the recipient in LMTP deliveries, so if
+your users require it, you will have to set lmtp_downcase_rcpt: yes in
+imapd.conf.
+
+
+Unix sockets:
+-------------
+
+For Unix sockets, the Postfix transport is specified as
+"lmtp:unix:/var/run/cyrus/socket/lmtp", (we are using the default Cyrus unix
+socket location as an example, you can change it in /etc/cyrus.conf and
+/etc/imapd.conf). 
+
+You need a Cyrus lmtpd service listening on that socket, of course, so make
+sure something like:
+
+lmtpunix        cmd="lmtpd" listen="/var/run/cyrus/socket/lmtp"
+
+is in the SERVICES section of the /etc/cyrus.conf file.  You also need to make
+sure both Cyrus and Postfix can talk through that socket.  Unix sockets work
+just like files, so that translates to making sure both the user "cyrus" and
+the user Postfix is using for LMTP delivery can both read and write to that
+file.
+
+WARNING:  Since Cyrus pre-auths anything coming through the Unix socket, anyone
+who can write to it will be able to inject email into Cyrus directly.
+
+Use dpkg-statoverride to make sure your configuration for the socket
+permissions will not be overwritten by the Cyrus packages.  Do remember that
+Postfix usually runs the LMTP transport as user "postfix" (configurable in
+/etc/postfix/master.cf).  Also, do not run the postfix lmtp transport chrooted
+if the socket is not inside the chroot.
+
+1. Create a lmtp group:
+	# addgroup lmtp
+
+2. Put user postfix in that group:
+	# adduser postfix lmtp
+
+3. Fix the socket directory permissions:
+	# dpkg-statoverride --force --update --add \
+	  cyrus lmtp 750 /var/run/cyrus/socket
+
+4. Restart Postfix and Cyrus IMAPd
+	# /etc/init.d/postfix restart
+	# /etc/init.d/cyrus2.3 restart
+
+
+TCP sockets:
+------------
+
+TCP sockets are easier on the Cyrus side, and more complicated on the Postfix
+side.  For Cyrus, it is enough to have an "lmtpd" service listening on the
+desired IP interface (or in all of them, if you leave the interface unspecified
+as in the example below), that means something like this in /etc/cyrus.conf
+SERVICES area:
+
+lmtp            cmd="lmtpd" listen="lmtp"
+
+(do note that you MUST have an lmtp entry in /etc/services for this to work.
+This can be any available port, for historical reasons, 2003 is most often used).
+
+Also, remember that Cyrus observes tcpwrapper permissions (/etc/hosts.allow and
+/etc/hosts.deny), make sure they're set up correctly or Cyrus might refuse the
+connections.
+
+To configure Postfix' lmtp transport to authenticate using SASL, do the
+following:
+Note: On Sarge systems, you will also need the postfix-tls package for SASL
+support. On etch and above, the support is included in the postfix package.
+
+1. Configure the lmtp transport SASL layer:
+   (add to /etc/postfix/main.cf):
+   lmtp_sasl_auth_enable = yes
+   lmtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+   lmtp_sasl_security_options = 
+   lmtp_destination_concurrency_limit = 100
+   lmtp_destination_recipient_limit = 0
+
+   The *_limit values should match whatever you configured as limits in
+   Cyrus.  The above configuration will allow plain text logins.
+
+   Create the password map /etc/postfix/sasl_passwd to tell postfix
+   of a Cyrus LMTP administrator user and password to use.
+
+   e.g.:
+   echo "mycyrusspool.my.domain.org postman:foobar" >sasl_passwd
+   postmap sasl_passwd
+
+2. Configure Cyrus to accept that user as a lmtp administrator
+   (add to /etc/imapd.conf)
+   lmtp_admins: postman
+
+3. Tell postfix to use the lmtp transport to deliver email using
+   transport maps or something else.  I suggest making a copy of the
+   postfix lmtp transport in master.cf, renaming it to "cyrus", and 
+   using that.
+
+4. Note that to use the virtual domains feature in Cyrus v2.3,
+   you need to tell postfix to use the lmtp transport as the 
+   virtual_transport. If you also want "local" mail recipients, i.e.
+   those that are addressed to hosts listed in mydestination, to
+   be delivered to Cyrus v2.3, you also need to use lmtp as the 
+   mailbox_transport.
+
+   That's it!

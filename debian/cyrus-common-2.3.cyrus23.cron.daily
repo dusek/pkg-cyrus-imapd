@@ -1,0 +1,73 @@
+#!/bin/sh
+# Cyrus IMAPd daily maintenance script
+# Copyright (c) 2002,2003 by Henrique M. Holschuh
+# Distributed under the terms of the GNU General Public License version 2
+#
+# This script:
+#   1. Backups the mailbox database to the portable text format,
+#      and compresses the result.  This backup can be used to restore
+#      the Cyrus mailbox database using ctl_mboxlist (after uncompressing
+#      the backup file).
+#
+#   2. Cleans up any leftover crap in .stage directories.
+#
+#   3. Runs chk_cyrus and outputs warning messages (so that cron
+#      sends them to the administrator) if any problems are detected.
+
+set -e
+
+# Make sure we get sane behaviour in broken locales
+LC_ALL=C
+export LC_ALL
+
+bak=/var/backups
+bakfile=${bak}/cyrus-mboxlist.txt.gz
+CONF=/etc/imapd.conf
+CHKCYRUS=0
+[ -r /etc/default/cyrus2.3 ] && . /etc/default/cyrus2.3
+umask 022
+
+# check wether ctl_mboxlist  and cyrus-hardwired-config.txt exist
+# exit cleanly if they don't
+[ -x /usr/sbin/ctl_mboxlist ] \
+&& [ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] \
+|| exit 0
+# Check if Cyrus 2.3 is installed (vs. removed but not purged)
+grep -qE '^PACKAGE_VERSION[[:blank:]]+2[.]3' \
+	/usr/lib/cyrus/cyrus-hardwired-config.txt >/dev/null 2>&1 || exit 0
+
+# 1. backup mailbox database
+[ -d $bak ] || ( mkdir -p $bak ; chmod 600 $bak )
+[ -f $bakfile ] && mv ${bakfile} ${bakfile}.bak
+#	su "--command=/usr/sbin/ctl_mboxlist -d" - cyrus | ...
+start-stop-daemon --start --exec /usr/sbin/ctl_mboxlist --quiet --chuid cyrus -- -d | gzip -9 >${bakfile}
+
+# 2. clean up all leftover .stage directories in all spools listed in
+#    the default config file
+[ $CHKCYRUS -ne 0 ] && {
+    [ -r "$CONF" ] || {
+	echo $0: unable to read configuration file $CONF. Aborting...
+	exit 1
+    }
+    partitions=$(sed --silent -e "/^[[:blank:]]*partition-[[:alnum:]]\+:/ { \
+            s#^[[:blank:]]*partition-[[:alnum:]]\+:[[:blank:]]*## \
+	    p
+	    } " < "$CONF" | sort | uniq | xargs)
+    for i in $partitions ; do
+	find "$i" -name '.stage' -type d -print0 | \
+	  xargs --null -n 1 -r -i'{1}' \
+	    find {1} -type f -ctime +1 -exec rm -f {} \;
+    done
+}
+
+# 3. runs chk_cyrus
+[ -x /usr/sbin/chk_cyrus ] && {
+	tmpfile=$(mktemp -t cyrus-daily-cronjob.XXXXXXXXXX)
+	trap 'rm -f "${tmpfile}"' 0
+#	su "--command=/usr/sbin/chk_cyrus" - cyrus | ...
+	start-stop-daemon --start --exec /usr/sbin/chk_cyrus --quiet --chuid cyrus >"${tmpfile}" 2>&1 || cat "${tmpfile}" 1>&2
+	rm -f "${tmpfile}"
+	trap '' 0
+}
+
+exit 0

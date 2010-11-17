@@ -1,0 +1,85 @@
+# Portuguese translation of cyrus-imapd-2.3 debconf messages.
+# Copyright (C) 2009 Carlos Lisboa
+# This file is distributed under the same license as the cyrus-imapd-2.3 package.
+# Carlos Lisboa <carloslisboa@gmail.com>, 2009.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: cyrus-imapd-2.3 2.3.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd-2.3@packages.debian.org\n"
+"POT-Creation-Date: 2009-04-14 17:58+0200\n"
+"PO-Revision-Date: 2009-04-27 21:19+0100\n"
+"Last-Translator: Carlos Lisboa <carloslisboa@gmail.com>\n"
+"Language-Team: Portuguese <traduz@debianpt.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid "Modified database backends"
+msgstr "Base de dados do 'backend' modificada"
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
+"cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
+"changed."
+msgstr ""
+"Comparando /usr/lib/cyrus/cyrus-db-types.txt e /usr/lib/cyrus/cyrus-db-types."
+"active mostra que o 'backend' da base de dados Cyrus IMAPd foi alterado."
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"This means that those databases for which the database backends changed "
+"might need to be converted manually to the new format, using the cvt_cyrusdb"
+"(8) utility."
+msgstr ""
+"Isto significa que as bases de dados cujos 'backends' foram alterados "
+"poderão necessitar de conversão manual para o novo formato, usando o "
+"utilitário cvt_cyrusdb(8)."
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database for "
+"more information.  Do not start cyrmaster until you have converted the "
+"databases to the new format."
+msgstr ""
+"Por favor veja o /usr/share/doc/cyrus-common-2.3/README.Debian.database para "
+"mais informações. Não inicie o cyrmaster até que tenha convertido as bases "
+"de dados para o novo formato."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid "Remove the mail and news spools?"
+msgstr "Remover os spools de e-mail e notícias (news)?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"Os spools de e-mail e notícias Cyrus, assim como os 'scripts sieve' do "
+"utilizador, podem ser removidos quando o pacote for purgado."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Esta questão apenas se aplica aos directórios de spools e script sieve por "
+"omissão em /var. Se tiver modificado o seu local em imapd.conf, os novos "
+"locais não serão removidos, apenas os antigos em /var."

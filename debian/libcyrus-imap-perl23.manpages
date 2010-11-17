@@ -1,0 +1,5 @@
+perl/imap/blib/man3/Cyrus::IMAP.3pm
+perl/imap/blib/man3/Cyrus::IMAP::Admin.3pm
+perl/imap/blib/man3/Cyrus::IMAP::IMSP.3pm
+perl/imap/blib/man3/Cyrus::IMAP::Shell.3pm
+perl/sieve/managesieve/blib/man3/Cyrus::SIEVE::managesieve.3pm

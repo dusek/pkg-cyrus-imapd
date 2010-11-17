@@ -1,0 +1,99 @@
+#
+#    Translators, if you are not familiar with the PO format, gettext
+#    documentation is worth reading, especially sections dedicated to
+#    this format, e.g. by running:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#
+#    Some information specific to po-debconf are available at
+#            /usr/share/doc/po-debconf/README-trans
+#         or http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+#    Developers do not need to manually edit POT or PO files.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: cyrus-imapd-2.3 2.3.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd-2.3@packages.debian.org\n"
+"POT-Creation-Date: 2009-04-14 17:58+0200\n"
+"PO-Revision-Date: 2009-04-14 20:18+0100\n"
+"Last-Translator: Martin Bagge <brother@bsnet.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Swedish\n"
+"X-Poedit-Country: Sweden\n"
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid "Modified database backends"
+msgstr "Förändrade databasbakdelar"
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
+"cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
+"changed."
+msgstr ""
+"En jämförelse mellan /usr/lib/cyrus/cyrus-db-types.txt och /usr/lib/cyrus/"
+"cyrus-db-types.active visar att databasbakänderna för Cyrus IMAPd har "
+"ändrats."
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"This means that those databases for which the database backends changed "
+"might need to be converted manually to the new format, using the cvt_cyrusdb"
+"(8) utility."
+msgstr ""
+"Detta innebär att de databaser som databasbakdelarna har ändrats för kanske "
+"manuellt behöver konverteras till det nya formatet med verktyget cvt_cyrusdb"
+"(8)."
+
+#. Type: error
+#. Description
+#: ../cyrus-common-2.3.templates:1001
+msgid ""
+"Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database for "
+"more information.  Do not start cyrmaster until you have converted the "
+"databases to the new format."
+msgstr ""
+"Läs /usr/share/doc/cyrus-common-2.3/README.Debian.database för mer "
+"information. Starta inte cyrmaster innan du har konverterat databaserna till "
+"det nya formatet."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid "Remove the mail and news spools?"
+msgstr "Ta bort köfiler för e-post och nyhetsgrupper?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"Cyrus köfiler för e-post och nyhetsgrupper, såväl som användarnas sieve-"
+"skript kan tas bort när paketet rensas ut."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common-2.3.templates:2001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Denna fråga gäller endast för standardköfilerna och sieve-skriptkatalogerna "
+"under /var. Om du har ändrat dess plats i imapd.conf kommer inte de nya "
+"platserna att tas bort, endast de gamla under /var."
+
+#~ msgid "Database backends have changed!"
+#~ msgstr "DatabasbakÃ¤nderna har Ã¤ndrats!"

@@ -1,0 +1,3 @@
+etc/pam.d/nntp
+usr/lib/cyrus/bin/fetchnews
+usr/lib/cyrus/bin/nntpd

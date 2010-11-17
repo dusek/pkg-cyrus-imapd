@@ -1,0 +1,88 @@
+From: Henrique de Moraes Holschuh <hmh@debian.org>
+Subject: Shutdown and close sockets cleanly
+
+Origin: vendor, Debian Cyrus IMAPd 2.1.4-11 (2002-05-19)
+
+Cleanly shutdown and close sockets, this is supposed to allow for better
+TCP teardown on the remote end, and reduces CLOSE_WAIT time.
+
+This patch was written 8 years ago, it is possible that nowadays nothing
+will benefit from a shutdown() right before close().  The commit log
+from eight years ago mentions that SHUT_RD should be upgraded to
+SHUT_RDWR where possible, but only after verification that this is not
+going to cause problems (e.g. by discarding data still on flight to the
+remote).
+
+Also, it is possible that new daemons and utils in Cyrus 2.2 and 2.3 may
+need similar patches.
+
+diff -urNad git~/imap/backend.c git/imap/backend.c
+--- git~/imap/backend.c	2010-01-16 19:21:09.000000000 -0200
++++ git/imap/backend.c	2010-01-16 19:26:27.284091887 -0200
+@@ -456,6 +456,7 @@
+ 	    syslog(LOG_ERR, "couldn't authenticate to backend server: %s",
+ 		   sasl_errstring(r, NULL, NULL));
+ 	    if (!ret_backend) free(ret);
++ 	    shutdown(sock, SHUT_RDWR);
+ 	    close(sock);
+ 	    ret = NULL;
+ 	}
+diff -urNad git~/imap/fud.c git/imap/fud.c
+--- git~/imap/fud.c	2010-01-16 19:21:09.000000000 -0200
++++ git/imap/fud.c	2010-01-16 19:26:27.284091887 -0200
+@@ -163,6 +163,15 @@
+     mboxlist_done();
+     closelog();
+     cyrus_done();
++
++    /* be nice to remote */
++    shutdown(0, SHUT_RD);
++    shutdown(1, SHUT_RD);
++    shutdown(2, SHUT_RD);
++    close(0);
++    close(1);
++    close(2);
++
+     exit(code);
+ }
+ 
+diff -urNad git~/imap/imapd.c git/imap/imapd.c
+--- git~/imap/imapd.c	2010-01-16 19:22:57.000000000 -0200
++++ git/imap/imapd.c	2010-01-16 19:26:27.287091213 -0200
+@@ -918,6 +918,10 @@
+ #ifdef HAVE_SSL
+     tls_shutdown_serverengine();
+ #endif
++    /* shutdown socket nicely */
++    cyrus_close_sock(0);
++    cyrus_close_sock(1);
++    cyrus_close_sock(2);
+ 
+     cyrus_done();
+ 
+diff -urNad git~/imap/lmtpd.c git/imap/lmtpd.c
+--- git~/imap/lmtpd.c	2010-01-16 19:22:57.000000000 -0200
++++ git/imap/lmtpd.c	2010-01-16 19:26:27.288091268 -0200
+@@ -976,6 +976,9 @@
+ 
+     cyrus_done();
+ 
++    /* shutdown socket nicely */
++    cyrus_reset_stdio();
++
+     exit(code);
+ }
+ 
+diff -urNad git~/imap/pop3d.c git/imap/pop3d.c
+--- git~/imap/pop3d.c	2010-01-16 19:22:57.000000000 -0200
++++ git/imap/pop3d.c	2010-01-16 19:26:27.289091741 -0200
+@@ -647,6 +647,9 @@
+ #endif
+ 
+     cyrus_done();
++    cyrus_close_sock(0);
++    cyrus_close_sock(1);
++    cyrus_close_sock(2);
+ 
+     exit(code);
+ }

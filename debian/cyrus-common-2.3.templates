@@ -1,0 +1,25 @@
+Template: cyrus-common-2.3/warnbackendchange
+Type: error
+_Description: Modified database backends
+ Comparison between /usr/lib/cyrus/cyrus-db-types.txt and
+ /usr/lib/cyrus/cyrus-db-types.active shows that database backends for
+ Cyrus IMAPd have been changed.
+ .
+ This means that those databases for which the database backends changed
+ might need to be converted manually to the new format, using the
+ cvt_cyrusdb(8) utility.
+ .
+ Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database
+ for more information.  Do not start cyrmaster until you have converted
+ the databases to the new format.
+
+Template: cyrus-common-2.3/removespools
+Type: boolean
+Default: false
+_Description: Remove the mail and news spools?
+ The Cyrus mail and news spools, as well as users' sieve scripts,
+ can be removed when the package is purged.
+ .
+ This question only applies to the default spools and sieve script
+ directories in /var.  If you modified their location in imapd.conf, the
+ new locations will not be removed; just the old ones in /var.

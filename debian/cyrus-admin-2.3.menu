@@ -1,0 +1,6 @@
+?package(cyrus-admin-2.3):needs="text" section="Applications/System/Administration"\
+	hints="Mail,Admin,Cyrus"\
+	title="Cyrus 2.3 cyradm (cyrus@localhost)"\
+	longtitle="Administer local Cyrus IMAPd 2.3 accounts as user cyrus"\
+	icon="/usr/share/icons/cyradm.xpm"\
+	command="/usr/bin/cyradm --user cyrus localhost"

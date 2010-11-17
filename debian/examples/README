@@ -1,0 +1,14 @@
+This directory contains some sample files that may be of use with Cyrus.
+
+mboxtocyrus	A script to import mbox format mailboxes into Cyrus
+		(by Michael-John Turner <mj@debian.org>
+
+syncldap2cyrus.pl retrieves a list of usernames from an LDAP server and
+                  then tries to create a user mailbox in Cyrus, and then
+		  any secondary mailboxes under that. The idea is that
+		  you could run this via cron or manually every time you
+		  add a user to your LDAP server, and they would then
+		  have a Cyrus mailbox. This script also has a report
+		  mode that shows you any users in LDAP that do not have
+		  a Cyrus mailbox, and vice versa.
+		(by Stuart Young (aka Cef) <cef@optus.net>)

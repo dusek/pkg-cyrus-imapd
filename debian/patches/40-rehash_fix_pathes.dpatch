@@ -1,0 +1,36 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 40_rehash_fix_pathes.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix paths in tools/rehash
+
+@DPATCH@
+diff -urNad git~/tools/rehash git/tools/rehash
+--- git~/tools/rehash	2010-01-16 19:34:05.100091044 -0200
++++ git/tools/rehash	2010-01-16 19:34:05.235091861 -0200
+@@ -165,7 +165,7 @@
+ $imapdconf = shift || "/etc/imapd.conf";
+ 
+ $yn = "y";
+-$sievedir = "/usr/sieve";
++$sievedir = "/var/spool/sieve";
+ $nosievedir = 0;
+ $hashispool = 0;
+ $virtdomains = 0;
+@@ -176,7 +176,7 @@
+     read_conf($conf);
+ }
+ 
+-if (! $confdir) { $confdir = "/var/imap"; }
++if (! $confdir) { $confdir = "/var/lib/cyrus"; }
+ 
+ if ($interactive) {
+     print "upgrade $confdir? ";
+@@ -550,6 +550,7 @@
+ 	      or die "couldn't rename .$i/$s/$t to $s/$t";
+ 	  }
+ 	  closedir MV;
++	  rmdir ".$i/$s" or die "could not remove .$i/$s"
+ 	}
+ 	closedir SUB;
+ 	rmdir ".$i" or die "could not remove .$i";

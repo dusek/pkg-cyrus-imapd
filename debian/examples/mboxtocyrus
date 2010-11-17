@@ -1,0 +1,69 @@
+#!/bin/sh
+#
+# Script to import mbox-format mailboxes to Cyrus folders
+# Requires formail (from procmail)
+#
+# Note: As this runs cyrdeliver directly, you'll need to be
+#       a member of the mail group for it to work.
+#
+# Note2: Make sure the user 'postman' is listed as an lmtp_admin
+# that is allowed to proxy.
+#
+# Use this script at your own risk! I'm not responsible if
+# it trashes your mail system :)
+#
+# By Michael-John Turner <mj@debian.org>
+#
+# Changelog:
+#   Fri Dec  1 21:19:19 SAST 2000 
+#      - Incorporate some modifications from Tomas Pospisek <tpo@spin.ch>
+#
+
+USER=$1
+MAILBOX=$2
+CYRUSFOLDER=$3
+CYRDELIVER=/usr/sbin/cyrdeliver
+FORMAIL=/usr/bin/formail
+
+if ! [ -x "$FORMAIL" ]; then
+	echo ""
+	echo "formail (from procmail) is required to run this script"
+	echo ""
+	exit 1
+fi
+
+
+# This assumes id prints group names within parentheses
+if ! `id | grep -q "(mail)"`; then
+	echo ""
+	echo "You must be a member of the mail group to run this script"
+	echo ""
+	exit 1
+fi
+
+
+if [ "$USER" = "" ]; then
+	echo ""
+	echo "syntax: $0 user [mbox] [cyrus folder]"
+	echo ""
+	echo "If no mbox is specified, the user and mbox name are taken to be the same"
+	echo "If no cyrus folder is specified, the INBOX is used"
+	echo ""
+	exit 2
+fi
+
+
+
+if [ "$MAILBOX" = "" ]; then
+	MAILBOX=$USER
+fi
+
+if [ "$CYRUSFOLDER" = "" ]; then
+	echo "Adding mailbox '$MAILBOX' to Cyrus INBOX of user '$USER'..."
+	$FORMAIL -I "From " < $MAILBOX -s $CYRDELIVER $USER
+ else
+	echo "Adding mailbox '$MAILBOX' to Cyrus folder '$CYRUSFOLDER' of user '$USER'..."
+	$FORMAIL -I "From " < $MAILBOX -s $CYRDELIVER -a postman -m $CYRUSFOLDER $USER
+fi
+
+

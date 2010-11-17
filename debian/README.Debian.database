@@ -1,0 +1,133 @@
+Cyrus IMAP for Debian: Database backend conversion
+--------------------------------------------------
+
+   "All systems administrators have their horror stories. For me, it was
+    setting up a HP Color Bubblejet under Linux using ghostscript before
+    linuxprinting.org was alive.  Well that was a piece of cake compared
+    to what I am about to describe in this document."
+         --  "Hosting email for virtual domains using Postfix and Cyrus"
+	                                     Haim Dimermanas, 2001-08-01
+
+           "I warned you to read all the documentation first, didn't I?"
+                                    --  Henrique M. Holschuh, 2002-10-01
+
+For more information, please consult http://asg.web.cmu.edu/cyrus/imapd/.
+There is also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the LDP HOWTO
+collection.  Upgrade hints are in UPGRADE.Debian.  Outdated documentation will
+cause you much grief, so beware of that when hunting anywhere else than the
+Cyrus mailinglist for information.
+
+
+Database backends
+-----------------
+
+Cyrus can be compiled to use different types of database backends for each of
+its databases.  The package will warn you if you try to start Cyrus and the
+database backends seem to have changed since the last active version.
+
+After converting all the mail stores and /var/lib/cyrus to use the proper
+database backends using cvt_cyrusdb(8), remove
+/usr/lib/cyrus/cyrus-db-types.active and run "dpkg-reconfigure cyrus-common-2.3"
+once to reset the error trigger, and start cyrmaster.
+
+If cvt-cyrusdb locks up just at the beginning of the conversion, your databases
+might be locked.  Unlock them (i.e. REALLY stop Cyrus if it is still running,
+use the db* utilities (from the older Berkeley DB version) to clean any stray 
+locks, or try a reboot).
+
+IMPORTANT: If you changed the type of any of the databases through imapd.conf,
+   cyrus-db-types.txt isn't updated to match those. Be sure to cross-check
+   imapd.conf if you did that.
+
+
+Step-by-step conversion guide:
+
+1. Stop the Cyrus system
+   /etc/init.d/cyrus2.3 stop
+   
+2. Find out which databases to convert:
+   diff -u /usr/lib/cyrus/cyrus-db-types.active \
+           /usr/lib/cyrus/cyrus-db-types.txt
+
+   The databases are these in the default install:
+   DUPLICATE		/var/lib/cyrus/deliver.db
+   MBOX			/var/lib/cyrus/mailboxes.db
+   TLS			/var/lib/cyrus/tls_sessions.db
+
+   Don't bother upgrading the TLS database, just delete it: the information
+   there is not reused when you stop Cyrus.
+
+   If the BerkeleyDB version is what was changed, you need to use the
+   Berkeley DB upgrade utility in all db* databases.  See the manpages for
+   db*_upgrade. Note that you need to use the db*_upgrade utility with the
+   same version as given on the DBENGINE line of cyrus-db-types.txt.
+   You should look for lines with 'berkeley' or 'berkeley_nosync' on 
+   the right side. You can safely ignore lines with 'flat', 'skiplist' or 
+   'quotalegacy'.
+   
+   The SUBS and SEEN databases are different: there are many of them (one
+   for every user for SEEN and SUBS respectively) and you need to convert
+   every single one of them.
+
+   SUBS			/var/lib/cyrus/...../*.sub
+   SEEN			/var/lib/cyrus/...../*.seen
+   
+   For Cyrus 1.x versions, these files are in /var/spool/cyrus/...../
+
+   SUBS contains the subscribed folders, and SEEN contains the seen state
+   of every mail in a folder.
+
+   Types db3_nosync and db3 are the same for database conversion matters.
+
+2.1 Converting from DB* to SKIPLIST
+
+   As user cyrus, do the following:
+   
+   cd /
+   /usr/sbin/cvt_cyrusdb <fullpath to database> db3 \
+                         /var/lib/cyrus/temp.db flat
+   rm -f <fullpath to database>
+   /usr/sbin/cvt_cyrusdb /var/lib/cyrus/temp.db flat \
+                         <fullpath to database> skiplist
+   chown cyrus:mail <fullpath to database>
+   rm -f /var/lib/cyrus/temp.db
+
+2.2 Converting from FLAT to SKIPLIST
+
+   As user cyrus, do the following:
+
+   cd /
+   mv <fullpath to database> <fullpath to database>.old
+   /usr/sbin/cvt_cyrusdb <fullpath to database>.old flat \
+                         <fullpath to database> skiplist
+   chown cyrus:mail <fullpath to database>
+   rm -f <fullpath to database>.old
+
+2.3 SUBS and SEEN databases
+
+   I suggest using a small shell script and using "find" to mass-convert
+   the SEEN databases:
+   find /var/lib/cyrus -type f -name '*.seen' -exec myshellscript {} \;
+
+   The "find" command above gives you the name of the database as "$1"
+   inside your shell script.
+
+3. Reset the database backend change system
+   rm /usr/lib/cyrus/cyrus-db-types.active
+   dpkg-reconfigure cyrus-common-2.3
+
+4. Start Cyrus, if not started by step 3
+   /etc/init.d/cyrus2.3 start
+
+WHY THERE IS NO AUTOMATED UPGRADE SCRIPT:  Because I dislike people who do not
+read docs, and one Debian user asked me exactly the wrong thing (about
+cyrus21-imapd) while I was in the middle of writing said script AND I am quite
+short on time lately: it is much faster to write a doc than to write and test
+the script.  So, now everyone will need to read the docs to get Cyrus working
+again.  I am not holding back the skiplist change for that script anymore.
+
+Maybe someday I will finish the upgrade script.  Maybe someone else will write
+one (I will certainly include it in the package, if it is good enough).  Don't
+hold your breath, though.
+
+ -- Henrique de Moraes Holschuh <hmh@debian.org>

@@ -1,0 +1,68 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 11-fix_syslog_prefix.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Make sure all programs log (to syslog) with "cyrus/<program>" as the
+## DP: log prefix.
+
+@DPATCH@
+diff -urNad git~/imap/global.c git/imap/global.c
+--- git~/imap/global.c	2010-01-16 19:22:57.000000000 -0200
++++ git/imap/global.c	2010-01-16 19:27:58.502091292 -0200
+@@ -101,6 +101,9 @@
+ struct cyrusdb_backend *config_statuscache_db;
+ struct cyrusdb_backend *config_userdeny_db;
+ 
++/* syslog prefix tag */
++static char syslog_prefix[20];
++
+ /* Called before a cyrus application starts (but after command line parameters
+  * are read) */
+ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
+@@ -128,7 +131,9 @@
+     
+     /* xxx we lose here since we can't have the prefix until we load the
+      * config file */
+-    openlog(config_ident, LOG_PID, SYSLOG_FACILITY);
++    strncpy(syslog_prefix, "cyrus/", sizeof(syslog_prefix));
++    strncat(syslog_prefix, ident, sizeof(syslog_prefix) - 7);
++    openlog(syslog_prefix, LOG_PID, SYSLOG_FACILITY);
+ 
+     /* Load configuration file.  This will set config_dir when it finds it */
+     config_read(alt_config);
+diff -urNad git~/ptclient/ptexpire.c git/ptclient/ptexpire.c
+--- git~/ptclient/ptexpire.c	2010-01-16 19:21:09.000000000 -0200
++++ git/ptclient/ptexpire.c	2010-01-16 19:27:58.502091292 -0200
+@@ -118,7 +118,7 @@
+ 	fatal("must run as the Cyrus user", EC_USAGE);
+     }
+     
+-    openlog("ptexpire", LOG_PID, SYSLOG_FACILITY);
++    openlog("cyrus/ptexpire", LOG_PID, SYSLOG_FACILITY);
+ 
+     while ((opt = getopt(argc, argv, "C:E:")) != EOF) {
+ 	switch (opt) {
+diff -urNad git~/ptclient/test.c git/ptclient/test.c
+--- git~/ptclient/test.c	2010-01-16 19:21:09.000000000 -0200
++++ git/ptclient/test.c	2010-01-16 19:27:58.502091292 -0200
+@@ -57,7 +57,7 @@
+     cacheid=cache;
+   } else
+     cacheid=NULL;
+-  openlog("pttest", LOG_PID, SYSLOG_FACILITY);  
++  openlog("cyrus/pttest", LOG_PID, SYSLOG_FACILITY);  
+   
+   if (!auth_setid(argv[1],cacheid))
+     printf ("Auth_memberof(%s,%s) is %d\n", argv[1], argv[2],
+diff -urNad git~/ptclient/test2.c git/ptclient/test2.c
+--- git~/ptclient/test2.c	2010-01-16 19:21:09.000000000 -0200
++++ git/ptclient/test2.c	2010-01-16 19:27:58.502091292 -0200
+@@ -46,7 +46,7 @@
+ 
+ int main(void) {
+   char cacheid[16]="4224423";
+-  openlog("testr", LOG_PID, SYSLOG_FACILITY);
++  openlog("cyrus/testr", LOG_PID, SYSLOG_FACILITY);
+   
+   if (!auth_setid("cg2v@club.cc.cmu.edu",cacheid))
+     printf ("Auth_memberof(cg2v,cg2v:me) is %d\n",
