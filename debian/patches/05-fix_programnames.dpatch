@@ -6,22 +6,20 @@
 ## DP: program sources
 
 @DPATCH@
-diff -urNad git~/imap/deliver.c git/imap/deliver.c
---- git~/imap/deliver.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/imap/deliver.c	2010-01-16 19:25:42.523091087 -0200
-@@ -117,7 +117,7 @@
+--- a/imap/deliver.c
++++ b/imap/deliver.c
+@@ -117,7 +117,7 @@ static struct backend *init_net(const ch
  static void usage()
  {
      fprintf(stderr, 
 -	    "421-4.3.0 usage: deliver [-C <alt_config> ] [-m mailbox]"
 +	    "421-4.3.0 usage: cyrdeliver [-C <alt_config> ] [-m mailbox]"
  	    " [-a auth] [-r return_path] [-l] [-D]\r\n");
-     fprintf(stderr, "421 4.3.0 %s\n", CYRUS_VERSION);
+     fprintf(stderr, "421 4.3.0 %s\n", cyrus_version());
      exit(EC_USAGE);
-diff -urNad git~/imap/quota.c git/imap/quota.c
---- git~/imap/quota.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/imap/quota.c	2010-01-16 19:25:42.524091492 -0200
-@@ -211,7 +211,7 @@
+--- a/imap/quota.c
++++ b/imap/quota.c
+@@ -212,7 +212,7 @@ int main(int argc,char **argv)
  void usage(void)
  {
      fprintf(stderr,
@@ -30,10 +28,9 @@ diff -urNad git~/imap/quota.c git/imap/quota.c
      exit(EC_USAGE);
  }    
  
-diff -urNad git~/imap/reconstruct.c git/imap/reconstruct.c
---- git~/imap/reconstruct.c	2010-01-16 19:22:57.000000000 -0200
-+++ git/imap/reconstruct.c	2010-01-16 19:25:42.524091492 -0200
-@@ -396,8 +396,8 @@
+--- a/imap/reconstruct.c
++++ b/imap/reconstruct.c
+@@ -403,8 +403,8 @@ int main(int argc, char **argv)
  void usage(void)
  {
      fprintf(stderr,
@@ -44,54 +41,48 @@ diff -urNad git~/imap/reconstruct.c git/imap/reconstruct.c
      exit(EC_USAGE);
  }    
  
-diff -urNad git~/man/chk_cyrus.8 git/man/chk_cyrus.8
---- git~/man/chk_cyrus.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/chk_cyrus.8	2010-01-16 19:25:42.524091492 -0200
-@@ -85,4 +85,4 @@
+--- a/man/chk_cyrus.8
++++ b/man/chk_cyrus.8
+@@ -85,4 +85,4 @@ May not be specified with -P.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/ctl_cyrusdb.8 git/man/ctl_cyrusdb.8
---- git~/man/ctl_cyrusdb.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/ctl_cyrusdb.8	2010-01-16 19:25:42.524091492 -0200
-@@ -95,4 +95,4 @@
+--- a/man/ctl_cyrusdb.8
++++ b/man/ctl_cyrusdb.8
+@@ -99,4 +99,4 @@ removed.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/ctl_deliver.8 git/man/ctl_deliver.8
---- git~/man/ctl_deliver.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/ctl_deliver.8	2010-01-16 19:25:42.524091492 -0200
-@@ -79,4 +79,4 @@
+--- a/man/ctl_deliver.8
++++ b/man/ctl_deliver.8
+@@ -79,4 +79,4 @@ Use the database specified by \fIfilenam
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/ctl_mboxlist.8 git/man/ctl_mboxlist.8
---- git~/man/ctl_mboxlist.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/ctl_mboxlist.8	2010-01-16 19:25:42.524091492 -0200
-@@ -167,4 +167,4 @@
+--- a/man/ctl_mboxlist.8
++++ b/man/ctl_mboxlist.8
+@@ -167,4 +167,4 @@ Use the database specified by \fIfilenam
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/cyr_expire.8 git/man/cyr_expire.8
---- git~/man/cyr_expire.8	2010-01-16 19:22:57.000000000 -0200
-+++ git/man/cyr_expire.8	2010-01-16 19:25:42.525091267 -0200
-@@ -125,4 +125,4 @@
+--- a/man/cyr_expire.8
++++ b/man/cyr_expire.8
+@@ -125,4 +125,4 @@ only \fIexpire-days\fR is considered for
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/cyrus.conf.5 git/man/cyrus.conf.5
---- git~/man/cyrus.conf.5	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/cyrus.conf.5	2010-01-16 19:25:42.525091267 -0200
+--- a/man/cyrus.conf.5
++++ b/man/cyrus.conf.5
 @@ -45,9 +45,9 @@
  cyrus.conf \- Cyrus configuration file
  .SH DESCRIPTION
@@ -104,7 +95,7 @@ diff -urNad git~/man/cyrus.conf.5 git/man/cyrus.conf.5
  .PP
  The \fB/etc/cyrus.conf\fR file consists of a series of entries divided
  into sections of the form
-@@ -106,7 +106,7 @@
+@@ -106,7 +106,7 @@ string field is required and takes one o
  \fR[ \fIhost\fR \fB: \fR] \fIport\fR
  .br
  .sp
@@ -113,7 +104,7 @@ diff -urNad git~/man/cyrus.conf.5 git/man/cyrus.conf.5
  either the hostname or bracket-enclosed IP address of a network
  interface, and \fIport\fR is either a port number or service name (as listed
  in \fB/etc/services\fR).
-@@ -178,6 +178,6 @@
+@@ -178,6 +178,6 @@ different modes or configurations (i.e.,
  still have separate access control rules.
  .SH SEE ALSO
  .PP
@@ -121,9 +112,8 @@ diff -urNad git~/man/cyrus.conf.5 git/man/cyrus.conf.5
 +\fBcyrmaster(8)\fR, \fBimapd(8)\fR, \fBpop3d(8)\fR, \fBlmtpd(8)\fR,
  \fBtimsieved(8)\fR, \fBidled(8)\fR, \fBnotifyd(8)\fR, \fBctl_cyrusdb(8)\fR,
  \fBctl_deliver(8)\fR, \fBtls_prune(8)\fR, \fBhosts_access(5)\fR
-diff -urNad git~/man/deliver.8 git/man/deliver.8
---- git~/man/deliver.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/deliver.8	2010-01-16 19:25:42.525091267 -0200
+--- a/man/deliver.8
++++ b/man/deliver.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH DELIVER 8 "Project Cyrus" CMU
@@ -133,7 +123,7 @@ diff -urNad git~/man/deliver.8 git/man/deliver.8
  .\"
 @@ -42,9 +42,9 @@
  .\"
- .\" $Id: deliver.8,v 1.20 2008/04/04 12:46:52 murch Exp $
+ .\" $Id: deliver.8,v 1.21 2010/01/06 17:01:51 murch Exp $
  .SH NAME
 -deliver \- deliver mail to an IMAP mailbox
 +cyrdeliver \- deliver mail to an IMAP mailbox
@@ -143,7 +133,7 @@ diff -urNad git~/man/deliver.8 git/man/deliver.8
  [
  .B \-C
  .I config-file
-@@ -77,7 +77,7 @@
+@@ -77,7 +77,7 @@ deliver \- deliver mail to an IMAP mailb
  .I userid
  ]...
  .br
@@ -152,10 +142,9 @@ diff -urNad git~/man/deliver.8 git/man/deliver.8
  [
  .B \-C
  .I config-file
-diff -urNad git~/man/fud.8 git/man/fud.8
---- git~/man/fud.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/fud.8	2010-01-16 19:25:42.525091267 -0200
-@@ -62,7 +62,7 @@
+--- a/man/fud.8
++++ b/man/fud.8
+@@ -62,7 +62,7 @@ FUD \- provide information about user ma
  ]
  .SH DESCRIPTION
  .B FUD
@@ -164,10 +153,9 @@ diff -urNad git~/man/fud.8 git/man/fud.8
  information about when a user last
  read their mail, when mail last arrived in a user's mailbox, and how
  many messages are recent for that user.
-diff -urNad git~/man/idled.8 git/man/idled.8
---- git~/man/idled.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/idled.8	2010-01-16 19:25:42.525091267 -0200
-@@ -57,7 +57,7 @@
+--- a/man/idled.8
++++ b/man/idled.8
+@@ -57,7 +57,7 @@ mailbox changes and signals the appropri
  to report the changes to the client.
  .I Idled
  is usually started from
@@ -176,16 +164,15 @@ diff -urNad git~/man/idled.8 git/man/idled.8
  .PP
  .I Idled
  reads its configuration options out of the
-@@ -76,4 +76,4 @@
+@@ -76,4 +76,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/imapd.8 git/man/imapd.8
---- git~/man/imapd.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/imapd.8	2010-01-16 19:25:42.525091267 -0200
-@@ -76,7 +76,7 @@
+--- a/man/imapd.8
++++ b/man/imapd.8
+@@ -76,7 +76,7 @@ imapd \- IMAP server process
  is an IMAP4rev1 server.
  It accepts commands on its standard input and responds on its standard output.
  It MUST be invoked by
@@ -194,16 +181,15 @@ diff -urNad git~/man/imapd.8 git/man/imapd.8
  with those descriptors attached to a remote client connection.
  .PP
  .I Imapd
-@@ -155,4 +155,4 @@
+@@ -155,4 +155,4 @@ some form of privacy protection.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/lmtpd.8 git/man/lmtpd.8
---- git~/man/lmtpd.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/lmtpd.8	2010-01-16 19:25:42.525091267 -0200
-@@ -69,7 +69,7 @@
+--- a/man/lmtpd.8
++++ b/man/lmtpd.8
+@@ -69,7 +69,7 @@ lmtpd \- LMTP server process
  is an LMTP server used to deliver mail to the IMAP mailstore.
  It accepts commands on its standard input and responds on its standard output.
  It MUST be invoked by
@@ -212,15 +198,14 @@ diff -urNad git~/man/lmtpd.8 git/man/lmtpd.8
  with those descriptors attached to a remote client connection.
  .PP
  .I Lmtpd
-@@ -102,4 +102,4 @@
+@@ -102,4 +102,4 @@ from trusted hosts.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/master.8 git/man/master.8
---- git~/man/master.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/master.8	2010-01-16 19:25:42.526091112 -0200
+--- a/man/master.8
++++ b/man/master.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH MASTER 8 "Project Cyrus" CMU
@@ -230,7 +215,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  .\"
 @@ -42,9 +42,9 @@
  .\"
- .\" $Id: master.8,v 1.15 2008/04/04 12:46:57 murch Exp $
+ .\" $Id: master.8,v 1.16 2010/01/06 17:01:52 murch Exp $
  .SH NAME
 -master \- master Cyrus process
 +cyrmaster \- master Cyrus process
@@ -240,7 +225,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  [
  .B \-C
  .I alternate imapd.conf
-@@ -80,7 +80,7 @@
+@@ -80,7 +80,7 @@ master \- master Cyrus process
  .I snmp agentx socket
  ]
  .SH DESCRIPTION
@@ -249,7 +234,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  is the process that controls all of the Cyrus processes. This process
  is responsible for creating all imapd, pop3d, lmtpd and sieved child
  processes. This process also initializes the Berkeley DB code and
-@@ -93,12 +93,12 @@
+@@ -93,12 +93,12 @@ when it receives a SIGTERM.
  .SH OPTIONS
  .TP
  .BI \-C " alternate imapd.conf"
@@ -265,7 +250,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  .TP
  .BI \-l " listen queue backlog"
  Increase the listen queue backlog. By default, the listen queue is set
-@@ -114,7 +114,7 @@
+@@ -114,7 +114,7 @@ compiled Cyrus from its default of 10000
  .BI \-p " pidfile"
  Use
  .I pidfile
@@ -274,7 +259,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  .TP
  .BI \-P " snmp agentx ping interval"
  Sets the amount on time in seconds the subagent will try and reconnect to the
-@@ -133,12 +133,12 @@
+@@ -133,12 +133,12 @@ Address the master agent (most likely sn
  Requires net-snmp 5.0 or higher.
  .SH CONFIGURATION
  Upon execution,
@@ -289,7 +274,7 @@ diff -urNad git~/man/master.8 git/man/master.8
  rereads its configuration file when it receives a hangup signal,
  SIGHUP.  Services and events may be added, deleted or modified when the
  configuration file is reread.  Any active services removed from the
-@@ -147,9 +147,18 @@
+@@ -147,9 +147,18 @@ configuration file will be allowed to ru
  The environment variable \fBCYRUS_VERBOSE\fR can be set to log additional
  debugging information. Setting the value to 1 results in base level logging. 
  Setting it higher results in more log messages being generated.
@@ -309,10 +294,9 @@ diff -urNad git~/man/master.8 git/man/master.8
  .SH SEE ALSO
  .PP
  \fBcyrus.conf(5)\fR, \fBimapd.conf(5)\fR, \fBimapd(8)\fR,
-diff -urNad git~/man/nntpd.8 git/man/nntpd.8
---- git~/man/nntpd.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/nntpd.8	2010-01-16 19:25:42.526091112 -0200
-@@ -79,7 +79,7 @@
+--- a/man/nntpd.8
++++ b/man/nntpd.8
+@@ -79,7 +79,7 @@ nntpd \- NNTP server process
  is a NNTP server.
  It accepts commands on its standard input and responds on its standard output.
  It MUST invoked by
@@ -321,16 +305,15 @@ diff -urNad git~/man/nntpd.8 git/man/nntpd.8
  with those descriptors attached to a remote client connection.
  .PP
  .I Nntpd
-@@ -154,4 +154,4 @@
+@@ -154,4 +154,4 @@ some form of privacy protection.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/notifyd.8 git/man/notifyd.8
---- git~/man/notifyd.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/notifyd.8	2010-01-16 19:25:42.526091112 -0200
-@@ -63,7 +63,7 @@
+--- a/man/notifyd.8
++++ b/man/notifyd.8
+@@ -63,7 +63,7 @@ notifyd \- Cyrus notification server
  ]
  .SH DESCRIPTION
  .B Notifyd
@@ -339,16 +322,15 @@ diff -urNad git~/man/notifyd.8 git/man/notifyd.8
  behalf of lmtpd(8).
  .B Notifyd
  accepts the request and performs the notification using the method
-@@ -123,4 +123,4 @@
+@@ -128,4 +128,4 @@ Default configuration file.
  Cyrus Master process configuration file.
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBmaster(8)\fR, \fBlmtpd(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBcyrmaster(8)\fR, \fBlmtpd(8)\fR
-diff -urNad git~/man/pop3d.8 git/man/pop3d.8
---- git~/man/pop3d.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/pop3d.8	2010-01-16 19:25:42.526091112 -0200
-@@ -76,7 +76,7 @@
+--- a/man/pop3d.8
++++ b/man/pop3d.8
+@@ -76,7 +76,7 @@ pop3d \- POP3 server process
  is a POP3 server.
  It accepts commands on its standard input and responds on its standard output.
  It MUST invoked by
@@ -357,15 +339,14 @@ diff -urNad git~/man/pop3d.8 git/man/pop3d.8
  with those descriptors attached to a remote client connection.
  .PP
  .I Pop3d
-@@ -133,4 +133,4 @@
+@@ -133,4 +133,4 @@ some form of privacy protection.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/quota.8 git/man/quota.8
---- git~/man/quota.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/quota.8	2010-01-16 19:25:42.526091112 -0200
+--- a/man/quota.8
++++ b/man/quota.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH QUOTA 8 "Project Cyrus" CMU
@@ -375,7 +356,7 @@ diff -urNad git~/man/quota.8 git/man/quota.8
  .\"
 @@ -42,9 +42,9 @@
  .\"
- .\" $Id: quota.8,v 1.12 2008/04/04 12:47:01 murch Exp $
+ .\" $Id: quota.8,v 1.13 2010/01/06 17:01:52 murch Exp $
  .SH NAME
 -quota \- report and optionally fix quota usage
 +cyrquota \- report and optionally fix quota usage
@@ -385,7 +366,7 @@ diff -urNad git~/man/quota.8 git/man/quota.8
  [
  .B \-C
  .I config-file
-@@ -60,12 +60,12 @@
+@@ -60,12 +60,12 @@ quota \- report and optionally fix quota
  .IR mailbox-prefix ...
  ]
  .SH DESCRIPTION
@@ -400,7 +381,7 @@ diff -urNad git~/man/quota.8 git/man/quota.8
  first fixes any inconsistencies in the quota subsystem, such as
  mailboxes with the wrong quota root or quota roots with the wrong
  quota usage reported.
-@@ -80,14 +80,14 @@
+@@ -80,14 +80,14 @@ limited to quota roots with names that s
  prefixes.
  .PP
  Running
@@ -417,9 +398,8 @@ diff -urNad git~/man/quota.8 git/man/quota.8
  reads its configuration options out of the
  .IR imapd.conf (5)
  file unless specified otherwise by \fB-C\fR.
-diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
---- git~/man/reconstruct.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/reconstruct.8	2010-01-16 19:25:42.526091112 -0200
+--- a/man/reconstruct.8
++++ b/man/reconstruct.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH RECONSTRUCT 8 "Project Cyrus" CMU
@@ -429,7 +409,7 @@ diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
  .\"
 @@ -42,9 +42,9 @@
  .\"
- .\" $Id: reconstruct.8,v 1.25 2008/04/04 12:47:01 murch Exp $
+ .\" $Id: reconstruct.8,v 1.26 2010/01/06 17:01:52 murch Exp $
  .SH NAME
 -reconstruct \- reconstruct mailboxes
 +cyrreconstruct \- reconstruct mailboxes
@@ -439,7 +419,7 @@ diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
  [
  .B \-C
  .I config-file
-@@ -78,14 +78,14 @@
+@@ -87,14 +87,14 @@ reconstruct \- reconstruct mailboxes
  .IR mailbox ...
  .br
  .br
@@ -456,7 +436,7 @@ diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
  rebuilds one or more IMAP mailboxes.  When invoked with the
  .B \-m
  switch, it rebuilds the master
-@@ -93,17 +93,17 @@
+@@ -102,17 +102,17 @@ mailboxes file.  It can be used to recov
  almost any sort of data corruption.
  .PP
  If
@@ -478,7 +458,7 @@ diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
  reads its configuration options out of the
  .IR imapd.conf (5)
  file unless specified otherwise by \fB-C\fR.  Any mailbox directory
-@@ -111,12 +111,12 @@
+@@ -120,12 +120,12 @@ underneath the path specified in the
  .I partition-news
  configuration option is assumed to be in news format.
  .PP
@@ -494,10 +474,9 @@ diff -urNad git~/man/reconstruct.8 git/man/reconstruct.8
  with the
  .I \-f
  switch in order to fix the quota root files.
-diff -urNad git~/man/smmapd.8 git/man/smmapd.8
---- git~/man/smmapd.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/smmapd.8	2010-01-16 19:25:42.526091112 -0200
-@@ -68,7 +68,7 @@
+--- a/man/smmapd.8
++++ b/man/smmapd.8
+@@ -68,7 +68,7 @@ mailbox exists, that it is postable and 
  It accepts commands on its standard input and responds on its standard
  output.
  It MUST be invoked by
@@ -506,19 +485,17 @@ diff -urNad git~/man/smmapd.8 git/man/smmapd.8
  with those descriptors attached to a remote client connection.
  .PP
  .B SMMAPD
-diff -urNad git~/man/timsieved.8 git/man/timsieved.8
---- git~/man/timsieved.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/timsieved.8	2010-01-16 19:25:42.527091027 -0200
-@@ -74,4 +74,4 @@
+--- a/man/timsieved.8
++++ b/man/timsieved.8
+@@ -74,4 +74,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff -urNad git~/man/tls_prune.8 git/man/tls_prune.8
---- git~/man/tls_prune.8	2010-01-16 19:21:09.000000000 -0200
-+++ git/man/tls_prune.8	2010-01-16 19:25:42.527091027 -0200
-@@ -68,4 +68,4 @@
+--- a/man/tls_prune.8
++++ b/man/tls_prune.8
+@@ -68,4 +68,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP

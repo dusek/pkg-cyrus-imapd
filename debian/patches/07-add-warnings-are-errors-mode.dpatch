@@ -6,10 +6,9 @@
 ## DP: add a maintainer mode to abort on any warnings
 
 @DPATCH@
-diff -urNad git~/configure.in git/configure.in
---- git~/configure.in	2010-01-16 21:14:39.000000000 -0200
-+++ git/configure.in	2010-01-16 22:10:29.744932519 -0200
-@@ -51,6 +51,11 @@
+--- a/configure.in
++++ b/configure.in
+@@ -51,6 +51,11 @@ AC_PREREQ([2.54])
  AC_CONFIG_HEADER(config.h)
  AC_CANONICAL_SYSTEM
  

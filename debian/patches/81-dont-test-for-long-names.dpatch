@@ -6,10 +6,9 @@
 ## DP: this is a _very_ old patch from Cyrus 2.1, might not be needed anymore
 
 @DPATCH@
-diff -urNad git~/configure.in git/configure.in
---- git~/configure.in	2010-01-16 22:20:58.367931995 -0200
-+++ git/configure.in	2010-01-16 22:20:58.494931957 -0200
-@@ -99,10 +99,12 @@
+--- a/configure.in
++++ b/configure.in
+@@ -99,10 +99,12 @@ AC_AIX
  AC_ISC_POSIX
  AC_PROG_AWK
  AC_C_CONST

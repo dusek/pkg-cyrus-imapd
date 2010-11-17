@@ -5,10 +5,9 @@
 ## DP: Remove the $nosievedir variable which is set once but never used.
 
 @DPATCH@
-diff -urNad git~/tools/masssievec git/tools/masssievec
---- git~/tools/masssievec	2010-01-16 19:33:57.355091520 -0200
-+++ git/tools/masssievec	2010-01-16 19:33:57.482091059 -0200
-@@ -84,7 +84,6 @@
+--- a/tools/masssievec
++++ b/tools/masssievec
+@@ -84,7 +84,6 @@ sub read_conf {
  	    push @configs, $1;
  	}
  	if (/^sieveusehomedir:\s+(1|t|yes|on)/) {

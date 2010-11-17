@@ -5,10 +5,9 @@
 ## DP: Fix parsing of master.conf
 
 @DPATCH@
-diff -urNad git~/master/masterconf.c git/master/masterconf.c
---- git~/master/masterconf.c	2010-01-16 19:30:00.675090494 -0200
-+++ git/master/masterconf.c	2010-01-16 19:30:00.858091347 -0200
-@@ -152,8 +152,13 @@
+--- a/master/masterconf.c
++++ b/master/masterconf.c
+@@ -152,8 +152,13 @@ int masterconf_getint(struct entry *e, 
      const char *val = masterconf_getstring(e, key, NULL);
  
      if (!val) return def;
@@ -24,7 +23,7 @@ diff -urNad git~/master/masterconf.c git/master/masterconf.c
      return atoi(val);
  }
  
-@@ -171,6 +176,10 @@
+@@ -171,6 +176,10 @@ int masterconf_getswitch(struct entry *e
  	     (val[0] == 'o' && val[1] == 'n') || val[0] == 't') {
  	return 1;
      }

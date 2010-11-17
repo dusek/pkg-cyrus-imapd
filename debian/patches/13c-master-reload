@@ -5,14 +5,12 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
 
 * Cleans up various data fields for reconfig.
 
-Index: cyrus-imapd-2.3-pkg/master/master.c
-===================================================================
---- cyrus-imapd-2.3-pkg.orig/master/master.c
-+++ cyrus-imapd-2.3-pkg/master/master.c
-@@ -1398,8 +1398,9 @@ void add_service(const char *name, struc
+--- a/master/master.c
++++ b/master/master.c
+@@ -1495,8 +1495,9 @@ void add_service(const char *name, struc
+ 	char buf[1024];
  	snprintf(buf, sizeof(buf),
  		 "cannot find executable for service '%s'", name);
- 	
 -	/* if it is not, we're misconfigured, die. */
 -	fatal(buf, EX_CONFIG);
 +	/* if it is not, we just skip it */
@@ -21,15 +19,15 @@ Index: cyrus-imapd-2.3-pkg/master/master.c
      }
  
      Services[i].maxforkrate = maxforkrate;
-@@ -1419,6 +1420,7 @@ void add_service(const char *name, struc
+@@ -1516,6 +1517,7 @@ void add_service(const char *name, struc
  	if (prefork > 1) prefork = 1;
  	Services[i].desired_workers = prefork;
  	Services[i].max_workers = 1;
 +	Services[i].babysit = 0;
      }
-     free(max);
   
-@@ -1458,7 +1460,7 @@ void add_event(const char *name, struct 
+     if (reconfig) {
+@@ -1561,7 +1563,7 @@ void add_event(const char *name, struct 
      if (!strcmp(cmd,"")) {
  	char buf[256];
  	snprintf(buf, sizeof(buf),
@@ -38,7 +36,7 @@ Index: cyrus-imapd-2.3-pkg/master/master.c
  
  	if (ignore_err) {
  	    syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
-@@ -1564,13 +1566,18 @@ void reread_conf(void)
+@@ -1667,13 +1669,18 @@ void reread_conf(void)
  		       Services[i].stat[0], Services[i].stat[1]);
  
  	    /* Only free the service info on the primary */

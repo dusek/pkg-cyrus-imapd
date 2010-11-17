@@ -7,11 +7,9 @@ Fixes setrlimit(RLIMIT_NUMFDS) handling to be less obnoxious and
 not barf error messages to syslog incorrectly, nor log nonsense
 if getrlimit(RLIMIT_NUMFDS) failed.
 
-Index: cyrus-imapd-2.3-pkg/master/master.c
-===================================================================
---- cyrus-imapd-2.3-pkg.orig/master/master.c
-+++ cyrus-imapd-2.3-pkg/master/master.c
-@@ -1510,11 +1510,10 @@ void add_event(const char *name, struct 
+--- a/master/master.c
++++ b/master/master.c
+@@ -1613,11 +1613,10 @@ void add_event(const char *name, struct 
  void limit_fds(rlim_t x)
  {
      struct rlimit rl;
@@ -24,7 +22,7 @@ Index: cyrus-imapd-2.3-pkg/master/master.c
  	syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %ld: %m", x);
  
  #ifdef HAVE_GETRLIMIT
-@@ -1529,11 +1528,9 @@ void limit_fds(rlim_t x)
+@@ -1632,11 +1631,9 @@ void limit_fds(rlim_t x)
      }
  
  

@@ -6,10 +6,9 @@
 ## DP: into real IPv4 addresses.
 
 @DPATCH@
-diff -urNad git~/imap/pop3d.c git/imap/pop3d.c
---- git~/imap/pop3d.c	2010-01-16 19:27:12.819091257 -0200
-+++ git/imap/pop3d.c	2010-01-16 19:27:12.945091579 -0200
-@@ -673,41 +673,6 @@
+--- a/imap/pop3d.c
++++ b/imap/pop3d.c
+@@ -715,41 +715,6 @@ void fatal(const char* s, int code)
  }
  
  #ifdef HAVE_KRB

@@ -6,10 +6,8 @@
 ## DP: script is missing
 
 @DPATCH@
-Index: cyrus-imapd-2.3-pkg/sieve/script.c
-===================================================================
---- cyrus-imapd-2.3-pkg.orig/sieve/script.c
-+++ cyrus-imapd-2.3-pkg/sieve/script.c
+--- a/sieve/script.c
++++ b/sieve/script.c
 @@ -55,6 +55,7 @@
  #include <sys/types.h>
  #include <unistd.h>
@@ -18,7 +16,7 @@ Index: cyrus-imapd-2.3-pkg/sieve/script.c
  
  #include "charset.h"
  #include "hash.h"
-@@ -526,7 +527,11 @@ int sieve_script_load(const char *fname,
+@@ -507,7 +508,11 @@ int sieve_script_load(const char *fname,
      if (!fname || !ret) return SIEVE_FAIL;
      
      if (stat(fname, &sbuf) == -1) {

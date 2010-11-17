@@ -5,9 +5,8 @@
 ## DP: Fix MIB file for cyrus
 
 @DPATCH@
-diff -urNad git~/master/CYRUS-MASTER.mib git/master/CYRUS-MASTER.mib
---- git~/master/CYRUS-MASTER.mib	2010-01-16 19:21:09.000000000 -0200
-+++ git/master/CYRUS-MASTER.mib	2010-01-16 19:28:55.029091745 -0200
+--- a/master/CYRUS-MASTER.mib
++++ b/master/CYRUS-MASTER.mib
 @@ -1,12 +1,15 @@
  CYRUS-MASTER-MIB DEFINITIONS ::= BEGIN
  

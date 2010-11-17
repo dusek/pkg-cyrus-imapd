@@ -5,11 +5,9 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
 
 Use the proper types for UIDs and GIDs.
 
-Index: cyrus-imapd-2.3-pkg/lib/util.c
-===================================================================
---- cyrus-imapd-2.3-pkg.orig/lib/util.c
-+++ cyrus-imapd-2.3-pkg/lib/util.c
-@@ -365,9 +365,10 @@ int cyrus_mkdir(const char *path, mode_t
+--- a/lib/util.c
++++ b/lib/util.c
+@@ -366,9 +366,10 @@ int cyrus_mkdir(const char *path, mode_t
  int become_cyrus(void)
  {
      struct passwd *p;

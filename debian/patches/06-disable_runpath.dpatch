@@ -5,18 +5,17 @@
 ## DP: disable runpath
 
 @DPATCH@
-diff -urNad git~/cmulocal/cyrus.m4 git/cmulocal/cyrus.m4
---- git~/cmulocal/cyrus.m4	2010-01-16 19:21:09.000000000 -0200
-+++ git/cmulocal/cyrus.m4	2010-01-16 19:25:57.999091384 -0200
-@@ -3,6 +3,7 @@
- dnl $Id: cyrus.m4,v 1.5 2009/03/31 04:09:47 brong Exp $
+--- a/cmulocal/cyrus.m4
++++ b/cmulocal/cyrus.m4
+@@ -3,6 +3,7 @@ dnl Additional macros for configure.in p
+ dnl $Id: cyrus.m4,v 1.6 2010/01/06 17:01:27 murch Exp $
  dnl tjs@andrew.cmu.edu 6-may-1998
  dnl
 +dnl Debian fix (hmh@debian.org): We don't want runpath set in Debian
  
  dnl It would be good if ANDREW_ADD_LIBPATH could detect if something was
  dnl already there and not redundantly add it if it is.
-@@ -32,14 +33,5 @@
+@@ -32,14 +33,5 @@ AC_DEFUN([CMU_ADD_LIBPATH_TO], [
  dnl runpath initialization
  AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
     # CMU GUESS RUNPATH SWITCH

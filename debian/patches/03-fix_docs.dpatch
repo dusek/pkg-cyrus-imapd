@@ -5,10 +5,9 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
 ## DP: Fix FAQ and virtual domains installation docs
 
 @DPATCH@
-diff -urNad git~/doc/faq.html git/doc/faq.html
---- git~/doc/faq.html	2010-01-16 19:21:09.000000000 -0200
-+++ git/doc/faq.html	2010-01-16 19:25:25.759091400 -0200
-@@ -169,7 +169,7 @@
+--- a/doc/faq.html
++++ b/doc/faq.html
+@@ -169,7 +169,7 @@ Dec  6 12:58:57 mail3.andrew.cmu.edu ima
  </pre>
  
  <p>Make sure that <tt>saslauthd</tt> is running and that the cyrus
@@ -17,10 +16,9 @@ diff -urNad git~/doc/faq.html git/doc/faq.html
  
  </dd>
  
-diff -urNad git~/doc/install-virtdomains.html git/doc/install-virtdomains.html
---- git~/doc/install-virtdomains.html	2010-01-16 19:21:09.000000000 -0200
-+++ git/doc/install-virtdomains.html	2010-01-16 19:25:25.759091400 -0200
-@@ -99,6 +99,10 @@
+--- a/doc/install-virtdomains.html
++++ b/doc/install-virtdomains.html
+@@ -99,6 +99,10 @@ then set <tt>defaultdomain</tt> to 'xxx.
  to the <tt>defaultdomain</tt>.  See <a href=#admins>Administrators</a>
  below for further discussion.
  
@@ -31,10 +29,9 @@ diff -urNad git~/doc/install-virtdomains.html git/doc/install-virtdomains.html
  <p>Here is a sample <tt>imapd.conf</tt> with a minimal set of configuration
  options.</p>
  
-diff -urNad git~/lib/imapoptions git/lib/imapoptions
---- git~/lib/imapoptions	2010-01-16 19:22:57.000000000 -0200
-+++ git/lib/imapoptions	2010-01-16 19:25:25.760091175 -0200
-@@ -251,7 +251,11 @@
+--- a/lib/imapoptions
++++ b/lib/imapoptions
+@@ -260,7 +260,11 @@ Blank lines and lines beginning with ``#
     mailbox that does not have a parent mailbox. */
  
  { "defaultdomain", NULL, STRING }
@@ -47,7 +44,7 @@ diff -urNad git~/lib/imapoptions git/lib/imapoptions
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -575,7 +579,10 @@
+@@ -595,7 +599,10 @@ Blank lines and lines beginning with ``#
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL

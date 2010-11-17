@@ -6,12 +6,11 @@
 ## DP: log prefix.
 
 @DPATCH@
-diff -urNad git~/imap/global.c git/imap/global.c
---- git~/imap/global.c	2010-01-16 19:22:57.000000000 -0200
-+++ git/imap/global.c	2010-01-16 19:27:58.502091292 -0200
-@@ -101,6 +101,9 @@
- struct cyrusdb_backend *config_statuscache_db;
- struct cyrusdb_backend *config_userdeny_db;
+--- a/imap/global.c
++++ b/imap/global.c
+@@ -108,6 +108,9 @@ char session_id_buf[MAX_SESSIONID_SIZE];
+ int session_id_time = 0;
+ int session_id_count = 0;
  
 +/* syslog prefix tag */
 +static char syslog_prefix[20];
@@ -19,7 +18,7 @@ diff -urNad git~/imap/global.c git/imap/global.c
  /* Called before a cyrus application starts (but after command line parameters
   * are read) */
  int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
-@@ -128,7 +131,9 @@
+@@ -135,7 +138,9 @@ int cyrus_init(const char *alt_config, c
      
      /* xxx we lose here since we can't have the prefix until we load the
       * config file */
@@ -30,10 +29,9 @@ diff -urNad git~/imap/global.c git/imap/global.c
  
      /* Load configuration file.  This will set config_dir when it finds it */
      config_read(alt_config);
-diff -urNad git~/ptclient/ptexpire.c git/ptclient/ptexpire.c
---- git~/ptclient/ptexpire.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/ptclient/ptexpire.c	2010-01-16 19:27:58.502091292 -0200
-@@ -118,7 +118,7 @@
+--- a/ptclient/ptexpire.c
++++ b/ptclient/ptexpire.c
+@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
  	fatal("must run as the Cyrus user", EC_USAGE);
      }
      
@@ -42,10 +40,9 @@ diff -urNad git~/ptclient/ptexpire.c git/ptclient/ptexpire.c
  
      while ((opt = getopt(argc, argv, "C:E:")) != EOF) {
  	switch (opt) {
-diff -urNad git~/ptclient/test.c git/ptclient/test.c
---- git~/ptclient/test.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/ptclient/test.c	2010-01-16 19:27:58.502091292 -0200
-@@ -57,7 +57,7 @@
+--- a/ptclient/test.c
++++ b/ptclient/test.c
+@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
      cacheid=cache;
    } else
      cacheid=NULL;
@@ -54,9 +51,8 @@ diff -urNad git~/ptclient/test.c git/ptclient/test.c
    
    if (!auth_setid(argv[1],cacheid))
      printf ("Auth_memberof(%s,%s) is %d\n", argv[1], argv[2],
-diff -urNad git~/ptclient/test2.c git/ptclient/test2.c
---- git~/ptclient/test2.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/ptclient/test2.c	2010-01-16 19:27:58.502091292 -0200
+--- a/ptclient/test2.c
++++ b/ptclient/test2.c
 @@ -46,7 +46,7 @@
  
  int main(void) {

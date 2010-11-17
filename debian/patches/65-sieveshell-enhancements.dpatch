@@ -6,19 +6,9 @@
 ## DP: Adds some enhancements to sieveshell and fixes some paths.
 
 @DPATCH@
-diff -urNad git~/perl/imap/IMAP/Shell.pm git/perl/imap/IMAP/Shell.pm
---- git~/perl/imap/IMAP/Shell.pm	2010-01-16 19:21:09.000000000 -0200
-+++ git/perl/imap/IMAP/Shell.pm	2010-01-16 19:34:33.976091619 -0200
-@@ -127,7 +127,7 @@
- 		  [\&_sc_info, '[mailbox]',
- 		   'display mailbox/server metadata'],
- 		mboxcfg =>
--		  [\&_sc_mboxcfg, 'mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat] value',
-+		  [\&_sc_mboxcfg, 'mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat|/<explicit annotation>] value',
- 		   'configure mailbox'],
- 		mboxconfig => 'mboxcfg',
- 		reconstruct =>
-@@ -439,7 +439,7 @@
+--- a/perl/imap/IMAP/Shell.pm
++++ b/perl/imap/IMAP/Shell.pm
+@@ -439,7 +439,7 @@ sub run {
  sub shell {
    my ($server, $port, $authz, $auth, $systemrc, $userrc, $dorc, $mech, $pw,
        $tlskey, $notls) =
@@ -27,7 +17,7 @@ diff -urNad git~/perl/imap/IMAP/Shell.pm git/perl/imap/IMAP/Shell.pm
       "$ENV{HOME}/.cyradmrc.pl", 1, undef, undef, undef, undef);
    GetOptions('user|u=s' => \$auth,
  	     'authz|z=s' => \$authz,
-@@ -472,7 +472,7 @@
+@@ -472,7 +472,7 @@ sub shell {
      $cyradm->authenticate(-authz => $authz, -user => $auth,
  			  -mechanism => $mech, -password => $pw,
  			  -tlskey => $tlskey, -notls => $notls)
@@ -36,28 +26,9 @@ diff -urNad git~/perl/imap/IMAP/Shell.pm git/perl/imap/IMAP/Shell.pm
    }
    my $fstk = [*STDIN, *STDOUT, *STDERR];
    if ($dorc && $systemrc ne '' && -f $systemrc) {
-@@ -1437,7 +1437,7 @@
-   while (defined ($opt = shift(@argv))) {
-     last if $opt eq '--';
-     if ($opt =~ /^-/) {
--      die "usage: mboxconfig mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat] value\n";
-+      die "usage: mboxconfig mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat|/<explicit annotation>] value\n";
-     }
-     else {
-       push(@nargv, $opt);
-@@ -1446,7 +1446,7 @@
-   }
-   push(@nargv, @argv);
-   if (@nargv < 2) {
--    die "usage: mboxconfig mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat] value\n";
-+    die "usage: mboxconfig mailbox [comment|condstore|expire|news2mail|sharedseen|sieve|squat|/<explicit annotation>] value\n";
-   }
-   if (!$cyrref || !$$cyrref) {
-     die "mboxconfig: no connection to server\n";
-diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sieveshell.pl
---- git~/perl/sieve/scripts/sieveshell.pl	2010-01-16 19:34:33.822091652 -0200
-+++ git/perl/sieve/scripts/sieveshell.pl	2010-01-16 19:34:33.976091619 -0200
-@@ -61,7 +61,9 @@
+--- a/perl/sieve/scripts/sieveshell.pl
++++ b/perl/sieve/scripts/sieveshell.pl
+@@ -61,7 +61,9 @@ my $deletehelp =     "delete <name>    -
  my $username = $ENV{USER};
  my $authname = $ENV{USER};
  my $realm = "";
@@ -67,7 +38,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  my $help = 0;
  my $man = 0;
  my $ret;
-@@ -69,7 +71,9 @@
+@@ -69,7 +71,9 @@ my $ret;
  GetOptions("a|authname:s" => \$authname,
      "u|username:s" => \$username,
      "r|realm:s" => \$realm,
@@ -77,7 +48,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
      "help|?" => \$help,
      man => \$man) or pod2usage(2);
  pod2usage(1) if $help;
-@@ -84,20 +88,24 @@
+@@ -84,20 +88,24 @@ my $acapserver = $ARGV[0];
  my $filehandle;
  my $interactive;
  
@@ -112,7 +83,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  
  sub list_cb {
  
-@@ -122,6 +130,8 @@
+@@ -122,6 +130,8 @@ sub prompt {
        return $authname;
    } elsif (($type eq "realm") && (defined $realm)) {
        return $realm;
@@ -121,7 +92,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
    }
  
    my $ostty;
-@@ -172,6 +182,8 @@
+@@ -172,6 +182,8 @@ if (!defined $obj) {
  
  my $term = Term::ReadLine->new("sieveshell");
  
@@ -130,7 +101,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  $term->ornaments(0);
  
  while(defined($_  = ($interactive ? $term->readline('> ') : <$filehandle>))){
-@@ -198,6 +210,9 @@
+@@ -198,6 +210,9 @@ while(defined($_  = ($interactive ? $ter
  	my $errstr = sieve_get_error($obj);
  	$errstr = "unknown error" if(!defined($errstr));
  	print "upload failed: $errstr\n"; 
@@ -140,7 +111,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
        }
      } elsif (($words[0] eq "list") || 
  	     ($words[0] eq "l") || 
-@@ -207,6 +222,9 @@
+@@ -207,6 +222,9 @@ while(defined($_  = ($interactive ? $ter
  	    my $errstr = sieve_get_error($obj);
  	    $errstr = "unknown error" if(!defined($errstr));
  	    print "list failed: $errstr\n";
@@ -150,7 +121,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  	}
      } elsif (($words[0] eq "activate") || 
  	     ($words[0] eq "a")) {
-@@ -219,6 +237,9 @@
+@@ -219,6 +237,9 @@ while(defined($_  = ($interactive ? $ter
  	    my $errstr = sieve_get_error($obj);
  	    $errstr = "unknown error" if(!defined($errstr));
  	    print "activate failed: $errstr\n";
@@ -160,7 +131,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  	}
      } elsif (($words[0] eq "deactivate") || 
  	     ($words[0] eq "da")) {
-@@ -231,6 +252,9 @@
+@@ -231,6 +252,9 @@ while(defined($_  = ($interactive ? $ter
  	    my $errstr = sieve_get_error($obj);
  	    $errstr = "unknown error" if(!defined($errstr));
  	    print "deactivate failed: $errstr\n";
@@ -170,7 +141,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  	}
      } elsif (($words[0] eq "delete") || 
  	     ($words[0] eq "d")) {    
-@@ -243,6 +267,9 @@
+@@ -243,6 +267,9 @@ while(defined($_  = ($interactive ? $ter
  	    my $errstr = sieve_get_error($obj);
  	    $errstr = "unknown error" if(!defined($errstr));
  	    print "delete failed: $errstr\n"; 
@@ -180,7 +151,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  	}
      } elsif (($words[0] eq "get") || 
  	     ($words[0] eq "g")) {
-@@ -256,25 +283,32 @@
+@@ -256,25 +283,32 @@ while(defined($_  = ($interactive ? $ter
  	    my $errstr = sieve_get_error($obj);
  	    $errstr = "unknown error" if(!defined($errstr));
  	    print "get failed: $errstr\n"; 
@@ -214,7 +185,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  __END__
  
  =head1 NAME
-@@ -284,7 +318,8 @@
+@@ -284,7 +318,8 @@ sieveshell - remotely manipulate sieve s
  =head1 SYNOPSIS
  
  sieveshell [B<--user>=I<user>] [B<--authname>=I<authname>] 
@@ -224,7 +195,7 @@ diff -urNad git~/perl/sieve/scripts/sieveshell.pl git/perl/sieve/scripts/sievesh
  
  sieveshell B<--help>
  
-@@ -328,11 +363,21 @@
+@@ -328,11 +363,21 @@ The user to use for authentication (defa
  
  The realm to attempt authentication in.
  

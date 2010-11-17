@@ -5,10 +5,9 @@
 ## DP: disable PS_STRINGS for GNU/kFreeBSD
 
 @DPATCH@
-diff -urNad git~/configure.in git/configure.in
---- git~/configure.in	2010-01-16 19:22:56.000000000 -0200
-+++ git/configure.in	2010-01-16 20:22:27.193932376 -0200
-@@ -448,16 +448,15 @@
+--- a/configure.in
++++ b/configure.in
+@@ -453,16 +453,15 @@ if test "$spt_type" = ""; then
  fi
  if test "$spt_type" = ""; then
  	AC_MSG_CHECKING(for PS_STRINGS)

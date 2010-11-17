@@ -5,9 +5,8 @@
 ## DP: Fix xmalloc usage
 
 @DPATCH@
-diff -urNad git~/lib/map_stupidshared.c git/lib/map_stupidshared.c
---- git~/lib/map_stupidshared.c	2010-01-16 19:21:09.000000000 -0200
-+++ git/lib/map_stupidshared.c	2010-01-16 19:28:44.555091738 -0200
+--- a/lib/map_stupidshared.c
++++ b/lib/map_stupidshared.c
 @@ -49,6 +49,7 @@
  #include <sys/stat.h>
  #include <syslog.h>
@@ -16,10 +15,9 @@ diff -urNad git~/lib/map_stupidshared.c git/lib/map_stupidshared.c
  #include "map.h"
  #include "exitcodes.h"
  
-diff -urNad git~/lib/xmalloc.h git/lib/xmalloc.h
---- git~/lib/xmalloc.h	2010-01-16 19:21:09.000000000 -0200
-+++ git/lib/xmalloc.h	2010-01-16 19:28:44.555091738 -0200
-@@ -58,7 +58,7 @@
+--- a/lib/xmalloc.h
++++ b/lib/xmalloc.h
+@@ -58,7 +58,7 @@ extern char *xstrndup (const char *str, 
  
  /* Functions using xmalloc.h must provide a function called fatal() conforming
     to the following: */
