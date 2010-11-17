@@ -60,7 +60,8 @@ override_dh_auto_configure:
 	# Rebuild the build system
 	autoreconf -I cmulocal -f -i
 	automake -f -a 2>/dev/null || true
-	dh_auto_configure CFLAGS="${CFLAGS} -fno-strict-aliasing -Wall -pipe" -- \
+	dh_auto_configure CFLAGS="${CFLAGS} -fno-strict-aliasing -Wall -pipe" \
+	 LDFLAGS="-Wl,-z,defs -Wl,--as-needed" -- \
 	 $(CONFFLAGS) \
 	 --with-extraident=$(EXTRA_IDENT) \
 	 --prefix=/usr/share --exec-prefix=/usr --libexecdir=/usr/sbin \
