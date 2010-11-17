@@ -24,15 +24,8 @@ export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
 DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
-DEB_SOURCE_PACKAGE ?= $(shell LC_ALL=C dpkg-parsechangelog | sed -ne 's/^Source: \(.*-\)/\1/p')
-DEB_SOURCE_FORMAT  := $(shell LC_ALL=C sed -ne 's/^Format: \(.*\)/\1/p' debian/control)
-
-# Extra version information to add to Cyrus IMAPd ID
-DEBVERSION  := $(shell LC_ALL=C dpkg-parsechangelog | sed -ne 's/^Version: \(.*-\)/\1/p')
-EXTRA_IDENT := "Debian-$(DEBVERSION)"
-
 # DB engine version
-export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb4.[2-7]-dev' | grep ^ii | sed -e 's|.*\s\libdb\(4\.[0-9]\)-dev\s.*|\1|')
+export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb4.[2-8]-dev' | grep ^ii | sed -e 's|.*\s\libdb\(4\.[0-9]\)-dev\s.*|\1|')
 DBENGINE := BerkeleyDB$(BDB_VERSION)
 
 CONFFLAGS =
@@ -50,7 +43,7 @@ endif
 %:
 	dh --with quilt $@
 
-override_dh_autoclean:
+override_dh_auto_clean:
 	dh_auto_clean
 	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
 	rm -f config.h config.h.in configure config.cache config.status config.log stamp-config confdefs.h
@@ -63,7 +56,7 @@ override_dh_autoclean:
 	rm -f sieve/addr.c sieve/addr.h sieve/addr-lex.c sieve/sieve.c sieve/sieve.h sieve/sieve-lex.c
 	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
 
-override_dh_autoconfigure: build-prepare
+override_dh_auto_configure:
 	# Rebuild the build system
 	autoreconf -I cmulocal
 	dh_auto_configure CFLAGS="${CFLAGS} -fno-strict-aliasing -Wall -pipe" $(CONFFLAGS) -- \
@@ -99,7 +92,7 @@ override_dh_autoconfigure: build-prepare
 	sed -i 's/ -lsensors//' master/Makefile
 
 
-override_dh_autobuild:
+override_dh_auto_build:
 	PERL_MM_OPT="INSTALLDIRS=vendor" $(MAKE)
 	# store database configuration for possible automatic
 	# upgrading later
@@ -134,7 +127,7 @@ override_dh_autobuild:
 	pod2html perl/imap/cyradm.sh > doc/man/cyradm.1.html
 	rm -f pod2htm*
 
-override_dh_automake:
+override_dh_auto_install:
 	dh_auto_build -- DESTDIR=$(TMPPKG)
 	# fix totaly broken location of the include files;
 	# while at it, also avoid namespace collision, and move
