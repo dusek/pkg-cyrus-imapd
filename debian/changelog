@@ -1,3 +1,28 @@
+cyrus-imapd-2.3 (2.4.4-1~1.gbp15590b) UNRELEASED; urgency=low
+
+  ** SNAPSHOT build @15590b6da80414fd4c09ea8e5649bb10c9153b42 **
+
+  * Add git-buildpackage configuration
+  * Update to modern build architecture
+  * Update build depend to libdb-dev (>= 4.8)
+  * Fix debian/rules for missing _
+  * Run autoreconf with -f -i
+  * Add automake call
+  * Let automake install it's file, but don't fail
+  * Move CONFFLAGS to configure from auto_dh_configure
+  * s/dh_auto_make/dh_auto_install/ for override_dh_auto_install
+  * Add missing backslash to configure invocation
+  * Remove directories which are dh_linkes
+  * Merge all other special calls from former debian/rules
+  * Update versioned dependecy on debhelper
+  * Standardize init.d and cron names
+  * More changes to get rid of versioned files in the packages
+  * No content in nntpd /usr/sbin
+  * s/upstream/upstream-sid/
+  * Imported Upstream version 2.4.4
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 17 Nov 2010 17:07:38 +0100
+
 cyrus-imapd-2.3 (2.3.16-1) experimental; urgency=low
 
   [ Sven Mueller ]
