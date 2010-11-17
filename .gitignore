@@ -1,7 +1,6 @@
 *.o
 *.a
 *~
-*.patch
 *.orig
 *.rej
 *.tar.gz
