@@ -134,9 +134,9 @@ case "$1" in
 	db_stop
 
 	# Register initscript, and start it (it is ok if start fails)
-	[ -x /etc/init.d/cyrus2.3 ] && {
-		update-rc.d cyrus2.3 defaults >/dev/null
-		invoke-rc.d cyrus2.3 start || true
+	[ -x /etc/init.d/cyrus-imapd ] && {
+		update-rc.d cyrus-imapd defaults >/dev/null
+		invoke-rc.d cyrus-imapd start || true
 	}
     ;;
 

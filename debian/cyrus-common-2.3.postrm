@@ -63,7 +63,7 @@ case "$1" in
 				rm -f /usr/lib/cyrus/cyrus-*.active
 			}
 
-			update-rc.d cyrus2.3 remove >/dev/null
+			update-rc.d cyrus-imapd remove >/dev/null
 		;;
 
 		upgrade|failed-upgrade|disappear)

@@ -24,7 +24,7 @@ bak=/var/backups
 bakfile=${bak}/cyrus-mboxlist.txt.gz
 CONF=/etc/imapd.conf
 CHKCYRUS=0
-[ -r /etc/default/cyrus2.3 ] && . /etc/default/cyrus2.3
+[ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 umask 022
 
 # check wether ctl_mboxlist  and cyrus-hardwired-config.txt exist

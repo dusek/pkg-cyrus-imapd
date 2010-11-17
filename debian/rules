@@ -181,9 +181,9 @@ override_dh_auto_install:
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 	# and logcheck files
 	install -m 644 debian/logcheck.ignore \
-	  $(PKGDIR)/etc/logcheck/ignore.d.server/cyrus2_3
+	  $(PKGDIR)/etc/logcheck/ignore.d.server/cyrus-imapd
 	install -m 644 debian/logcheck.violations.ignore \
-	  $(PKGDIR)/etc/logcheck/violations.ignore.d/cyrus2_3
+	  $(PKGDIR)/etc/logcheck/violations.ignore.d/cyrus-imapd
 	# Install the stuff needed for upgrades
 	for i in convert-sieve.pl dohash rehash undohash translatesieve \
 		 upgradesieve masssievec; do \

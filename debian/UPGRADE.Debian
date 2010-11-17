@@ -139,7 +139,7 @@ NOTE: If you've already installed the cyrus 2.3 packages, skip to step 5.
 
  5. Stop the cyrmaster process.
 
-    # /etc/init.d/cyrus2.3 stop
+    # /etc/init.d/cyrus-imapd stop
 
  5a. Make sure Cyrus won't start until the upgrade process is over.
 
@@ -193,7 +193,7 @@ and re-run /usr/sbin/cyrus-makedirs just in case you got one of them wrong.
 
 Now, you need to reconfigure the new Cyrus imapd to adequate it to your system
 and SASL requirements. The Cyrus config files are /etc/imapd.conf,
-/etc/cyrus.conf and /etc/default/cyrus2.3.
+/etc/cyrus.conf and /etc/default/cyrus-imapd.
 
 Depending on your SASL configuration, you may also need to modify
 /etc/pam.d/{imap,pop,sieve,lmtp} and other SASL configuration files.

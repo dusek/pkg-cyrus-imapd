@@ -18,7 +18,7 @@ export LC_ALL
 
 CYRUSOPTFILESYS=1
 CONF=/etc/imapd.conf
-[ -r /etc/default/cyrus2.3 ] && . /etc/default/cyrus2.3
+[ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 
 getconf () {
 	confvalue=`sed --silent -e "/^[[:blank:]]*$1:/ { \
@@ -124,7 +124,7 @@ done
 # ext3:  Journal data too, since that improves access time a LOT
 #        (maybe in the future, there's a bug in 2.4.18 ext3 w/ +j)
 #
-echo "Trying to optimize Cyrus partitions, edit /etc/default/cyrus2.3 to disable..."
+echo "Trying to optimize Cyrus partitions, edit /etc/default/cyrus-imapd to disable..."
 partsys="${confdir} ${partitions}"
 filesys=`df -P -T ${partsys} | sed -e "1 d" -e "s/ \+/ /g" | cut -d " " -f 2 | xargs`
 for i in ${filesys} ; do

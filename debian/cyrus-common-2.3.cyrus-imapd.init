@@ -1,14 +1,14 @@
 #! /bin/sh
 #
 ### BEGIN INIT INFO
-# Provides: cyrus-common-2.3 cyrus-2.3
+# Provides: cyrus-common cyrus-imapd
 # Required-Start: $syslog $network $remote_fs
 # Required-Stop: $syslog $network $remote_fs
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
-# Short-Description: common init system for cyrus 2.3 IMAP/POP3 daemons.
-# Description: common init system the for cyrus 2.3 IMAP/POP3 daemons.
-#              starts the central cyrus 2.3 master process, which can 
+# Short-Description: common init system for cyrus IMAP/POP3 daemons.
+# Description: common init system the for cyrus IMAP/POP3 daemons.
+#              starts the central cyrus master process, which can 
 #              then start various services depending on configuration.
 #              Typically starts IMAP and POP3 daemons, but might also
 #              start an NNTP daemon and various helper daemons for
@@ -29,7 +29,7 @@ unset CYRUS_VERBOSE
 unset LISTENQUEUE
 unset CONF
 unset MASTERCONF
-[ -r /etc/default/cyrus2.3 ] && . /etc/default/cyrus2.3
+[ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 
 [ "x${CYRUS_VERBOSE}" != "x" ] && export CYRUS_VERBOSE
 # Make sure the master process is daemonized
@@ -44,7 +44,7 @@ NAME=cyrmaster
 [ "x${PIDFILE}" = "x" ] && PIDFILE="/var/run/${NAME}.pid"
 DESC="Cyrus IMAPd"
 
-# Check if Cyrus 2.3 is installed
+# Check if Cyrus is installed
 test -x ${DAEMON} || exit 0
 grep -qE '^PACKAGE_VERSION[[:blank:]]+([0-9]+:|)2[.]3' \
 	/usr/lib/cyrus/cyrus-hardwired-config.txt >/dev/null 2>&1 || exit 0

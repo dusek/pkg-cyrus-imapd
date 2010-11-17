@@ -22,7 +22,7 @@ set -e
 case "$1" in
     remove|upgrade|deconfigure)
     	# Call initscript, if it is there to stop the daemon
- 	invoke-rc.d cyrus2.3 stop || true
+ 	invoke-rc.d cyrus-imapd stop || true
         ;;
     failed-upgrade)
         ;;

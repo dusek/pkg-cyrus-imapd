@@ -1,6 +1,6 @@
-# Defaults for Cyrus IMAPd 2.3 scripts
-# sourced by /etc/init.d/cyrus2.3, /usr/sbin/cyrus-makedirs
-# installed at /etc/default/cyrus2.3 by the maintainer scripts
+# Defaults for Cyrus IMAPd scripts
+# sourced by /etc/init.d/cyrus-imapd, /usr/sbin/cyrus-makedirs
+# installed at /etc/default/cyrus-imapd by the maintainer scripts
 #
 
 #

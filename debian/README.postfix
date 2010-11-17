@@ -83,7 +83,7 @@ if the socket is not inside the chroot.
 
 4. Restart Postfix and Cyrus IMAPd
 	# /etc/init.d/postfix restart
-	# /etc/init.d/cyrus2.3 restart
+	# /etc/init.d/cyrus-imapd restart
 
 
 TCP sockets:
