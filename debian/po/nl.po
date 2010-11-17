@@ -1,4 +1,4 @@
-# Translation of cyrus-imapd-2.3 2.3.14-1_templates.po to Debian l10n Dutch
+# Translation of cyrus-imapd-2.4 2.4.14-1_templates.po to Debian l10n Dutch
 # This file is distributed under the same license as the cyrus-imapd package.
 #
 #    Translators, if you are not familiar with the PO format, gettext
@@ -17,8 +17,8 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.3 2.3.14-1\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.3@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
 "POT-Creation-Date: 2009-04-14 17:58+0200\n"
 "PO-Revision-Date: 2006-09-18 20:27+0100\n"
 "Last-Translator: Kurt De Bree <kdebree@telenet.be>\n"
@@ -29,13 +29,13 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid "Modified database backends"
 msgstr "Database-backends zijn gewijzigd!"
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
 "cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
@@ -47,7 +47,7 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "This means that those databases for which the database backends changed "
 "might need to be converted manually to the new format, using the cvt_cyrusdb"
@@ -59,25 +59,25 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
-"Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database for "
+"Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Raadpleeg /usr/share/doc/cyrus-common-2.3/README.Debian.database voor meer "
+"Raadpleeg /usr/share/doc/cyrus-common-2.4/README.Debian.database voor meer "
 "informatie. Start cyrmaster niet vooraleer u de databases naar de nieuwe "
 "indeling geconverteerd hebt."
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid "Remove the mail and news spools?"
 msgstr "Mail- en nieuws-spools verwijderen?"
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
 "removed when the package is purged."
@@ -87,7 +87,7 @@ msgstr ""
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "This question only applies to the default spools and sieve script "
 "directories in /var.  If you modified their location in imapd.conf, the new "

@@ -1,10 +1,10 @@
-# translation of cyrus-imapd-2.3 2.3.14-1_de.po to German
+# translation of cyrus-imapd-2.4 2.4.14-1_de.po to German
 #
 # Erik Schanze <eriks@debian.org>, 2004-2009.
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd_2.3 2.3.14-1_de\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.3@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd_2.4 2.4.14-1_de\n"
+"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
 "POT-Creation-Date: 2009-04-14 17:58+0200\n"
 "PO-Revision-Date: 2009-04-27 22:30+0200\n"
 "Last-Translator: Erik Schanze <eriks@debian.org>\n"
@@ -16,13 +16,13 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid "Modified database backends"
 msgstr "Datenbankanbindungen geändert"
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
 "cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
@@ -34,7 +34,7 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "This means that those databases for which the database backends changed "
 "might need to be converted manually to the new format, using the cvt_cyrusdb"
@@ -46,25 +46,25 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
-"Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database for "
+"Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Mehr Informationen finden Sie in der Datei /usr/share/doc/cyrus-common-2.3/"
+"Mehr Informationen finden Sie in der Datei /usr/share/doc/cyrus-common-2.4/"
 "README.Debian.database. Starten Sie keinesfalls »cyrmaster«, bevor Sie die "
 "Datenbank in das neue Format überführt haben."
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid "Remove the mail and news spools?"
 msgstr "E-Mail- und News-Zwischenspeicher entfernen?"
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
 "removed when the package is purged."
@@ -75,7 +75,7 @@ msgstr ""
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "This question only applies to the default spools and sieve script "
 "directories in /var.  If you modified their location in imapd.conf, the new "

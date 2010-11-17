@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: nb\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.3@packages.debian.org\n"
+"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
 "POT-Creation-Date: 2009-04-14 17:58+0200\n"
 "PO-Revision-Date: 2009-04-30 02:18+0200\n"
 "Last-Translator: Bjørn Steensrud <bjornst@skogkatt.homelinux.org>\n"
@@ -19,13 +19,13 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid "Modified database backends"
 msgstr "Endrede databasemotorer"
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
 "cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
@@ -36,7 +36,7 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
 "This means that those databases for which the database backends changed "
 "might need to be converted manually to the new format, using the cvt_cyrusdb"
@@ -48,25 +48,25 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.3.templates:1001
+#: ../cyrus-common-2.4.templates:1001
 msgid ""
-"Please refer to /usr/share/doc/cyrus-common-2.3/README.Debian.database for "
+"Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Se etter mer informasjon i /usr/share/doc/cyrus-common-2.3/README.Debian."
+"Se etter mer informasjon i /usr/share/doc/cyrus-common-2.4/README.Debian."
 "database. Ikke start cyrmaster før databasene er blitt konvertert til det "
 "nye formatet."
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid "Remove the mail and news spools?"
 msgstr "Skal e-postlager og njuslagre fjernes?"
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
 "removed when the package is purged."
@@ -76,7 +76,7 @@ msgstr ""
 
 #. Type: boolean
 #. Description
-#: ../cyrus-common-2.3.templates:2001
+#: ../cyrus-common-2.4.templates:2001
 msgid ""
 "This question only applies to the default spools and sieve script "
 "directories in /var.  If you modified their location in imapd.conf, the new "
