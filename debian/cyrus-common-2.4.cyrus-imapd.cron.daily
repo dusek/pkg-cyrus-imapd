@@ -33,7 +33,7 @@ umask 022
 && [ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] \
 || exit 0
 # Check if Cyrus is installed (vs. removed but not purged)
-grep -qE '^PACKAGE_VERSION[[:blank:]]+2[.]3' \
+grep -qE '^PACKAGE_VERSION[[:blank:]]+2[.]4' \
 	/usr/lib/cyrus/cyrus-hardwired-config.txt >/dev/null 2>&1 || exit 0
 
 # 1. backup mailbox database
