@@ -486,7 +486,6 @@ void index_refresh(struct index_state *state)
     uint32_t numrecent = 0;
     uint32_t numunseen = 0;
     uint32_t recentuid;
-    int havenewrecords = 0;
     struct index_map *im;
     modseq_t delayed_modseq = 0;
     uint32_t need_records;
@@ -582,14 +581,13 @@ void index_refresh(struct index_state *state)
 	/* don't auto-tell */
 	im->told_modseq = im->record.modseq;
 
-	havenewrecords = 1;
-
 	msgno++;
     }
 
     seqset_free(seenlist);
 
     /* update the header tracking data */
+    state->oldexists = state->exists; /* we last knew about this many */
     state->exists = msgno - 1; /* we actually got this many */
     state->delayed_modseq = delayed_modseq;
     state->highestmodseq = mailbox->i.highestmodseq;
@@ -598,7 +596,6 @@ void index_refresh(struct index_state *state)
     state->firstnotseen = firstnotseen;
     state->numunseen = numunseen;
     state->numrecent = numrecent;
-    state->havenewrecords = havenewrecords;
 }
 
 modseq_t index_highestmodseq(struct index_state *state)
@@ -1189,7 +1186,6 @@ void index_unlock(struct index_state *state)
     /* XXX - errors */
 
     index_writeseen(state);
-    mailbox_commit(state->mailbox);
 
     /* grab the latest modseq */
     state->highestmodseq = state->mailbox->i.highestmodseq;
@@ -2268,14 +2264,20 @@ static void index_tellexpunge(struct index_state *state)
     uint32_t msgno = 1;
     struct seqset *vanishedlist;
     struct index_map *im;
+    unsigned exists = state->exists;
 
     vanishedlist = seqset_init(0, SEQ_SPARSE);
 
-    for (oldmsgno = 1; oldmsgno <= state->exists; oldmsgno++) {
+    for (oldmsgno = 1; oldmsgno <= exists; oldmsgno++) {
 	im = &state->map[oldmsgno-1];
 
 	/* inform about expunges */
 	if (im->record.system_flags & FLAG_EXPUNGED) {
+	    state->exists--;
+	    /* they never knew about this one, skip */
+	    if (msgno > state->oldexists)
+		continue;
+	    state->oldexists--;
 	    if (state->qresync)
 		seqset_add(vanishedlist, im->record.uid, 1);
 	    else
@@ -2298,9 +2300,7 @@ static void index_tellexpunge(struct index_state *state)
     }
     seqset_free(vanishedlist);
 
-    /* exists count has reduced to what was left */
-    state->exists = msgno - 1;
-    /* and highestmodseq can come forward to real-time */
+    /* highestmodseq can now come forward to real-time */
     state->highestmodseq = state->mailbox->i.highestmodseq;
 }
 
@@ -2308,7 +2308,7 @@ static void index_tellexists(struct index_state *state)
 {
     prot_printf(state->out, "* %u EXISTS\r\n", state->exists);
     prot_printf(state->out, "* %u RECENT\r\n", state->numrecent);
-    state->havenewrecords = 0;
+    state->oldexists = state->exists;
 }
 
 void index_tellchanges(struct index_state *state, int canexpunge,
@@ -2319,7 +2319,7 @@ void index_tellchanges(struct index_state *state, int canexpunge,
 
     if (canexpunge) index_tellexpunge(state);
 
-    if (state->havenewrecords) index_tellexists(state);
+    if (state->oldexists != state->exists) index_tellexists(state);
 
     index_checkflags(state, 0);
 
@@ -3005,9 +3005,9 @@ static int index_search_evaluate(struct index_state *state,
 	return 0;
     if (searchargs->before && im->record.internaldate >= searchargs->before)
 	return 0;
-    if (searchargs->sentafter && im->record.gmtime < searchargs->sentafter)
+    if (searchargs->sentafter && im->record.sentdate < searchargs->sentafter)
 	return 0;
-    if (searchargs->sentbefore && im->record.gmtime >= searchargs->sentbefore)
+    if (searchargs->sentbefore && im->record.sentdate >= searchargs->sentbefore)
 	return 0;
 
     if (searchargs->modseq && im->record.modseq < searchargs->modseq)

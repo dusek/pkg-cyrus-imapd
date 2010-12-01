@@ -1,0 +1,20 @@
+Changes to the Cyrus IMAP Server since 2.4.4
+
+      * Tidy up of the git version number added to the ID response 
+      * Fixed incorrect time field in date searches (Bug #3339) - thanks
+        Greg Banks for noticing this one 
+      * Fixed reconstruct crash and other potential issues (Bug #3353) -
+        first reported Paul Dekkers 
+      * Fixed ACL passing for rename/delete on murder backends (Bug #3342)
+        - first reported by Robert Spellman 
+      * Fixed corruption of long (>1024 byte) seen records on replica (Bug
+        #3344) - found at FastMail by Bron Gondwana 
+      * Made all perl utilities use /usr/bin/perl in the #! line (Bug
+        #2275) - reported by Yann Rouillard over 5 years ago! 
+      * Fixed crash on message with incomplete final boundary (Bug #3345) -
+        found at FastMail by Bron Gondwana 
+      * Regression: sync_crc was being set to 00000000 on repack -
+        introduced in 2.4.4 (Bug #3347) - first found at FastMail, but also
+        seen at multiple other sites 
+      * Always print [CLOSED] response when selecting a new mailbox, even
+        if a CONDSTORE enabling command has not been sent (Bug #3352) -

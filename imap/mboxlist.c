@@ -591,8 +591,7 @@ int mboxlist_createmailbox_full(const char *name, int mbtype,
     if (r) goto done; /* CREATE failed */ 
 
     /* all is well - activate the mailbox */
-    mboxent = mboxlist_makeentry(newmailbox->mbtype, newmailbox->part,
-				 newmailbox->acl);
+    mboxent = mboxlist_makeentry(mbtype, newpartition, acl);
     r = DB->store(mbdb, name, strlen(name), mboxent, strlen(mboxent), NULL);
 
     if (r) {
@@ -960,8 +959,7 @@ int mboxlist_deletemailbox(const char *name, int isadmin,
     }
 
  done:
-
-    if (mailbox) mailbox_close(&mailbox);
+    mailbox_close(&mailbox);
 
     return r;
 }
@@ -983,7 +981,6 @@ int mboxlist_renamemailbox(const char *oldname, const char *newname,
     struct mailbox *oldmailbox = NULL;
     struct mailbox *newmailbox = NULL;
     struct txn *tid;
-    char *newacl = NULL;
     const char *root = NULL;
     char *newpartition = NULL;
     char *mboxent = NULL;
@@ -1134,7 +1131,7 @@ int mboxlist_renamemailbox(const char *oldname, const char *newname,
 		r = mupdate_delete(mupdate_h, oldname);
 	    if (!r) r = mupdate_reserve(mupdate_h, newname, buf);
 	}
-	if (!r) r = mupdate_activate(mupdate_h, newname, buf, newacl);
+	if (!r) r = mupdate_activate(mupdate_h, newname, buf, newmailbox->acl);
 	if (r) {
 	    syslog(LOG_ERR,
 		   "MUPDATE: can't commit mailbox entry for '%s'",
@@ -1147,7 +1144,7 @@ int mboxlist_renamemailbox(const char *oldname, const char *newname,
     if (r) {
 	/* XXX - rollback DB changes if it was an mupdate failure */
 	if (newmailbox) mailbox_delete(&newmailbox);
-	if (oldmailbox) mailbox_close(&oldmailbox);
+	mailbox_close(&oldmailbox);
     } else {
 	mailbox_close(&newmailbox);
 	mailbox_rename_cleanup(&oldmailbox, isusermbox);
@@ -1156,9 +1153,8 @@ int mboxlist_renamemailbox(const char *oldname, const char *newname,
     }
     
     /* free memory */
-    if (newacl) free(newacl); /* we're done with the new ACL */
-    if (newpartition) free(newpartition);
-    if (mboxent) free(mboxent);
+    free(newpartition);
+    free(mboxent);
 
     return r;
 }
@@ -1343,6 +1339,7 @@ int mboxlist_setacl(const char *name, const char *identifier,
     /* we already have it locked from above */
     if (!r && !(mbentry.mbtype & MBTYPE_REMOTE)) {
 	mailbox_set_acl(mailbox, newacl);
+	/* want to commit immediately to ensure ordering */
 	r = mailbox_commit(mailbox);
     }
 
@@ -1390,9 +1387,9 @@ int mboxlist_setacl(const char *name, const char *identifier,
 		   cyrusdb_strerror(r2));
 	}
     }
-    if (mailbox) mailbox_close(&mailbox);
-    if (mboxent) free(mboxent);
-    if (newacl) free(newacl);
+    mailbox_close(&mailbox);
+    free(mboxent);
+    free(newacl);
 
     return r;
 }
@@ -2296,12 +2293,12 @@ static int mboxlist_rmquota(const char *name,
 	    goto done;
 	}
 
-	mailbox_set_quotaroot(mailbox, NULL);
-	r = mailbox_commit(mailbox);
+	r = mailbox_set_quotaroot(mailbox, NULL);
     }
 
  done:
-    if (mailbox) mailbox_close(&mailbox);
+    mailbox_close(&mailbox);
+
     if (r) {
 	syslog(LOG_ERR, "LOSTQUOTA: unable to remove quota root %s for %s: %s",
 	       oldroot, name, error_message(r));
@@ -2362,8 +2359,7 @@ static int mboxlist_changequota(const char *name,
     }
 
     /* update (or set) the quotaroot */
-    mailbox_set_quotaroot(mailbox, root);
-    r = mailbox_commit(mailbox);
+    r = mailbox_set_quotaroot(mailbox, root);
     if (r) goto done;
 
     /* read the new quota root */
@@ -2382,7 +2378,7 @@ static int mboxlist_changequota(const char *name,
     else quota_abort(&tid);
 
  done:
-    if (mailbox) mailbox_close(&mailbox);
+    mailbox_close(&mailbox);
 
     if (r) {
 	syslog(LOG_ERR, "LOSTQUOTA: unable to change quota root for %s to %s: %s",

@@ -1,0 +1,10 @@
+--- debian/rules
++++ debian/rules
+@@ -26,6 +26,7 @@
+ 
+ # Extra version information to add to Cyrus IMAPd ID
+ DEBVERSION ?= $(shell LC_ALL=C dpkg-parsechangelog | sed -ne 's/^Version: \(.*-\)/\1/p')
++EXTRA_IDENT := Debian-$(DEBVERSION)
+ 
+ # DB engine version
+ export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb4.[2-8]-dev' | grep ^ii | sed -e 's|.*\s\libdb\(4\.[0-9]\)-dev\s.*|\1|')
