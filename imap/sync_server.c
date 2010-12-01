@@ -1172,7 +1172,6 @@ static int do_mailbox(struct dlist *kin,
     uint32_t newcrc;
     struct dlist *kr;
     struct dlist *ki;
-    int found;
     uint32_t recno;
     int r;
 
@@ -1267,44 +1266,54 @@ static int do_mailbox(struct dlist *kin,
 	    syslog(LOG_ERR, "Failed to parse uploaded record"); 
 	    goto done;
 	}
-	found = 0;
-	while (!found && recno <= old_num_records) {
+
+	while (rrecord.uid < mrecord.uid) {
+	    /* hit the end?  Magic marker */
+	    if (recno > mailbox->i.num_records) {
+		rrecord.uid = UINT32_MAX;
+		break;
+	    }
+
+	    /* read another record */
 	    r = mailbox_read_index_record(mailbox, recno, &rrecord);
 	    if (r) {
 		syslog(LOG_ERR, "Failed to read record %s %d",
 		       mboxname, recno);
 		goto done;
 	    }
-
-	    /* copy the interesting fields out */
-	    if (rrecord.uid == mrecord.uid) {
-		/* GUID mismatch on a non-expunged record is an error straight away */
-		if (!(mrecord.system_flags & FLAG_EXPUNGED) &&
-		    !message_guid_compare(&mrecord.guid, &rrecord.guid)) {
-		    r = IMAP_MAILBOX_CRC;
-		    goto done;
-		}
-		rrecord.modseq = mrecord.modseq;
-		rrecord.last_updated = mrecord.last_updated;
-		rrecord.internaldate = mrecord.internaldate;
-		rrecord.system_flags = (mrecord.system_flags & ~FLAG_UNLINKED) |
-				       (rrecord.system_flags & FLAG_UNLINKED);
-		for (i = 0; i < MAX_USER_FLAGS/32; i++)
-		    rrecord.user_flags[i] = mrecord.user_flags[i];
-		rrecord.silent = 1;
-		r = mailbox_rewrite_index_record(mailbox, &rrecord);
-		if (r) {
-		    syslog(LOG_ERR, "Failed to rewrite record %s %d",
-			   mboxname, recno);
-		    goto done;
-		}
-		found = 1;
-	    }
 	    recno++;
 	}
-	if (found) continue;
-	if (rrecord.uid >= mrecord.uid)
-	    continue; /* guess it got UNLINKED along the way... */
+
+	/* found a match, check for updates */
+	if (rrecord.uid == mrecord.uid) {
+	    /* GUID mismatch on a non-expunged record is an error straight away */
+	    if (!(mrecord.system_flags & FLAG_EXPUNGED) &&
+		!message_guid_compare(&mrecord.guid, &rrecord.guid)) {
+		r = IMAP_MAILBOX_CRC;
+		goto done;
+	    }
+	    /* higher modseq on the replica is an error */
+	    if (rrecord.modseq > mrecord.modseq) {
+		r = IMAP_MAILBOX_CRC;
+		goto done;
+	    }
+	    rrecord.modseq = mrecord.modseq;
+	    rrecord.last_updated = mrecord.last_updated;
+	    rrecord.internaldate = mrecord.internaldate;
+	    rrecord.system_flags = (mrecord.system_flags & ~FLAG_UNLINKED) |
+				   (rrecord.system_flags & FLAG_UNLINKED);
+	    for (i = 0; i < MAX_USER_FLAGS/32; i++)
+		rrecord.user_flags[i] = mrecord.user_flags[i];
+	    rrecord.silent = 1;
+	    r = mailbox_rewrite_index_record(mailbox, &rrecord);
+	    if (r) {
+		syslog(LOG_ERR, "Failed to rewrite record %s %d",
+		       mboxname, recno);
+		goto done;
+	    }
+	    /* all done, move on to next records */
+	    continue;
+	}
 
 	/* not found and less than LAST_UID, bogus */
 	if (mrecord.uid <= mailbox->i.last_uid) {
@@ -1316,6 +1325,7 @@ static int do_mailbox(struct dlist *kin,
 	    goto done;
 	}
 
+	/* after LAST_UID, it's an append, that's OK */
 	mrecord.silent = 1;
 	r = sync_append_copyfile(mailbox, &mrecord);
 	if (r) {
@@ -1342,7 +1352,6 @@ static int do_mailbox(struct dlist *kin,
     if (mailbox->i.sync_crc != sync_crc) {
 	mailbox_index_recalc(mailbox);
     }
-    mailbox_commit(mailbox);
     newcrc = mailbox->i.sync_crc;
     mailbox_close(&mailbox);
 
@@ -1948,7 +1957,7 @@ static int do_expunge(struct dlist *kin)
     struct mailbox *mailbox = NULL;
     struct index_record record;
     uint32_t recno;
-    int r;
+    int r = 0;
 
     if (!dlist_getatom(kin, "MBOXNAME", &mboxname))
 	return IMAP_PROTOCOL_BAD_PARAMETERS;
@@ -1958,7 +1967,7 @@ static int do_expunge(struct dlist *kin)
 	return IMAP_PROTOCOL_BAD_PARAMETERS;
 
     r = mailbox_open_iwl(mboxname, &mailbox);
-    if (r) return r;
+    if (r) goto done;
 
     /* don't want to expunge the wrong mailbox! */
     if (strcmp(mailbox->uniqueid, uniqueid)) {
@@ -1970,7 +1979,7 @@ static int do_expunge(struct dlist *kin)
 
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {
 	r = mailbox_read_index_record(mailbox, recno, &record);
-	if (r) return r;
+	if (r) goto done;
 	if (record.system_flags & FLAG_EXPUNGED) continue;
 	while (ui && ui->nval < record.uid) ui = ui->next;
 	if (!ui) break; /* no point continuing */
@@ -1982,7 +1991,6 @@ static int do_expunge(struct dlist *kin)
 	    if (r) goto done;
 	}
     }
-    r = mailbox_commit(mailbox);
 
 done:
     mailbox_close(&mailbox);

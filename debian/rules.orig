@@ -1,0 +1,245 @@
+#!/usr/bin/make -f
+# debian/rules for CMU Cyrus IMAP version 2.4
+# GNU copyright 1997 by Joey Hess.
+# Copyright (c) 2001,2010 by Henrique de Moraes Holschuh
+# Published under the GNU GPL license
+# Based on previous work by Michael-John Turner <mj@debian.org>,
+#			    David Parker <david@neongoat.com>
+#
+
+#
+# Please refer to debian/README.source for instructions
+# TODO: needs update
+#
+
+# DebHelper control
+export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
+
+export MAINPKG=cyrus-common-2.4
+export DOCPKG=cyrus-doc-2.4
+export TMPPKG := $(CURDIR)/debian/tmp
+export PKGDIR := $(CURDIR)/debian/$(MAINPKG)
+export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
+
+DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+# Extra version information to add to Cyrus IMAPd ID
+DEBVERSION ?= $(shell LCALL=C dpkg-parsechangelog | sed -ne 's/^Version: \(.*-\)/\1/p')
+
+# DB engine version
+export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb4.[2-8]-dev' | grep ^ii | sed -e 's|.*\s\libdb\(4\.[0-9]\)-dev\s.*|\1|')
+DBENGINE := BerkeleyDB$(BDB_VERSION)
+
+CONFFLAGS =
+ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+  CONFFLAGS += --build $(DEB_HOST_GNU_TYPE)
+else
+  CONFFLAGS += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+endif
+
+# Other oddities
+ifneq (,$(findstring strict,$(DEB_BUILD_OPTIONS)))
+	CONFFLAGS += --enable-warnings-are-errors
+endif
+
+%:
+	dh --with quilt $@
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
+	rm -f config.h config.h.in configure config.cache config.status config.log stamp-config confdefs.h
+	rm -rf autom4te.cache
+	rm -f mkinstalldirs install-sh config.sub config.guess
+	rm -f netnews/Makefile perl/imap/Makefile.old perl/sieve/managesieve/Makefile.old snmp/Makefile Makefile et/Makefile
+	rm -f doc/pod2htm* doc/murder.png
+	rm -f master/makedepend.log 
+	rm -rf doc/man
+	rm -f sieve/addr.c sieve/addr.h sieve/addr-lex.c sieve/sieve.c sieve/sieve.h sieve/sieve-lex.c
+	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
+
+override_dh_auto_configure:
+	# Rebuild the build system
+	autoreconf -I cmulocal -f -i
+	automake -f -a 2>/dev/null || true
+	dh_auto_configure CFLAGS="${CFLAGS} -fno-strict-aliasing -Wall -pipe" \
+	 LDFLAGS="-Wl,-z,defs -Wl,--as-needed" -- \
+	 $(CONFFLAGS) \
+	 --with-extraident=$(EXTRA_IDENT) \
+	 --prefix=/usr/share --exec-prefix=/usr --libexecdir=/usr/sbin \
+	 --bindir=/usr/sbin --sbindir=/usr/sbin \
+	 --includedir=/usr/include/cyrus --mandir=/usr/share/man \
+	 --datadir=/usr/share/cyrus --sysconfdir=/etc \
+	 --sharedstatedir=/usr/share/cyrus \
+	 --localstatedir=/var/lib/cyrus \
+	 --mandir=/usr/share/man \
+	 --with-cyrus-prefix=/usr/lib/cyrus \
+	 --with-lock=fcntl \
+	 --with-perl=/usr/bin/perl \
+	 --with-openssl=/usr \
+	 --with-bdb=db-$(BDB_VERSION) \
+	 --with-bdb-libdir=/usr/lib --with-bdb-incdir=/usr/include \
+	 --enable-murder --enable-nntp --enable-replication \
+	 --disable-listext --with-sasl=/usr \
+	 --enable-idled \
+	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
+	 --with-com_err=/usr \
+	 --with-pidfile=/var/run/cyrmaster.pid \
+	 --with-syslogfacility=MAIL \
+	 --with-ucdsnmp=/usr
+	echo 'To build this package, configure was called as follows:' \
+		> debian/README.configure-options
+	grep with\ options config.status \
+	| sed -e 's/^.*options \\"/configure /;s/\\"$///' \
+		>> debian/README.configure-options
+	sed -i 's/ -lsensors//' master/Makefile
+
+
+override_dh_auto_build:
+	PERL_MM_OPT="INSTALLDIRS=vendor" $(MAKE)
+	# store database configuration for possible automatic
+	# upgrading later
+	echo "DBENGINE $(DBENGINE)" >>debian/cyrus-db-types.txt
+	grep _db lib/imapoptions \
+	| cut -d, -f1-2 | sed -e 's/{ "//;s/_db", "/ /;s/"$$//' \
+	| sed -e 's/^tls.* /TLS /;s/^subs.* /SUBS /;s/^seen.* /SEEN /;s/^pts.* /PTS /;s/^mbox.* /MBOX /'\
+	| awk '{printf("%s %s\n",toupper($$1),$$2);}' \
+	>>debian/cyrus-db-types.txt
+	mv debian/cyrus-db-types.txt debian/cyrus-db-types.txt.old \
+	&& sort -u < debian/cyrus-db-types.txt.old > debian/cyrus-db-types.txt \
+	&& rm debian/cyrus-db-types.txt.old
+	#
+	# store some useful state about the current package
+	echo "PACKAGE_VERSION $(DEBVERSION)" >debian/cyrus-hardwired-config.txt
+	if grep -q -s -n -E '^[[:space:]]*#define[[:space:]]+USE_DIR_FULL[[:space:]]+1' config.h ; then \
+		echo "USE_DIR_FULL 1" >>debian/cyrus-hardwired-config.txt ;\
+	else \
+		echo "USE_DIR_FULL 0" >>debian/cyrus-hardwired-config.txt ;\
+	fi
+	# former build-indep
+	cd doc &&\
+	pod2man ../perl/sieve/scripts/sieveshell.pl > ../man/sieveshell.1 &&\
+	fig2dev -L png murder.fig murder.png &&\
+	rm -f groff-html-*.png pod2htm*
+	cd doc &&\
+	mkdir -p man &&\
+	for man in ../man/*.[1-9] ../debian/*.[1-9]; do \
+	   echo "Generating html manpage for $$man..."; \
+	   groff -man -Thtml $$man > man/`basename $$man`.html; \
+	done
+	pod2html perl/imap/cyradm.sh > doc/man/cyradm.1.html
+	rm -f pod2htm*
+
+override_dh_auto_install:
+	dh_auto_install -- DESTDIR=$(TMPPKG)
+	# fix totaly broken location of the include files;
+	# while at it, also avoid namespace collision, and move
+	# lots of admin-only/system-only stuff to sbin and lib
+	# also, do the renaming needed for alternatives
+	# and fix the weird side-effect of setting the proper cyrus
+	# location in configure.
+	mkdir -p $(TMPPKG)/usr/sbin
+	mkdir -p $(TMPPKG)/usr/lib/cyrus
+	for i in master reconstruct quota deliver ; do \
+		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
+	done
+	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
+	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
+		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
+		 cyr_dbtool cyr_df ; do \
+		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
+	done
+	mkdir -p $(TMPPKG)/usr/include
+	mv $(TMPPKG)/usr/share/include/cyrus $(TMPPKG)/usr/include
+	#mv $(TMPPKG)/bin/* $(TMPPKG)/usr/bin
+	# Move the perl crap to a saner place
+	mkdir -p $(TMPPKG)/usr/lib
+	mkdir -p $(TMPPKG)/usr/share/perl5
+	#mv $(TMPPKG)/lib/perl5/Cyrus $(TMPPKG)/usr/share/perl5/Cyrus
+	#mv $(TMPPKG)/lib/* $(TMPPKG)/usr/lib
+	# for stuff in /etc
+	mkdir -p $(TMPPKG)/etc/cyrus $(TMPPKG)/etc/pam.d
+	install -m 644 debian/imapd.conf    $(TMPPKG)/etc
+	install -m 644 debian/cyrus.conf    $(TMPPKG)/etc
+	(cd debian ; for i in *.pam ;\
+		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
+	done)
+	# We rename some utils, so we need to sort out the manpages
+	for i in master reconstruct quota deliver ; do \
+		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$${i}.8 ; \
+	done
+	# And add our own manpages
+	mkdir -p $(TMPPKG)/usr/share/man/man8
+	install -m 644 debian/cyrdump.8 $(TMPPKG)/usr/share/man/man8/cyrdump.8
+	install -m 644 debian/cyrus-makedirs.8 $(TMPPKG)/usr/share/man/man8/cyrus-makedirs.8
+	install -m 644 debian/arbitronsort.8 $(TMPPKG)/usr/share/man/man8/arbitronsort.8
+	# SNMP files
+	mkdir -p $(TMPPKG)/usr/share/snmp/mibs
+	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
+	# Install cyradm icons
+	mkdir -p $(TMPPKG)/usr/share/icons/mini
+	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
+	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
+	# Install debian-provided scripts
+	install debian/cyrus-makedirs $(TMPPKG)/usr/sbin/cyrus-makedirs
+	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
+	# and logcheck files
+	install -m 644 debian/logcheck.ignore \
+	  $(PKGDIR)/etc/logcheck/ignore.d.server/cyrus-imapd
+	install -m 644 debian/logcheck.violations.ignore \
+	  $(PKGDIR)/etc/logcheck/violations.ignore.d/cyrus-imapd
+	# Install the stuff needed for upgrades
+	for i in convert-sieve.pl dohash rehash undohash translatesieve \
+		 upgradesieve masssievec; do \
+		install -m 755 tools/$$i $(PKGDIR)/usr/lib/cyrus/upgrade ;\
+	done
+	install -m 644 debian/cyrus-db-types.upgrading_from_1.5.txt $(PKGDIR)/usr/lib/cyrus/upgrade
+	# And other upgrade helpers
+	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
+		   $(PKGDIR)/usr/lib/cyrus
+	# And other misc useful tools
+	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/sbin/arbitronsort
+	# Install imtest and its symlinks
+	mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.4/usr/bin
+	for i in $(TMPPKG)/usr/bin/*test ; do \
+		rm -f "$$i" || true ;\
+		(cd $(CURDIR)/debian/cyrus-clients-2.4/usr/bin &&\
+		 ln -s imtest `basename $$i`) ;\
+	done
+	# Lintian overrides
+	cd debian ; \
+	for i in *.lintian ; do \
+		mkdir -p "$${i%%.lintian}/usr/share/lintian/overrides" ;\
+		install  -m 644 "$$i" "$${i%%.lintian}/usr/share/lintian/overrides/$${i%%.lintian}" ;\
+	done
+	# Install the html docs and examples
+	mkdir -p $(DOCDIR)/html
+	install -m 644 doc/*.html doc/murder.png $(DOCDIR)/html
+	cp -a doc/man $(DOCDIR)/html
+	cp -a debian/examples $(DOCDIR)
+	install -m 644 doc/cyrusv2.mc $(DOCDIR)/examples
+	#
+	# Install contrib/ files
+	mkdir -p $(DOCDIR)/contrib
+	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
+
+override_dh_installdocs:
+	dh_installdocs -p cyrus-admin-2.4 -p cyrus-doc-2.4
+	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.4 -p libcyrus-imap-perl24
+
+override_dh_installinit:
+	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus-imapd
+
+override_dh_installexamples:
+	dh_installexamples -p cyrus-admin-2.4
+	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl24 -p cyrus-clients-2.4
+
+override_dh_installchangelogs:
+	dh_installchangelogs -p cyrus-admin-2.4 doc/changes.html
+	dh_installchangelogs -p cyrus-doc-2.4
+	dh_installchangelogs -p $(MAINPKG) -p cyrus-clients-2.4 doc/changes.html
+	dh_installchangelogs -p libcyrus-imap-perl24 perl/imap/Changes
+
+override_dh_installcron:
+	dh_installcron --name=cyrus-imapd
