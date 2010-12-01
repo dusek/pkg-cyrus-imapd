@@ -1,3 +1,14 @@
+cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
+
+  * Imported Upstream version 2.4.5
+  * Build system:
+    + Fix init.d script (Courtesy Anthony Prades)
+    + More fixes in packaging by Anthony Prades
+    + Remove extra debian/rules.rej
+    + Refreshed patches for 2.4.5
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 01 Dec 2010 10:06:05 +0100
+
 cyrus-imapd-2.4 (2.4.4-1) experimental; urgency=low
 
   * New upstream version 2.4.4
