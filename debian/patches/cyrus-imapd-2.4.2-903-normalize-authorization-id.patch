@@ -15,11 +15,9 @@ By normalize, it is intended that;
  lib/libcyr_cfg.h |    2 ++
  4 files changed, 29 insertions(+), 0 deletions(-)
 
-Index: cyrus-imapd/lib/auth_unix.c
-===================================================================
---- cyrus-imapd.orig/lib/auth_unix.c	2010-10-20 15:55:37.000000000 +0200
-+++ cyrus-imapd/lib/auth_unix.c	2010-10-20 15:56:10.000000000 +0200
-@@ -156,10 +156,12 @@
+--- a/lib/auth_unix.c
++++ b/lib/auth_unix.c
+@@ -156,10 +156,12 @@ const char *identifier;
  size_t len;
  {
      static char retbuf[81];
@@ -32,7 +30,7 @@ Index: cyrus-imapd/lib/auth_unix.c
  
      if(!len) len = strlen(identifier);
      if(len >= sizeof(retbuf)) return NULL;
-@@ -211,6 +213,22 @@
+@@ -211,6 +213,22 @@ size_t len;
      /* now we don't */
      /* if (!sawalpha) return NULL;  */
  
@@ -55,11 +53,9 @@ Index: cyrus-imapd/lib/auth_unix.c
      return retbuf;
  }
  
-Index: cyrus-imapd/lib/imapoptions
-===================================================================
---- cyrus-imapd.orig/lib/imapoptions	2010-10-20 15:55:38.000000000 +0200
-+++ cyrus-imapd/lib/imapoptions	2010-10-20 15:56:10.000000000 +0200
-@@ -1299,6 +1299,11 @@
+--- a/lib/imapoptions
++++ b/lib/imapoptions
+@@ -1324,6 +1324,11 @@ product version in the capabilities */
     interface, otherwise the user is assumed to be in the default
     domain (if set). */
  
@@ -71,11 +67,9 @@ Index: cyrus-imapd/lib/imapoptions
  /*
  .SH SEE ALSO
  .PP
-Index: cyrus-imapd/lib/libcyr_cfg.c
-===================================================================
---- cyrus-imapd.orig/lib/libcyr_cfg.c	2010-10-20 15:55:38.000000000 +0200
-+++ cyrus-imapd/lib/libcyr_cfg.c	2010-10-20 15:56:10.000000000 +0200
-@@ -154,6 +154,10 @@
+--- a/lib/libcyr_cfg.c
++++ b/lib/libcyr_cfg.c
+@@ -154,6 +154,10 @@ struct cyrusopt_s cyrus_options[] = {
        CFGVAL(long, 1),
        CYRUS_OPT_SWITCH },
  
@@ -86,11 +80,9 @@ Index: cyrus-imapd/lib/libcyr_cfg.c
      { CYRUSOPT_LAST, { NULL }, CYRUS_OPT_NOTOPT }
  };
  
-Index: cyrus-imapd/lib/libcyr_cfg.h
-===================================================================
---- cyrus-imapd.orig/lib/libcyr_cfg.h	2010-10-20 15:55:38.000000000 +0200
-+++ cyrus-imapd/lib/libcyr_cfg.h	2010-10-20 15:56:10.000000000 +0200
-@@ -114,6 +114,8 @@
+--- a/lib/libcyr_cfg.h
++++ b/lib/libcyr_cfg.h
+@@ -114,6 +114,8 @@ enum cyrus_opt {
      CYRUSOPT_SQL_USESSL,
      /* Checkpoint after every recovery (OFF) */
      CYRUSOPT_SKIPLIST_ALWAYS_CHECKPOINT,

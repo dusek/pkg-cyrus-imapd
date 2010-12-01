@@ -10,38 +10,6 @@
 ## DP:       This should be the default actually. 
 
 @DPATCH@
---- a/contrib/cyrus-graphtools.1.0/cgi-bin/cyrus_master.pl
-+++ b/contrib/cyrus-graphtools.1.0/cgi-bin/cyrus_master.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl5
-+#!/usr/bin/perl
- 
- #
- # Created by Alison Greenwald <alison@andrew.cmu.edu> 21 Sep 2000
---- a/contrib/cyrus-graphtools.1.0/cgi-bin/graph_cyrus_db-sum.pl
-+++ b/contrib/cyrus-graphtools.1.0/cgi-bin/graph_cyrus_db-sum.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl5
-+#!/usr/bin/perl
- 
- #
- # Created by Alison Greenwald 21 Sep 2000
---- a/contrib/cyrus-graphtools.1.0/cgi-bin/graph_cyrus_db.pl
-+++ b/contrib/cyrus-graphtools.1.0/cgi-bin/graph_cyrus_db.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl5 
-+#!/usr/bin/perl 
- 
- #
- # Created by Alison Greenwald <alison@andrew.cmu.edu> 21 Sep 2000
---- a/contrib/mupdate-test.pl
-+++ b/contrib/mupdate-test.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl
-+#!/usr/bin/perl
- 
- # Create a workload against a murder frontend
- # that will give the MUPDATE server a workout.
 --- a/perl/imap/examples/auditmbox.pl
 +++ b/perl/imap/examples/auditmbox.pl
 @@ -1,4 +1,4 @@
@@ -61,18 +29,10 @@
 --- a/perl/imap/examples/imapdu.pl
 +++ b/perl/imap/examples/imapdu.pl
 @@ -1,4 +1,4 @@
--#! /usr/local/bin/perl -w
+-#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
- #
---- a/perl/imap/examples/test-imsp.pl
-+++ b/perl/imap/examples/test-imsp.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl -w
-+#!/usr/bin/perl -w
- 
- # test-imsp.pl
  #
 --- a/perl/sieve/scripts/installsieve.pl
 +++ b/perl/sieve/scripts/installsieve.pl
@@ -127,14 +87,6 @@
  require 5;
  
  #Tim Martin
---- a/tools/arbitronsort.pl
-+++ b/tools/arbitronsort.pl
-@@ -1,4 +1,4 @@
--#!/usr/local/bin/perl
-+#!/usr/bin/perl
- 
- #
- # This script takes the output of arbitron (run without the -o option)
 --- a/tools/config2header
 +++ b/tools/config2header
 @@ -1,4 +1,4 @@

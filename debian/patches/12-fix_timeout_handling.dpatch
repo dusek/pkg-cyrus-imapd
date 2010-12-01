@@ -14,7 +14,7 @@ in Cyrus code?
 
 --- a/configure.in
 +++ b/configure.in
-@@ -1443,7 +1443,11 @@ enum {
+@@ -1455,7 +1455,11 @@ enum {
      SQUAT_ENGINE = 1,
  
      /* should we have long LMTP error messages? */

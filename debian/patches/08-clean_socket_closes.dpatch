@@ -59,7 +59,7 @@ need similar patches.
  
 --- a/imap/lmtpd.c
 +++ b/imap/lmtpd.c
-@@ -973,6 +973,9 @@ void shut_down(int code)
+@@ -974,6 +974,9 @@ void shut_down(int code)
  
      cyrus_done();
  

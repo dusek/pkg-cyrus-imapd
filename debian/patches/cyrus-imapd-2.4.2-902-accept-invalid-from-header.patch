@@ -15,11 +15,9 @@ Cyrus should not raise problems.
  imap/message.c |   18 ++++++++++++++++--
  1 files changed, 16 insertions(+), 2 deletions(-)
 
-Index: cyrus-imapd/imap/message.c
-===================================================================
---- cyrus-imapd.orig/imap/message.c	2010-10-20 16:04:15.000000000 +0200
-+++ cyrus-imapd/imap/message.c	2010-10-20 16:06:58.000000000 +0200
-@@ -246,6 +246,8 @@
+--- a/imap/message.c
++++ b/imap/message.c
+@@ -246,6 +246,8 @@ int allow_null;
      int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
      int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
      int inheader = 1, blankline = 1;
@@ -28,7 +26,7 @@ Index: cyrus-imapd/imap/message.c
  
      while (size) {
  	n = prot_read(from, buf, size > 4096 ? 4096 : size);
-@@ -322,11 +324,24 @@
+@@ -322,11 +324,24 @@ int allow_null;
  	/* Check for valid header name */
  	if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
  	    if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;
