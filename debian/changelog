@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.5-1.1) experimental; urgency=low
+
+  * Better comment on cyrus-imapd init script
+
+ -- Anthony Prades <toony.debian@chezouam.net>  Wed, 01 Dec 2010 23:49:37 +0100
+
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
   * Imported Upstream version 2.4.5

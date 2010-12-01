@@ -44,7 +44,7 @@ NAME=cyrmaster
 [ "x${PIDFILE}" = "x" ] && PIDFILE="/var/run/${NAME}.pid"
 DESC="Cyrus IMAPd"
 
-# Check if Cyrus is installed
+# Check if Cyrus is installed (vs. removed but not purged)
 test -x ${DAEMON} || exit 0
 grep -qE '^PACKAGE_VERSION[[:blank:]]+([0-9]+:|)2[.]4' \
 	/usr/lib/cyrus/cyrus-hardwired-config.txt >/dev/null 2>&1 || exit 0
