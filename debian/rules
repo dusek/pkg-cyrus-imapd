@@ -91,8 +91,8 @@ override_dh_auto_configure:
 	 --with-ucdsnmp=/usr
 	echo 'To build this package, configure was called as follows:' \
 		> debian/README.configure-options
-	grep with\ options config.status \
-	| sed -e 's/^.*options \\"/configure /;s/\\"$///' \
+	grep '^ac_cs_config=' config.status \
+	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
 		>> debian/README.configure-options
 	sed -i 's/ -lsensors//' master/Makefile
 
