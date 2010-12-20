@@ -29,6 +29,9 @@ set -e
 
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
+CONF="/etc/imapd.conf"
+CYRUS_CONFIG_DIR="/var/lib/cyrus"
+
 verifydb() {
    while read -r DBKEY DBVALUE ; do
 	match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
@@ -45,6 +48,14 @@ verifydbkey() {
 	fi
    done
    return 1
+}
+
+getconf () {
+	confvalue=`sed --silent -e "/^[[:blank:]]*${1}:/ { \
+	s#^[[:blank:]]*${1}:[[:blank:]]*## \
+	p
+	}" < "${CONF}" | head -1`
+	result=${confvalue:-$2}
 }
 
 case "$1" in
@@ -91,11 +102,22 @@ case "$1" in
 
 	# Parse imapd.conf and generate all required directories...
 	# also kill any left over squatter indexes
-        # only run if old upstream version is lower than the new upstream
+    # only run if old upstream version is lower than the new upstream
 	# version (or if its a fresh install)
-        if [ "$2" = "" ] || dpkg --compare-versions "$( echo $2 | cut -d- -f2)" lt "2.4.14" ; then
+    if [ "$2" = "" ] || dpkg --compare-versions "$( echo $2 | cut -d- -f2)" lt "2.4.14" ; then
 		cyrus makedirs --cleansquat
 	fi
+
+    # Add USERDENY database if doesn't exist
+    getconf configdirectory ${CYRUS_CONFIG_DIR}
+    CYRUS_CONFIG_DIR=$result
+
+    userdeny_database=${CYRUS_CONFIG_DIR}"/user_deny.db"
+    if [ ! -e ${userdeny_database} ]; then
+        touch ${userdeny_database}
+        chmod 600 ${userdeny_database}
+        chown cyrus:mail ${userdeny_database}
+    fi
 
 	# Deal with database type information
 	if [ -f /usr/lib/cyrus/cyrus-db-types.active ] ; then
