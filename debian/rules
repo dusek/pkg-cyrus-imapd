@@ -178,9 +178,14 @@ override_dh_auto_install:
 		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
 	done)
 	# We rename some utils, so we need to sort out the manpages
-	for i in $(TMPPKG)/usr/share/man/man8/*; do \
-		mv $(TMPPKG)/usr/share/man/man8/$$(basename $$i) $(TMPPKG)/usr/share/man/man8/cyrus-$$(basename $${i}) ; \
-                ln -s $(TMPPKG)/usr/share/man/man8/cyrus-$$(basename $$i) $(TMPPKG)/usr/share/man/man8/$$(basename $$i) ; \
+
+	for i in master reconstruct quota deliver \
+	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
+	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
+		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
+		 cyr_dbtool cyr_df ; do \
+		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
+                ln -s $(TMPPKG)/usr/share/man/man8/cyrus-$$i.8 $(TMPPKG)/usr/share/man/man8/$$i.8 ; \
 	done
 	# And add our own manpages
 	mkdir -p $(TMPPKG)/usr/share/man/man8
