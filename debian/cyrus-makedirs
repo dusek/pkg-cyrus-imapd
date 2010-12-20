@@ -77,12 +77,12 @@ partitions=`sed --silent -e "/^[[:blank:]]*partition-[[:alnum:]]\+:/ { \
 echo "Creating/updating cyrus control directories in ${confdir}..."
 [ -d "$confdir" ] || mkdir -p "$confdir"
 chmod 750 "$confdir"
-for i in db proc socket log msg user quota; do
+for i in db proc socket log msg user quota lock; do
     [ -d "$confdir/$i" ] || mkdir -p "$confdir/$i"
     chmod 700 "$confdir/$i"
 done
 chmod 750 $confdir/socket
-for i in user quota ; do
+for i in user quota lock; do
     for j in $HASHDIRS ; do
     	[ -d "$confdir/$i/$j" ] || mkdir "$confdir/$i/$j"
     done
