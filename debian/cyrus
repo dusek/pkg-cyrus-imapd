@@ -51,7 +51,7 @@ case "$(basename ${0})" in
 	COMMAND=${RUNNAME#cyrus-}
 	;;	
     *)
-	COMMAND="${0}"
+	COMMAND="${RUNNAME}"
 	;;
 esac
 
