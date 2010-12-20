@@ -141,15 +141,26 @@ override_dh_auto_install:
 	# and fix the weird side-effect of setting the proper cyrus
 	# location in configure.
 	mkdir -p $(TMPPKG)/usr/sbin
-	mkdir -p $(TMPPKG)/usr/lib/cyrus
+	install -m 755 debian/cyrus $(TMPPKG)/usr/sbin
+	# This is handled by /usr/sbin/cyrus tool from now
+	#
+	#for i in master reconstruct quota deliver ; do \
+	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
+	#done
+	#for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
+	#         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
+	#	 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
+	#	 cyr_dbtool cyr_df ; do \
+	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
+	#done
 	for i in master reconstruct quota deliver ; do \
-		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
+		ln -s $(TMPPKG)/usr/sbin/cyrus $(TMPPKG)/usr/sbin/cyr$$i ;\
 	done
 	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
 		 cyr_dbtool cyr_df ; do \
-		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
+		ln -s $(TMPPKG)/usr/sbin/cyrus $(TMPPKG)/usr/sbin/$$i ;\
 	done
 	mkdir -p $(TMPPKG)/usr/include
 	mv $(TMPPKG)/usr/share/include/cyrus $(TMPPKG)/usr/include
@@ -167,14 +178,15 @@ override_dh_auto_install:
 		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
 	done)
 	# We rename some utils, so we need to sort out the manpages
-	for i in master reconstruct quota deliver ; do \
-		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$${i}.8 ; \
+	for i in $(TMPPKG)/usr/share/man/man8/*; do \
+		mv $(TMPPKG)/usr/share/man/man8/$$(basename $$i) $(TMPPKG)/usr/share/man/man8/cyrus-$$(basename $${i}) ; \
+                ln -s $(TMPPKG)/usr/share/man/man8/cyrus-$$(basename $$i) $(TMPPKG)/usr/share/man/man8/$$(basename $$i) ; \
 	done
 	# And add our own manpages
 	mkdir -p $(TMPPKG)/usr/share/man/man8
-	install -m 644 debian/cyrdump.8 $(TMPPKG)/usr/share/man/man8/cyrdump.8
+	install -m 644 debian/cyrdump.8 $(TMPPKG)/usr/share/man/man8/cyrus-dump.8
 	install -m 644 debian/cyrus-makedirs.8 $(TMPPKG)/usr/share/man/man8/cyrus-makedirs.8
-	install -m 644 debian/arbitronsort.8 $(TMPPKG)/usr/share/man/man8/arbitronsort.8
+	install -m 644 debian/arbitronsort.8 $(TMPPKG)/usr/share/man/man8/cyrus-arbitronsort.8
 	# SNMP files
 	mkdir -p $(TMPPKG)/usr/share/snmp/mibs
 	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
@@ -200,7 +212,7 @@ override_dh_auto_install:
 	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
 		   $(PKGDIR)/usr/lib/cyrus
 	# And other misc useful tools
-	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/sbin/arbitronsort
+	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/lib/cyrus/bin/arbitronsort
 	# Install imtest and its symlinks
 	mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.4/usr/bin
 	for i in $(TMPPKG)/usr/bin/*test ; do \

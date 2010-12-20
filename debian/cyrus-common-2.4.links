@@ -1,3 +1,1 @@
 var/spool/sieve etc/sieve
-usr/sbin/cyrreconstruct usr/lib/cyrus/bin/reconstruct
-usr/sbin/cyrquota usr/lib/cyrus/bin/quota
