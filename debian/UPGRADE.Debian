@@ -194,7 +194,7 @@ NOTE: If you've already installed the cyrus 2.4 packages, skip to step 5.
 **** The upgrade of Cyrus' stores are now complete ****
 
 You may want to remove any left-over empty directories from the old version,
-and re-run /usr/sbin/cyrus-makedirs just in case you got one of them wrong.
+and re-run `/usr/sbin/cyrus makedirs' just in case you got one of them wrong.
 
 Now, you need to reconfigure the new Cyrus imapd to adequate it to your system
 and SASL requirements. The Cyrus config files are /etc/imapd.conf,

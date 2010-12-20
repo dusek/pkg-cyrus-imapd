@@ -1,5 +1,5 @@
 # Defaults for Cyrus IMAPd scripts
-# sourced by /etc/init.d/cyrus-imapd, /usr/sbin/cyrus-makedirs
+# sourced by /etc/init.d/cyrus-imapd, `/usr/sbin/cyrus makedirs'
 # installed at /etc/default/cyrus-imapd by the maintainer scripts
 #
 

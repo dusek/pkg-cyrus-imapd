@@ -94,7 +94,7 @@ case "$1" in
         # only run if old upstream version is lower than the new upstream
 	# version (or if its a fresh install)
         if [ "$2" = "" ] || dpkg --compare-versions "$( echo $2 | cut -d- -f2)" lt "2.4.14" ; then
-		cyrus-makedirs --cleansquat
+		cyrus makedirs --cleansquat
 	fi
 
 	# Deal with database type information
