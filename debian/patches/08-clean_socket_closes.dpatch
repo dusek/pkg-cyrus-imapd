@@ -46,7 +46,7 @@ need similar patches.
  
 --- a/imap/imapd.c
 +++ b/imap/imapd.c
-@@ -996,6 +996,10 @@ void shut_down(int code)
+@@ -1054,6 +1054,10 @@ void shut_down(int code)
  #ifdef HAVE_SSL
      tls_shutdown_serverengine();
  #endif

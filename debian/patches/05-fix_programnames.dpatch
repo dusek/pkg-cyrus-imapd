@@ -476,7 +476,7 @@
  switch in order to fix the quota root files.
 --- a/man/smmapd.8
 +++ b/man/smmapd.8
-@@ -68,7 +68,7 @@ mailbox exists, that it is postable and 
+@@ -68,7 +68,7 @@ mailbox exists, that it is postable and
  It accepts commands on its standard input and responds on its standard
  output.
  It MUST be invoked by

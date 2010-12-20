@@ -10,7 +10,7 @@
 @DPATCH@
 --- a/imtest/imtest.c
 +++ b/imtest/imtest.c
-@@ -1246,7 +1246,7 @@ static void interactive(struct protocol_
+@@ -1238,7 +1238,7 @@ static void interactive(struct protocol_
  	
  	/* can't have this and a file for input */
  	sunsock.sun_family = AF_UNIX;
@@ -21,7 +21,7 @@
  	listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
 --- a/master/master.c
 +++ b/master/master.c
-@@ -197,13 +197,17 @@ void event_free(struct event *a) 
+@@ -197,13 +197,17 @@ void event_free(struct event *a)
      free(a);
  }
  
@@ -43,7 +43,7 @@
  void get_statsock(int filedes[2])
 --- a/master/masterconf.c
 +++ b/master/masterconf.c
-@@ -135,7 +135,7 @@ const char *masterconf_getstring(struct 
+@@ -135,7 +135,7 @@ const char *masterconf_getstring(struct
  	} else {
  	    /* one word */
  	    for (i = 0; i < 255; i++) {

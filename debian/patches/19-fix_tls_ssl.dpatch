@@ -44,7 +44,7 @@
  
  #include <netinet/in.h>
  #include <sys/un.h>
-@@ -432,7 +433,7 @@ static RSA *tmp_rsa_cb(SSL * s __attribu
+@@ -424,7 +425,7 @@ static RSA *tmp_rsa_cb(SSL * s __attribu
   * tim - this seems to just be giving logging messages
   */
  
@@ -53,7 +53,7 @@
  {
      char   *str;
      int     w;
-@@ -545,7 +546,7 @@ static int tls_init_clientengine(int ver
+@@ -537,7 +538,7 @@ static int tls_init_clientengine(int ver
      
      if (c_cert_file || c_key_file)
  	if (!set_cert_stuff(tls_ctx, c_cert_file, c_key_file)) {
@@ -64,7 +64,7 @@
      SSL_CTX_set_tmp_rsa_callback(tls_ctx, tmp_rsa_cb);
 --- a/lib/imclient.c
 +++ b/lib/imclient.c
-@@ -1731,7 +1731,7 @@ static int tls_init_clientengine(struct 
+@@ -1731,7 +1731,7 @@ static int tls_init_clientengine(struct
  
      if (c_cert_file || c_key_file)
  	if (!set_cert_stuff(imclient->tls_ctx, c_cert_file, c_key_file)) {

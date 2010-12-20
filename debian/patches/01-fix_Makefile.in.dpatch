@@ -129,7 +129,7 @@
  BUILT_SOURCES = addr.c addr.h addr-lex.c \
  	sieve.c sieve.h sieve-lex.c \
  	sieve_err.h sieve_err.c
-@@ -136,7 +137,7 @@ sieve_err.h sieve_err.c: sieve_err.et 
+@@ -136,7 +137,7 @@ sieve_err.h sieve_err.c: sieve_err.et
  	$(COMPILE_ET) $(srcdir)/sieve_err.et
  
  clean:

@@ -17,7 +17,7 @@
  
 --- a/lib/xmalloc.h
 +++ b/lib/xmalloc.h
-@@ -58,7 +58,7 @@ extern char *xstrndup (const char *str, 
+@@ -58,7 +58,7 @@ extern char *xstrndup (const char *str,
  
  /* Functions using xmalloc.h must provide a function called fatal() conforming
     to the following: */

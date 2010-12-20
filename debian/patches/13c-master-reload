@@ -27,7 +27,7 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
      }
   
      if (reconfig) {
-@@ -1561,7 +1563,7 @@ void add_event(const char *name, struct 
+@@ -1561,7 +1563,7 @@ void add_event(const char *name, struct
      if (!strcmp(cmd,"")) {
  	char buf[256];
  	snprintf(buf, sizeof(buf),

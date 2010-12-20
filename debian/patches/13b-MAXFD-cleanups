@@ -9,7 +9,7 @@ if getrlimit(RLIMIT_NUMFDS) failed.
 
 --- a/master/master.c
 +++ b/master/master.c
-@@ -1613,11 +1613,10 @@ void add_event(const char *name, struct 
+@@ -1613,11 +1613,10 @@ void add_event(const char *name, struct
  void limit_fds(rlim_t x)
  {
      struct rlimit rl;
