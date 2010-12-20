@@ -1,37 +1,61 @@
-/* MD5.H - header file for MD5C.C
+/* MD5.H - wrapper for MD5 message digest routines
+ */
+#ifndef _CYRUS_MD5_H_
+#define _CYRUS_MD5_H_ 1
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
+/*
+ * This is gnarly, sorry :(  We might have been configured to build
+ * with OpenSSL, or we might not.  Some older versions of OpenSSL
+ * will drag in their own md5.h when we include <openssl/ssl.h>, but
+ * newer ones don't.  The OpenSSL header might be included before or
+ * after this header file is included.
+ *
+ * So, we *might* have a definition of the MD5_CTX structure from
+ * OpenSSL, now or later, or not.
+ *
+ * LibSASL also has MD5 routines, declared in <sasl/md5.h>, and that
+ * header also defines a MD5_CTX structure.  So we can't include
+ * both md5.h's, but we need one.
+ *
+ * So we explicitly include the OpenSSL md5.h if OpenSSL is configured
+ * in, otherwise we fallback to the libSASL routines.  Note that we
+ * cannot build without libSASL anyway, so we don't need to fallback
+ * any further.
+ *
+ * The MD5 API varies slightly from library to library.  Here's a
+ * description of the API that Cyrus is expecting and that we try
+ * to provide on top of whatever the library has.
+ *
+ * typedef struct ... { ... } MD5_CTX;
+ * void MD5Init(MD5_CTX *);
+ * void MD5Update(MD5_CTX *, const void *data, size_t len);
+ * void MD5Final(unsigned char[MD5_DIGEST_LENGTH], MD5_CTX *);
  */
 
-/* Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All
-rights reserved.
+#ifdef HAVE_SSL
+#include <openssl/md5.h>
 
-License to copy and use this software is granted provided that it
-is identified as the "RSA Data Security, Inc. MD5 Message-Digest
-Algorithm" in all material mentioning or referencing this software
-or this function.
+#define MD5Init			    MD5_Init
+#define MD5Update		    MD5_Update
+#define MD5Final		    MD5_Final
 
-License is also granted to make and use derivative works provided
-that such works are identified as "derived from the RSA Data
-Security, Inc. MD5 Message-Digest Algorithm" in all material
-mentioning or referencing the derived work.
+#else
 
-RSA Data Security, Inc. makes no representations concerning either
-the merchantability of this software or the suitability of this
-software for any particular purpose. It is provided "as is"
-without express or implied warranty of any kind.
-These notices must be retained in any copies of any part of this
-documentation and/or software.
- */
+#include <sasl/md5global.h>
+#include <sasl/md5.h>
 
-/* MD5 context. */
-typedef struct {
-  UINT4 state[4];                                   /* state (ABCD) */
-  UINT4 count[2];        /* number of bits, modulo 2^64 (lsb first) */
-  unsigned char buffer[64];                         /* input buffer */
-} MD5_CTX;
+#define MD5Init			    _sasl_MD5Init
+#define MD5Update		    _sasl_MD5Update
+#define MD5Final		    _sasl_MD5Final
 
-void MD5Init PROTO_LIST ((MD5_CTX *));
-void MD5Update PROTO_LIST
-  ((MD5_CTX *, unsigned char *, unsigned int));
-void MD5Final PROTO_LIST ((unsigned char [16], MD5_CTX *));
+#endif /* !HAVE_SSL */
 
-void hmac_md5 PROTO_LIST ((unsigned char *, int, unsigned char *, int, caddr_t));
+#ifndef MD5_DIGEST_LENGTH
+#define MD5_DIGEST_LENGTH 16
+#endif
+
+#endif /* _CYRUS_MD5_H_ */

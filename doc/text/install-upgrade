@@ -1,5 +1,13 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.4.5
+
+      * New config option: suppress_capabilities, which takes a space
+        separated list of capabilities which will NOT be given in any imap
+        capability response. This can be used on frontends to not display
+        capabilities that older backends don't have, so clients don't get
+        confused 
+
 Upgrading from 2.4.4
 
       * sync_client no longer forks two process - it just pre-forks a
@@ -136,7 +144,7 @@ Upgrading from 2.3.8
 
       * You must install and configure Cyrus SASL version 2.1.17 or later
         to use Cyrus IMAP 2.3.9 and later. You can download SASL at
-        http://cyrusimap.web.cmu.edu/downloads.html#sasl. 
+        http://www.cyrusimap.org/mediawiki/index.php/Downloads#SASL_Library. 
       * The default value of the allowplaintext option has been changed to
         disabled (0). If you need to allow cleartext passwords on the wire,
         then you will have to explicitly enable the allowplaintext option
@@ -347,7 +355,7 @@ Upgrading from 2.0.16 or earlier
 
       * You must install and configure Cyrus SASL version 2 to use Cyrus
         IMAP 2.1 and later. You can download SASL at
-        http://cyrusimap.web.cmu.edu/downloads.html#sasl. 
+        http://www.cyrusimap.org/mediawiki/index.php/Downloads#SASL_Library. 
       * If you use timsieved to manage Sieve scripts, and have enabled the
         alternate namespace and/or the Unix hierarchy separator, run the
         script "tools/translatesieve". This script will translate the

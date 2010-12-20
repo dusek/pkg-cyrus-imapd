@@ -1182,7 +1182,8 @@ done:
 }
 
 /* set a new ACL - only dirty if changed */
-int mailbox_set_acl(struct mailbox *mailbox, const char *acl)
+int mailbox_set_acl(struct mailbox *mailbox, const char *acl,
+		    int dirty_modseq)
 {
     if (mailbox->acl) {
 	if (!strcmp(mailbox->acl, acl))
@@ -1191,6 +1192,8 @@ int mailbox_set_acl(struct mailbox *mailbox, const char *acl)
     }
     mailbox->acl = xstrdup(acl);
     mailbox->header_dirty = 1;
+    if (dirty_modseq)
+	mailbox_modseq_dirty(mailbox);
     return 0;
 }
 
@@ -1347,6 +1350,11 @@ static int mailbox_read_index_header(struct mailbox *mailbox)
 	return IMAP_MAILBOX_BADFORMAT;
     if (mailbox->index_size < INDEX_HEADER_SIZE)
 	return IMAP_MAILBOX_BADFORMAT;
+
+    /* need to make sure we're reading fresh data! */
+    map_refresh(mailbox->index_fd, 1, &mailbox->index_base,
+		&mailbox->index_len, mailbox->index_size,
+		"index", mailbox->name);
 
     r = mailbox_buf_to_index_header(mailbox->index_base, &mailbox->i);
     if (r) return r;
