@@ -1,9 +1,27 @@
-cyrus-imapd-2.4 (2.4.5-1.1) experimental; urgency=low
+cyrus-imapd-2.4 (2.4.6-1~4.gbp8267e3) UNRELEASED; urgency=low
 
+  ** SNAPSHOT build @8267e31c11eee97bdedefa0126c19449dde265e8 **
+
+  [ Ondřej Surý ]
+  * Add Anthony Prades to Uploaders.
+  * Imported Upstream version 2.4.6
+
+  [ Anthony Prades ]
   * Better comment on cyrus-imapd init script
   * Fix README.configure-options content
 
- -- Anthony Prades <toony.debian@chezouam.net>  Wed, 01 Dec 2010 23:49:37 +0100
+  [ Ondřej Surý ]
+  * Refreshed patches for 2.4.6 release
+  * Add universal (ala git) command interface /usr/sbin/cyrus which can be
+    used to call all cyrus commands
+  * Build system:
+    + Clean-up dependencies from old package names which are no longer in
+      the archive  
+    + Add versionless virtual packages to allow seamless upgrades between
+      major Cyrus releases
+    + Adapt debian/rules to use /usr/sbin/cyrus
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 20 Dec 2010 16:43:43 +0100
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
