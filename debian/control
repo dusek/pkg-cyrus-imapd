@@ -73,7 +73,7 @@ Section: mail
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: cyrus-imapd, imap-server, cyrus-imapd-2.2, cyrus-imapd-2.3
 Conflicts: cyrus-imapd (<< ${source:Version}), imap-server, cyrus-imapd-2.2, cyrus-imapd-2.3
-Replaces: cyrus-imapd (<< ${source:Version}, cyrus-imapd-2.2, cyrus-imapd-2.3
+Replaces: cyrus-imapd (<< ${source:Version}), cyrus-imapd-2.2, cyrus-imapd-2.3
 Description: Cyrus mail system - IMAP support
  Cyrus is an IMAP server designed to handle massive quantities of mail,
  with a number of features not found in other IMAP implementations,
