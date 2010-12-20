@@ -225,3 +225,135 @@ Description: Interface to Cyrus imap client imclient library
  undocumented upstream.
  .
  For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-common
+Architecture: all
+Depends: cyrus-common-2.4, ${misc:Depends}
+Description: Cyrus mail system - common files (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-common (currently cyrus-common-2.4), as determined
+ by the Cyrus IMAPD maintainers.  Install this package if in doubt
+ about which Cyrus IMAPD version you want, as this is the one we
+ consider to be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-clients
+Architecture: all
+Depends: cyrus-clients-2.4, ${misc:Depends}
+Description: Cyrus mail system - test clients (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-clients (currently cyrus-clients-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-imapd
+Architecture: all
+Depends: cyrus-imapd-2.4, ${misc:Depends}
+Description: Cyrus mail system - IMAP support (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-imapd (currently cyrus-imapd-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-pop3d
+Architecture: all
+Depends: cyrus-pop3d-2.4, ${misc:Depends}
+Description: Cyrus mail system - POP3 support (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-pop3d (currently cyrus-pop3d-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-admin
+Architecture: all
+Depends: cyrus-admin-2.4, ${misc:Depends}
+Description: Cyrus mail system - administration tools (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-admin (currently cyrus-admin-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-murder
+Architecture: all
+Depends: cyrus-murder-2.4, ${misc:Depends}
+Description: Cyrus mail system - proxies and aggregator (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-murder (currently cyrus-murder-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-replication
+Architecture: all
+Depends: cyrus-replication-2.4, ${misc:Depends}
+Description: Cyrus mail system - replication (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-replication (currently cyrus-replication-2.4), as determined
+ by the Cyrus IMAPD maintainers.  Install this package if in doubt
+ about which Cyrus IMAPD version you want, as this is the one we
+ consider to be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-nntpd
+Architecture: all
+Depends: cyrus-nntpd-2.4, ${misc:Depends}
+Description: Cyrus mail system - NNTP support (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-nntpd (currently cyrus-nntpd-2.4), as determined by the
+ Cyrus IMAPD maintainers.  Install this package if in doubt about
+ which Cyrus IMAPD version you want, as this is the one we consider to
+ be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-doc
+Architecture: all
+Depends: cyrus-doc-2.4, ${misc:Depends}
+Description: Cyrus mail system - documentation files (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-doc (currently cyrus-doc-2.4), as determined by the Cyrus
+ IMAPD maintainers.  Install this package if in doubt about which
+ Cyrus IMAPD version you want, as this is the one we consider to be in
+ the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-doc
+Architecture: all
+Depends: cyrus-doc-2.4, ${misc:Depends}
+Description: Cyrus mail system - developer files (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of cyrus-dev (currently cyrus-dev-2.4), as determined by the Cyrus
+ IMAPD maintainers.  Install this package if in doubt about which
+ Cyrus IMAPD version you want, as this is the one we consider to be in
+ the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
+
+Package: libcyrus-imap-perl
+Architecture: all
+Depends: libcyrus-imap-perl24, ${misc:Depends}
+Description: Interface to Cyrus imap client imclient library (metapackage depending on the latest version)
+ This is an empty package that depends on the current "best" version
+ of libcyrus-imap-perl (currently libcyrus-imap-perl24), as determined
+ by the Cyrus IMAPD maintainers.  Install this package if in doubt
+ about which Cyrus IMAPD version you want, as this is the one we
+ consider to be in the best shape.
+ .
+ For more information, please see the cyrus-common-2.4 package.
