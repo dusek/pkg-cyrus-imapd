@@ -1214,8 +1214,8 @@ static int do_mailbox(struct dlist *kin,
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	r = mboxlist_createsync(mboxname, 0, partition,
 				sync_userid, sync_authstate,
-				options, uidvalidity, acl, uniqueid);
-	if (!r) r = mailbox_open_iwl(mboxname, &mailbox);
+				options, uidvalidity, acl,
+				uniqueid, &mailbox);
     }
     if (r) {
 	syslog(LOG_ERR, "Failed to open mailbox %s to update", mboxname);
@@ -1238,7 +1238,7 @@ static int do_mailbox(struct dlist *kin,
     }
 
     if (strcmp(mailbox->acl, acl)) {
-	mailbox_set_acl(mailbox, acl);
+	mailbox_set_acl(mailbox, acl, 0);
 	r = mboxlist_sync_setacls(mboxname, acl);
 	if (r) {
 	    mailbox_close(&mailbox);

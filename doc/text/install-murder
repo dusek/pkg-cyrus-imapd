@@ -1,24 +1,19 @@
 Installing The Cyrus Murder
 
-    Note that Cyrus Murder is still relatively young in the grand scheme of
-    things, and if you choose to deploy you are doing so at your own risk.
-    Many of the failure modes can be difficult to track without a detailed
-    understanding of the mupdate protocol and IMAP in general, and thus
-    even considering a deployment is not for the faint at heart.
-
-    Sites which think they need the Murder functionality but do not need a
-    uniform namespace (no shared mailboxes) should consider other IMAP
-    proxy solutions.
-
-    At the same time, we are using it successfully in production at
-    Carnegie Mellon. 
+    The Cyrus Murder provides the ability to horizontally scale your Cyrus
+    IMAP environment across multiple servers. It is similar in nature to
+    various proxy solutions such as nginx or perdition with the difference
+    being that Murder offers a uniform namespace. If you're not currently
+    using shared mailboxes and you don't intend to use shared mailboxes in
+    the future, you should probably just consider using a simple proxy
+    solution. 
 
 Introduction & Assumptions
 
     This document is intended to be a guide to the configuration of a Cyrus
     IMAP Aggregator, aka Cyrus Murder. It is recommended that you review
-    this document to be familliar with the concepts at work. This document
-    is a work in progress and is at this point incomplete.
+    this document to become familliar with the concepts at work. This
+    document is a work in progress and is at this point incomplete.
 
     This document assumes that you have successfully been able to setup
     atleast one Cyrus IMAP server. This server will become your first
@@ -337,9 +332,4 @@ Troubleshooting & when things go wrong
         the one where you want it to actually live. 
       * Databases are never created on the frontends/slaves - Check to
         ensure that the mupdate slave process is started, (is prefork=1) 
-
-References
-
-      * Aggregator Overview 
-      * MUPDATE Protocol Reference 
 
