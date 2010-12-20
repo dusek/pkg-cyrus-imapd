@@ -1,10 +1,8 @@
 debian/tmp/usr/share/man/man5/cyrus.conf.5
 debian/tmp/usr/share/man/man5/imapd.conf.5
-debian/tmp/usr/share/man/man8/cyrus-makedirs.8
-debian/tmp/usr/share/man/man8/cyrdump.8
+debian/tmp/usr/share/man/man8/cyrus-*
 debian/tmp/usr/share/man/man8/mbpath.8
 debian/tmp/usr/share/man/man8/arbitron.8
-debian/tmp/usr/share/man/man8/arbitronsort.8
 debian/tmp/usr/share/man/man8/timsieved.8
 debian/tmp/usr/share/man/man8/notifyd.8
 debian/tmp/usr/share/man/man8/lmtpd.8
