@@ -159,7 +159,7 @@ override_dh_auto_install:
 	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-		 cyr_dbtool cyr_df ; do \
+		 cyr_dbtool cyr_df cyrus-makedirs ; do \
 		ln -s $(TMPPKG)/usr/sbin/cyrus $(TMPPKG)/usr/sbin/$$i ;\
 	done
 	mkdir -p $(TMPPKG)/usr/include
