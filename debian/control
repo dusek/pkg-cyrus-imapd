@@ -334,9 +334,9 @@ Description: Cyrus mail system - documentation files (metapackage depending on t
  .
  For more information, please see the cyrus-common-2.4 package.
 
-Package: cyrus-doc
+Package: cyrus-dev
 Architecture: all
-Depends: cyrus-doc-2.4, ${misc:Depends}
+Depends: cyrus-dev-2.4, ${misc:Depends}
 Description: Cyrus mail system - developer files (metapackage depending on the latest version)
  This is an empty package that depends on the current "best" version
  of cyrus-dev (currently cyrus-dev-2.4), as determined by the Cyrus
