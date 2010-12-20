@@ -1,6 +1,6 @@
-cyrus-imapd-2.4 (2.4.6-1~4.gbp8267e3) UNRELEASED; urgency=low
+cyrus-imapd-2.4 (2.4.6-1~5.gbpa9848b) UNRELEASED; urgency=low
 
-  ** SNAPSHOT build @8267e31c11eee97bdedefa0126c19449dde265e8 **
+  ** SNAPSHOT build @a9848b31e43f966ab1bcda6a708a90a973875309 **
 
   [ Ondřej Surý ]
   * Add Anthony Prades to Uploaders.
@@ -16,12 +16,15 @@ cyrus-imapd-2.4 (2.4.6-1~4.gbp8267e3) UNRELEASED; urgency=low
     used to call all cyrus commands
   * Build system:
     + Clean-up dependencies from old package names which are no longer in
-      the archive  
+      the archive
     + Add versionless virtual packages to allow seamless upgrades between
       major Cyrus releases
     + Adapt debian/rules to use /usr/sbin/cyrus
+    + Adapt install and manpages to the changes introduced by /usr/sbin/cyrus
+    + Add /usr/sbin/cyrus-makedirs symlink
+    + Install /usr/sbin/* symlinks as well
 
- -- Ondřej Surý <ondrej@debian.org>  Mon, 20 Dec 2010 16:43:43 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 20 Dec 2010 17:44:13 +0100
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
