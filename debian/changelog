@@ -1,6 +1,6 @@
-cyrus-imapd-2.4 (2.4.6-1~5.gbpa9848b) UNRELEASED; urgency=low
+cyrus-imapd-2.4 (2.4.6-1~6.gbpd84454) UNRELEASED; urgency=low
 
-  ** SNAPSHOT build @a9848b31e43f966ab1bcda6a708a90a973875309 **
+  ** SNAPSHOT build @d844544e4641571299d47e75d853e22bf601fd92 **
 
   [ Ondřej Surý ]
   * Add Anthony Prades to Uploaders.
@@ -13,7 +13,7 @@ cyrus-imapd-2.4 (2.4.6-1~5.gbpa9848b) UNRELEASED; urgency=low
   [ Ondřej Surý ]
   * Refreshed patches for 2.4.6 release
   * Add universal (ala git) command interface /usr/sbin/cyrus which can be
-    used to call all cyrus commands
+    used to call all cyrus commands except master and deliver
   * Build system:
     + Clean-up dependencies from old package names which are no longer in
       the archive
@@ -23,8 +23,13 @@ cyrus-imapd-2.4 (2.4.6-1~5.gbpa9848b) UNRELEASED; urgency=low
     + Adapt install and manpages to the changes introduced by /usr/sbin/cyrus
     + Add /usr/sbin/cyrus-makedirs symlink
     + Install /usr/sbin/* symlinks as well
+  * Buildable snapshot build
 
- -- Ondřej Surý <ondrej@debian.org>  Mon, 20 Dec 2010 17:44:13 +0100
+  [ Anthony Prades ]
+  * Add cyrus-makedirs support for 'lock' directory
+  * Add creation of USERDENY database (flat) if doesn't exist
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 21 Dec 2010 13:34:30 +0100
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
