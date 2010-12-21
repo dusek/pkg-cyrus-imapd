@@ -7,10 +7,8 @@ usage() {
 usage: ${MYNAME} COMMAND [ARGS]
 
 The most commonly used cyr commands are:
-   master        master Cyrus process
    reconstruct   reconstruct mailboxes
    quota         report and optionally fix quota usage
-   deliver       deliver mail to an IMAP mailbox
    mbpath        translate mailbox names to filesystem paths
    mboxlist      perform operations on the mailbox list database
    check         perform a consistency check of the cyrus mailstore
@@ -26,7 +24,7 @@ The most commonly used cyr commands are:
 You can get manpages for respective command by prepending cyrus-
 prefix to the command name, f.e.:
 
-   man 8 cyrus-master
+   man 8 cyrus-reconstruct
 
 EOF
     exit 1
@@ -44,7 +42,7 @@ case "$(basename ${0})" in
 	COMMAND="${1}"
 	shift
 	;;
-    cyrmaster|cyrreconstruct|cyrquota|cyrdeliver)
+    cyrreconstruct|cyrquota)
 	COMMAND="${RUNNAME#cyr}"
 	;;
     cyrus-makedirs)
