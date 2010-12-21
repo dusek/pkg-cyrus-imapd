@@ -31,6 +31,7 @@ export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
 CONF="/etc/imapd.conf"
 CYRUS_CONFIG_DIR="/var/lib/cyrus"
+[ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 
 verifydb() {
    while read -r DBKEY DBVALUE ; do
