@@ -62,8 +62,6 @@ if [ ! -f "${CYRUS_BINPATH}/${COMMAND}" ]; then
 	COMMAND="ctl_${COMMAND}"
     elif [ "${COMMAND}" = "check" ]; then
 	COMMAND="chk_cyrus"
-    elif [ "${COMMAND}" = "makedirs" ]; then
-	COMMAND="cyrus-makedirs"
     else
 	echo "ERROR: ${COMMAND}: Unknown command or command not installed"
 	echo 

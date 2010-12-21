@@ -208,7 +208,7 @@ override_dh_auto_install:
 	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
 	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
 	# Install debian-provided scripts
-	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/cyrus-makedirs
+	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 	# and logcheck files
 	install -m 644 debian/logcheck.ignore \
