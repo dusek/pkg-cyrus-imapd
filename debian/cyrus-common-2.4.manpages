@@ -12,8 +12,8 @@ debian/tmp/usr/share/man/man8/chk_*.8
 debian/tmp/usr/share/man/man8/fud.8
 debian/tmp/usr/share/man/man8/ipurge.8
 debian/tmp/usr/share/man/man8/tls_prune.8
-debian/tmp/usr/share/man/man8/deliver.8
-debian/tmp/usr/share/man/man8/master.8
+debian/tmp/usr/share/man/man8/cyrdeliver.8
+debian/tmp/usr/share/man/man8/cyrmaster.8
 debian/tmp/usr/share/man/man8/reconstruct.8
 debian/tmp/usr/share/man/man8/quota.8
 debian/tmp/usr/share/man/man8/mbexamine.8
