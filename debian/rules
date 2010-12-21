@@ -147,13 +147,17 @@ override_dh_auto_install:
 	#for i in master reconstruct quota deliver ; do \
 	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
 	#done
+
+	for i in master deliver ; do \
+		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
+	done
 	#for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	#         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 	#	 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
 	#	 cyr_dbtool cyr_df ; do \
 	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
 	#done
-	for i in master reconstruct quota deliver ; do \
+	for i in reconstruct quota ; do \
 		ln -fs cyrus $(TMPPKG)/usr/sbin/cyr$$i ;\
 	done
 	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
@@ -178,14 +182,18 @@ override_dh_auto_install:
 		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
 	done)
 	# We rename some utils, so we need to sort out the manpages
+	for i in master deliver ; do \
+		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$$i.8 ; \
+	done
 
+	# Rename all other manpages to have cyrus- prefix, but keep compatibility symlinks
 	for i in master reconstruct quota deliver \
 	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
 		 cyr_dbtool cyr_df ; do \
 		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
-                ln -s $(TMPPKG)/usr/share/man/man8/cyrus-$$i.8 $(TMPPKG)/usr/share/man/man8/$$i.8 ; \
+                ln -s cyrus-$$i.8 $(TMPPKG)/usr/share/man/man8/$$i.8 ; \
 	done
 	# And add our own manpages
 	mkdir -p $(TMPPKG)/usr/share/man/man8
