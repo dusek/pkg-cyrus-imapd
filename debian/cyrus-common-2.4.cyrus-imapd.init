@@ -40,7 +40,7 @@ OPTIONS="${OPTIONS} -d"
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DAEMON=/usr/sbin/cyrmaster
-NAME=master
+NAME=cyrmaster
 [ "x${PIDFILE}" = "x" ] && PIDFILE="/var/run/${NAME}.pid"
 DESC="Cyrus IMAPd"
 

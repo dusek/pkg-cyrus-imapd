@@ -86,7 +86,7 @@ override_dh_auto_configure:
 	 --enable-idled \
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
 	 --with-com_err=/usr \
-	 --with-pidfile=/var/run/master.pid \
+	 --with-pidfile=/var/run/cyrmaster.pid \
 	 --with-syslogfacility=MAIL \
 	 --with-ucdsnmp=/usr
 	echo 'To build this package, configure was called as follows:' \
