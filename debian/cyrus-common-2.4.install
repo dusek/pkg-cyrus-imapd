@@ -8,7 +8,7 @@ usr/lib/cyrus/bin/cyr_expire
 usr/lib/cyrus/bin/cyrdump
 usr/lib/cyrus/bin/quota
 usr/lib/cyrus/bin/reconstruct
-usr/lib/cyrus/bin/cyrus-makedirs
+usr/lib/cyrus/bin/makedirs
 usr/lib/cyrus/bin/ctl_*
 usr/lib/cyrus/bin/cvt_*
 usr/lib/cyrus/bin/chk_*
@@ -43,4 +43,3 @@ usr/sbin/tls_prune
 usr/sbin/mbpath
 usr/sbin/arbitron*
 usr/sbin/unexpunge
-usr/sbin/cyrus-makedirs
