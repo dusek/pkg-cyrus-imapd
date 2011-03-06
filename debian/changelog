@@ -1,6 +1,6 @@
-cyrus-imapd-2.4 (2.4.6-1~6.gbpd84454) UNRELEASED; urgency=low
+cyrus-imapd-2.4 (2.4.6-1~7.gbp6cae95) UNRELEASED; urgency=low
 
-  ** SNAPSHOT build @d844544e4641571299d47e75d853e22bf601fd92 **
+  ** SNAPSHOT build @6cae95ea385a521222ec3362f01965b64ba82550 **
 
   [ Ondřej Surý ]
   * Add Anthony Prades to Uploaders.
@@ -29,7 +29,13 @@ cyrus-imapd-2.4 (2.4.6-1~6.gbpd84454) UNRELEASED; urgency=low
   * Add cyrus-makedirs support for 'lock' directory
   * Add creation of USERDENY database (flat) if doesn't exist
 
- -- Ondřej Surý <ondrej@debian.org>  Tue, 21 Dec 2010 13:34:30 +0100
+  [ Ondřej Surý ]
+  * Prepare snapshot build changelog
+
+  [ Anthony Prades ]
+  * Fix Cyrus compilation using new linker changes for wheezy (annonced on debian-devel-announce)
+
+ -- Anthony Prades <toony.debian@chezouam.net>  Sun, 06 Mar 2011 21:29:58 +0100
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
