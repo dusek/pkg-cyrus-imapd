@@ -84,11 +84,11 @@ Step-by-step conversion guide:
    As user cyrus, do the following:
    
    cd /
-   /usr/sbin/cvt_cyrusdb <fullpath to database> db3 \
-                         /var/lib/cyrus/temp.db flat
+   /usr/sbin/cyrus cvt_cyrusdb <fullpath to database> db3 \
+                                    /var/lib/cyrus/temp.db flat
    rm -f <fullpath to database>
-   /usr/sbin/cvt_cyrusdb /var/lib/cyrus/temp.db flat \
-                         <fullpath to database> skiplist
+   /usr/sbin/cyrus cvt_cyrusdb /var/lib/cyrus/temp.db flat \
+                                    <fullpath to database> skiplist
    chown cyrus:mail <fullpath to database>
    rm -f /var/lib/cyrus/temp.db
 
@@ -98,8 +98,8 @@ Step-by-step conversion guide:
 
    cd /
    mv <fullpath to database> <fullpath to database>.old
-   /usr/sbin/cvt_cyrusdb <fullpath to database>.old flat \
-                         <fullpath to database> skiplist
+   /usr/sbin/cyrus cvt_cyrusdb <fullpath to database>.old flat \
+                                    <fullpath to database> skiplist
    chown cyrus:mail <fullpath to database>
    rm -f <fullpath to database>.old
 

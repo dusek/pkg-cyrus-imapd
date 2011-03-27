@@ -52,10 +52,15 @@ about:
    The default Cyrus install scatters files all over the place.  The Debian
    package installs only a few files in /usr/bin (cyradm, sieveshell).
    IMAP/email administrator utilities are installed in /usr/sbin (such as
-   cyrreconstruct).  Programs that must be run by cyrmaster are installed in
+   cyrreconstruct)[*].  Programs that must be run by cyrmaster are installed in
    /usr/lib/cyrus (such as imapd and pop3d).  Sockets go into
    /var/run/cyrus/socket, per FHS 2.2.  Sieve files go in /var/spool/sieve, but
    an /etc/sieve compatibility symlink is also installed just in case.
+
+   * - As of cyrus-imapd-2.4 (>= 2.4.6) there's a universal tool
+   called /usr/sbin/cyrus which can be used to call all cyrus
+   utilities.  Invoke /usr/sbin/cyrus --help without any argument
+   to learn more.
 
    The imapd.conf and cyrus.conf configuration files are in /etc. The PAM
    policy files are in /etc/pam.d.
@@ -329,5 +334,5 @@ Fagerholm <fabbe@paniq.net> for stress testing the daemons, and useful
 feedback; Gilles Bouthenot <gilles.bouthenot@fcomte.iufm.fr> for good
 feedback; and Henrique de Moraes Holschuh for maintaining the 2.1 branch.
 
- -- Ondřej Surý <ondrej@debian.org>, Wed, 17 Nov 2010 17:39:08 +0100
+ -- Ondřej Surý <ondrej@debian.org>, Sun, 27 Mar 2011 17:00:37 +0200
 

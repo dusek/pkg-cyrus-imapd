@@ -163,13 +163,13 @@ NOTE: If you've already installed the cyrus 2.4 packages, skip to step 5.
  8. Run ctl_mboxlist to update the "mailboxes" file.
 
     $ cd /var/lib/cyrus
-    $ /usr/sbin/ctl_mboxlist -u < mailboxes
+    $ /usr/sbin/cyrus ctl_mboxlist -u < mailboxes
 
  9. Run the cyrreconstruct program from the /var/spool/cyrus directory
     to reconstruct the mailboxes.
 
     $ cd /var/spool/cyrus
-    $ /usr/sbin/cyrreconstruct -r user.*
+    $ /usr/sbin/cyrus reconstruct -r user.*
 
     (you may need to cyrreconstruct other mailboxes, if you have any
     system mailboxes or shared mailboxes not in the user hierarchy)

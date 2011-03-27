@@ -157,13 +157,10 @@ override_dh_auto_install:
 	#	 cyr_dbtool cyr_df ; do \
 	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
 	#done
-	for i in reconstruct quota ; do \
-		ln -fs cyrus $(TMPPKG)/usr/sbin/cyr$$i ;\
-	done
 	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-		 cyr_dbtool cyr_df cyrus-makedirs ; do \
+		 cyr_dbtool cyr_df cyrus-makedirs cyrreconstruct cyrquota; do \
 		ln -fs cyrus $(TMPPKG)/usr/sbin/$$i ;\
 	done
 	mkdir -p $(TMPPKG)/usr/include

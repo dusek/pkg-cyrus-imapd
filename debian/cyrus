@@ -9,6 +9,7 @@ usage: ${MYNAME} COMMAND [ARGS]
 The most commonly used cyr commands are:
    reconstruct   reconstruct mailboxes
    quota         report and optionally fix quota usage
+   squatter      reindex mailboxes
    mbpath        translate mailbox names to filesystem paths
    mboxlist      perform operations on the mailbox list database
    check         perform a consistency check of the cyrus mailstore
@@ -47,13 +48,24 @@ case "$(basename ${0})" in
 	;;
     cyrus-makedirs)
 	COMMAND=${RUNNAME#cyrus-}
-	;;	
+	;;
     *)
 	COMMAND="${RUNNAME}"
 	;;
 esac
 
 [ -z "${COMMAND}" ] && usage
+
+case "${COMMAND}" in
+    help|--help)
+	if [ -n "${1}" ]; then
+	    exec man ${1}
+	else
+	    usage
+        fi
+	exit 1
+	;;
+esac
 
 if [ ! -f "${CYRUS_BINPATH}/${COMMAND}" ]; then
     if [ -f "${CYRUS_BINPATH}/cyr_${COMMAND}" ]; then
