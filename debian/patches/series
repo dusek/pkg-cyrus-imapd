@@ -28,3 +28,4 @@
 82-fix_manpage_errors.patch
 cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
 cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
+83-db5.1_macros.patch
