@@ -12,20 +12,23 @@ cyrus-imapd-2.4 (2.4.6-1) experimental; urgency=low
     + Add versionless virtual packages to allow seamless upgrades between
       major Cyrus releases
     + Adapt debian/rules to use /usr/sbin/cyrus
-    + Adapt install and manpages to the changes introduced by /usr/sbin/cyrus
+    + Adapt install and manpages to the changes introduced
+      by /usr/sbin/cyrus
     + Add /usr/sbin/cyrus-makedirs symlink
     + Install /usr/sbin/* symlinks as well
   * Use /usr/sbin/cyrus wherever possible
   * Add support for Berkeley DB version >= 5.x
+  * Install symlinks for documentation for empty dependency packages
 
   [ Anthony Prades ]
   * Better comment on cyrus-imapd init script
   * Fix README.configure-options content
   * Add cyrus-makedirs support for 'lock' directory
   * Add creation of USERDENY database (flat) if doesn't exist
-  * Fix Cyrus compilation using new linker changes for wheezy (annonced on debian-devel-announce)
+  * Fix Cyrus compilation using new linker changes for wheezy
+    (announced on debian-devel-announce)
 
- -- Ondřej Surý <ondrej@debian.org>  Sun, 27 Mar 2011 21:33:49 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 27 Mar 2011 21:55:29 +0200
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
