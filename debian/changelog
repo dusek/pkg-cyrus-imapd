@@ -1,16 +1,8 @@
-cyrus-imapd-2.4 (2.4.6-1~7.gbp6cae95) UNRELEASED; urgency=low
-
-  ** SNAPSHOT build @6cae95ea385a521222ec3362f01965b64ba82550 **
+cyrus-imapd-2.4 (2.4.6-1) experimental; urgency=low
 
   [ Ondřej Surý ]
   * Add Anthony Prades to Uploaders.
   * Imported Upstream version 2.4.6
-
-  [ Anthony Prades ]
-  * Better comment on cyrus-imapd init script
-  * Fix README.configure-options content
-
-  [ Ondřej Surý ]
   * Refreshed patches for 2.4.6 release
   * Add universal (ala git) command interface /usr/sbin/cyrus which can be
     used to call all cyrus commands except master and deliver
@@ -23,19 +15,17 @@ cyrus-imapd-2.4 (2.4.6-1~7.gbp6cae95) UNRELEASED; urgency=low
     + Adapt install and manpages to the changes introduced by /usr/sbin/cyrus
     + Add /usr/sbin/cyrus-makedirs symlink
     + Install /usr/sbin/* symlinks as well
-  * Buildable snapshot build
+  * Use /usr/sbin/cyrus wherever possible
+  * Add support for Berkeley DB version >= 5.x
 
   [ Anthony Prades ]
+  * Better comment on cyrus-imapd init script
+  * Fix README.configure-options content
   * Add cyrus-makedirs support for 'lock' directory
   * Add creation of USERDENY database (flat) if doesn't exist
-
-  [ Ondřej Surý ]
-  * Prepare snapshot build changelog
-
-  [ Anthony Prades ]
   * Fix Cyrus compilation using new linker changes for wheezy (annonced on debian-devel-announce)
 
- -- Anthony Prades <toony.debian@chezouam.net>  Sun, 06 Mar 2011 21:29:58 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 27 Mar 2011 21:33:49 +0200
 
 cyrus-imapd-2.4 (2.4.5-1) experimental; urgency=low
 
