@@ -3,6 +3,7 @@ cyrus-imapd-2.4 (2.4.6-2) experimental; urgency=low
   * Cherry-pick upstream patch to not include NULL authentication
     mechanism by default (Closes: #611674)
   * Add support for Berkeley DB 5.1 to Debian build system
+  * Enable hardening wrapper (without PIE)
 
  -- Ondřej Surý <ondrej@debian.org>  Mon, 28 Mar 2011 19:33:50 +0200
 
