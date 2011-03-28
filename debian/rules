@@ -12,6 +12,10 @@
 # TODO: needs update
 #
 
+#Hardening Wrapper
+export DEB_BUILD_HARDENING=1
+export DEB_BUILD_HARDENING_PIE=0
+
 # DebHelper control
 export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
 
