@@ -88,7 +88,7 @@ override_dh_auto_configure:
 	 --disable-listext --with-sasl=/usr \
 	 --enable-idled \
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
-	 --with-com_err=/usr \
+	 --with-com_err="" \
 	 --with-pidfile=/var/run/cyrmaster.pid \
 	 --with-syslogfacility=MAIL \
 	 --with-ucdsnmp=/usr
