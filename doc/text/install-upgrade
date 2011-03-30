@@ -1,5 +1,16 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.4.6
+
+      * New config option: failedloginpause allows you to change the pause
+        after a failed login from the existing default of 3 seconds 
+      * On Solaris: now getpassphrase is used, so passwords longer than 8
+        characters will work with management tools 
+      * $confdir/proc now gets created automatically if it doesn't exist,
+        which may impact init script design 
+      * If you have damaged mailboxes that weren't previously fixable, a
+        reconstruct of those mailboxes may be advised 
+
 Upgrading from 2.4.5
 
       * New config option: suppress_capabilities, which takes a space

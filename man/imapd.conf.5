@@ -299,6 +299,8 @@ Number of days to retain expunged messages before cleaning up their
 index records.  The default is 7.  This is necessary for QRESYNC
 to work correctly.  If combined with delayed expunge (above) you
 will also be able to unexpunge messages during this time. 
+.IP "\fBfailedloginpause:\fR 3" 5
+Number of seconds to pause after a failed login. 
 .IP "\fBflushseenstate:\fR 0" 5
 If enabled, changes to the seen state will be flushed to disk
 immediately, otherwise changes will be cached and flushed when the
@@ -521,7 +523,7 @@ seconds since the last command or response.
 .IP "\fBmailbox_default_options:\fR 0" 5
 Default "options" field for the mailbox on create.  You'll want to know
 what you're doing before setting this, but it can apply some default
-annotations like condstore or duplicate supression 
+annotations like duplicate supression 
 .IP "\fBmailnotifier:\fR <none>" 5
 Notifyd(8) method to use for "MAIL" notifications.  If not set, "MAIL"
 notifications are disabled. 
@@ -577,12 +579,6 @@ mailspool, but each have their own "replicated" copy of
 mailboxes.db. 
 
 Allowed values: \fIstandard\fR, \fIunified\fR, \fIreplicated\fR
-.IP "\fBmd5_dir:\fR <none>" 5
-Top level directory for MD5 store manipulated by make_md5. File
-structure within this directory is one file for each user on the system,
-hashed on the first letter of the userid (e.g., /var/imap/md5/d/dpc22). 
-.IP "\fBmd5_user_map:\fR <none>" 5
-Map file (cdb) to allow partial make_md5 runs. Maps username to UID 
 .IP "\fBmunge8bit:\fR 1" 5
 If enabled, lmtpd munges messages with 8-bit characters in the
 headers.  The 8-bit characters are changed to `X'.  If
@@ -888,10 +884,6 @@ responses. Information is displayed as follows:
 product version in the capabilities 
 
 Allowed values: \fIoff\fR, \fImin\fR, \fIon\fR
-.IP "\fBsha1_dir:\fR <none>" 5
-Top level directory for SHA1 store manipulated by make_sha1. File
-structure within this directory is one file for each user on the system,
-hashed on the first letter of the userid (e.g: /var/imap/sha1/d/dpc22). 
 .IP "\fBsharedprefix:\fR Shared Folders" 5
 If using the alternate IMAP namespace, the prefix for the shared
 namespace.  The hierarchy delimiter will be automatically appended. 

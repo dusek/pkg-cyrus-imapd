@@ -148,6 +148,12 @@ int prot_setlog(struct protstream *s, int fd)
     return 0;
 }
 
+int prot_setisclient(struct protstream *s, int val)
+{
+    s->isclient = val;
+    return 0;
+}
+
 #ifdef HAVE_SSL
 
 /*
@@ -740,10 +746,30 @@ int prot_fill(struct protstream *s)
 }
 
 /*
+ * If 's' is an input stream, discard any pending/buffered data.  Otherwise,
  * Write out any buffered data in the stream 's'
  */
 int prot_flush(struct protstream *s) 
 {
+    if (!s->write) {
+	int c, save_dontblock = s->dontblock;
+
+	/* Set stream to nonblocking mode */
+	if (!save_dontblock) nonblock(s->fd, (s->dontblock = 1));
+
+	/* Ingest any pending input */
+	while ((c = prot_fill(s)) != EOF);
+
+	/* Reset stream to previous blocking mode */
+	if (!save_dontblock) nonblock(s->fd, (s->dontblock = 0));
+
+	/* Discard any buffered input */
+	s->cnt = 0;
+	s->can_unget = 0;
+
+	return 0;
+    }
+
     return prot_flush_internal(s, 1);
 }
 
@@ -1274,7 +1300,10 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 int prot_printliteral(struct protstream *out, const char *s, size_t size)
 {
     int r;
-    r = prot_printf(out, "{" SIZE_T_FMT "+}\r\n", size);
+    if (out->isclient)
+	r = prot_printf(out, "{" SIZE_T_FMT "+}\r\n", size);
+    else
+	r = prot_printf(out, "{" SIZE_T_FMT "}\r\n", size);
     if (r) return r;
     return prot_write(out, s, size);
 }

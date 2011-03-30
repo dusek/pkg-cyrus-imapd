@@ -701,6 +701,10 @@ static void cmdloop(void)
 	    if (!strcmp(cmd.s, "Starttls") && tls_enabled()) {
 		if (c == '\r') c = prot_getc(sync_in);
 		if (c != '\n') goto extraargs;
+
+		/* XXX  discard any input pipelined after STARTTLS */
+		prot_flush(sync_in);
+
 		/* if we've already done SASL fail */
 		if (sync_userid != NULL) {
 		    prot_printf(sync_out, 
@@ -756,6 +760,7 @@ static void cmd_authenticate(char *mech, char *resp)
     sasl_ssf_t ssf;
     char *ssfmsg = NULL;
     const void *val;
+    int failedloginpause;
 
     if (sync_userid) {
 	prot_printf(sync_out, "BAD Already authenticated\r\n");
@@ -787,7 +792,10 @@ static void cmd_authenticate(char *mech, char *resp)
 	    syslog(LOG_NOTICE, "badlogin: %s %s [%s]",
 		   sync_clienthost, mech, sasl_errdetail(sync_saslconn));
 
-	    sleep(3);
+	    failedloginpause = config_getint(IMAPOPT_FAILEDLOGINPAUSE);
+	    if (failedloginpause != 0) {
+	        sleep(failedloginpause);
+	    }
 
 	    if (errorstring) {
 		prot_printf(sync_out, "NO %s\r\n", errorstring);
@@ -1029,7 +1037,7 @@ void reserve_folder(const char *part, const char *mboxname,
 		   mailbox_msg_path);
 	    continue;
 	}
-	if (!message_guid_compare(&record.guid, &record2.guid)) {
+	if (!message_guid_equal(&record.guid, &record2.guid)) {
 	    syslog(LOG_ERR, "IOERROR: GUID mismatch on parse for %s",
 		   mailbox_msg_path);
 	    continue;
@@ -1145,8 +1153,108 @@ static int do_quota(struct dlist *kin)
 
 /* ====================================================================== */
 
-static int do_mailbox(struct dlist *kin,
-		      struct sync_reserve_list *reserved_list)
+static int mailbox_compare_update(struct mailbox *mailbox,
+				  struct dlist *kr, int doupdate)
+{
+    struct index_record mrecord;
+    struct index_record rrecord;
+    uint32_t recno = 1;
+    struct dlist *ki;
+    int r;
+    int i;
+
+    rrecord.uid = 0;
+    for (ki = kr->head; ki; ki = ki->next) {
+	r = parse_upload(ki, mailbox, &mrecord);
+	if (r) {
+	    syslog(LOG_ERR, "Failed to parse uploaded record"); 
+	    return r;
+	}
+
+	while (rrecord.uid < mrecord.uid) {
+	    /* hit the end?  Magic marker */
+	    if (recno > mailbox->i.num_records) {
+		rrecord.uid = UINT32_MAX;
+		break;
+	    }
+
+	    /* read another record */
+	    r = mailbox_read_index_record(mailbox, recno, &rrecord);
+	    if (r) {
+		syslog(LOG_ERR, "Failed to read record %s %d",
+		       mailbox->name, recno);
+		return r;
+	    }
+	    recno++;
+	}
+
+	/* found a match, check for updates */
+	if (rrecord.uid == mrecord.uid) {
+	    /* GUID mismatch on a non-expunged record is an error straight away */
+	    if (!(mrecord.system_flags & FLAG_EXPUNGED)) {
+		if (!message_guid_equal(&mrecord.guid, &rrecord.guid)) {
+		    syslog(LOG_ERR, "SYNCERROR: guid mismatch %s %u",
+			   mailbox->name, mrecord.uid);
+		    return IMAP_MAILBOX_CRC;
+		}
+		if (rrecord.system_flags & FLAG_EXPUNGED) {
+		    syslog(LOG_ERR, "SYNCERROR: expunged on replica %s %u",
+			   mailbox->name, mrecord.uid);
+		    return IMAP_MAILBOX_CRC;
+		}
+	    }
+	    /* higher modseq on the replica is an error */
+	    if (rrecord.modseq > mrecord.modseq) {
+		syslog(LOG_ERR, "SYNCERROR: higher modseq on replica %s %u",
+		       mailbox->name, mrecord.uid);
+		return IMAP_MAILBOX_CRC;
+	    }
+
+	    /* skip out on the first pass */
+	    if (!doupdate) continue;
+
+	    rrecord.modseq = mrecord.modseq;
+	    rrecord.last_updated = mrecord.last_updated;
+	    rrecord.internaldate = mrecord.internaldate;
+	    rrecord.system_flags = (mrecord.system_flags & ~FLAG_UNLINKED) |
+				   (rrecord.system_flags & FLAG_UNLINKED);
+	    for (i = 0; i < MAX_USER_FLAGS/32; i++)
+		rrecord.user_flags[i] = mrecord.user_flags[i];
+	    rrecord.silent = 1;
+	    r = mailbox_rewrite_index_record(mailbox, &rrecord);
+	    if (r) {
+		syslog(LOG_ERR, "IOERROR: failed to rewrite record %s %d",
+		       mailbox->name, recno);
+		return r;
+	    }
+	}
+
+	/* not found and less than LAST_UID, bogus */
+	else if (mrecord.uid <= mailbox->i.last_uid) {
+	    /* Expunged, just skip it */
+	    if (!(mrecord.system_flags & FLAG_EXPUNGED))
+		return IMAP_MAILBOX_CRC;
+	}
+
+	/* after LAST_UID, it's an append, that's OK */
+	else {
+	    /* skip out on the first pass */
+	    if (!doupdate) continue;
+
+	    mrecord.silent = 1;
+	    r = sync_append_copyfile(mailbox, &mrecord);
+	    if (r) {
+		syslog(LOG_ERR, "IOERROR: failed to append file %s %d",
+		       mailbox->name, recno);
+		return r;
+	    }
+	}
+    }
+
+    return 0;
+}
+
+static int do_mailbox(struct dlist *kin)
 {
     /* fields from the request */
     const char *uniqueid;
@@ -1166,18 +1274,9 @@ static int do_mailbox(struct dlist *kin,
     uint32_t options;
 
     struct mailbox *mailbox = NULL;
-    struct index_record mrecord, rrecord;
-    struct sync_msgid_list *part_list;
-    unsigned old_num_records;
     uint32_t newcrc;
     struct dlist *kr;
-    struct dlist *ki;
-    uint32_t recno;
     int r;
-
-    /* probably should be moved */
-    int i;
-
 
     if (!dlist_getatom(kin, "UNIQUEID", &uniqueid))
 	return IMAP_PROTOCOL_BAD_PARAMETERS;
@@ -1237,6 +1336,13 @@ static int do_mailbox(struct dlist *kin,
 	return IMAP_MAILBOX_CRC;
     }
 
+    if (last_uid < mailbox->i.last_uid) {
+	syslog(LOG_ERR, "higher last_uid on replica %s - %u < %u",
+	       mboxname, last_uid, mailbox->i.last_uid);
+	mailbox_close(&mailbox);
+	return IMAP_MAILBOX_CRC;
+    }
+
     if (strcmp(mailbox->acl, acl)) {
 	mailbox_set_acl(mailbox, acl, 0);
 	r = mboxlist_sync_setacls(mboxname, acl);
@@ -1246,106 +1352,34 @@ static int do_mailbox(struct dlist *kin,
 	}
     }
 
+    r = mailbox_compare_update(mailbox, kr, 0);
+    if (r) {
+	mailbox_close(&mailbox);
+	return r;
+    }
+
     /* now we're committed to writing something no matter what happens! */
+
+    r = mailbox_compare_update(mailbox, kr, 1);
+    if (r) {
+	abort();
+	return r;
+    }
+
+    mailbox_index_dirty(mailbox);
+    assert(mailbox->i.last_uid <= last_uid);
+    mailbox->i.last_uid = last_uid;
+    mailbox->i.highestmodseq = highestmodseq;
+    mailbox->i.recentuid = recentuid;
+    mailbox->i.recenttime = recenttime;
+    mailbox->i.last_appenddate = last_appenddate;
+    mailbox->i.pop3_last_login = pop3_last_login;
+    /* mailbox->i.options = options; ... not really, there's unsyncable stuff in here */
 
     if (mailbox->i.uidvalidity < uidvalidity) {
 	syslog(LOG_ERR, "%s uidvalidity higher on master, updating %u => %u",
 	       mailbox->name, mailbox->i.uidvalidity, uidvalidity);
-	mailbox_index_dirty(mailbox);
 	mailbox->i.uidvalidity = uidvalidity;
-    }
-
-    part_list = sync_reserve_partlist(reserved_list, mailbox->part);
-    old_num_records = mailbox->i.num_records;
-
-    rrecord.uid = 0;
-    recno = 1;
-    for (ki = kr->head; ki; ki = ki->next) {
-	r = parse_upload(ki, mailbox, &mrecord);
-	if (r) {
-	    syslog(LOG_ERR, "Failed to parse uploaded record"); 
-	    goto done;
-	}
-
-	while (rrecord.uid < mrecord.uid) {
-	    /* hit the end?  Magic marker */
-	    if (recno > mailbox->i.num_records) {
-		rrecord.uid = UINT32_MAX;
-		break;
-	    }
-
-	    /* read another record */
-	    r = mailbox_read_index_record(mailbox, recno, &rrecord);
-	    if (r) {
-		syslog(LOG_ERR, "Failed to read record %s %d",
-		       mboxname, recno);
-		goto done;
-	    }
-	    recno++;
-	}
-
-	/* found a match, check for updates */
-	if (rrecord.uid == mrecord.uid) {
-	    /* GUID mismatch on a non-expunged record is an error straight away */
-	    if (!(mrecord.system_flags & FLAG_EXPUNGED) &&
-		!message_guid_compare(&mrecord.guid, &rrecord.guid)) {
-		r = IMAP_MAILBOX_CRC;
-		goto done;
-	    }
-	    /* higher modseq on the replica is an error */
-	    if (rrecord.modseq > mrecord.modseq) {
-		r = IMAP_MAILBOX_CRC;
-		goto done;
-	    }
-	    rrecord.modseq = mrecord.modseq;
-	    rrecord.last_updated = mrecord.last_updated;
-	    rrecord.internaldate = mrecord.internaldate;
-	    rrecord.system_flags = (mrecord.system_flags & ~FLAG_UNLINKED) |
-				   (rrecord.system_flags & FLAG_UNLINKED);
-	    for (i = 0; i < MAX_USER_FLAGS/32; i++)
-		rrecord.user_flags[i] = mrecord.user_flags[i];
-	    rrecord.silent = 1;
-	    r = mailbox_rewrite_index_record(mailbox, &rrecord);
-	    if (r) {
-		syslog(LOG_ERR, "Failed to rewrite record %s %d",
-		       mboxname, recno);
-		goto done;
-	    }
-	    /* all done, move on to next records */
-	    continue;
-	}
-
-	/* not found and less than LAST_UID, bogus */
-	if (mrecord.uid <= mailbox->i.last_uid) {
-	    /* Expunged, just skip it */
-	    if (mrecord.system_flags & FLAG_EXPUNGED)
-		continue;
-	    /* Otherwise we want to abort and fix up */
-	    r = IMAP_MAILBOX_CRC;
-	    goto done;
-	}
-
-	/* after LAST_UID, it's an append, that's OK */
-	mrecord.silent = 1;
-	r = sync_append_copyfile(mailbox, &mrecord);
-	if (r) {
-	    syslog(LOG_ERR, "Failed to append file %s %d",
-		   mboxname, recno);
-	    goto done;
-	}
-    }
-
- done:
-    if (!r) {
-	mailbox_index_dirty(mailbox);
-	mailbox->i.last_uid = last_uid;
-	mailbox->i.highestmodseq = highestmodseq;
-	mailbox->i.recentuid = recentuid;
-	mailbox->i.recenttime = recenttime;
-	mailbox->i.last_appenddate = last_appenddate;
-	mailbox->i.pop3_last_login = pop3_last_login;
-	mailbox->i.uidvalidity = uidvalidity;
-	/* mailbox->i.options = options; ... not really, there's unsyncable stuff in here */
     }
 
     /* try re-calculating the CRC on mismatch... */
@@ -1493,14 +1527,14 @@ static int print_seen(const char *uniqueid, struct seendata *sd,
 
 static int user_seen(const char *userid)
 {
-    struct seen *seendb;
+    struct seen *seendb = NULL;
 
     /* no SEEN DB is OK, just return */
     if (seen_open(userid, SEEN_SILENT, &seendb))
 	return 0;
 
     seen_foreach(seendb, print_seen, NULL);
-    seen_close(seendb);
+    seen_close(&seendb);
 
     return 0;
 }
@@ -1800,7 +1834,7 @@ static int do_unactivate_sieve(struct dlist *kin)
 static int do_seen(struct dlist *kin)
 {
     int r;
-    struct seen *seendb;
+    struct seen *seendb = NULL;
     struct seendata sd;
     const char *userid;
     const char *uniqueid;
@@ -1822,7 +1856,7 @@ static int do_seen(struct dlist *kin)
     if (r) return r;
 
     r = seen_write(seendb, uniqueid, &sd);
-    seen_close(seendb);
+    seen_close(&seendb);
 
     return r;
 }
@@ -1985,8 +2019,7 @@ static int do_expunge(struct dlist *kin)
 	if (!ui) break; /* no point continuing */
 	if (record.uid == ui->nval) {
 	    record.system_flags |= FLAG_EXPUNGED;
-	    /* don't get the modseqs out of sync too! */
-	    record.silent = 1;
+	    record.silent = 1; /* so the next sync will succeed */
 	    r = mailbox_rewrite_index_record(mailbox, &record);
 	    if (r) goto done;
 	}
@@ -2061,7 +2094,7 @@ static void cmd_apply(struct dlist *kin, struct sync_reserve_list *reserve_list)
     else if (!strcmp(kin->name, "ANNOTATION"))
 	r = do_annotation(kin);
     else if (!strcmp(kin->name, "MAILBOX"))
-	r = do_mailbox(kin, reserve_list);
+	r = do_mailbox(kin);
     else if (!strcmp(kin->name, "QUOTA"))
 	r = do_quota(kin);
     else if (!strcmp(kin->name, "SEEN"))
