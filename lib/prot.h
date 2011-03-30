@@ -126,6 +126,7 @@ struct protstream {
     int can_unget;
     int bytes_in;
     int bytes_out;
+    int isclient;
 
     /* Events */
     prot_readcallback_t *readcallback_proc;
@@ -201,6 +202,10 @@ extern int prot_setsasl(struct protstream *s, sasl_conn_t *conn);
  * negotiation */
 extern int prot_settls(struct protstream *s, SSL *tlsconn);
 #endif /* HAVE_SSL */
+
+/* Mark this protstream as a "client" for the purpose of generating
+ * or consuming literals (thanks LITERAL+) */
+int prot_setisclient(struct protstream *s, int val);
 
 #ifdef HAVE_ZLIB
 /* Enable (de)compression for a given protstream */

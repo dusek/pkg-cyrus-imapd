@@ -713,18 +713,19 @@ static int cleanup_seen_subfolders(const char *mbname)
     char buf[MAX_MAILBOX_NAME];
     int r;
 
+    /* not owned by a user */
+    if (!userid) return 0;
+
     /* no need to do inbox, it will have upgraded OK, just
      * the subfolders */
 
-    r = seen_open(userid, SEEN_SILENT, &seendb);
-    if (r) return 0; /* oh well, maybe they didn't have one */
-
     snprintf(buf, sizeof(buf), "%s.*", mbname);
-    r = mboxlist_findall(NULL, buf, 1, NULL, NULL, cleanup_seen_cb, seendb);
 
-    seen_close(seendb);
+    r = seen_open(userid, SEEN_SILENT, &seendb);
+    if (!r) mboxlist_findall(NULL, buf, 1, NULL, NULL, cleanup_seen_cb, seendb);
+    seen_close(&seendb);
 
-    return r;
+    return 0;
 }
 
 int undump_mailbox(const char *mbname, 
@@ -744,7 +745,7 @@ int undump_mailbox(const char *mbname,
     char *content = NULL;
     char *seen_file = NULL;
     char *mboxkey_file = NULL;
-    uquota_t old_quota_used;
+    uquota_t old_quota_used = 0;
 
     memset(&file, 0, sizeof(file));
     memset(&data, 0, sizeof(data));
@@ -1057,7 +1058,7 @@ int undump_mailbox(const char *mbname,
 	    struct seen *seendb = NULL;
 	    r = seen_open(userid, SEEN_CREATE, &seendb);
 	    if (!r) r = seen_merge(seendb, fnamebuf);
-	    if (seendb) seen_close(seendb);
+	    seen_close(&seendb);
 
 	    free(seen_file);
 	    seen_file = NULL;

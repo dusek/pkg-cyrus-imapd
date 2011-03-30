@@ -108,47 +108,22 @@ void message_guid_copy(struct message_guid *dst, struct message_guid *src)
     memcpy(dst, src, sizeof(struct message_guid));
 }
 
-/* _message_guid_compare() ***********************************************
+/* message_guid_equal() **************************************************
  *
  * Compare a pair of GUIDs: Returns 1 => match.
  *
- * If allownull is 1, match if either GUID is NULL (trust caller knows
- * what they are doing).
- * Otherwise, refuse to match NULL GUIDs (message could be anything).
- *
  ************************************************************************/
 
-static int _message_guid_compare(struct message_guid *g1,
-				 struct message_guid *g2,
-				 int allownull)
+int message_guid_equal(struct message_guid *g1,
+		       struct message_guid *g2)
 {
-    if (message_guid_isnull(g1) || message_guid_isnull(g2)) return(allownull);
-
     return (memcmp(g1->value, g2->value, MESSAGE_GUID_SIZE) == 0);
 }
 
-/* message_guid_compare() ************************************************
- *
- * Compare a pair of GUIDs: Returns 1 => match.  NULL GUIDs do not match.
- *
- ************************************************************************/
-
-int message_guid_compare(struct message_guid *guid1,
-			 struct message_guid *guid2)
+int message_guid_cmp(struct message_guid *g1,
+		       struct message_guid *g2)
 {
-    return _message_guid_compare(guid1, guid2, 0);
-}
-
-/* message_guid_compare_allow_null() *************************************
- *
- * Compare a pair of GUIDs: Returns 1 => match.  NULL GUIDs match anything.
- *
- ************************************************************************/
-
-int message_guid_compare_allow_null(struct message_guid *guid1,
-				    struct message_guid *guid2)
-{
-    return _message_guid_compare(guid1, guid2, 1);
+    return memcmp(g1->value, g2->value, MESSAGE_GUID_SIZE);
 }
 
 /* message_guid_hash() ***************************************************
@@ -216,7 +191,8 @@ int message_guid_isnull(struct message_guid *guid)
  *
  ************************************************************************/
 
-void message_guid_export(struct message_guid *guid, unsigned char *buf)
+void message_guid_export(const struct message_guid *guid,
+			 unsigned char *buf)
 {
     memcpy(buf, guid->value, MESSAGE_GUID_SIZE);
 }
@@ -253,10 +229,10 @@ struct message_guid *message_guid_import(struct message_guid *guid,
 
 static char XDIGIT[] = "0123456789abcdef";
 
-char *message_guid_encode(struct message_guid *guid)
+char *message_guid_encode(const struct message_guid *guid)
 {
     static char text[2*MESSAGE_GUID_SIZE+1];
-    unsigned char *v = guid->value;
+    const unsigned char *v = guid->value;
     char *p = text;
     int i;
 

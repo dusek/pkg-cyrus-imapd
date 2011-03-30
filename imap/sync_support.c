@@ -370,7 +370,7 @@ void sync_msgid_remove(struct sync_msgid_list *l,
     if (message_guid_isnull(guid)) return;
 
     for (msgid = l->hash[offset] ; msgid ; msgid = msgid->hash_next) {
-	if (message_guid_compare(&msgid->guid, guid)) {
+	if (message_guid_equal(&msgid->guid, guid)) {
 	    message_guid_set_null(&msgid->guid);
 	    return;
 	}
@@ -404,7 +404,7 @@ struct sync_msgid *sync_msgid_lookup(struct sync_msgid_list *l,
         return(NULL);
 
     for (msgid = l->hash[offset] ; msgid ; msgid = msgid->hash_next) {
-        if (message_guid_compare(&msgid->guid, guid))
+        if (message_guid_equal(&msgid->guid, guid))
             return(msgid);
     }
     return(NULL);
@@ -1334,6 +1334,53 @@ struct dlist *sync_parseline(struct protstream *in)
     return NULL;
 }
 
+static int sync_send_file(struct mailbox *mailbox,
+			  struct index_record *record,
+			  struct sync_msgid_list *part_list,
+			  struct dlist *kupload)
+{
+    struct sync_msgid *msgid;
+    char *fname;
+    struct index_record record2;
+    struct stat sbuf;
+    int r;
+
+    /* is it already reserved? */
+    msgid = sync_msgid_lookup(part_list, &record->guid);
+    if (msgid && msgid->mark) 
+	return 0;
+
+    /* have to make sure the file exists */
+    fname = mailbox_message_fname(mailbox, record->uid);
+    if (!fname) return IMAP_MAILBOX_BADNAME;
+
+    if (stat(fname, &sbuf) < 0) {
+	syslog(LOG_ERR, "IOERROR: failed to stat file %s", fname);
+	return IMAP_IOERROR;
+    }
+
+    if ((unsigned) sbuf.st_size != record->size) {
+	syslog(LOG_ERR, "IOERROR: size mismatch %s %u (%lu != %u)",
+	       mailbox->name, record->uid, sbuf.st_size, record->size);
+	return IMAP_IOERROR;
+    }
+
+    /* parse the file to make sure the GUID matches */
+    memset(&record2, 0, sizeof(struct index_record));
+    r = message_parse(fname, &record2);
+    if (r) return r;
+    if (!message_guid_equal(&record->guid, &record2.guid)) {
+	syslog(LOG_ERR, "IOERROR: GUID mismatch %s %u",
+	       mailbox->name, record->uid);
+	return IMAP_IOERROR;
+    }
+
+    dlist_file(kupload, "MESSAGE", mailbox->part,
+	       &record->guid, record->size, fname);
+
+    return 0;
+}
+
 int sync_mailbox(struct mailbox *mailbox,
 		 struct sync_folder *remote,
 		 struct sync_msgid_list *part_list,
@@ -1359,30 +1406,32 @@ int sync_mailbox(struct mailbox *mailbox,
 
     if (printrecords) {
 	struct index_record record;
-	struct index_record record2;
 	struct dlist *il;
 	struct dlist *rl = dlist_list(kl, "RECORD");
-	struct stat sbuf;
-	const char *fname;
-	struct sync_msgid *msgid;
 	uint32_t recno;
 	int send_file;
-	int r;
+	uint32_t prevuid = 0;
 
 	for (recno = 1; recno <= mailbox->i.num_records; recno++) {
-	    /* we can't send bogus records, just skip them! */
-	    if (mailbox_read_index_record(mailbox, recno, &record))
-		continue;
+	    /* we can't send bogus records */
+	    if (mailbox_read_index_record(mailbox, recno, &record)) {
+		syslog(LOG_ERR, "SYNCERROR: corrupt mailbox %s %u, IOERROR",
+		       mailbox->name, recno);
+		return IMAP_IOERROR;
+	    }
+
+	    if  (record.uid <= prevuid) {
+		syslog(LOG_ERR, "SYNCERROR: corrupt mailbox %s %u, ordering",
+		       mailbox->name, recno);
+		return IMAP_IOERROR;
+	    }
+	    prevuid = record.uid;
 
 	    /* start off thinking we're sending the file too */
 	    send_file = 1;
 
 	    /* seen it already! SKIP */
 	    if (remote && record.modseq <= remote->highestmodseq)
-		continue;
-
-	    /* skip expunged if we're not updating something */
-	    if (!remote && (record.system_flags & FLAG_EXPUNGED))
 		continue;
 
 	    /* does it exist at the other end?  Don't send it */
@@ -1398,33 +1447,8 @@ int sync_mailbox(struct mailbox *mailbox,
 		send_file = 0;
 
 	    if (send_file) {
-		/* is it already reserved? */
-		msgid = sync_msgid_lookup(part_list, &record.guid);
-		if (!msgid || !msgid->mark) {
-		    /* have to make sure the file exists */
-		    fname = mailbox_message_fname(mailbox, record.uid);
-		    if (!fname) return IMAP_MAILBOX_BADNAME;
-		    if (stat(fname, &sbuf) < 0) {
-			syslog(LOG_ERR, "IOERROR: failed to stat file %s", fname);
-			return IMAP_IOERROR;
-		    }
-		    if ((unsigned) sbuf.st_size != record.size) {
-			syslog(LOG_ERR, "IOERROR: size mismatch %s %u (%lu != %u)",
-			       mailbox->name, record.uid, sbuf.st_size, record.size);
-			return IMAP_IOERROR;
-		    }
-		    memset(&record2, 0, sizeof(struct index_record));
-		    r = message_parse(fname, &record2);
-		    if (r) return r;
-		    if (!message_guid_compare(&record.guid, &record2.guid)) {
-			syslog(LOG_ERR, "IOERROR: GUID mismatch %s %u",
-			       mailbox->name, record.uid);
-			return IMAP_IOERROR;
-		    }
-		    /* XXX - what if the sha1 is wrong? */
-		    dlist_file(kupload, "MESSAGE", mailbox->part, &record.guid,
-			       record.size, fname);
-		}
+		int r = sync_send_file(mailbox, &record, part_list, kupload);
+		if (r) return r;
 	    }
 
 	    il = dlist_kvlist(rl, "RECORD");
@@ -1533,7 +1557,7 @@ int sync_append_copyfile(struct mailbox *mailbox,
 	return r;
     }
 
-    if (!message_guid_compare(&tmp_guid, &record->guid)) {
+    if (!message_guid_equal(&tmp_guid, &record->guid)) {
 	syslog(LOG_ERR, "IOERROR: guid mismatch on parse %s", fname);
 	return IMAP_MAILBOX_CRC;
     }
@@ -1547,11 +1571,12 @@ int sync_append_copyfile(struct mailbox *mailbox,
 	return r;
     }
 
+ just_write:
     /* repair broken internaldate if requried */
     if (!record->internaldate)
 	record->internaldate = internaldate;
 
- just_write:
     record->silent = 1;
     return mailbox_append_index_record(mailbox, record);
 }
+

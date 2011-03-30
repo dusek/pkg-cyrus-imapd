@@ -70,6 +70,7 @@
 #include "prot.h"
 #include "lex.h"
 #include "request.h"
+#include "util.h"
 
 #define IMTEST_OK    0
 #define IMTEST_FAIL -1
@@ -116,7 +117,7 @@ getsecret(sasl_conn_t *conn,
   return -1;
 
   /*  printf("Password: ", prompt);
-  *tresult=strdup(getpass(""));
+  *tresult=strdup(cyrus_getpass(""));
   *tlen=strlen(*tresult);
   if (! password)
   return SASL_FAIL; */
@@ -195,7 +196,7 @@ void interaction (int id, const char *prompt,
 	
       } else {
 	printf("%s: ", prompt);
-	*tresult=strdup(getpass(""));
+	*tresult=strdup(cyrus_getpass(""));
 	*tlen=strlen(*tresult);
       }
 	return;

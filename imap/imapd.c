@@ -1784,6 +1784,9 @@ void cmdloop()
 		if (c == '\r') c = prot_getc(imapd_in);
 		if (c != '\n') goto extraargs;
 
+		/* XXX  discard any input pipelined after STARTTLS */
+		prot_flush(imapd_in);
+
 		/* if we've already done SASL fail */
 		if (imapd_userid != NULL) {
 		    prot_printf(imapd_out, 
@@ -2177,6 +2180,7 @@ void cmd_login(char *tag, char *user)
     char *passwd;
     const char *reply = NULL;
     int r;
+    int failedloginpause;
     
     if (imapd_userid) {
 	eatline(imapd_in, ' ');
@@ -2256,7 +2260,10 @@ void cmd_login(char *tag, char *user)
 	syslog(LOG_NOTICE, "badlogin: %s plaintext %s %s",
 	       imapd_clienthost, canon_user, sasl_errdetail(imapd_saslconn));
 
-	sleep(3);
+	failedloginpause = config_getint(IMAPOPT_FAILEDLOGINPAUSE);
+	if (failedloginpause != 0) {
+	    sleep(failedloginpause);
+	}
 
 	/* Don't allow user probing */
 	if (r == SASL_NOUSER) r = SASL_BADAUTH;
@@ -2337,6 +2344,7 @@ void cmd_authenticate(char *tag, char *authtype, char *resp)
     const char *canon_user;
 
     int r;
+    int failedloginpause;
 
     r = saslserver(imapd_saslconn, authtype, resp, "", "+ ", "",
 		   imapd_in, imapd_out, &sasl_result, NULL);
@@ -2364,7 +2372,10 @@ void cmd_authenticate(char *tag, char *authtype, char *resp)
 	    snmp_increment_args(AUTHENTICATION_NO, 1,
 				VARIABLE_AUTH, 0, /* hash_simple(authtype) */ 
 				VARIABLE_LISTEND);
-	    sleep(3);
+	    failedloginpause = config_getint(IMAPOPT_FAILEDLOGINPAUSE);
+	    if (failedloginpause != 0) {
+	        sleep(failedloginpause);
+	    }
 
 	    /* Don't allow user probing */
 	    if (sasl_result == SASL_NOUSER) sasl_result = SASL_BADAUTH;
@@ -5570,7 +5581,7 @@ void cmd_rename(char *tag, char *oldname, char *newname, char *partition)
     }
 
     /* rename all mailboxes matching this */
-    if (!r && recursive_rename) {
+    if (!r && recursive_rename && strcmp(oldmailboxname, newmailboxname)) {
 	struct renrock rock;
 	int ol = omlen + 1;
 	int nl = nmlen + 1;
@@ -8365,8 +8376,11 @@ static void xfer_done(struct xfer_header **xferptr)
     struct xfer_header *xfer = *xferptr;
     struct xfer_item *item, *next;
     int r;
+    char extname[MAX_MAILBOX_NAME];
 
     for (item = xfer->items; item; item = item->next) {
+	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
+					       imapd_userid, extname);
 	/* done! */
 	if (item->done)
 	    continue;
@@ -8382,7 +8396,7 @@ static void xfer_done(struct xfer_header **xferptr)
 	/* delete remote if created */
 	if (item->remote_created) {
 	    prot_printf(xfer->be->out, "LD1 LOCALDELETE {" SIZE_T_FMT "+}\r\n%s\r\n",
-			strlen(item->name), item->name);
+			strlen(extname), extname);
 	    r = getresult(xfer->be->in, "LD1");
 	    if (r) {
 		syslog(LOG_ERR,
@@ -8524,15 +8538,18 @@ static int xfer_localcreate(struct xfer_header *xfer)
 {
     struct xfer_item *item;
     int r;
+    char extname[MAX_MAILBOX_NAME];
 
     for (item = xfer->items; item; item = item->next) {
+	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
+					       imapd_userid, extname);
 	if (xfer->topart) {
 	    /* need to send partition as an atom */
 	    prot_printf(xfer->be->out, "LC1 LOCALCREATE {" SIZE_T_FMT "+}\r\n%s %s\r\n",
-			strlen(item->name), item->name, xfer->topart);
+			strlen(extname), extname, xfer->topart);
 	} else {
 	    prot_printf(xfer->be->out, "LC1 LOCALCREATE {" SIZE_T_FMT "+}\r\n%s\r\n",
-			strlen(item->name), item->name);
+			strlen(extname), extname);
 	}
 	r = getresult(xfer->be->in, "LC1");
 	if (r) {
@@ -8601,7 +8618,7 @@ static int xfer_backport_seen(struct xfer_header *xfer, const char *userid)
 	if (r) break;
     }
 
-    seen_close(seendb);
+    seen_close(&seendb);
 
     return r;
 }
@@ -8631,8 +8648,11 @@ static int xfer_undump(struct xfer_header *xfer)
     struct xfer_item *item;
     int r;
     struct mailbox *mailbox = NULL;
+    char extname[MAX_MAILBOX_NAME];
 
     for (item = xfer->items; item; item = item->next) {
+	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
+					       imapd_userid, extname);
 	r = mailbox_open_irl(item->name, &mailbox);
 	if (r) {
 	    syslog(LOG_ERR,
@@ -8642,7 +8662,7 @@ static int xfer_undump(struct xfer_header *xfer)
 
 	/* Step 4: Dump local -> remote */
 	prot_printf(xfer->be->out, "D01 UNDUMP {" SIZE_T_FMT "+}\r\n%s ",
-		    strlen(item->name), item->name);
+		    strlen(extname), extname);
 
 	r = dump_mailbox(NULL, mailbox, 0, xfer->remoteversion,
 			 xfer->be->in, xfer->be->out, imapd_authstate);
@@ -8665,7 +8685,7 @@ static int xfer_undump(struct xfer_header *xfer)
     
 	/* Step 5: Set ACL on remote */
 	r = trashacl(xfer->be->in, xfer->be->out,
-		     item->name);
+		     extname);
 	if (r) {
 	    syslog(LOG_ERR, "Could not clear remote acl on %s",
 		   item->name);
@@ -8673,7 +8693,7 @@ static int xfer_undump(struct xfer_header *xfer)
 	}
 
 	r = dumpacl(xfer->be->in, xfer->be->out,
-		    item->name, item->acl);
+		    extname, item->acl);
 	if (r) {
 	    syslog(LOG_ERR, "Could not set remote acl on %s",
 		   item->name);
@@ -8684,7 +8704,7 @@ static int xfer_undump(struct xfer_header *xfer)
 	/* Note that we don't really care if this succeeds or not */
 	if (xfer->mupdate_h) {
 	    prot_printf(xfer->be->out, "MP1 MUPDATEPUSH {" SIZE_T_FMT "+}\r\n%s\r\n",
-			strlen(item->name), item->name);
+			strlen(extname), extname);
 	    r = getresult(xfer->be->in, "MP1");
 	    if (r) {
 		syslog(LOG_ERR,
@@ -8814,6 +8834,10 @@ static int xfer_setquotaroot(struct xfer_header *xfer, const char *mboxname)
 {
     struct quota quota;
     int r;
+    char extname[MAX_MAILBOX_NAME];
+
+    (*imapd_namespace.mboxname_toexternal)(&imapd_namespace, mboxname,
+					   imapd_userid, extname);
     
     quota.root = mboxname;
     r = quota_read(&quota, NULL, 0);
@@ -8824,7 +8848,7 @@ static int xfer_setquotaroot(struct xfer_header *xfer, const char *mboxname)
      * quotaroot */
     prot_printf(xfer->be->out, "Q01 SETQUOTA {" SIZE_T_FMT "+}\r\n" \
 		"+%s (STORAGE %d)\r\n",
-		strlen(mboxname)+1, mboxname, quota.limit);
+		strlen(extname)+1, extname, quota.limit);
     r = getresult(xfer->be->in, "Q01");
     if (r) syslog(LOG_ERR,
 		  "Could not move mailbox: %s, " \
@@ -9790,7 +9814,6 @@ static void list_response(char *name, int attributes,
 	 * we might be a backend and need to report folders that don't
 	 * exist on this backend - this is awful and complex and brittle
 	 * and should be changed, but we're stuck with it for now */
-	if (!config_mupdate_server && (listargs->cmd & LIST_CMD_LSUB)) return;
 	attributes |= (listargs->cmd & LIST_CMD_EXTENDED) ?
 		       MBOX_ATTRIBUTE_NONEXISTENT : MBOX_ATTRIBUTE_NOSELECT;
     }
@@ -9894,6 +9917,21 @@ static void list_response(char *name, int attributes,
 	/* \NonExistent implies \Noselect */
 	if (attributes & MBOX_ATTRIBUTE_NONEXISTENT)
 	    attributes &= ~MBOX_ATTRIBUTE_NOSELECT;
+    }
+
+    if (attributes & (MBOX_ATTRIBUTE_NONEXISTENT | MBOX_ATTRIBUTE_NOSELECT)) {
+	/* if mupdate isn't configured we can drop out now, otherwise
+	 * we might be a backend and need to report folders that don't
+	 * exist on this backend - this is awful and complex and brittle
+	 * and should be changed, but we're stuck with it for now */
+	if (listargs->cmd & LIST_CMD_LSUB) {
+	    if (!config_mupdate_server) return;
+	}
+	else {
+	    if (attributes & (MBOX_ATTRIBUTE_NOSELECT | 
+			      MBOX_ATTRIBUTE_HASNOCHILDREN))
+		return;
+	}
     }
 
     switch (listargs->cmd) {
@@ -10245,10 +10283,15 @@ static void list_data(struct listargs *listargs)
 	    }
 
 	    for (pattern = listargs->pat; pattern; pattern = pattern->next) {
-		rock.trailing_percent =
-		    pattern->s[strlen(pattern->s) - 1] == '%';
+		char lastchar = pattern->s[strlen(pattern->s) - 1];
+		rock.trailing_percent = (lastchar == '%');
 		findall(&imapd_namespace, pattern->s, imapd_userisadmin,
 			imapd_userid, imapd_authstate, list_cb, &rock);
+
+		/* handle LIST "" user - and other such "only has children" cases */
+		if (!rock.last_name && lastchar != '%' && lastchar != '*')
+		    rock.last_name = xstrdup(pattern->s);
+
 		list_response(rock.last_name, rock.last_attributes, rock.listargs);
 		free(rock.last_name);
 		rock.last_name = NULL;

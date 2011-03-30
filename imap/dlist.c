@@ -89,7 +89,7 @@
 
 const char *lastkey = NULL;
 
-static void printfile(struct protstream *out, struct dlist *dl)
+static void printfile(struct protstream *out, const struct dlist *dl)
 {
     char buf[4096];
     struct stat sbuf;
@@ -160,6 +160,8 @@ static int reservefile(struct protstream *in, const char *part,
     if (!file) {
 	syslog(LOG_ERR, "Failed to upload file %s", message_guid_encode(guid));
 	r = IMAP_IOERROR;
+	/* Note: we still read the file's data from the wire,
+	 * to avoid losing protocol sync */
     }
 
     /* XXX - calculate sha1 on the fly? */
@@ -175,23 +177,32 @@ static int reservefile(struct protstream *in, const char *part,
 	if (!r) fwrite(buf, 1, n, file);
     }
 
-    if (r) return r;
+    if (r)
+	goto error;
 
     /* Make sure that message flushed to disk just incase mmap has problems */
     fflush(file);
     if (ferror(file)) {
-	fclose(file);
-	return IMAP_IOERROR;
+	r = IMAP_IOERROR;
+	goto error;
     }
 
     if (fsync(fileno(file)) < 0) {
-	fclose(file);
-	return IMAP_IOERROR;
+	r = IMAP_IOERROR;
+	goto error;
     }
 
     fclose(file);
 
     return 0;
+
+error:
+    if (file) {
+	fclose(file);
+	unlink(*fname);
+	*fname = NULL;
+    }
+    return r;
 }
 
 /* DLIST STUFF */
@@ -278,8 +289,8 @@ struct dlist *dlist_file(struct dlist *dl, const char *name,
     return i;
 }
 
-struct dlist *dlist_buf(struct dlist *dl, const char *name, 
-			       char *val, size_t len)
+struct dlist *dlist_buf(struct dlist *dl, const char *name,
+		        const char *val, size_t len)
 {
     struct dlist *i = dlist_child(dl, name);
     i->type = DL_BUF;
@@ -309,8 +320,8 @@ struct dlist *dlist_new(const char *name)
     return dlist_kvlist(NULL, name);
 }
 
-void dlist_print_helper(struct dlist *dl, int printkeys,
-			struct protstream *out, int level)
+static void dlist_print_helper(const struct dlist *dl, int printkeys,
+			       struct protstream *out, int level)
 {
     struct dlist *di;
     int i;
@@ -363,7 +374,7 @@ void dlist_print_helper(struct dlist *dl, int printkeys,
     }
 }
 
-void dlist_print(struct dlist *dl, int printkeys, struct protstream *out)
+void dlist_print(const struct dlist *dl, int printkeys, struct protstream *out)
 {
     dlist_print_helper(dl, printkeys, out, 0);
 }
@@ -502,6 +513,9 @@ fail:
 static struct dlist *dlist_getchild(struct dlist *dl, const char *name)
 {
     struct dlist *i;
+
+    if (!dl) return NULL;
+
     for (i = dl->head; i; i = i->next) {
 	if (!strcmp(name, i->name))
 	    return i;

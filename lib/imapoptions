@@ -328,6 +328,9 @@ Blank lines and lines beginning with ``#'' are ignored.
    to work correctly.  If combined with delayed expunge (above) you
    will also be able to unexpunge messages during this time. */
 
+{ "failedloginpause", 3, INT }
+/* Number of seconds to pause after a failed login. */
+
 { "flushseenstate", 0, SWITCH }
 /* If enabled, changes to the seen state will be flushed to disk
    immediately, otherwise changes will be cached and flushed when the
@@ -608,7 +611,7 @@ Blank lines and lines beginning with ``#'' are ignored.
 { "mailbox_default_options", 0, INT }
 /* Default "options" field for the mailbox on create.  You'll want to know
    what you're doing before setting this, but it can apply some default
-   annotations like condstore or duplicate supression */
+   annotations like duplicate supression */
 
 { "mailnotifier", NULL, STRING }
 /* Notifyd(8) method to use for "MAIL" notifications.  If not set, "MAIL"
@@ -670,14 +673,6 @@ Blank lines and lines beginning with ``#'' are ignored.
    config is one in which multiple backend servers all share the same
    mailspool, but each have their own "replicated" copy of
    mailboxes.db. */
-
-{ "md5_dir", NULL, STRING }
-/* Top level directory for MD5 store manipulated by make_md5. File
-   structure within this directory is one file for each user on the system,
-   hashed on the first letter of the userid (e.g., /var/imap/md5/d/dpc22). */
-
-{ "md5_user_map", NULL, STRING }
-/* Map file (cdb) to allow partial make_md5 runs. Maps username to UID */
 
 { "munge8bit", 1, SWITCH }
 /* If enabled, lmtpd munges messages with 8-bit characters in the
@@ -1042,11 +1037,6 @@ And the notification message will be available on \fIstdin\fR.
 .br
    "on" = \fIservername\fR and product version in the greeting;
 product version in the capabilities */
-
-{ "sha1_dir", NULL, STRING }
-/* Top level directory for SHA1 store manipulated by make_sha1. File
-   structure within this directory is one file for each user on the system,
-   hashed on the first letter of the userid (e.g: /var/imap/sha1/d/dpc22). */
 
 { "sharedprefix", "Shared Folders", STRING }
 /* If using the alternate IMAP namespace, the prefix for the shared

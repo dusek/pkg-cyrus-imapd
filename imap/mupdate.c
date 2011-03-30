@@ -922,6 +922,9 @@ mupdate_docmd_result_t docmd(struct conn *c)
 	if (!strcmp(c->cmd.s, "Starttls")) {
 	    CHECKNEWLINE(c, ch);
 	    
+	    /* XXX  discard any input pipelined after STARTTLS */
+	    prot_flush(c->pin);
+
 	    if (!tls_enabled()) {
 		/* we don't support starttls */
 		goto badcmd;
@@ -1522,6 +1525,7 @@ void cmd_authenticate(struct conn *C,
 {
     int r, sasl_result;
     const void *val;
+    int failedloginpause;
 
     r = saslserver(C->saslconn, mech, clientstart, "", "", "",
 		   C->pin, C->pout, &sasl_result, NULL);
@@ -1542,7 +1546,10 @@ void cmd_authenticate(struct conn *C,
 			tag, errorstring ? errorstring : "");
 	    break;
 	default:
-	    sleep(3);
+	    failedloginpause = config_getint(IMAPOPT_FAILEDLOGINPAUSE);
+	    if (failedloginpause != 0) {
+	        sleep(failedloginpause);
+	    }
 	
 	    syslog(LOG_ERR, "badlogin: %s %s %s",
 		   C->clienthost,

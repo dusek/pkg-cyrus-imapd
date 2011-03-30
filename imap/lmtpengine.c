@@ -1331,10 +1331,10 @@ void lmtpmode(struct lmtp_func *func,
 	      else
 		  prot_printf(pout, "250-SIZE\r\n");
 	      if (tls_enabled() && !cd.starttls_done &&
-		  cd.authenticated <= NOAUTH) {
+		  cd.authenticated == NOAUTH) {
 		  prot_printf(pout, "250-STARTTLS\r\n");
 	      }
-	      if ((cd.authenticated <= NOAUTH || saslprops.ssf) &&
+	      if ((cd.authenticated == NOAUTH) &&
 		  sasl_listmech(cd.conn, NULL, "AUTH ", " ", "", &mechs, 
 				NULL, &mechcount) == SASL_OK && 
 		  mechcount > 0) {
@@ -1556,6 +1556,9 @@ void lmtpmode(struct lmtp_func *func,
 		int *layerp;
 		sasl_ssf_t ssf;
 		char *auth_id;
+
+		/* XXX  discard any input pipelined after STARTTLS */
+		prot_flush(pin);
 
 		/* SASL and openssl have different ideas
 		   about whether ssf is signed */
@@ -1817,7 +1820,10 @@ static void pushmsg(struct protstream *in, struct protstream *out,
 
     if (!isdotstuffed) {
 	/* signify end of message */
-	prot_printf(out, "\r\n.\r\n");
+	if (!lastline_hadendline) {
+	    prot_printf(out, "\r\n");
+	}
+	prot_printf(out, ".\r\n");
     }
 }
 

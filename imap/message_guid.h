@@ -67,13 +67,11 @@ void message_guid_generate(struct message_guid *guid,
 /* Copy a GUID */
 void message_guid_copy(struct message_guid *dst, struct message_guid *src);
 
-/* Compare a pair of GUIDs: Returns 1 => match.  NULL GUIDs do not match. */
-int message_guid_compare(struct message_guid *guid1,
+/* Compare a pair of GUIDs: Returns 1 => match. */
+int message_guid_equal(struct message_guid *guid1,
 			 struct message_guid *guid2);
-
-/* Compare a pair of GUIDs: Returns 1 => match.  NULL GUIDs match anything. */
-int message_guid_compare_allow_null(struct message_guid *guid1,
-				    struct message_guid *guid2);
+int message_guid_cmp(struct message_guid *guid1,
+		     struct message_guid *guid2);
 
 /* Convert GUID into hash value for hash table lookup
  * Returns: positive int in range [0, hash_size-1]
@@ -89,7 +87,8 @@ int message_guid_isnull(struct message_guid *guid);
 /* Export Message GUID as byte sequence (MESSAGE_GUID_SIZE)
  * (Wrapper for memcpy() with current implementation)
  */
-void message_guid_export(struct message_guid *guid, unsigned char *buf);
+void message_guid_export(const struct message_guid *guid,
+			 unsigned char *buf);
 
 /* Import Message GUID from packed sequence (MESSAGE_GUID_SIZE)
  * (Wrapper for memcpy() with current implementation)
@@ -103,7 +102,7 @@ struct message_guid *message_guid_import(struct message_guid *guid,
 /* Returns ptr to '\0' terminated static char * which can be strdup()ed
  * NULL => error. Should be impossible as entire range covered
  */
-char *message_guid_encode(struct message_guid *guid);
+char *message_guid_encode(const struct message_guid *guid);
 
 /* Sets Message GUID from text form. Returns 1 if valid
  * Returns: Cyrus error code, 0 on sucess

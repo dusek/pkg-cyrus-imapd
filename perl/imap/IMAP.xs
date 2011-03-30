@@ -55,6 +55,7 @@
 
 #include "imclient.h"
 #include "imapurl.h"
+#include "util.h"
 #include "xmalloc.h"
 
 #include "cyrperl.h"
@@ -203,7 +204,7 @@ static int get_password(sasl_conn_t *conn, void *context, int id,
 	 * reason */ 
 	fprintf(stdout, "Password: ");
 	fflush(stdout);
-	ptr = getpass("");
+	ptr = cyrus_getpass("");
 	text->password = safemalloc(sizeof(sasl_secret_t) + strlen(ptr));
 	text->password->len = strlen(ptr);
 	strncpy((char *) text->password->data, ptr, text->password->len);
