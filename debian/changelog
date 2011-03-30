@@ -1,3 +1,17 @@
+cyrus-imapd-2.4 (2.4.6-3) unstable; urgency=low
+
+  * Build system:
+    + Add some extra CFLAGS, with support for noopt in DH_OPTIONS
+    + Update build depends, add libtool and autoconf
+    + Enable PIE hardening option
+    + Build with shared libcom_err to allow PIE hardening option
+    + Reformat Uploaders field in debian/control
+  * Fix FTBFS in Cyrus Perl IMAP library (Closes: #620075)
+    + debian/patches/85-perl-imap-croak-FTBFS-fix.patch
+    + Add build dependency on external libextutils-parsexs-perl
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 30 Mar 2011 15:20:38 +0200
+
 cyrus-imapd-2.4 (2.4.6-2) experimental; urgency=low
 
   * Cherry-pick upstream patch to not include NULL authentication
