@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.7-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.7 (cleaned version)
+  * Debian packaging:
+    + Refreshed patches for 2.4.7 release
+    + Start using pristine-tar
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 30 Mar 2011 17:30:31 +0200
+
 cyrus-imapd-2.4 (2.4.6-3) unstable; urgency=low
 
   * Build system:
