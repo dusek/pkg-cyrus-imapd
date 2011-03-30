@@ -47,10 +47,10 @@ NOTE: patch is missing manpage fixes to describe -J
      if (p) verbose = atoi(p) + 1;
  #ifdef HAVE_NETSNMP
 -    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:P:x:")) != EOF) {
-+    while ((opt = getopt(argc, argv, "C:M:p:l:DdjJ:P:x:")) != EOF) {
++    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:J:P:x:")) != EOF) {
  #else
 -    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:")) != EOF) {
-+    while ((opt = getopt(argc, argv, "C:M:p:l:DdjJ:")) != EOF) {
++    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:J:")) != EOF) {
  #endif
  	switch (opt) {
  	case 'C': /* alt imapd.conf file */
