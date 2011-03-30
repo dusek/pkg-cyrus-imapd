@@ -1,3 +1,16 @@
+cyrus-imapd-2.4 (2.4.7-2~1.gbp918b42) UNRELEASED; urgency=low
+
+  ** SNAPSHOT build @918b425e91bb1a6e2359f1ee195b7641c0cf3a36 **
+
+  [ Ondřej Surý ]
+  * Fix cyrmaster -j (janitor) segfault
+
+  [ Anthony Prades ]
+  * Ubuntu 10.04 compatibility: adapt some dependencies (Thomas Cataldo)
+  * Prepare SNAPSHOT build
+
+ -- Anthony Prades <toony.debian@chezouam.net>  Thu, 31 Mar 2011 00:17:46 +0200
+
 cyrus-imapd-2.4 (2.4.7-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.7 (cleaned version)
