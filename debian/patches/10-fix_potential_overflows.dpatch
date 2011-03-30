@@ -10,7 +10,7 @@
 @DPATCH@
 --- a/imtest/imtest.c
 +++ b/imtest/imtest.c
-@@ -1238,7 +1238,7 @@ static void interactive(struct protocol_
+@@ -1242,7 +1242,7 @@ static void interactive(struct protocol_
  	
  	/* can't have this and a file for input */
  	sunsock.sun_family = AF_UNIX;

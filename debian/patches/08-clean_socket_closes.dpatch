@@ -18,7 +18,7 @@ need similar patches.
 
 --- a/imap/backend.c
 +++ b/imap/backend.c
-@@ -549,6 +549,7 @@ struct backend *backend_connect(struct b
+@@ -553,6 +553,7 @@ struct backend *backend_connect(struct b
  	    syslog(LOG_ERR, "couldn't authenticate to backend server: %s",
  		   sasl_errstring(r, NULL, NULL));
  	    if (!ret_backend) free(ret);

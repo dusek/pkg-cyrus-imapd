@@ -7,7 +7,7 @@
 @DPATCH@
 --- a/configure.in
 +++ b/configure.in
-@@ -465,16 +465,15 @@ if test "$spt_type" = ""; then
+@@ -469,16 +469,15 @@ if test "$spt_type" = ""; then
  fi
  if test "$spt_type" = ""; then
  	AC_MSG_CHECKING(for PS_STRINGS)

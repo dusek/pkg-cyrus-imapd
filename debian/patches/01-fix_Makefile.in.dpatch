@@ -5,10 +5,8 @@
 ## DP: Fix all Makefile.in files as necessary
 
 @DPATCH@
-Index: pkg-cyrus-imapd-2.4/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/Makefile.in	2011-03-06 18:59:42.000000000 +0100
+--- a/Makefile.in
++++ b/Makefile.in
 @@ -42,7 +42,7 @@
  #
  
@@ -18,11 +16,9 @@ Index: pkg-cyrus-imapd-2.4/Makefile.in
  DISTSUBDIRS = doc
  
  srcdir = @srcdir@
-Index: pkg-cyrus-imapd-2.4/imap/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/imap/Makefile.in	2011-03-06 18:59:17.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/imap/Makefile.in	2011-03-06 19:00:08.000000000 +0100
-@@ -68,8 +68,8 @@
+--- a/imap/Makefile.in
++++ b/imap/Makefile.in
+@@ -68,8 +68,8 @@ LIB_WRAP = @LIB_WRAP@
  LIBS = $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
  DEPLIBS = ../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
  
@@ -33,11 +29,9 @@ Index: pkg-cyrus-imapd-2.4/imap/Makefile.in
  
  SHELL = /bin/sh
  MAKEDEPEND = @MAKEDEPEND@
-Index: pkg-cyrus-imapd-2.4/installsieve/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/installsieve/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/installsieve/Makefile.in	2011-03-06 18:59:42.000000000 +0100
-@@ -50,7 +50,7 @@
+--- a/installsieve/Makefile.in
++++ b/installsieve/Makefile.in
+@@ -50,7 +50,7 @@ RANLIB = @RANLIB@
  
  DEFS = @DEFS@
  CPPFLAGS = -I. -I$(srcdir) -I$(srcdir)/../lib @CPPFLAGS@ @SASLFLAGS@
@@ -46,11 +40,9 @@ Index: pkg-cyrus-imapd-2.4/installsieve/Makefile.in
  LDFLAGS = @LDFLAGS@
  
  INSTALL = @INSTALL@
-Index: pkg-cyrus-imapd-2.4/lib/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/lib/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/lib/Makefile.in	2011-03-06 18:59:42.000000000 +0100
-@@ -63,7 +63,7 @@
+--- a/lib/Makefile.in
++++ b/lib/Makefile.in
+@@ -63,7 +63,7 @@ CPPFLAGS = -I.. @CPPFLAGS@ @COM_ERR_CPPF
  LIBS = @LIBS@
  
  MAKEDEPEND_CFLAGS = @CFLAGS@
@@ -59,11 +51,9 @@ Index: pkg-cyrus-imapd-2.4/lib/Makefile.in
  LDFLAGS = @LDFLAGS@
  
  SHELL = /bin/sh
-Index: pkg-cyrus-imapd-2.4/master/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/master/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/master/Makefile.in	2011-03-06 19:00:25.000000000 +0100
-@@ -56,8 +56,8 @@
+--- a/master/Makefile.in
++++ b/master/Makefile.in
+@@ -56,8 +56,8 @@ DEFS = @DEFS@ @LOCALDEFS@
  CPPFLAGS = -I.. -I$(srcdir)/../lib -I$(srcdir)/../imap @CPPFLAGS@ @COM_ERR_CPPFLAGS@
  DEPLIBS = @DEPLIBS@
  
@@ -74,11 +64,9 @@ Index: pkg-cyrus-imapd-2.4/master/Makefile.in
  LIBS = ../lib/libcyrus_min.a @LIB_UCDSNMP@ @LIBS@ @COM_ERR_LIBS@
  
  SHELL = /bin/sh
-Index: pkg-cyrus-imapd-2.4/notifyd/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/notifyd/Makefile.in	2011-03-06 18:59:17.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/notifyd/Makefile.in	2011-03-06 19:00:38.000000000 +0100
-@@ -56,8 +56,8 @@
+--- a/notifyd/Makefile.in
++++ b/notifyd/Makefile.in
+@@ -56,8 +56,8 @@ CYRUS_GROUP=@cyrus_group@
  
  DEFS = @DEFS@ @LOCALDEFS@
  CPPFLAGS = -I.. -I$(srcdir)/../sieve -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
@@ -89,11 +77,9 @@ Index: pkg-cyrus-imapd-2.4/notifyd/Makefile.in
  
  prefix = @prefix@
  exec_prefix = @exec_prefix@
-Index: pkg-cyrus-imapd-2.4/perl/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/perl/Makefile.in	2011-03-06 18:59:17.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/perl/Makefile.in	2011-03-06 18:59:42.000000000 +0100
-@@ -86,9 +86,9 @@
+--- a/perl/Makefile.in
++++ b/perl/Makefile.in
+@@ -86,9 +86,9 @@ all::
  			   BDB_LIB="$(BDB_LIB)" BDB_INC="$(BDB_INC)" \
  			   OPENSSL_LIB="$(OPENSSL_LIB)" OPENSSL_INC="$(OPENSSL_INC)" \
  			   SASL_LIB="$(SASL_LIB)" SASL_INC="$(SASL_INC)" CC="$(CC)" \
@@ -105,11 +91,9 @@ Index: pkg-cyrus-imapd-2.4/perl/Makefile.in
  	done
  
  install::
-Index: pkg-cyrus-imapd-2.4/perl/sieve/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/perl/sieve/Makefile.in	2011-03-06 18:59:17.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/perl/sieve/Makefile.in	2011-03-06 18:59:42.000000000 +0100
-@@ -86,9 +86,9 @@
+--- a/perl/sieve/Makefile.in
++++ b/perl/sieve/Makefile.in
+@@ -86,9 +86,9 @@ all::
  			   BDB_LIB="$(BDB_LIB)" BDB_INC="$(BDB_INC)" \
  			   OPENSSL_LIB="$(OPENSSL_LIB)" OPENSSL_INC="$(OPENSSL_INC)" \
  			   SASL_LIB="$(SASL_LIB)" SASL_INC="$(SASL_INC)" CC="$(CC)" \
@@ -121,11 +105,9 @@ Index: pkg-cyrus-imapd-2.4/perl/sieve/Makefile.in
  	done
  
  install::
-Index: pkg-cyrus-imapd-2.4/perl/sieve/lib/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/perl/sieve/lib/Makefile.in	2011-03-06 18:59:17.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/perl/sieve/lib/Makefile.in	2011-03-06 18:59:42.000000000 +0100
-@@ -58,7 +58,7 @@
+--- a/perl/sieve/lib/Makefile.in
++++ b/perl/sieve/lib/Makefile.in
+@@ -58,7 +58,7 @@ IMAP_LIBS = @IMAP_LIBS@
  DEPLIBS = ../../../lib/libcyrus.a ../../../lib/libcyrus_min.a @DEPLIBS@
  
  MAKEDEPEND_CFLAGS = @CFLAGS@
@@ -134,11 +116,9 @@ Index: pkg-cyrus-imapd-2.4/perl/sieve/lib/Makefile.in
  LDFLAGS = @LDFLAGS@
  
  SHELL = /bin/sh
-Index: pkg-cyrus-imapd-2.4/sieve/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/sieve/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/sieve/Makefile.in	2011-03-06 19:00:51.000000000 +0100
-@@ -60,8 +60,8 @@
+--- a/sieve/Makefile.in
++++ b/sieve/Makefile.in
+@@ -60,8 +60,8 @@ COMPILE_ET = @COMPILE_ET@
  DEFS = @DEFS@ @LOCALDEFS@
  CPPFLAGS = -I.. -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@
  MAKEDEPEND_CFLAGS = @CFLAGS@
@@ -149,7 +129,7 @@ Index: pkg-cyrus-imapd-2.4/sieve/Makefile.in
  
  MAKEDEPEND = @MAKEDEPEND@
  
-@@ -71,6 +71,7 @@
+@@ -71,6 +71,7 @@ IMAP_LIBS = @IMAP_LIBS@ @LIB_RT@
  LIBS = libsieve.a $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
  DEPLIBS=../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
  
@@ -157,7 +137,7 @@ Index: pkg-cyrus-imapd-2.4/sieve/Makefile.in
  BUILT_SOURCES = addr.c addr.h addr-lex.c \
  	sieve.c sieve.h sieve-lex.c \
  	sieve_err.h sieve_err.c
-@@ -136,7 +137,7 @@
+@@ -136,7 +137,7 @@ sieve_err.h sieve_err.c: sieve_err.et
  	$(COMPILE_ET) $(srcdir)/sieve_err.et
  
  clean:
@@ -166,11 +146,9 @@ Index: pkg-cyrus-imapd-2.4/sieve/Makefile.in
  
  distclean: clean
  	rm -f sieve_err.c sieve_err.h
-Index: pkg-cyrus-imapd-2.4/timsieved/Makefile.in
-===================================================================
---- pkg-cyrus-imapd-2.4.orig/timsieved/Makefile.in	2011-03-06 18:59:16.000000000 +0100
-+++ pkg-cyrus-imapd-2.4/timsieved/Makefile.in	2011-03-06 19:01:06.000000000 +0100
-@@ -56,8 +56,8 @@
+--- a/timsieved/Makefile.in
++++ b/timsieved/Makefile.in
+@@ -56,8 +56,8 @@ CYRUS_GROUP=@cyrus_group@
  
  DEFS = @DEFS@ @LOCALDEFS@
  CPPFLAGS = -I.. -I$(srcdir)/../sieve -I$(srcdir)/../imap -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@

@@ -1,6 +1,6 @@
 --- a/perl/imap/IMAP.xs
 +++ b/perl/imap/IMAP.xs
-@@ -74,7 +74,7 @@ typedef struct xscyrus *Cyrus_IMAP;
+@@ -75,7 +75,7 @@ typedef struct xscyrus *Cyrus_IMAP;
  /* hack, since libcyrus apparently expects fatal() to exist */
  void fatal(const char *s, int exit)
  {
