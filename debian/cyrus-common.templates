@@ -1,4 +1,15 @@
-Template: cyrus-common-2.4/warnbackendchange
+Template: cyrus-common/removespools
+Type: boolean
+Default: false
+_Description: Remove the mail and news spools?
+ The Cyrus mail and news spools, as well as users' sieve scripts,
+ can be removed when the package is purged.
+ .
+ This question only applies to the default spools and sieve script
+ directories in /var.  If you modified their location in imapd.conf, the
+ new locations will not be removed; just the old ones in /var.
+
+Template: cyrus-common/warnbackendchange
 Type: error
 _Description: Modified database backends
  Comparison between /usr/lib/cyrus/cyrus-db-types.txt and
@@ -12,14 +23,3 @@ _Description: Modified database backends
  Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database
  for more information.  Do not start cyrmaster until you have converted
  the databases to the new format.
-
-Template: cyrus-common-2.4/removespools
-Type: boolean
-Default: false
-_Description: Remove the mail and news spools?
- The Cyrus mail and news spools, as well as users' sieve scripts,
- can be removed when the package is purged.
- .
- This question only applies to the default spools and sieve script
- directories in /var.  If you modified their location in imapd.conf, the
- new locations will not be removed; just the old ones in /var.

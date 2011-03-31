@@ -13,7 +13,7 @@ cyrus-imapd-2.4 (2.4.7-2) unstable; urgency=low
   least the /var/lib/cyrus which contains database files and /var/spool/cyrus
   which contains all your mail.
   
-  Next obstacle is removing all the cyrus-*-2.2.  Unfortunatelly the purge
+  Next obstacle is removing all the cyrus-*-2.2.  Unfortunately the purge
   of the cyrus-common-2.2 package will remove also some files needed for
   cyrus-common-2.4.  So before we solve this problem, you have to run
   following command after purging the cyrus-common-2.2 package:

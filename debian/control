@@ -41,10 +41,10 @@ Homepage: http://www.cyrusimap.org/
 Package: cyrus-common-2.4
 Architecture: any
 Section: mail
-Depends: ssmtp | mail-transport-agent, adduser (>= 3.34), dpkg (>> 1.9.0), netbase (>= 4.07), gawk, ${shlibs:Depends}, ${perl:Depends}, ${misc:Depends}
+Depends: cyrus-common (>= 2.4.7-2~), ssmtp | mail-transport-agent, netbase (>= 4.07), gawk, ${shlibs:Depends}, ${perl:Depends}, ${misc:Depends}
 Recommends: cyrus-imapd-2.4 | cyrus-pop3d-2.4 | cyrus-murder-2.4 | cyrus-nntpd-2.4 | cyrus-admin-2.4
 Suggests: cyrus-clients-2.4, cyrus-admin-2.4, cyrus-imapd-2.4, cyrus-pop3d-2.4, cyrus-murder-2.4, cyrus-replication-2.4, cyrus-nntpd-2.4, cyrus-doc-2.4, sasl2-bin, apt-listchanges (>= 2.35)
-Provides: cyrus-common, cyrus-common-2.2, cyrus-common-2.3
+Provides: cyrus-common-2.2, cyrus-common-2.3
 Conflicts: cyrus-common (<< ${source:Version}), suidmanager (<< 0.50), cyrus-common-2.2, cyrus-common-2.3
 Replaces: cyrus-common (<< ${source:Version}), cyrus-common-2.2, cyrus-common-2.3
 Description: Cyrus mail system - common files
@@ -236,6 +236,35 @@ Description: Cyrus mail system - developer files
  .
  For more information, please see the cyrus-common-2.4 package.
 
+Package: cyrus-common
+Architecture: all
+Depends: ${misc:Depends}, adduser (>= 3.34), dpkg (>> 1.9.0)
+Conflicts: cyrus-common-2.2 (<< 2.2.13p1-2~), cyrus-common-2.4 (<< 2.4.7-2~)
+Replaces: cyrus-common-2.2 (<< 2.2.13p1-2~), cyrus-common-2.4 (<< 2.4.7-2~)
+Description: Cyrus mail system - common files
+ Cyrus is an IMAP server designed to handle massive quantities of mail,
+ with a number of features not found in other IMAP implementations,
+ including support for:
+  - running the daemon without root privileges;
+  - POP3 and NNTP in addition to plain IMAP;
+  - POP/IMAP-before-SMTP using DRAC;
+  - secure IMAP using SSL;
+  - server-side filtering with Sieve;
+  - mail users without login accounts;
+  - simple mail quotas;
+  - virtual domains;
+  - IPv6.
+ .
+ Cyrus doesn't support reading from and storing mail in the
+ standard mail spool. It stores mail in a separate directory in its
+ own MH-like format.
+ .
+ This package contains the common files needed by the other Cyrus
+ components. The cyrus-imapd-2.4 and/or cyrus-pop3d-2.4 packages are needed
+ to enable IMAP and POP3 support respectively. cyrus-murder-2.4 can be
+ used to enable IMAP, POP3 and LMTP proxying. cyrus-replication-2.4
+ can be used to provide server replication between two imap servers.
+
 Package: libcyrus-imap-perl24
 Architecture: any
 Depends: ${perl:Depends}, ${shlibs:Depends}, ${misc:Depends}
@@ -252,18 +281,6 @@ Description: Interface to Cyrus imap client imclient library
  .
  The modules that compose Cyrus::SIEVE are also included, but they are
  undocumented upstream.
- .
- For more information, please see the cyrus-common-2.4 package.
-
-Package: cyrus-common
-Architecture: all
-Depends: cyrus-common-2.4, ${misc:Depends}
-Description: Cyrus mail system - common files (metapackage depending on the latest version)
- This is an empty package that depends on the current "best" version
- of cyrus-common (currently cyrus-common-2.4), as determined
- by the Cyrus IMAPD maintainers.  Install this package if in doubt
- about which Cyrus IMAPD version you want, as this is the one we
- consider to be in the best shape.
  .
  For more information, please see the cyrus-common-2.4 package.
 
@@ -354,6 +371,7 @@ Description: Cyrus mail system - NNTP support (metapackage depending on the late
 Package: cyrus-doc
 Architecture: all
 Depends: cyrus-doc-2.4, ${misc:Depends}
+Section: doc
 Description: Cyrus mail system - documentation files (metapackage depending on the latest version)
  This is an empty package that depends on the current "best" version
  of cyrus-doc (currently cyrus-doc-2.4), as determined by the Cyrus
@@ -377,6 +395,7 @@ Description: Cyrus mail system - developer files (metapackage depending on the l
 
 Package: libcyrus-imap-perl
 Architecture: all
+Section: perl
 Depends: libcyrus-imap-perl24, ${misc:Depends}
 Description: Interface to Cyrus imap client imclient library (metapackage depending on the latest version)
  This is an empty package that depends on the current "best" version

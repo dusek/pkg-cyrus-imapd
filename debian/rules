@@ -215,9 +215,9 @@ override_dh_auto_install:
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 	# and logcheck files
 	install -m 644 debian/logcheck.ignore \
-	  $(PKGDIR)/etc/logcheck/ignore.d.server/cyrus-imapd
+	  $(CURDIR)/debian/cyrus-common/etc/logcheck/ignore.d.server/cyrus-imapd
 	install -m 644 debian/logcheck.violations.ignore \
-	  $(PKGDIR)/etc/logcheck/violations.ignore.d/cyrus-imapd
+	  $(CURDIR)/debian/cyrus-common/etc/logcheck/violations.ignore.d/cyrus-imapd
 	# Install the stuff needed for upgrades
 	for i in convert-sieve.pl dohash rehash undohash translatesieve \
 		 upgradesieve masssievec; do \
@@ -254,24 +254,25 @@ override_dh_auto_install:
 	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
-	dh_installdocs -p cyrus-admin-2.4 -p cyrus-doc-2.4
-	dh_installdocs -p $(MAINPKG) -p cyrus-clients-2.4 -p libcyrus-imap-perl24
-	for i in common clients imapd pop3d admin murder replication nntpd doc dev ; do \
+	dh_installdocs -p cyrus-common -p cyrus-admin-2.4 -p cyrus-doc-2.4
+	dh_installdocs -p cyrus-clients-2.4 -p libcyrus-imap-perl24
+	dh_installdocs -p cyrus-common-2.4 --link-doc=cyrus-common
+	for i in clients imapd pop3d admin murder replication nntpd doc dev ; do \
 	  dh_installdocs -p cyrus-$$i --link-doc=cyrus-$$i-2.4; \
 	done
 	dh_installdocs -p libcyrus-imap-perl --link=libcyrus-imap-perl24
 
 override_dh_installinit:
-	dh_installinit -p $(MAINPKG) --noscripts --name=cyrus-imapd
+	dh_installinit -p cyrus-common --noscripts --name=cyrus-imapd
 
 override_dh_installexamples:
 	dh_installexamples -p cyrus-admin-2.4
-	dh_installexamples -p $(MAINPKG) -p libcyrus-imap-perl24 -p cyrus-clients-2.4
+	dh_installexamples -p libcyrus-imap-perl24 -p cyrus-clients-2.4
 
 override_dh_installchangelogs:
 	dh_installchangelogs -p cyrus-admin-2.4 doc/changes.html
 	dh_installchangelogs -p cyrus-doc-2.4
-	dh_installchangelogs -p $(MAINPKG) -p cyrus-clients-2.4 doc/changes.html
+	dh_installchangelogs -p cyrus-common -p cyrus-clients-2.4 doc/changes.html
 	dh_installchangelogs -p libcyrus-imap-perl24 perl/imap/Changes
 
 override_dh_installcron:

@@ -1,6 +1,4 @@
 etc/*conf
-etc/pam.d/lmtp
-etc/pam.d/sieve
 usr/sbin/cyrus
 usr/lib/cyrus/bin/cyr_dbtool
 usr/lib/cyrus/bin/cyr_df
@@ -24,8 +22,6 @@ usr/lib/cyrus/bin/mbexamine
 usr/lib/cyrus/bin/smmapd
 usr/lib/cyrus/bin/notifyd
 usr/lib/cyrus/bin/fud
-usr/lib/cyrus/get-backtrace.gdb
-usr/share/snmp
 usr/sbin/cyr_dbtool
 usr/sbin/cyr_df
 usr/sbin/cyr_expire

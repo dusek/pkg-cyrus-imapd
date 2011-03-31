@@ -1,5 +1,5 @@
 #! /bin/sh
-# postinst script for cyrus-common-2.4
+# postinst script for cyrus-common
 # Copyright (c) 2002 by Henrique de Moraes Holschuh
 # Distributed under the GNU General Public License version 2
 #
@@ -68,7 +68,7 @@ case "$1" in
 	   --gecos "Cyrus Mailsystem User"  cyrus >/dev/null || {
 	   if getent passwd | grep -s -q -E '^cyrus:'; then
 		   echo "Non-system user cyrus found. I will not overwrite a non-system" >&2
-		   echo "user. Remove the user and reinstall cyrus-common-2.4." >&2
+		   echo "user. Remove the user and reinstall cyrus-common." >&2
 		   exit 1
 	   fi
 	   # unknown adduser error, simply exit
@@ -106,7 +106,7 @@ case "$1" in
 	# only run if old upstream version is lower than the new upstream
 	# version (or if its a fresh install)
 	if [ "$2" = "" ] || dpkg --compare-versions "$( echo $2 | cut -d- -f2)" lt "2.4.14" ; then
-		cyrus makedirs --cleansquat
+		cyrus-makedirs --cleansquat
 	fi
 
 	# Add USERDENY database if doesn't exist
@@ -126,16 +126,16 @@ case "$1" in
 		# from the (old) active database types file with the new one
 		if verifydb /usr/lib/cyrus/cyrus-db-types.txt \
 		    < /usr/lib/cyrus/cyrus-db-types.active ; then
-		    db_input high cyrus-common-2.4/warnbackendchange || true
+		    db_input high cyrus-common/warnbackendchange || true
 		    db_go || true
 		else
 		    cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
-		    db_fset cyrus-common-2.4/warnbackendchange seen false || true
+		    db_fset cyrus-common/warnbackendchange seen false || true
 		fi
 	else
 		[ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
 		  cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
-		db_fset cyrus-common-2.4/warnbackendchange seen false || true
+		db_fset cyrus-common/warnbackendchange seen false || true
 	fi
 
 	# Deal with hardwired config changes

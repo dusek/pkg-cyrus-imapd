@@ -1,5 +1,5 @@
 #! /bin/sh
-# prerm script for cyrus-common-2.4
+# prerm script for cyrus-common
 # Copyright (c) 2002 by Henrique de Moraes Holschuh
 # Distributed under the GNU General Public License version 2
 #

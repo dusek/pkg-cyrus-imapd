@@ -1,0 +1,4 @@
+cyrus-common: no-debconf-config
+cyrus-common: postinst-uses-db-input
+cyrus-common: dir-or-file-in-var-run var/run/cyrus/
+cyrus-common: dir-or-file-in-var-run var/run/cyrus/socket/

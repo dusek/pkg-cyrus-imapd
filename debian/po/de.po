@@ -5,10 +5,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd_2.4 2.4.14-1_de\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2009-04-14 17:58+0200\n"
+"POT-Creation-Date: 2011-03-31 14:30+0200\n"
 "PO-Revision-Date: 2009-04-27 22:30+0200\n"
 "Last-Translator: Erik Schanze <eriks@debian.org>\n"
 "Language-Team: German <debian-l10n-german@lists.debian.org>\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -56,32 +57,23 @@ msgstr ""
 "README.Debian.database. Starten Sie keinesfalls »cyrmaster«, bevor Sie die "
 "Datenbank in das neue Format überführt haben."
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid "Remove the mail and news spools?"
-msgstr "E-Mail- und News-Zwischenspeicher entfernen?"
+#~ msgid "Remove the mail and news spools?"
+#~ msgstr "E-Mail- und News-Zwischenspeicher entfernen?"
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid ""
-"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
-"removed when the package is purged."
-msgstr ""
-"Die Zwischenspeicher von Cyrus für E-Mail und News, sowie die Filterskripte "
-"(Sieve-Skripte) der Benutzer, können gelöscht werden, wenn das Paket restlos "
-"entfernt wird (purge)."
+#~ msgid ""
+#~ "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+#~ "removed when the package is purged."
+#~ msgstr ""
+#~ "Die Zwischenspeicher von Cyrus für E-Mail und News, sowie die "
+#~ "Filterskripte (Sieve-Skripte) der Benutzer, können gelöscht werden, wenn "
+#~ "das Paket restlos entfernt wird (purge)."
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid ""
-"This question only applies to the default spools and sieve script "
-"directories in /var.  If you modified their location in imapd.conf, the new "
-"locations will not be removed; just the old ones in /var."
-msgstr ""
-"Diese Frage betrifft nur die Standard-Zwischenspeicher und -"
-"Filterskriptverzeichnisse in /var. Wenn Sie deren Ort in der Datei imapd."
-"conf geändert haben, werden sie an den neuen Stellen nicht gelöscht, nur an "
-"den alten im Verzeichnis /var."
+#~ msgid ""
+#~ "This question only applies to the default spools and sieve script "
+#~ "directories in /var.  If you modified their location in imapd.conf, the "
+#~ "new locations will not be removed; just the old ones in /var."
+#~ msgstr ""
+#~ "Diese Frage betrifft nur die Standard-Zwischenspeicher und -"
+#~ "Filterskriptverzeichnisse in /var. Wenn Sie deren Ort in der Datei imapd."
+#~ "conf geändert haben, werden sie an den neuen Stellen nicht gelöscht, nur "
+#~ "an den alten im Verzeichnis /var."

@@ -1,5 +1,5 @@
 #! /bin/sh
-# postrm script for cyrus-common-2.4
+# postrm script for cyrus-common
 # Copyright (c) 2002 by Henrique de Moraes Holschuh
 # Distributed under the GNU General Public License version 2
 #
@@ -43,16 +43,16 @@ case "$1" in
 
 			# Should we remove our precious data?
 			if [ "$DEBCONFEXISTS" = "true" ]; then
-				db_title "Cyrus IMAPd 2.4" || true
-				db_fset cyrus-common-2.4/removespools seen false || true
-				db_input high cyrus-common-2.4/removespools || true
+				db_title "Cyrus IMAPd" || true
+				db_fset cyrus-common/removespools seen false || true
+				db_input high cyrus-common/removespools || true
 				db_go || true
-				db_get cyrus-common-2.4/removespools
+				db_get cyrus-common/removespools
 			else
 				RET="false"
 			fi
 
-			db_get cyrus-common-2.4/removespools
+			db_get cyrus-common/removespools
 			[ "${RET}" = "true" ] && {
 					for i in /var/spool/cyrus /var/lib/cyrus \
 					 /var/spool/sieve /etc/sieve ; do

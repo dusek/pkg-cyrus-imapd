@@ -19,10 +19,11 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2009-04-14 17:58+0200\n"
+"POT-Creation-Date: 2011-03-31 14:30+0200\n"
 "PO-Revision-Date: 2006-09-18 20:27+0100\n"
 "Last-Translator: Kurt De Bree <kdebree@telenet.be>\n"
 "Language-Team: Debian l10n Dutch <debian-l10n-dutch@lists.debian.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=iso-8859-1\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -69,33 +70,24 @@ msgstr ""
 "informatie. Start cyrmaster niet vooraleer u de databases naar de nieuwe "
 "indeling geconverteerd hebt."
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid "Remove the mail and news spools?"
-msgstr "Mail- en nieuws-spools verwijderen?"
+#~ msgid "Remove the mail and news spools?"
+#~ msgstr "Mail- en nieuws-spools verwijderen?"
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid ""
-"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
-"removed when the package is purged."
-msgstr ""
-"De Cyrus mail- en nieuws-spools alsook de gebruikers-sieve-scripts kunnen "
-"worden verwijderd wanneer het pakket wordt gewist (purged)."
+#~ msgid ""
+#~ "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+#~ "removed when the package is purged."
+#~ msgstr ""
+#~ "De Cyrus mail- en nieuws-spools alsook de gebruikers-sieve-scripts kunnen "
+#~ "worden verwijderd wanneer het pakket wordt gewist (purged)."
 
-#. Type: boolean
-#. Description
-#: ../cyrus-common-2.4.templates:2001
-msgid ""
-"This question only applies to the default spools and sieve script "
-"directories in /var.  If you modified their location in imapd.conf, the new "
-"locations will not be removed; just the old ones in /var."
-msgstr ""
-"Deze vraag heeft enkel betrekking op de standaard spools en de sieve-"
-"scriptmappen in /var. Als u deze locatie heeft gewijzigd in imapd.conf, dan "
-"zal de nieuwe locatie niet worden verwijderd; enkel de oude in /var."
+#~ msgid ""
+#~ "This question only applies to the default spools and sieve script "
+#~ "directories in /var.  If you modified their location in imapd.conf, the "
+#~ "new locations will not be removed; just the old ones in /var."
+#~ msgstr ""
+#~ "Deze vraag heeft enkel betrekking op de standaard spools en de sieve-"
+#~ "scriptmappen in /var. Als u deze locatie heeft gewijzigd in imapd.conf, "
+#~ "dan zal de nieuwe locatie niet worden verwijderd; enkel de oude in /var."
 
 #~ msgid "Database backends have changed!"
 #~ msgstr "Database-backends zijn gewijzigd!"
