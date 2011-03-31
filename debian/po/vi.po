@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd-2.4 2.4.14-1 \n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2011-03-31 14:30+0200\n"
+"POT-Creation-Date: 2011-03-31 15:36+0200\n"
 "PO-Revision-Date: 2006-08-16 18:12+0930\n"
 "Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
 "Language-Team: Vietnamese <vi-VN@googlegroups.com>\n"
@@ -17,15 +17,44 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "X-Generator: LocFactoryEditor 1.6fc1\n"
 
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid "Remove the mail and news spools?"
+msgstr "Gỡ bỏ ống chỉ thư và tin tức không?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"Những ống chỉ thư và tin tức Cyrus, cũng như những tập lệnh sieve của người "
+"dùng, có thể được gỡ bỏ khi gói được tẩy."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Câu hỏi này áp dụng chỉ cho những ống chỉ và thư mục tập lệnh sieve mặc định "
+"nằm trong </var>. Nếu bạn đã sửa đổi vị trí trong tập tin cấu hình « imapd."
+"conf », những vị trí mới sẽ không được gỡ bỏ; chỉ những vị trí nằm trong </"
+"var> sẽ được gỡ bỏ."
+
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid "Modified database backends"
 msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid ""
 "Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
 "cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
@@ -37,7 +66,7 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid ""
 "This means that those databases for which the database backends changed "
 "might need to be converted manually to the new format, using the cvt_cyrusdb"
@@ -49,35 +78,20 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
+#, fuzzy
+#| msgid ""
+#| "Please refer to /usr/share/doc/cyrus-common/README.Debian.database for "
+#| "more information.  Do not start cyrmaster until you have converted the "
+#| "databases to the new format."
 msgid ""
 "Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Hãy xem tài liệu Đọc Đi </usr/share/doc/cyrus-common-2.4/README.Debian."
-"database> để tìm thông tin thêm. Đừng khởi chạy tiến trình cyrmaster trước "
-"khi bạn đã chuyển đổi những co sở dữ liệu sang dạng thức mới."
-
-#~ msgid "Remove the mail and news spools?"
-#~ msgstr "Gỡ bỏ ống chỉ thư và tin tức không?"
-
-#~ msgid ""
-#~ "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
-#~ "removed when the package is purged."
-#~ msgstr ""
-#~ "Những ống chỉ thư và tin tức Cyrus, cũng như những tập lệnh sieve của "
-#~ "người dùng, có thể được gỡ bỏ khi gói được tẩy."
-
-#~ msgid ""
-#~ "This question only applies to the default spools and sieve script "
-#~ "directories in /var.  If you modified their location in imapd.conf, the "
-#~ "new locations will not be removed; just the old ones in /var."
-#~ msgstr ""
-#~ "Câu hỏi này áp dụng chỉ cho những ống chỉ và thư mục tập lệnh sieve mặc "
-#~ "định nằm trong </var>. Nếu bạn đã sửa đổi vị trí trong tập tin cấu hình « "
-#~ "imapd.conf », những vị trí mới sẽ không được gỡ bỏ; chỉ những vị trí nằm "
-#~ "trong </var> sẽ được gỡ bỏ."
+"Hãy xem tài liệu Đọc Đi </usr/share/doc/cyrus-common/README.Debian.database> "
+"để tìm thông tin thêm. Đừng khởi chạy tiến trình cyrmaster trước khi bạn đã "
+"chuyển đổi những co sở dữ liệu sang dạng thức mới."
 
 #~ msgid "Database backends have changed!"
 #~ msgstr "Hậu phương co sở dữ liệu bị thay đổi !"

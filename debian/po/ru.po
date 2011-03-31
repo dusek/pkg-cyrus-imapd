@@ -16,7 +16,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2011-03-31 14:30+0200\n"
+"POT-Creation-Date: 2011-03-31 15:36+0200\n"
 "PO-Revision-Date: 2009-04-20 20:08+0400\n"
 "Last-Translator: Yuri Kozlov <yuray@komyakino.ru>\n"
 "Language-Team: Russian <debian-l10n-russian@lists.debian.org>\n"
@@ -28,15 +28,43 @@ msgstr ""
 "Plural-Forms:  nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
 "%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid "Remove the mail and news spools?"
+msgstr "Удалять буферы почты и новостей?"
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"The Cyrus mail and news spools, as well as users' sieve scripts, can be "
+"removed when the package is purged."
+msgstr ""
+"Буферы Cyrus для почты и новостей, а также пользовательские фильтрующие "
+"сценарии могут удаляться при вычистке пакета."
+
+#. Type: boolean
+#. Description
+#: ../cyrus-common.templates:1001
+msgid ""
+"This question only applies to the default spools and sieve script "
+"directories in /var.  If you modified their location in imapd.conf, the new "
+"locations will not be removed; just the old ones in /var."
+msgstr ""
+"Это относится только к буферам по умолчанию и каталогам с фильтрующими "
+"сценариями в /var. Если вы изменили их расположение в файле imapd.conf, то в "
+"новых местах они удаляться не будут -- только старые в /var."
+
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid "Modified database backends"
 msgstr "Изменения в поддержке баз данных"
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid ""
 "Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
 "cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
@@ -48,7 +76,7 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
 msgid ""
 "This means that those databases for which the database backends changed "
 "might need to be converted manually to the new format, using the cvt_cyrusdb"
@@ -60,31 +88,17 @@ msgstr ""
 
 #. Type: error
 #. Description
-#: ../cyrus-common-2.4.templates:1001
+#: ../cyrus-common.templates:2001
+#, fuzzy
+#| msgid ""
+#| "Please refer to /usr/share/doc/cyrus-common/README.Debian.database for "
+#| "more information.  Do not start cyrmaster until you have converted the "
+#| "databases to the new format."
 msgid ""
 "Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Подробней об этом написано в файле /usr/share/doc/cyrus-common-2.4/README."
-"Debian.database. Не запускайте cyrmaster, пока не преобразуете базы данных в "
-"новый формат."
-
-#~ msgid "Remove the mail and news spools?"
-#~ msgstr "Удалять буферы почты и новостей?"
-
-#~ msgid ""
-#~ "The Cyrus mail and news spools, as well as users' sieve scripts, can be "
-#~ "removed when the package is purged."
-#~ msgstr ""
-#~ "Буферы Cyrus для почты и новостей, а также пользовательские фильтрующие "
-#~ "сценарии могут удаляться при вычистке пакета."
-
-#~ msgid ""
-#~ "This question only applies to the default spools and sieve script "
-#~ "directories in /var.  If you modified their location in imapd.conf, the "
-#~ "new locations will not be removed; just the old ones in /var."
-#~ msgstr ""
-#~ "Это относится только к буферам по умолчанию и каталогам с фильтрующими "
-#~ "сценариями в /var. Если вы изменили их расположение в файле imapd.conf, "
-#~ "то в новых местах они удаляться не будут -- только старые в /var."
+"Подробней об этом написано в файле /usr/share/doc/cyrus-common/README.Debian."
+"database. Не запускайте cyrmaster, пока не преобразуете базы данных в новый "
+"формат."
