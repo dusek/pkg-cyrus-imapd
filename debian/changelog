@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.7-3) unstable; urgency=low
+
+  * Install cyrus-common and cyrus-common-2.4 files to debian/tmp first,
+    then let the dh_install take over.  This fixes binary only builds.
+    (Closes: #620261)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 31 Mar 2011 20:08:28 +0200
+
 cyrus-imapd-2.4 (2.4.7-2) unstable; urgency=low
 
   * Fix cyrmaster -j (janitor) segfault (cherry-pick from 2.2)
