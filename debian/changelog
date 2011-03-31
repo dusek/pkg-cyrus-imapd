@@ -1,15 +1,14 @@
-cyrus-imapd-2.4 (2.4.7-2~1.gbp918b42) UNRELEASED; urgency=low
+cyrus-imapd-2.4 (2.4.7-2) unstable; urgency=low
 
-  ** SNAPSHOT build @918b425e91bb1a6e2359f1ee195b7641c0cf3a36 **
+  * Fix cyrmaster -j (janitor) segfault (cherry-pick from 2.2)
+  * Add NEWS content about upgrade from 2.2 to 2.4
+  * Fix missing initial / when purging the cyrus-common package
+  * Move cyrus-imapd version independent files to a generic cyrus-common.
+    This is preliminary work which will allow us to depend cyrus-common-*
+    on generic cyrus-common for seamless upgrades between major versions.
+  * Update po files for cyrus-common
 
-  [ Ondřej Surý ]
-  * Fix cyrmaster -j (janitor) segfault
-
-  [ Anthony Prades ]
-  * Ubuntu 10.04 compatibility: adapt some dependencies (Thomas Cataldo)
-  * Prepare SNAPSHOT build
-
- -- Anthony Prades <toony.debian@chezouam.net>  Thu, 31 Mar 2011 00:17:46 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 31 Mar 2011 15:43:12 +0200
 
 cyrus-imapd-2.4 (2.4.7-1) unstable; urgency=low
 
