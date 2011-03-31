@@ -2,3 +2,4 @@ etc/pam.d/lmtp
 etc/pam.d/sieve
 usr/share/snmp
 usr/lib/cyrus/get-backtrace.gdb
+etc/logcheck

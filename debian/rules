@@ -146,7 +146,7 @@ override_dh_auto_install:
 	# also, do the renaming needed for alternatives
 	# and fix the weird side-effect of setting the proper cyrus
 	# location in configure.
-	mkdir -p $(TMPPKG)/usr/sbin
+	install -d -m 755 $(TMPPKG)/usr/sbin
 	install -m 755 debian/cyrus $(TMPPKG)/usr/sbin
 	# This is handled by /usr/sbin/cyrus tool from now
 	#
@@ -169,16 +169,16 @@ override_dh_auto_install:
 		 cyr_dbtool cyr_df cyrus-makedirs cyrreconstruct cyrquota; do \
 		ln -fs cyrus $(TMPPKG)/usr/sbin/$$i ;\
 	done
-	mkdir -p $(TMPPKG)/usr/include
+	install -d -m 755 $(TMPPKG)/usr/include
 	mv $(TMPPKG)/usr/share/include/cyrus $(TMPPKG)/usr/include
 	#mv $(TMPPKG)/bin/* $(TMPPKG)/usr/bin
 	# Move the perl crap to a saner place
-	mkdir -p $(TMPPKG)/usr/lib
-	mkdir -p $(TMPPKG)/usr/share/perl5
+	install -d -m 755 $(TMPPKG)/usr/lib
+	install -d -m 755 $(TMPPKG)/usr/share/perl5
 	#mv $(TMPPKG)/lib/perl5/Cyrus $(TMPPKG)/usr/share/perl5/Cyrus
 	#mv $(TMPPKG)/lib/* $(TMPPKG)/usr/lib
 	# for stuff in /etc
-	mkdir -p $(TMPPKG)/etc/cyrus $(TMPPKG)/etc/pam.d
+	install -d -m 755 $(TMPPKG)/etc/cyrus $(TMPPKG)/etc/pam.d
 	install -m 644 debian/imapd.conf    $(TMPPKG)/etc
 	install -m 644 debian/cyrus.conf    $(TMPPKG)/etc
 	(cd debian ; for i in *.pam ;\
@@ -199,31 +199,33 @@ override_dh_auto_install:
                 ln -s cyrus-$$i.8 $(TMPPKG)/usr/share/man/man8/$$i.8 ; \
 	done
 	# And add our own manpages
-	mkdir -p $(TMPPKG)/usr/share/man/man8
+	install -d -m 755 $(TMPPKG)/usr/share/man/man8
 	install -m 644 debian/cyrdump.8 $(TMPPKG)/usr/share/man/man8/cyrus-dump.8
 	install -m 644 debian/cyrus-makedirs.8 $(TMPPKG)/usr/share/man/man8/cyrus-makedirs.8
 	install -m 644 debian/arbitronsort.8 $(TMPPKG)/usr/share/man/man8/cyrus-arbitronsort.8
 	# SNMP files
-	mkdir -p $(TMPPKG)/usr/share/snmp/mibs
+	install -d -m 755 $(TMPPKG)/usr/share/snmp/mibs
 	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
 	# Install cyradm icons
-	mkdir -p $(TMPPKG)/usr/share/icons/mini
+	install -d -m 755 $(TMPPKG)/usr/share/icons/mini
 	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
 	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
 	# Install debian-provided scripts
 	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 	# and logcheck files
+	install -d -m 755 $(TMPPKG)/etc/logcheck/ignore.d.server/ $(TMPPKG)/etc/logcheck/violations.ignore.d/
 	install -m 644 debian/logcheck.ignore \
-	  $(CURDIR)/debian/cyrus-common/etc/logcheck/ignore.d.server/cyrus-imapd
+	  $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
 	install -m 644 debian/logcheck.violations.ignore \
-	  $(CURDIR)/debian/cyrus-common/etc/logcheck/violations.ignore.d/cyrus-imapd
+	  $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
 	# Install the stuff needed for upgrades
+	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
 	for i in convert-sieve.pl dohash rehash undohash translatesieve \
 		 upgradesieve masssievec; do \
-		install -m 755 tools/$$i $(PKGDIR)/usr/lib/cyrus/upgrade ;\
+		install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
 	done
-	install -m 644 debian/cyrus-db-types.upgrading_from_1.5.txt $(PKGDIR)/usr/lib/cyrus/upgrade
+	install -m 644 debian/cyrus-db-types.upgrading_from_1.5.txt $(TMPPKG)/usr/lib/cyrus/upgrade
 	# And other upgrade helpers
 	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
 		   $(PKGDIR)/usr/lib/cyrus
@@ -239,18 +241,18 @@ override_dh_auto_install:
 	# Lintian overrides
 	cd debian ; \
 	for i in *.lintian ; do \
-		mkdir -p "$${i%%.lintian}/usr/share/lintian/overrides" ;\
-		install  -m 644 "$$i" "$${i%%.lintian}/usr/share/lintian/overrides/$${i%%.lintian}" ;\
+		install -d -m 755 "$${i%%.lintian}/usr/share/lintian/overrides" ;\
+		install -m 644 "$$i" "$${i%%.lintian}/usr/share/lintian/overrides/$${i%%.lintian}" ;\
 	done
 	# Install the html docs and examples
-	mkdir -p $(DOCDIR)/html
+	install -d -m 755 $(DOCDIR)/html
 	install -m 644 doc/*.html doc/murder.png $(DOCDIR)/html
 	cp -a doc/man $(DOCDIR)/html
 	cp -a debian/examples $(DOCDIR)
 	install -m 644 doc/cyrusv2.mc $(DOCDIR)/examples
 	#
 	# Install contrib/ files
-	mkdir -p $(DOCDIR)/contrib
+	install -d -m 755 $(DOCDIR)/contrib
 	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
