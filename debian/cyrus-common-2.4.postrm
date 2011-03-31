@@ -38,8 +38,8 @@ case "$1" in
 				dpkg-statoverride --remove $i || true
 			done
 			rm -rf /var/run/cyrus || true
-			rm  /usr/lib/cyrus/cyrus-db-types.active || true
-			rm usr/lib/cyrus/cyrus-hardwired-config.active || true
+			rm /usr/lib/cyrus/cyrus-db-types.active || true
+			rm /usr/lib/cyrus/cyrus-hardwired-config.active || true
 
 			# Should we remove our precious data?
 			if [ "$DEBCONFEXISTS" = "true" ]; then
