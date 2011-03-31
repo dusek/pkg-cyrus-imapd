@@ -1,3 +1,38 @@
+cyrus-imapd-2.4 (2.4.7-2) unstable; urgency=low
+
+  This is the first upload (well the second, but the first one was accidental)
+  of cyrus-imapd-2.4 to unstable, please be aware that we don't have yet
+  a stable upgrade path from cyrus-imapd-2.2, so you are on your own when
+  upgrading.  You need to read all README.Debian.* in
+  /usr/share/doc/cyrus-common-2.4/ especially the README.Debian.database
+  to upgrade the database formats which has changed between 2.2 and 2.4
+  release.  Also we will welcome any patches and/or migration scripts you
+  might want to write to ease the migration.
+  
+  First thing you need to do is create a backup of all cyrus files, at
+  least the /var/lib/cyrus which contains database files and /var/spool/cyrus
+  which contains all your mail.
+  
+  Next obstacle is removing all the cyrus-*-2.2.  Unfortunatelly the purge
+  of the cyrus-common-2.2 package will remove also some files needed for
+  cyrus-common-2.4.  So before we solve this problem, you have to run
+  following command after purging the cyrus-common-2.2 package:
+  
+  /var/lib/dpkg/info/cyrus-common-2.4.postinst configure
+  
+  This will restore removed files and overrides for cyrus-*-2.4.  All other
+  packages could be removed without any real problem.
+
+  Also you might have guessed that you don't want to remove spools and
+  other cyrus files because they are shared between cyrus 2.2 and 2.4.
+  
+  The next big change is that the cyrus-imapd-2.4 introduces the master
+  command located in /usr/sbin/cyrus which can be used to run all the other
+  cyrus binaries.  There are still compatibility links in /usr/sbin/, but
+  we will deprecated them for wheezy+1 in favor of the master cyrus command.
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 31 Mar 2011 12:00:06 +0200
+
 cyrus22-imapd (2.2.12-1) unstable; urgency=low
 
   cyrus now supports realms by default and is therefor suitable for virtual
