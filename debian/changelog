@@ -1,3 +1,14 @@
+cyrus-imapd-2.4 (2.4.7-4) unstable; urgency=low
+
+  * Rework postinst files to use dpkg-trigger to run cyrus-makedirs
+    and (re)start cyrmaster
+  * Update depends on cyrus-common (2.4.7-4~) with triggers
+  * Add some missing files to the packages (Closes: #620325)
+  * Fix error in .NAME section to allow lexgrog parsing
+  * Update description for metapackages to be shorter than 80 characters
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 01 Apr 2011 13:14:42 +0200
+
 cyrus-imapd-2.4 (2.4.7-3) unstable; urgency=low
 
   * Install cyrus-common and cyrus-common-2.4 files to debian/tmp first,
