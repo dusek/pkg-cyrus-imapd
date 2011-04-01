@@ -1,0 +1,105 @@
+#!/bin/sh
+# postinst script for cyrus-common
+# Copyright (c) 2002 by Henrique de Moraes Holschuh
+# Copyright (c) 2011 by Ondřej Surý
+# Distributed under the GNU General Public License version 2
+#
+# see: dh_installdeb(1)
+
+# debconf hook
+. /usr/share/debconf/confmodule
+
+set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see /usr/doc/packaging-manual/
+#
+# quoting from the policy:
+#     Any necessary prompting should almost always be confined to the
+#     post-installation script, and should be protected with a conditional
+#     so that unnecessary prompting doesn't happen if a package's
+#     installation fails and the `postinst' is called with `abort-upgrade',
+#     `abort-remove' or `abort-deconfigure'.
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+verifydb() {
+   while read -r DBKEY DBVALUE ; do
+	match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
+	[ "x${match}" != "x${DBVALUE}" ] && return 0
+   done
+   return 1
+}
+
+verifydbkey() {
+   while read -r DBKEY DBVALUE ; do
+	if [ "${DBKEY}" = "$2" ] ; then
+	    match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
+	    [ "x${match}" != "x${DBVALUE}" ] && return 0
+	fi
+   done
+   return 1
+}
+
+case "$1" in
+    configure)
+	# Only run cyrus-makedirs on first install (and when structure changes in future)
+        if [ ! "$2" ]; then
+            dpkg-trigger cyrus-makedirs
+        fi
+
+	# Deal with database type information
+	if [ -f /usr/lib/cyrus/cyrus-db-types.active ] ; then
+		# is it safe to start cyrmaster? compare "key value" pairs
+		# from the (old) active database types file with the new one
+		if verifydb /usr/lib/cyrus/cyrus-db-types.txt \
+		    < /usr/lib/cyrus/cyrus-db-types.active ; then
+		    db_input high cyrus-common/warnbackendchange || true
+		    db_go || true
+		else
+		    cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+		    db_fset cyrus-common/warnbackendchange seen false || true
+		fi
+	else
+		[ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
+		  cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+		db_fset cyrus-common/warnbackendchange seen false || true
+	fi
+
+	# Deal with hardwired config changes
+	if [ -f /usr/lib/cyrus/cyrus-hardwired-config.active ] ; then
+		# do we need to do something about a spool hash type change
+		# if verifydbkey /usr/lib/cyrus/cyrus-hardwired-config.txt USE_DIR_FULL \
+		#    < /usr/lib/cyrus/cyrus-hardwired-config.active ; then
+		# ... (do hash conversion)...
+		# fi
+		cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+		      /usr/lib/cyrus/cyrus-hardwired-config.active
+	else
+		[ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] && \
+		  cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+		        /usr/lib/cyrus/cyrus-hardwired-config.active
+	fi
+
+    ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 0
+    ;;
+esac
+
+db_stop
+
+#DEBHELPER#
+
+exit 0
