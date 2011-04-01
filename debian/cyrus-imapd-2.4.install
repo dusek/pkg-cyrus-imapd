@@ -1,4 +1,5 @@
 etc/pam.d/imap
 usr/lib/cyrus/bin/imapd
 usr/lib/cyrus/bin/idled
+usr/lib/cyrus/bin/squatter
 usr/sbin/squatter

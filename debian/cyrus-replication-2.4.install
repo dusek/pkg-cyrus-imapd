@@ -1,4 +1,7 @@
 usr/sbin/sync_client
 usr/sbin/sync_reset
+usr/lib/cyrus/bin/sync_client
+usr/lib/cyrus/bin/sync_reset
 usr/lib/cyrus/bin/sync_server
 usr/sbin/cyr_synclog
+usr/lib/cyrus/bin/cyr_synclog

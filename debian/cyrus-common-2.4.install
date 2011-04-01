@@ -3,6 +3,8 @@ usr/sbin/cyrus
 usr/lib/cyrus/bin/cyr_dbtool
 usr/lib/cyrus/bin/cyr_df
 usr/lib/cyrus/bin/cyr_expire
+usr/lib/cyrus/bin/cyr_userseen
+usr/lib/cyrus/bin/cyr_sequence
 usr/lib/cyrus/bin/cyrdump
 usr/lib/cyrus/bin/quota
 usr/lib/cyrus/bin/reconstruct
@@ -18,6 +20,7 @@ usr/lib/cyrus/bin/unexpunge
 usr/lib/cyrus/bin/lmtpd
 usr/lib/cyrus/bin/timsieved
 usr/lib/cyrus/bin/sievec
+usr/lib/cyrus/bin/sieved
 usr/lib/cyrus/bin/mbexamine
 usr/lib/cyrus/bin/smmapd
 usr/lib/cyrus/bin/notifyd
