@@ -287,7 +287,7 @@ Description: Interface to Cyrus imap client imclient library
 Package: cyrus-clients
 Architecture: all
 Depends: cyrus-clients-2.4, ${misc:Depends}
-Description: Cyrus mail system - test clients (metapackage depending on the latest version)
+Description: Cyrus mail system - test clients (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-clients (currently cyrus-clients-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -299,7 +299,7 @@ Description: Cyrus mail system - test clients (metapackage depending on the late
 Package: cyrus-imapd
 Architecture: all
 Depends: cyrus-imapd-2.4, ${misc:Depends}
-Description: Cyrus mail system - IMAP support (metapackage depending on the latest version)
+Description: Cyrus mail system - IMAP support (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-imapd (currently cyrus-imapd-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -311,7 +311,7 @@ Description: Cyrus mail system - IMAP support (metapackage depending on the late
 Package: cyrus-pop3d
 Architecture: all
 Depends: cyrus-pop3d-2.4, ${misc:Depends}
-Description: Cyrus mail system - POP3 support (metapackage depending on the latest version)
+Description: Cyrus mail system - POP3 support (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-pop3d (currently cyrus-pop3d-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -323,7 +323,7 @@ Description: Cyrus mail system - POP3 support (metapackage depending on the late
 Package: cyrus-admin
 Architecture: all
 Depends: cyrus-admin-2.4, ${misc:Depends}
-Description: Cyrus mail system - administration tools (metapackage depending on the latest version)
+Description: Cyrus mail system - administration tools (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-admin (currently cyrus-admin-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -335,7 +335,7 @@ Description: Cyrus mail system - administration tools (metapackage depending on 
 Package: cyrus-murder
 Architecture: all
 Depends: cyrus-murder-2.4, ${misc:Depends}
-Description: Cyrus mail system - proxies and aggregator (metapackage depending on the latest version)
+Description: Cyrus mail system - proxies and aggregator (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-murder (currently cyrus-murder-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -347,7 +347,7 @@ Description: Cyrus mail system - proxies and aggregator (metapackage depending o
 Package: cyrus-replication
 Architecture: all
 Depends: cyrus-replication-2.4, ${misc:Depends}
-Description: Cyrus mail system - replication (metapackage depending on the latest version)
+Description: Cyrus mail system - replication (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-replication (currently cyrus-replication-2.4), as determined
  by the Cyrus IMAPD maintainers.  Install this package if in doubt
@@ -359,7 +359,7 @@ Description: Cyrus mail system - replication (metapackage depending on the lates
 Package: cyrus-nntpd
 Architecture: all
 Depends: cyrus-nntpd-2.4, ${misc:Depends}
-Description: Cyrus mail system - NNTP support (metapackage depending on the latest version)
+Description: Cyrus mail system - NNTP support (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-nntpd (currently cyrus-nntpd-2.4), as determined by the
  Cyrus IMAPD maintainers.  Install this package if in doubt about
@@ -372,7 +372,7 @@ Package: cyrus-doc
 Architecture: all
 Depends: cyrus-doc-2.4, ${misc:Depends}
 Section: doc
-Description: Cyrus mail system - documentation files (metapackage depending on the latest version)
+Description: Cyrus mail system - documentation files (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-doc (currently cyrus-doc-2.4), as determined by the Cyrus
  IMAPD maintainers.  Install this package if in doubt about which
@@ -384,7 +384,7 @@ Description: Cyrus mail system - documentation files (metapackage depending on t
 Package: cyrus-dev
 Architecture: all
 Depends: cyrus-dev-2.4, ${misc:Depends}
-Description: Cyrus mail system - developer files (metapackage depending on the latest version)
+Description: Cyrus mail system - developer files (metapackage)
  This is an empty package that depends on the current "best" version
  of cyrus-dev (currently cyrus-dev-2.4), as determined by the Cyrus
  IMAPD maintainers.  Install this package if in doubt about which
@@ -397,7 +397,7 @@ Package: libcyrus-imap-perl
 Architecture: all
 Section: perl
 Depends: libcyrus-imap-perl24, ${misc:Depends}
-Description: Interface to Cyrus imap client imclient library (metapackage depending on the latest version)
+Description: Interface to Cyrus imap client imclient library (metapackage)
  This is an empty package that depends on the current "best" version
  of libcyrus-imap-perl (currently libcyrus-imap-perl24), as determined
  by the Cyrus IMAPD maintainers.  Install this package if in doubt
