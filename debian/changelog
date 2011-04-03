@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.7-5~1.gbp7e43a2) UNRELEASED; urgency=low
+
+  ** SNAPSHOT build @7e43a23ea3e0f9cb5dbe19f8c65427385b1285b8 **
+
+  * Bug #620628: Fix FR translation (Christian Perrier)
+
+ -- Anthony Prades <toony.debian@chezouam.net>  Sun, 03 Apr 2011 13:02:13 +0200
+
 cyrus-imapd-2.4 (2.4.7-4) unstable; urgency=low
 
   * Rework postinst files to use dpkg-trigger to run cyrus-makedirs
