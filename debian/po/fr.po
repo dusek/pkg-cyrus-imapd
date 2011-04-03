@@ -91,7 +91,7 @@ msgid ""
 "more information.  Do not start cyrmaster until you have converted the "
 "databases to the new format."
 msgstr ""
-"Veuillez-vous reporter à /usr/share/doc/cyrus-common/README.Debian.database "
+"Veuillez-vous reporter à /usr/share/doc/cyrus-common-2.4/README.Debian.database "
 "pour des informations supplémentaires. Ne lancez pas cyrmaster avant d'avoir "
 "converti les bases de données au nouveau format."
 
