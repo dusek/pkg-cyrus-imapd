@@ -1,0 +1,128 @@
+#!/bin/sh
+
+set -e
+
+export PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+CONFIG_DIR=$(LC_ALL gawk "/^configdirectory:[[:blank:]]/ { print \\$2 }" < /etc/imapd.conf)
+
+BACKUP_DIR=/var/backup/cyrus-imapd/$(date +%Y%m%d-%H%M%S)
+
+mkdir -p $BACKUP_DIR
+
+backupdb() {
+    case "$2" in
+	skiplist|flat)
+	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
+	    ;;
+	berkeley*)
+	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
+	    mkdir -p $BACKUP_DIR/db
+	    su cyrus -c "db$3_recover -h $CONFIG_DIR/db"
+	    su cyrus -c "db$3_checkpoint -h $CONFIG_DIR/db -1"
+	    su cyrus -c "db$3_archive -h $CONFIG_DIR/db -l" | \
+		while read log_file; do
+		cp -a $CONFIG_DIR/db/$log_file $BACKUP_DIR/db
+	    done
+	    ;;
+	quotalegacy)
+	    echo "ERROR: Cannot backup $2 format"
+	    ;;
+	*)
+	    echo "ERROR: Unknown database format";
+	    return 1
+	    ;;
+    esac
+}
+
+upgradebdb() {
+    db$2_upgrade -h $CONFIG_DIR/db $CONFIG_DIR/$1
+}
+
+upgradedb() {
+    TMPFILE=$(mktemp /tmp/$1.XXXXXXXX)
+    /usr/lib/cyrus/bin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
+    rm -f $CONFIG_DIR/$1
+    mv $TMPFILE $CONFIG_DIR/$1
+    chown cyrus:mail $CONFIG_DIR/$1
+}
+
+removedb() {
+    rm -f $CONFIG_DIR/$1
+}
+
+upgradealldb() {
+
+    DBVERSION=$(LC_ALL=C gawk "/^DBENGINE[[:blank:]]/ { print \\$2 }" | sed -e "s/BerkeleyDB//" < $2)
+    NEW_DBVERSION=$(LC_ALL=C gawk "/^DBENGINE[[:blank:]]/ { print \\$2 }" | sed -e "s/BerkeleyDB//" < $1)
+
+    <$2 while read -r DBKEY DBVALUE ; do
+	NEW_DBVALUE=$(LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1)
+
+	if [ -z "${NEW_DBVALUE}" ]; then
+	    echo "ERROR: Cannot upgrade $DBKEY from $DBVALUE to empty"
+	    return 1
+	fi
+	
+	if [ "${NEW_DBVALUE}" != "${DBVALUE}" ] ; then
+	    
+	    case "$DBKEY" in
+		DBENGINE)
+		    continue
+		    ;;
+		ANNOTATION)
+		    DBFILE=annotations.db
+		    ;;
+		DUPLICATE)
+		    DBFILE=deliver.db
+		    ;;
+		MBOX)
+		    DBFILE=mailboxes.db
+		    ;;
+		PTS)
+		    removedb ptscache.db
+		    continue
+		    ;;
+		QUOTA|SEEN|SUBS)
+		    echo "ERROR: Cannot upgrade $DBKEY database from $DBVALUE to $match yet"
+		    return 1
+		    ;;
+		TLS)
+		    removedb tls_sessions.db
+		    continue
+		    ;;
+		STATUSCACHE)
+		    removedb statuscache.db
+		    continue
+		    ;;
+		USERDENY)
+		    DBFILE=user_deny.db
+		    ;;
+		*)
+		    echo "ERROR: Unknown type of DB: $DBKEY"
+		    return 1
+		    ;;
+	    esac
+	    
+            backupdb $DBFILE $DBVALUE $DBVERSION;
+	    case "$DBVALUE" in
+		berkeley*)
+		    upgradebdb $DBFILE $NEW_DBVERSION
+		    ;;
+		skiplist|flat)
+		    :
+		    ;;
+		*)
+		    echo "ERROR: Unknown database format: $DBVALUE"
+		    return 1
+	    esac		
+	    
+            upgradedb $DBFILE $DBVALUE $NEW_DBVALUE
+	fi
+	
+	return 0
+}
+
+upgradedbs /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+
+cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
