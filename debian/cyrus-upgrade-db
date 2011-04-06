@@ -4,7 +4,7 @@ set -e
 
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
-CONFIG_DIR=$(LC_ALL gawk "/^configdirectory:[[:blank:]]/ { print \\$2 }" < /etc/imapd.conf)
+CONFIG_DIR=$(LC_ALL=C gawk '/^configdirectory:[[:blank:]]/ { print $2 }' < /etc/imapd.conf)
 
 BACKUP_DIR=/var/backup/cyrus-imapd/$(date +%Y%m%d-%H%M%S)
 
@@ -53,11 +53,11 @@ removedb() {
 
 upgradealldb() {
 
-    DBVERSION=$(LC_ALL=C gawk "/^DBENGINE[[:blank:]]/ { print \\$2 }" | sed -e "s/BerkeleyDB//" < $2)
-    NEW_DBVERSION=$(LC_ALL=C gawk "/^DBENGINE[[:blank:]]/ { print \\$2 }" | sed -e "s/BerkeleyDB//" < $1)
+    DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $2 | sed -e "s/BerkeleyDB//")
+    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $1 | sed -e "s/BerkeleyDB//")a
 
-    <$2 while read -r DBKEY DBVALUE ; do
-	NEW_DBVALUE=$(LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1)
+    while read -r DBKEY DBVALUE ; do
+	NEW_DBVALUE=$(LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \$2 }" $1)
 
 	if [ -z "${NEW_DBVALUE}" ]; then
 	    echo "ERROR: Cannot upgrade $DBKEY from $DBVALUE to empty"
@@ -123,6 +123,6 @@ upgradealldb() {
 	return 0
 }
 
-upgradedbs /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+upgradealldb /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
 
 cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
