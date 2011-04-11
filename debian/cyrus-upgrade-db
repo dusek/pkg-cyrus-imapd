@@ -52,22 +52,24 @@ removedb() {
 }
 
 upgradealldb() {
+    OLD_LIST=$2
+    NEW_LIST=$1
 
-    DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $2 | sed -e "s/BerkeleyDB//")
-    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $1 | sed -e "s/BerkeleyDB//")
+    OLD_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $OLD_LIST | sed -e "s/BerkeleyDB//")
+    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $NEW_LIST | sed -e "s/BerkeleyDB//")
 
-    cat $2 | \
-    while read -r DBKEY DBVALUE ; do
-	NEW_DBVALUE=$(LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \$2 }" $1)
+    cat $OLD_LIST | \
+    while read -r OLD_DBKEY OLD_DBVALUE ; do
+	NEW_DBVALUE=$(LC_ALL=C gawk "/^${OLD_DBKEY}[[:blank:]]/ { print \$2 }" $NEW_LIST)
 
 	if [ -z "${NEW_DBVALUE}" ]; then
-	    echo "ERROR: Cannot upgrade $DBKEY from $DBVALUE to empty"
+	    echo "ERROR: Cannot upgrade $OLD_DBKEY from $OLD_DBVALUE to empty"
 	    return 1
 	fi
 	
-	if [ "${NEW_DBVALUE}" != "${DBVALUE}" ] ; then
+	if [ "${NEW_DBVALUE}" != "${OLD_DBVALUE}" ] ; then
 	    
-	    case "$DBKEY" in
+	    case "$OLD_DBKEY" in
 		DBENGINE)
 		    continue
 		    ;;
@@ -85,7 +87,7 @@ upgradealldb() {
 		    continue
 		    ;;
 		QUOTA|SEEN|SUBS)
-		    echo "ERROR: Cannot upgrade $DBKEY database from $DBVALUE to $match yet"
+		    echo "ERROR: Cannot upgrade $OLD_DBKEY database from $OLD_DBVALUE to $match yet"
 		    return 1
 		    ;;
 		TLS)
@@ -100,13 +102,13 @@ upgradealldb() {
 		    DBFILE=user_deny.db
 		    ;;
 		*)
-		    echo "ERROR: Unknown type of DB: $DBKEY"
+		    echo "ERROR: Unknown type of DB: $OLD_DBKEY"
 		    return 1
 		    ;;
 	    esac
 	    
-            backupdb $DBFILE $DBVALUE $DBVERSION;
-	    case "$DBVALUE" in
+            backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
+	    case "$OLD_DBVALUE" in
 		berkeley*)
 		    upgradebdb $DBFILE $NEW_DBVERSION
 		    ;;
@@ -114,11 +116,11 @@ upgradealldb() {
 		    :
 		    ;;
 		*)
-		    echo "ERROR: Unknown database format: $DBVALUE"
+		    echo "ERROR: Unknown database format: $OLD_DBVALUE"
 		    return 1
 	    esac		
 	    
-            upgradedb $DBFILE $DBVALUE $NEW_DBVALUE
+            upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
 	fi
     done
 	
