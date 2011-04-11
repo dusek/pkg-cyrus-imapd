@@ -106,21 +106,22 @@ upgradealldb() {
 		    return 1
 		    ;;
 	    esac
+
+	    if [ -f $CONFIG_DIR/$DBFILE ]; then
+	        backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
+		case "$OLD_DBVALUE" in
+		    berkeley*)
+			upgradebdb $DBFILE $NEW_DBVERSION
+			;;
+		    skiplist|flat)
+			;;
+		    *)
+			echo "ERROR: Unknown database format: $OLD_DBVALUE"
+			return 1
+		esac	
 	    
-            backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
-	    case "$OLD_DBVALUE" in
-		berkeley*)
-		    upgradebdb $DBFILE $NEW_DBVERSION
-		    ;;
-		skiplist|flat)
-		    :
-		    ;;
-		*)
-		    echo "ERROR: Unknown database format: $OLD_DBVALUE"
-		    return 1
-	    esac		
-	    
-            upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
+		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
+	    fi
 	fi
     done
 	
