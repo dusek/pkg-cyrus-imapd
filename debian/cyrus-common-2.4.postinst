@@ -6,9 +6,6 @@
 #
 # see: dh_installdeb(1)
 
-# debconf hook
-. /usr/share/debconf/confmodule
-
 set -e
 
 # summary of how this script can be called:
@@ -33,7 +30,7 @@ export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 case "$1" in
     configure)
 	# Only run cyrus-makedirs on first install (and when structure changes in future)
-        if [ ! "$2" ]; then
+        if [ -z "$2" ]; then
             dpkg-trigger cyrus-makedirs
         fi
 
@@ -49,8 +46,6 @@ case "$1" in
         exit 0
     ;;
 esac
-
-db_stop
 
 #DEBHELPER#
 
