@@ -30,24 +30,6 @@ set -e
 
 export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
-verifydb() {
-   while read -r DBKEY DBVALUE ; do
-	match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
-	[ "x${match}" != "x${DBVALUE}" ] && return 0
-   done
-   return 1
-}
-
-verifydbkey() {
-   while read -r DBKEY DBVALUE ; do
-	if [ "${DBKEY}" = "$2" ] ; then
-	    match=`LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \\$2 }" < $1`
-	    [ "x${match}" != "x${DBVALUE}" ] && return 0
-	fi
-   done
-   return 1
-}
-
 case "$1" in
     configure)
 	# Only run cyrus-makedirs on first install (and when structure changes in future)
@@ -55,22 +37,14 @@ case "$1" in
             dpkg-trigger cyrus-makedirs
         fi
 
-	# Deal with database type information
 	if [ -f /usr/lib/cyrus/cyrus-db-types.active ] ; then
-		# is it safe to start cyrmaster? compare "key value" pairs
-		# from the (old) active database types file with the new one
-		if verifydb /usr/lib/cyrus/cyrus-db-types.txt \
-		    < /usr/lib/cyrus/cyrus-db-types.active ; then
-		    db_input high cyrus-common/warnbackendchange || true
-		    db_go || true
-		else
-		    cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
-		    db_fset cyrus-common/warnbackendchange seen false || true
-		fi
+	    # Do automated upgrade of the database backends
+	    # This will be hopefully moved to cyrus-imapd itself
+	    dpkg-trigger cyrus-upgrade-db
 	else
-		[ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
-		  cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
-		db_fset cyrus-common/warnbackendchange seen false || true
+	    [ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
+		cp -p /usr/lib/cyrus/cyrus-db-types.txt \
+		      /usr/lib/cyrus/cyrus-db-types.active
 	fi
 
 	# Deal with hardwired config changes

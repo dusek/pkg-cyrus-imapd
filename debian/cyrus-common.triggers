@@ -1,2 +1,3 @@
 interest cyrus-makedirs
 interest /usr/lib/cyrus/bin
+interest cyrus-upgrade-db

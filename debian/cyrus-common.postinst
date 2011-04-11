@@ -91,13 +91,16 @@ case "$1" in
         	getconf configdirectory ${CYRUS_CONFIG_DIR}
         	CYRUS_CONFIG_DIR=$result
 
-        	userdeny_database=${CYRUS_CONFIG_DIR}"/user_deny.db"
+        	userdeny_database="${CYRUS_CONFIG_DIR}/user_deny.db"
         	if [ ! -e ${userdeny_database} ]; then
         		touch ${userdeny_database}
         		chmod 600 ${userdeny_database}
         		chown cyrus:mail ${userdeny_database}
         	fi
             ;;
+	    cyrus-upgrade-db)
+		/usr/lib/cyrus/bin/cyrus-upgrade-db
+		;;
         esac
     ;;
 
