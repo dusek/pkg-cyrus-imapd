@@ -76,7 +76,7 @@ case "$1" in
 
     triggered)
         case "$2" in
-            cyrus-restart)
+            /usr/lib/cyrus/bin*|cyrus-restart)
         	# Start it (it is ok if start fails)
         	[ -x /etc/init.d/cyrus-imapd ] && {
 		    echo -n "cyrus-common: Restaring cyrus-imapd..."
@@ -105,7 +105,7 @@ case "$1" in
         	fi
             ;;
 
-	    cyrus-upgrade-db)
+	    /usr/lib/cyrus/cyrus-db-types.txt|cyrus-upgrade-db)
 		if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
 		    echo -n "cyrus-common: Upgrading database backends..."
 		    /usr/lib/cyrus/bin/upgrade-db

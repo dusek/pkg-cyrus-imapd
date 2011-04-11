@@ -1,3 +1,5 @@
 interest cyrus-makedirs
 interest cyrus-upgrade-db
 interest cyrus-restart
+interest /usr/lib/cyrus/cyrus-db-types.txt
+interest /usr/lib/cyrus/bin
