@@ -72,58 +72,49 @@ case "$1" in
 
 	# Install init.d script
         update-rc.d cyrus-imapd defaults >/dev/null
-    ;;
 
-    triggered)
-        case "$2" in
-            /usr/lib/cyrus/bin*|cyrus-restart)
-        	# Start it (it is ok if start fails)
-        	[ -x /etc/init.d/cyrus-imapd ] && {
-		    echo -n "cyrus-common: Restaring cyrus-imapd..."
-		    invoke-rc.d cyrus-imapd stop || true
-        	    invoke-rc.d cyrus-imapd start || true
-		    echo "done."
-        	}
-            ;;
+	if [ -z "$2" ]; then
+	    echo -n "cyrus-common: Creating cyrus-imapd directories..."
+            cyrus-makedirs --cleansquat
+	    echo -n "done."
+	fi
 
-	    cyrus-makedirs)
-		echo -n "cyrus-common: Creating cyrus-imapd directories..."
-        	cyrus-makedirs --cleansquat
-		echo -n "done."
+        # Add USERDENY database if doesn't exist
+        getconf configdirectory ${CYRUS_CONFIG_DIR}
+        CYRUS_CONFIG_DIR=$result
 
-        	# Add USERDENY database if doesn't exist
-        	getconf configdirectory ${CYRUS_CONFIG_DIR}
-        	CYRUS_CONFIG_DIR=$result
+        userdeny_database="${CYRUS_CONFIG_DIR}/user_deny.db"
+        if [ ! -e ${userdeny_database} ]; then
+	    echo -n "cyrus-common: Creating empty user_deny database..."
+            touch ${userdeny_database}
+            chmod 600 ${userdeny_database}
+            chown cyrus:mail ${userdeny_database}
+	    echo "done."
+        fi
 
-        	userdeny_database="${CYRUS_CONFIG_DIR}/user_deny.db"
-        	if [ ! -e ${userdeny_database} ]; then
-		    echo -n "cyrus-common: Creating empty user_deny database..."
-        	    touch ${userdeny_database}
-        	    chmod 600 ${userdeny_database}
-        	    chown cyrus:mail ${userdeny_database}
-		    echo "done."
-        	fi
-            ;;
+	if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
+	    echo -n "cyrus-common: Upgrading database backends..."
+	    /usr/lib/cyrus/bin/upgrade-db
+	    echo "done."
+	fi
 
-	    /usr/lib/cyrus/cyrus-db-types.txt|cyrus-upgrade-db)
-		if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
-		    echo -n "cyrus-common: Upgrading database backends..."
-		    /usr/lib/cyrus/bin/upgrade-db
-		    echo "done."
-		fi
+	# Now set active db types to the current package
+	cp -p /usr/lib/cyrus/cyrus-db-types.txt \
+	    /usr/lib/cyrus/cyrus-db-types.active
+	    
+	# Legacy code / needed in case something will change in future
+	# Hopefully this will be handled by upstream next time
+	cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+	    /usr/lib/cyrus/cyrus-hardwired-config.active
 
-		# Now set active db types to the current package
-		cp -p /usr/lib/cyrus/cyrus-db-types.txt \
-		      /usr/lib/cyrus/cyrus-db-types.active
+        # Start it (it is ok if start fails)
+        [ -x /etc/init.d/cyrus-imapd ] && {
+	    echo -n "cyrus-common: (Re)staring cyrus-imapd..."
+	    invoke-rc.d cyrus-imapd stop || true
+            invoke-rc.d cyrus-imapd start || true
+	    echo "done."
+        }
 
-		# Legacy code / needed in case something will change in future
-		# Hopefully this will be handled by upstream next time
-		cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
-		      /usr/lib/cyrus/cyrus-hardwired-config.active
-
-		dpkg-trigger cyrus-restart
-		;;
-        esac
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
