@@ -37,31 +37,9 @@ case "$1" in
             dpkg-trigger cyrus-makedirs
         fi
 
-	if [ -f /usr/lib/cyrus/cyrus-db-types.active ] ; then
-	    # Do automated upgrade of the database backends
-	    # This will be hopefully moved to cyrus-imapd itself
-	    dpkg-trigger cyrus-upgrade-db
-	else
-	    [ -f /usr/lib/cyrus/cyrus-db-types.txt ] && \
-		cp -p /usr/lib/cyrus/cyrus-db-types.txt \
-		      /usr/lib/cyrus/cyrus-db-types.active
-	fi
-
-	# Deal with hardwired config changes
-	if [ -f /usr/lib/cyrus/cyrus-hardwired-config.active ] ; then
-		# do we need to do something about a spool hash type change
-		# if verifydbkey /usr/lib/cyrus/cyrus-hardwired-config.txt USE_DIR_FULL \
-		#    < /usr/lib/cyrus/cyrus-hardwired-config.active ; then
-		# ... (do hash conversion)...
-		# fi
-		cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
-		      /usr/lib/cyrus/cyrus-hardwired-config.active
-	else
-		[ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] && \
-		  cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
-		        /usr/lib/cyrus/cyrus-hardwired-config.active
-	fi
-
+	# Do automated upgrade of the database backends
+	# This will be hopefully moved to cyrus-imapd itself
+	dpkg-trigger cyrus-upgrade-db
     ;;
     abort-upgrade|abort-remove|abort-deconfigure)
     ;;

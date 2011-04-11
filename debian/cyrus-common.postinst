@@ -70,16 +70,16 @@ case "$1" in
 	# Add user cyrus to group SASL, if such group exists
 	adduser cyrus sasl || true
 
+	# Install init.d script
+        update-rc.d cyrus-imapd defaults >/dev/null
     ;;
 
     triggered)
         case "$2" in
-	    # Restart cyrus everytime a new script is installed to /usr/lib/cyrus/bin
-            /usr/lib/cyrus/bin)
-        	# Register initscript, and start it (it is ok if start fails)
+            cyrus-restart)
+        	# Start it (it is ok if start fails)
         	[ -x /etc/init.d/cyrus-imapd ] && {
 		    echo -n "cyrus-common: Restaring cyrus-imapd..."
-        	    update-rc.d cyrus-imapd defaults >/dev/null
 		    invoke-rc.d cyrus-imapd stop || true
         	    invoke-rc.d cyrus-imapd start || true
 		    echo "done."
@@ -104,10 +104,24 @@ case "$1" in
 		    echo "done."
         	fi
             ;;
+
 	    cyrus-upgrade-db)
-		echo -n "cyrus-common: Upgrading database backends..."
-		/usr/lib/cyrus/bin/upgrade-db
-		echo "done."
+		if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
+		    echo -n "cyrus-common: Upgrading database backends..."
+		    /usr/lib/cyrus/bin/upgrade-db
+		    echo "done."
+		fi
+
+		# Now set active db types to the current package
+		cp -p /usr/lib/cyrus/cyrus-db-types.txt \
+		      /usr/lib/cyrus/cyrus-db-types.active
+
+		# Legacy code / needed in case something will change in future
+		# Hopefully this will be handled by upstream next time
+		cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+		      /usr/lib/cyrus/cyrus-hardwired-config.active
+
+		dpkg-trigger cyrus-restart
 		;;
         esac
     ;;

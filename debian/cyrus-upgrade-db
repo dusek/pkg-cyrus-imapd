@@ -128,5 +128,3 @@ upgradealldb() {
 }
 
 upgradealldb /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
-
-cp -p /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
