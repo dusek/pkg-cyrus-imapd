@@ -41,7 +41,7 @@ upgradebdb() {
 
 upgradedb() {
     TMPFILE=$(mktemp /tmp/$1.XXXXXXXX)
-    /usr/lib/cyrus/bin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
+    /usr/sbin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
     rm -f $CONFIG_DIR/$1
     mv $TMPFILE $CONFIG_DIR/$1
     chown cyrus:mail $CONFIG_DIR/$1
@@ -54,8 +54,9 @@ removedb() {
 upgradealldb() {
 
     DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $2 | sed -e "s/BerkeleyDB//")
-    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $1 | sed -e "s/BerkeleyDB//")a
+    NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $1 | sed -e "s/BerkeleyDB//")
 
+    cat $2 | \
     while read -r DBKEY DBVALUE ; do
 	NEW_DBVALUE=$(LC_ALL=C gawk "/^${DBKEY}[[:blank:]]/ { print \$2 }" $1)
 
@@ -119,8 +120,9 @@ upgradealldb() {
 	    
             upgradedb $DBFILE $DBVALUE $NEW_DBVALUE
 	fi
+    done
 	
-	return 0
+    return 0
 }
 
 upgradealldb /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active

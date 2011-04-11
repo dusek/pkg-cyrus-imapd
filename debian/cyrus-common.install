@@ -3,3 +3,4 @@ etc/pam.d/sieve
 usr/share/snmp
 usr/lib/cyrus/get-backtrace.gdb
 etc/logcheck
+debian/cyrus-upgrade-db /usr/lib/cyrus/bin/
