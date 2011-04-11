@@ -106,7 +106,7 @@ case "$1" in
             ;;
 	    cyrus-upgrade-db)
 		echo -n "cyrus-common: Upgrading database backends..."
-		/usr/lib/cyrus/bin/cyrus-upgrade-db
+		/usr/lib/cyrus/bin/upgrade-db
 		echo "done."
 		;;
         esac
