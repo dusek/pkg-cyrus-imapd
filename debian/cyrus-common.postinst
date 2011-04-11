@@ -78,14 +78,18 @@ case "$1" in
             /usr/lib/cyrus/bin)
         	# Register initscript, and start it (it is ok if start fails)
         	[ -x /etc/init.d/cyrus-imapd ] && {
-        		update-rc.d cyrus-imapd defaults >/dev/null
-			invoke-rc.d cyrus-imapd stop || true
-        		invoke-rc.d cyrus-imapd start || true
+		    echo -n "cyrus-common: Restaring cyrus-imapd..."
+        	    update-rc.d cyrus-imapd defaults >/dev/null
+		    invoke-rc.d cyrus-imapd stop || true
+        	    invoke-rc.d cyrus-imapd start || true
+		    echo "done."
         	}
             ;;
 
 	    cyrus-makedirs)
+		echo -n "cyrus-common: Creating cyrus-imapd directories..."
         	cyrus-makedirs --cleansquat
+		echo -n "done."
 
         	# Add USERDENY database if doesn't exist
         	getconf configdirectory ${CYRUS_CONFIG_DIR}
@@ -93,13 +97,17 @@ case "$1" in
 
         	userdeny_database="${CYRUS_CONFIG_DIR}/user_deny.db"
         	if [ ! -e ${userdeny_database} ]; then
-        		touch ${userdeny_database}
-        		chmod 600 ${userdeny_database}
-        		chown cyrus:mail ${userdeny_database}
+		    echo -n "cyrus-common: Creating empty user_deny database..."
+        	    touch ${userdeny_database}
+        	    chmod 600 ${userdeny_database}
+        	    chown cyrus:mail ${userdeny_database}
+		    echo "done."
         	fi
             ;;
 	    cyrus-upgrade-db)
+		echo -n "cyrus-common: Upgrading database backends..."
 		/usr/lib/cyrus/bin/cyrus-upgrade-db
+		echo "done."
 		;;
         esac
     ;;
