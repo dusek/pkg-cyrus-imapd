@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2011-03-31 15:36+0200\n"
+"POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-16 20:31+0200\n"
 "Last-Translator: Philippe Batailler <philippe.batailler@free.fr>\n"
 "Language-Team: French <debian-l10n-french@lists.debian.org>\n"
@@ -47,53 +47,3 @@ msgstr ""
 "var et contenant le « spool » et les filtres sieve. Si vous aviez modifié "
 "leurs emplacements grâce au fichier imapd.conf, ils ne seront pas "
 "supprimés ; seuls les anciens, dans /var, le seront."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid "Modified database backends"
-msgstr "Modifications de l'interface avec les bases de données"
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid ""
-"Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
-"cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
-"changed."
-msgstr ""
-"Une comparaison entre /usr/lib/cyrus/cyrus-db-types.txt et /usr/lib/cyrus/"
-"cyrus-db-types.active montre que l'interface entre Cyrus IMAPd et les bases "
-"de données a changé."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid ""
-"This means that those databases for which the database backends changed "
-"might need to be converted manually to the new format, using the cvt_cyrusdb"
-"(8) utility."
-msgstr ""
-"Cela signifie que les bases de données pour lesquelles l'interface a changé "
-"peuvent nécessiter une conversion manuelle au nouveau format avec "
-"l'utilitaire cvt_cyrusdb(8)."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-#, fuzzy
-#| msgid ""
-#| "Please refer to /usr/share/doc/cyrus-common/README.Debian.database for "
-#| "more information.  Do not start cyrmaster until you have converted the "
-#| "databases to the new format."
-msgid ""
-"Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
-"more information.  Do not start cyrmaster until you have converted the "
-"databases to the new format."
-msgstr ""
-"Veuillez-vous reporter à /usr/share/doc/cyrus-common-2.4/README.Debian.database "
-"pour des informations supplémentaires. Ne lancez pas cyrmaster avant d'avoir "
-"converti les bases de données au nouveau format."
-
-#~ msgid "Database backends have changed!"
-#~ msgstr "Modifications dans l'interfaçage avec les bases de données"

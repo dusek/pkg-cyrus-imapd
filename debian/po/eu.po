@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd-2.4-eu\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
-"POT-Creation-Date: 2011-03-31 15:36+0200\n"
+"POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-05-28 11:56+0200\n"
 "Last-Translator: pi <pi>\n"
 "Language-Team: Euskara <debian-l10n-basque@lists.debian.org>\n"
@@ -46,53 +46,3 @@ msgstr ""
 "bakarrik dagokie.  Zuk horien kokapena imapd-con fitxategian aldatu baduzu, "
 "kokaleku berriaz ez dira ezabatu, /var-en daudenak zaharrak bakarrik "
 "ezabatuko dira."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid "Modified database backends"
-msgstr "Eraldatutako datu-base interfazeak"
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid ""
-"Comparison between /usr/lib/cyrus/cyrus-db-types.txt and /usr/lib/cyrus/"
-"cyrus-db-types.active shows that database backends for Cyrus IMAPd have been "
-"changed."
-msgstr ""
-"/usr/lib/cyrus/cyrus-db-types.txt eta /usr/lib/cyrus/cyrus-db-types.active "
-"arteko parekatzeak Cyrus IMAPd-en datu-base interfazea aldatu dela erakusten "
-"du."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-msgid ""
-"This means that those databases for which the database backends changed "
-"might need to be converted manually to the new format, using the cvt_cyrusdb"
-"(8) utility."
-msgstr ""
-"Honek datu-base interfazea aldatu diren datu-baseetan formatu berrira "
-"cvt_cyrusdb(8) lanabesa erabiliaz eskuzko bihurketa bat egin behar dela esan "
-"nahi du."
-
-#. Type: error
-#. Description
-#: ../cyrus-common.templates:2001
-#, fuzzy
-#| msgid ""
-#| "Please refer to /usr/share/doc/cyrus-common/README.Debian.database for "
-#| "more information.  Do not start cyrmaster until you have converted the "
-#| "databases to the new format."
-msgid ""
-"Please refer to /usr/share/doc/cyrus-common-2.4/README.Debian.database for "
-"more information.  Do not start cyrmaster until you have converted the "
-"databases to the new format."
-msgstr ""
-"Mesedez begiratu /usr/share/doc/cyrus-common/README.Debian. datu-base "
-"argibide gehiagorako.  Ez cyrmaster abiarazi datu-basea formatu berrira "
-"bihurtu arte."
-
-#~ msgid "Database backends have changed!"
-#~ msgstr "Datubase interfazea aldatu egin da!"
