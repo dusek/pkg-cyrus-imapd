@@ -6,4 +6,3 @@ usr/share/snmp/mibs
 var/lib/cyrus
 var/spool/cyrus
 var/spool/sieve
-var/run/cyrus/socket
