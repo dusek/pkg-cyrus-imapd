@@ -55,7 +55,7 @@ By normalize, it is intended that;
  
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -1321,6 +1321,11 @@ product version in the capabilities */
+@@ -1326,6 +1326,11 @@ product version in the capabilities */
     interface, otherwise the user is assumed to be in the default
     domain (if set). */
  
