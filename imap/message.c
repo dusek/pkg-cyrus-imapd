@@ -564,35 +564,23 @@ message_create_record(record, body)
 struct index_record *record;
 struct body *body;
 {
-    if (config_getenum(IMAPOPT_INTERNALDATE_HEURISTIC) 
-	    == IMAP_ENUM_INTERNALDATE_HEURISTIC_RECEIVEDHEADER) {
-	time_t newdate = 0;
-	if (body->received_date)
-	    newdate = message_parse_date(body->received_date,
-		PARSE_DATE|PARSE_TIME|PARSE_ZONE|PARSE_NOCREATE|PARSE_GMT);
-	if (newdate)
-	    record->internaldate = newdate;
+    if (!record->internaldate) {
+	if (config_getenum(IMAPOPT_INTERNALDATE_HEURISTIC) 
+	    == IMAP_ENUM_INTERNALDATE_HEURISTIC_RECEIVEDHEADER &&
+	    body->received_date)
+	    record->internaldate = message_parse_date(
+			body->received_date,
+			PARSE_DATE|PARSE_TIME|PARSE_ZONE|
+			PARSE_NOCREATE|PARSE_GMT);
     }
 
-    if (!record->internaldate)
-	record->internaldate = time(NULL);
 
-    /* used for sent time searching, truncated to day with no TZ */
     record->sentdate = message_parse_date(body->date, PARSE_NOCREATE);
-    if (!record->sentdate) {
-	struct tm *tm = localtime(&record->internaldate);
-	/* truncate to the day */
-	tm->tm_sec = 0;
-	tm->tm_min = 0;
-	tm->tm_hour = 0;
-	record->sentdate = mktime(tm);
-    }
 
     /* used for sent time sorting, full gmtime of Date: header */
-    record->gmtime =
-	message_parse_date(body->date, PARSE_DATE|PARSE_TIME|PARSE_ZONE|PARSE_NOCREATE|PARSE_GMT);
-    if (!record->gmtime)
-	record->gmtime = record->internaldate;
+    record->gmtime = message_parse_date(body->date,
+		     PARSE_DATE|PARSE_TIME|PARSE_ZONE|
+		     PARSE_NOCREATE|PARSE_GMT);
 
     record->size = body->header_size + body->content_size;
     record->header_size = body->header_size;

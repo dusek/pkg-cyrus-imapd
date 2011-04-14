@@ -3335,8 +3335,6 @@ void cmd_append(char *tag, char *name, const char *cur_name)
 		goto done;
 	    }
 	    c = getword(imapd_in, &arg);
-	} else {
-	    curstage->internaldate = now;
 	}
 
 	/* Stage the message */
@@ -4720,7 +4718,7 @@ void cmd_thread(char *tag, int usinguid)
     }
 
     /* get charset */
-    c = getword(imapd_in, &arg);
+    c = getastring(imapd_in, imapd_out, &arg);
     if (c != ' ') {
 	prot_printf(imapd_out, "%s BAD Missing charset in Thread\r\n",
 		    tag);
@@ -6700,9 +6698,16 @@ void cmd_setquota(const char *tag, const char *quotaroot)
 	    imapd_check(s, 0);
 
 	    if (!r) {
-		prot_printf(s->out, "%s Setquota {" SIZE_T_FMT "+}\r\n%s"
-			    " (Storage %d)\r\n",
-			    tag, strlen(quotaroot), quotaroot, newquota);
+		if (newquota == -1) {
+		    prot_printf(s->out, "%s Setquota {" SIZE_T_FMT "+}\r\n%s"
+				" ()\r\n",
+				tag, strlen(quotaroot), quotaroot);
+		}
+		else {
+		    prot_printf(s->out, "%s Setquota {" SIZE_T_FMT "+}\r\n%s"
+				" (Storage %d)\r\n",
+				tag, strlen(quotaroot), quotaroot, newquota);
+		}
 		pipe_including_tag(s, tag, 0);
 	    }
 	}
@@ -9928,8 +9933,7 @@ static void list_response(char *name, int attributes,
 	    if (!config_mupdate_server) return;
 	}
 	else {
-	    if (attributes & (MBOX_ATTRIBUTE_NOSELECT | 
-			      MBOX_ATTRIBUTE_HASNOCHILDREN))
+	    if (!(attributes & MBOX_ATTRIBUTE_HASCHILDREN))
 		return;
 	}
     }

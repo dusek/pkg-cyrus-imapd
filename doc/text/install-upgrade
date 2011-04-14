@@ -1,5 +1,10 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.4.7
+
+      * New config option: proc_path allows setting the path to the proc
+        directory onto tmpfs more easily 
+
 Upgrading from 2.4.6
 
       * New config option: failedloginpause allows you to change the pause

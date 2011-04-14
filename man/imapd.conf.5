@@ -756,6 +756,10 @@ Userid used to deliver messages to shared folders.  For example, if
 set to "bb", email sent to "bb+shared.blah" would be delivered to
 the "shared.blah" folder.  By default, an email address of
 "+shared.blah" would be used. 
+.IP "\fBproc_path:\fR <none>" 5
+Path to proc directory.  Default is NULL - must be an absolute path
+if specified.  If not specified, the path $confdir/proc/ will be 
+used. 
 .IP "\fBproxy_authname:\fR proxy" 5
 The authentication name to use when authenticating to a backend server
 in the Cyrus Murder. 
