@@ -2056,6 +2056,12 @@ int mailbox_rewrite_index_record(struct mailbox *mailbox,
 	    mailbox->i.options |= OPT_MAILBOX_NEEDS_REPACK;
 	mailbox->i.options |= OPT_MAILBOX_NEEDS_UNLINK;
     }
+    else {
+	/* write the cache record before buffering the message, it
+	 * will set the cache_offset field. */
+	r = mailbox_append_cache(mailbox, record);
+	if (r) return r;
+    }
 
     /* make sure highestmodseq gets updated unless we're
      * being silent about it (i.e. marking an already EXPUNGED
@@ -2142,6 +2148,19 @@ int mailbox_append_index_record(struct mailbox *mailbox,
 		   mailbox->name, prev.uid, record->uid);
 	    /* but it's OK, we won't reject it */
 	}
+    }
+
+    if (!record->internaldate)
+	record->internaldate = time(NULL);
+    if (!record->gmtime)
+	record->gmtime = record->internaldate;
+    if (!record->sentdate) {
+	struct tm *tm = localtime(&record->internaldate);
+	/* truncate to the day */
+	tm->tm_sec = 0;
+	tm->tm_min = 0;
+	tm->tm_hour = 0;
+	record->sentdate = mktime(tm);
     }
 
     if (!(record->system_flags & FLAG_UNLINKED)) {
@@ -2995,7 +3014,7 @@ int mailbox_copy_files(struct mailbox *mailbox, const char *newpart,
     mkdir(path, 0755);
 
     /* Copy over meta files */
-    for (mf = meta_files; !r && mf->metaflag; mf++) {
+    for (mf = meta_files; mf->metaflag; mf++) {
 	struct stat sbuf;
 
 	strncpy(oldbuf, mailbox_meta_fname(mailbox, mf->metaflag),
@@ -3082,6 +3101,10 @@ int mailbox_rename_copy(struct mailbox *oldmailbox,
 
     /* Re-open header file */
     r = mailbox_read_index_header(newmailbox);
+    if (r) goto fail;
+
+    /* read in the flags */
+    r = mailbox_read_header(newmailbox, NULL);
     if (r) goto fail;
 
     /* update uidvalidity */
@@ -3260,7 +3283,6 @@ static void free_files(struct found_files *ff)
 
 static int parse_datafilename(const char *name, uint32_t *uidp)
 {
-    int r;
     const char *p = name;
 
     /* must be at least one digit */
@@ -3273,11 +3295,7 @@ static int parse_datafilename(const char *name, uint32_t *uidp)
     if (*p != '.') return IMAP_MAILBOX_BADNAME;
     if (p[1]) return IMAP_MAILBOX_BADNAME;
 
-    r = parseuint32(name, &p, uidp);
-    if (r) return r;
-    /* '0.' isn't actually a valid message name */
-    if (*uidp == 0) return IMAP_MAILBOX_BADNAME;
-    return 0;
+    return parseuint32(name, &p, uidp);
 }
 
 static int find_files(struct mailbox *mailbox, struct found_files *files,
@@ -3656,8 +3674,15 @@ static int mailbox_reconstruct_compare_update(struct mailbox *mailbox,
 
     /* re-calculate all the "derived" fields by parsing the file on disk */
     if (re_parse) {
+	/* set NULL in case parse finds a new value */
+	record->internaldate = 0;
+
 	r = message_parse(fname, record);
 	if (r) return r;
+
+	/* unchanged, keep the old value */
+	if (!record->internaldate)
+	    record->internaldate = copy.internaldate;
 
 	/* it's not the same message! */
 	if (!message_guid_equal(&record->guid, &copy.guid)) {
@@ -3711,26 +3736,12 @@ static int mailbox_reconstruct_compare_update(struct mailbox *mailbox,
 	}
     }
 
-    /* get internaldate from the file if not available from the file */
+    /* get internaldate from the file if not set */
     if (!record->internaldate) {
 	if (did_stat || stat(fname, &sbuf) != -1)
 	    record->internaldate = sbuf.st_mtime;
 	else
 	    record->internaldate = time(NULL);
-    }
-
-    if (did_stat && sbuf.st_mtime != record->internaldate) {
-	printf("%s timestamp mismatch %u\n",
-	       mailbox->name, record->uid);
-	syslog(LOG_ERR, "%s timestamp mismatch %u",
-	       mailbox->name, record->uid);
-	if (make_changes) {
-	    /* make the file timestamp correct */
-	    struct utimbuf settime;
-	    settime.actime = settime.modtime = record->internaldate;
-	    if (utime(fname, &settime) == -1)
-		return IMAP_IOERROR;
-	}
     }
 
     /* XXX - conditions under which modseq or uid or internaldate could be bogus? */
@@ -3786,6 +3797,13 @@ static int mailbox_reconstruct_append(struct mailbox *mailbox, uint32_t uid,
     struct stat sbuf;
     int make_changes = flags & RECONSTRUCT_MAKE_CHANGES;
 
+    /* possible if '0.' file exists */
+    if (!uid) {
+	/* filthy hack - copy the path to '1.' and replace 1 with 0 */
+	fname = xstrdup(mailbox_message_fname(mailbox, 1));
+	fname[strlen(fname)-2] = '0';
+    }
+
     if (stat(fname, &sbuf) == -1) r = IMAP_MAILBOX_NONEXISTENT;
     else if (sbuf.st_size == 0) r = IMAP_MAILBOX_NONEXISTENT;
 
@@ -3799,7 +3817,6 @@ static int mailbox_reconstruct_append(struct mailbox *mailbox, uint32_t uid,
     }
 
     memset(&record, 0, sizeof(struct index_record));
-    record.internaldate = sbuf.st_mtime;
 
     r = message_parse(fname, &record);
     if (r) return r;
@@ -3820,7 +3837,7 @@ static int mailbox_reconstruct_append(struct mailbox *mailbox, uint32_t uid,
 
 	if (!make_changes) return 0;
 
-	oldfname = xstrdup(mailbox_message_fname(mailbox, uid));
+	oldfname = xstrdup(fname);
 	newfname = xstrdup(mailbox_message_fname(mailbox, record.uid));
 	r = rename(oldfname, newfname);
 	free(oldfname);

@@ -47,6 +47,9 @@
 
 #include <config.h>
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -112,7 +115,7 @@ extern char *optarg;
 extern int opterr;
 
 /* for config.c */
-const int config_need_data = 0;
+const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 static sasl_ssf_t extprops_ssf = 0;
 

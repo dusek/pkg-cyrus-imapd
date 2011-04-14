@@ -1053,7 +1053,7 @@ static void cmdloop(void)
 		be = backend_current;
 		if (arg1.len &&
 		    (!is_newsgroup(arg1.s) ||
-		     (r = open_group(arg1.s, 0, &be, NULL)))) goto nogroup;
+		     (r = open_group(arg1.s, 1, &be, NULL)))) goto nogroup;
 		else if (be) {
 		    prot_printf(be->out, "%s", cmd.s);
 		    if (arg1.len) {
@@ -2505,7 +2505,7 @@ int do_active(char *name, void *rock)
 	}
     }
     else {
-	prot_printf(nntp_out, "%s %u %u %c\r\n", name+strlen(newsprefix),
+	prot_printf(nntp_out, "%s %u %u %c\r\n", name,
 		    group_state->exists ? index_getuid(group_state, group_state->exists) :
 		    group_state->mailbox->i.last_uid,
 		    group_state->exists ? index_getuid(group_state, 1) :
@@ -2954,7 +2954,7 @@ static int parse_groups(const char *groups, message_data_t *msg)
 	if (!rcpt) return -1;
 
 	/* construct the mailbox name */
-	sprintf(rcpt, "%s%.*s", newsprefix, (int) n, p);
+	sprintf(rcpt, "%.*s", (int) n, p);
 
 	/* skip mailboxes that we don't serve as newsgroups */
 	if (!is_newsgroup(rcpt)) continue;
@@ -3276,7 +3276,6 @@ static int deliver(message_data_t *msg)
 {
     int n, r = 0, myrights;
     char *rcpt = NULL, *local_rcpt = NULL, *server, *acl;
-    time_t now = time(NULL);
     unsigned long uid;
     struct body *body = NULL;
     struct dest *dlist = NULL;
@@ -3313,11 +3312,11 @@ static int deliver(message_data_t *msg)
 	    if (!r) {
 		prot_rewind(msg->data);
 		if (stage) {
-		    r = append_fromstage(&as, &body, stage, now,
+		    r = append_fromstage(&as, &body, stage, 0,
 					 (const char **) NULL, 0, !singleinstance);
 		} else {
 		    /* XXX should never get here */
-		    r = append_fromstream(&as, &body, msg->data, msg->size, now,
+		    r = append_fromstream(&as, &body, msg->data, msg->size, 0,
 					  (const char **) NULL, 0);
 		}
 		if (r || (msg->id &&   
@@ -3338,7 +3337,7 @@ static int deliver(message_data_t *msg)
 
 	    if (!r && msg->id)
 		duplicate_mark(msg->id, strlen(msg->id), rcpt, strlen(rcpt),
-			       now, uid);
+			       time(NULL), uid);
 
 	    if (r) return r;
 
@@ -3498,7 +3497,6 @@ static int cancel(message_data_t *msg)
 {
     int r = 0;
     char *msgid, *p;
-    time_t now = time(NULL);
 
     /* isolate msgid */
     msgid = strchr(msg->control, '<');
@@ -3511,7 +3509,7 @@ static int cancel(message_data_t *msg)
     /* store msgid of cancelled message for IHAVE/CHECK/TAKETHIS
      * (in case we haven't received the message yet)
      */
-    duplicate_mark(msgid, strlen(msgid), "", 0, 0, now);
+    duplicate_mark(msgid, strlen(msgid), "", 0, 0, time(NULL));
 
     return r;
 }
