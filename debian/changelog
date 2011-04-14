@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.8-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.8
+  * Debian packaging:
+    + Refreshed quilt patches for new upstream 2.4.8
+    + Build-depend just on plain "libdb-dev"
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 14 Apr 2011 10:24:20 +0200
+
 cyrus-imapd-2.4 (2.4.7-6) unstable; urgency=low
 
   * Bug #620628: Fix FR translation (Christian Perrier)
