@@ -2,7 +2,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4\n"
+"Project-Id-Version: cyrus-imapd-2.4 2.4.8-1\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-14 20:28+0200\n"

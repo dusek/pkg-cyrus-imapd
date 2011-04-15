@@ -7,7 +7,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
+"Project-Id-Version: cyrus-imapd-2.4 2.4.8-1\n"
 "Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-16 20:31+0200\n"
@@ -23,7 +23,7 @@ msgstr ""
 #: ../cyrus-common.templates:1001
 msgid "Remove the mail and news spools?"
 msgstr ""
-"Faut-il supprimer les répertoires contenant les courriers et les nouvelles ?"
+"Faut-il supprimer les répertoires contenant les courriers et les nouvelles ?"
 
 #. Type: boolean
 #. Description
@@ -44,6 +44,6 @@ msgid ""
 "locations will not be removed; just the old ones in /var."
 msgstr ""
 "Cette question concerne uniquement les répertoires par défaut situés dans /"
-"var et contenant le « spool » et les filtres sieve. Si vous aviez modifié "
+"var et contenant le « spool » et les filtres sieve. Si vous aviez modifié "
 "leurs emplacements grâce au fichier imapd.conf, ils ne seront pas "
-"supprimés ; seuls les anciens, dans /var, le seront."
+"supprimés ; seuls les anciens, dans /var, le seront."
