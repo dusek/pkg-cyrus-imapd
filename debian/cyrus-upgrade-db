@@ -17,13 +17,14 @@ backupdb() {
 	    ;;
 	berkeley*)
 	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
-	    mkdir -p $BACKUP_DIR/db
-	    su cyrus -c "db$3_recover -h $CONFIG_DIR/db"
-	    su cyrus -c "db$3_checkpoint -h $CONFIG_DIR/db -1"
-	    su cyrus -c "db$3_archive -h $CONFIG_DIR/db -l" | \
-		while read log_file; do
-		cp -a $CONFIG_DIR/db/$log_file $BACKUP_DIR/db
-	    done
+	    if [ ! -d $BACKUP_DIR/db ]; then
+		mkdir -p $BACKUP_DIR/db
+		su cyrus -c "db$3_recover -h $CONFIG_DIR/db"
+		su cyrus -c "db$3_archive -h $CONFIG_DIR/db -l" | \
+		    while read log_file; do
+		    cp -a $CONFIG_DIR/db/$log_file $BACKUP_DIR/db
+		done
+	    fi
 	    ;;
 	quotalegacy)
 	    echo "ERROR: Cannot backup $2 format"
@@ -36,7 +37,12 @@ backupdb() {
 }
 
 upgradebdb() {
-    db$2_upgrade -h $CONFIG_DIR/db $CONFIG_DIR/$1
+    su cyrus -c "db$2_upgrade -h $CONFIG_DIR/db $CONFIG_DIR/$1"
+}
+
+checkpointbdb() {
+    su cyrus -c "db$1_checkpoint -h $CONFIG_DIR/db -1"
+    su cyrus -c "db$1_archive -h $CONFIG_DIR/db -d"
 }
 
 upgradedb() {
@@ -119,8 +125,10 @@ upgradealldb() {
 			echo "ERROR: Unknown database format: $OLD_DBVALUE"
 			return 1
 		esac	
-	    
 		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
+	    fi
+	    if [ -d $BACKUP_DIR/db ]; then
+		checkpointbdb $NEW_DBVERSION
 	    fi
 	fi
     done
