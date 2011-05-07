@@ -29,3 +29,5 @@
 cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
 cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
 85-perl-imap-croak-FTBFS-fix.patch
+99-berkeley_db_do_upgrade.patch
+101-berkeley-db_remove-unused-environment.patch

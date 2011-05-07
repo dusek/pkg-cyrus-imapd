@@ -1,0 +1,31 @@
+--- a/lib/cyrusdb_berkeley.c
++++ b/lib/cyrusdb_berkeley.c
+@@ -261,6 +261,7 @@ static int init(const char *dbdir, int m
+ static int done(void)
+ {
+     int r;
++    char *dbdir;
+ 
+     if (--dbinit) return 0;
+ 
+@@ -271,6 +272,20 @@ static int done(void)
+ 	       db_strerror(r));
+ 	return CYRUSDB_IOERROR;
+     }
++
++    r = (dbenv->get_home)(dbenv, &dbdir);
++    if (r) {
++	syslog(LOG_ERR, "DBERROR: error exiting application: %s",
++	       db_strerror(r));
++	return CYRUSDB_IOERROR;
++    }
++
++    r = (dbenv->remove)(dbenv, dbdir ,0);
++    if (r) {
++	syslog(LOG_ERR, "DBERROR: error removing Berkeley DB environemnt %s",
++	       db_strerror(r));
++	return CYRUSDB_IOERROR;
++    }
+ 
+     return 0;
+ }
