@@ -6,15 +6,13 @@
      CYRUSDB_CREATE   = 0x01,	/* Create the database if not existant */
 -    CYRUSDB_MBOXSORT = 0x02	/* Use mailbox sort order ('.' sorts 1st) */
 +    CYRUSDB_MBOXSORT = 0x02,	/* Use mailbox sort order ('.' sorts 1st) */
-+    CYRUSDB_UPGRADE  = 0x04     /* Do in place upgrade of Berkeley DB */
++    CYRUSDB_UPGRADE  = 0x04	/* Do in place upgrade of Berkeley DB */
  };
  
  typedef int foreach_p(void *rock,
-diff --git a/lib/cyrusdb_berkeley.c b/lib/cyrusdb_berkeley.c
-index ee4816a..dacdba0 100644
 --- a/lib/cyrusdb_berkeley.c
 +++ b/lib/cyrusdb_berkeley.c
-@@ -228,6 +228,11 @@ static int init(const char *dbdir, int myflags)
+@@ -228,6 +228,11 @@ static int init(const char *dbdir, int m
      r = (dbenv->open)(dbenv, dbdir, NULL, flags, 0644); 
  #endif
      if (r) {
@@ -26,7 +24,7 @@ index ee4816a..dacdba0 100644
          if (do_retry && (r == ENOENT)) {
  	  /* Per sleepycat Support Request #3838 reporting a performance problem: 
  
-@@ -404,11 +409,34 @@ static int myopen(const char *fname, DBTYPE type, int flags, struct db **ret)
+@@ -404,6 +409,29 @@ static int myopen(const char *fname, DBT
  
      *ret = NULL;
  
@@ -56,8 +54,3 @@ index ee4816a..dacdba0 100644
      r = db_create(&db, dbenv, 0);
      if (r != 0) {
  	syslog(LOG_ERR, "DBERROR: opening %s (creating database handle): %s", fname, db_strerror(r));
- 	return CYRUSDB_IOERROR;
-     }
-     /* xxx set comparator! */
-     if (flags & CYRUSDB_MBOXSORT) db->set_bt_compare(db, mbox_compar);
- 
