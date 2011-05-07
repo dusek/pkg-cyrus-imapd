@@ -70,9 +70,6 @@ case "$1" in
 	# Add user cyrus to group SASL, if such group exists
 	adduser cyrus sasl || true
 
-	# Install init.d script
-        update-rc.d cyrus-imapd defaults >/dev/null
-
 	if [ -z "$2" ]; then
 	    echo -n "cyrus-common: Creating cyrus-imapd directories..."
             cyrus-makedirs --cleansquat
@@ -106,15 +103,6 @@ case "$1" in
 	# Hopefully this will be handled by upstream next time
 	cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
 	    /usr/lib/cyrus/cyrus-hardwired-config.active
-
-        # Start it (it is ok if start fails)
-        [ -x /etc/init.d/cyrus-imapd ] && {
-	    echo -n "cyrus-common: (Re)staring cyrus-imapd..."
-	    invoke-rc.d cyrus-imapd stop || true
-            invoke-rc.d cyrus-imapd start || true
-	    echo "done."
-        }
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

@@ -62,8 +62,6 @@ case "$1" in
 				# Remove database type information
 				rm -f /usr/lib/cyrus/cyrus-*.active
 			}
-
-			update-rc.d cyrus-imapd remove >/dev/null
 		;;
 
 		upgrade|failed-upgrade|disappear)
@@ -87,5 +85,3 @@ esac
 #DEBHELPER#
 
 exit 0
- 
-
