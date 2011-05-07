@@ -1,3 +1,19 @@
+cyrus-imapd-2.4 (2.4.8-2) unstable; urgency=low
+
+  * Remove versioned dependency on archaic version perl, remove extra
+    dependency on libextutils-parsexs-perl
+  * Remove /var/run/cyrus/socket from package, it gets installed by the
+    init.d script
+  * Update fr.po (Closes: #620628)
+  * Make cyrus-upgrade-db conformant with Berkeley DB guidelines for
+    upgrading
+  * Remove unused Berkeley DB environment
+  * Move init.d file handling to debhelper, cyrus-common installs the
+    file, cyrus-common-2.x invokes it (Closes: #622367)
+  * Untangle circular dependency (Closes: #622607)
+
+ -- Ondřej Surý <ondrej@debian.org>  Sat, 07 May 2011 21:30:10 +0200
+
 cyrus-imapd-2.4 (2.4.8-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.8
