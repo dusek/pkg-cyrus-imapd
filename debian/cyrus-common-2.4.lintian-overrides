@@ -1,0 +1,2 @@
+cyrus-common-2.4: init.d-script-not-marked-as-conffile etc/init.d/cyrus-imapd
+cyrus-common-2.4: init.d-script-not-included-in-package etc/init.d/cyrus-imapd

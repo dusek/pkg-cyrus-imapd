@@ -1,0 +1,2 @@
+cyrus-common: script-in-etc-init.d-not-registered-via-update-rc.d etc/init.d/cyrus-imapd
+cyrus-common: no-debconf-config
