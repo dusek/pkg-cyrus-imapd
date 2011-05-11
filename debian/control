@@ -8,7 +8,7 @@ Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
 	   Ondřej Surý <ondrej@debian.org>,
 	   Christoph Berg <myon@debian.org>,
 	   Anthony Prades <toony.debian@chezouam.net>
-Standards-Version: 3.9.1
+Standards-Version: 3.9.2
 Build-Depends: autoconf,
 	       automake,
 	       autotools-dev,
