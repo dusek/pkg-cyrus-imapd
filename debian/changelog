@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.8-3) unstable; urgency=low
+
+  * Use default values in case of missing /etc/imapd.conf
+  * Add lintian-overrides for the /etc/init.d/cyrus-imapd magick
+  * Bump standards version to 3.9.2
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 11 May 2011 18:10:25 +0200
+
 cyrus-imapd-2.4 (2.4.8-2) unstable; urgency=low
 
   * Remove versioned dependency on archaic version perl, remove extra
@@ -12,7 +20,7 @@ cyrus-imapd-2.4 (2.4.8-2) unstable; urgency=low
     file, cyrus-common-2.x invokes it (Closes: #622367)
   * Untangle circular dependency (Closes: #622607)
 
- -- Ondřej Surý <ondrej@debian.org>  Sat, 07 May 2011 21:30:10 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 11 May 2011 17:56:40 +0200
 
 cyrus-imapd-2.4 (2.4.8-1) unstable; urgency=low
 
