@@ -31,11 +31,15 @@ CYRUS_CONFIG_DIR="/var/lib/cyrus"
 [ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 
 getconf () {
-	confvalue=`sed --silent -e "/^[[:blank:]]*${1}:/ { \
+    if [ -r "${CONF}" ]; then
+	confvalue=$(sed --silent -e "/^[[:blank:]]*${1}:/ { \
 	s#^[[:blank:]]*${1}:[[:blank:]]*## \
 	p
-	}" < "${CONF}" | head -1`
+	}" < "${CONF}" | head -1)
 	result=${confvalue:-$2}
+    else
+	result=${2}
+    fi
 }
 
 case "$1" in

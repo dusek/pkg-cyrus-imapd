@@ -21,24 +21,21 @@ CONF=/etc/imapd.conf
 [ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 
 getconf () {
-	confvalue=`sed --silent -e "/^[[:blank:]]*$1:/ { \
+    if [ -r "$CONF" ]; then
+	confvalue=$(sed --silent -e "/^[[:blank:]]*$1:/ { \
 	s#^[[:blank:]]*$1:[[:blank:]]*## \
 	p
-	}" < "$CONF" | head -1`
+	}" < "$CONF" | head -1)
 	result=${confvalue:-$2}
+    else
+	result=${2}
+    fi
 }
 
 killsquat=0
 [ "$1" = "--cleansquat" ] && {
 	killsquat=1
 	shift
-}
-
-
-CONF="${1:-$CONF}"
-[ -r "$CONF" ] || {
-	echo $0: unable to read configuration file $CONF. Aborting...
-	exit 1
 }
 
 getconf configdirectory /var/lib/cyrus
@@ -68,10 +65,15 @@ case "$result" in
 esac
 
 # Partitions list
-partitions=`sed --silent -e "/^[[:blank:]]*partition-[[:alnum:]]\+:/ { \
-            s#^[[:blank:]]*partition-[[:alnum:]]\+:[[:blank:]]*## \
-	    p
-	    } " < "$CONF" | sort | uniq | xargs`
+if [ -r "${CONF}" ]; then
+    partitions=`sed --silent -e "/^[[:blank:]]*partition-[[:alnum:]]\+:/ { \
+                s#^[[:blank:]]*partition-[[:alnum:]]\+:[[:blank:]]*## \
+                p
+                } " < "$CONF" | sort | uniq | xargs`
+else
+    # Set default partitions list
+    partitions="/var/spool/cyrus/mail /var/spool/cyrus/news"
+fi
 
 # First, fix up the entire confdir subtree
 echo "Creating/updating cyrus control directories in ${confdir}..."
