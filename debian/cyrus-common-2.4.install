@@ -25,6 +25,9 @@ usr/lib/cyrus/bin/mbexamine
 usr/lib/cyrus/bin/smmapd
 usr/lib/cyrus/bin/notifyd
 usr/lib/cyrus/bin/fud
+usr/lib/cyrus/bin/ptloader
+usr/lib/cyrus/bin/ptdump
+usr/lib/cyrus/bin/ptexpire
 usr/lib/cyrus/upgrade/
 usr/sbin/cyr_dbtool
 usr/sbin/cyr_df
