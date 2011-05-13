@@ -37,7 +37,6 @@ usr/sbin/cyrdump
 usr/sbin/cyrmaster
 usr/sbin/cyrquota
 usr/sbin/cyrreconstruct
-usr/sbin/cyrus-makedirs
 usr/sbin/ctl_*
 usr/sbin/cvt_*
 usr/sbin/chk_*
