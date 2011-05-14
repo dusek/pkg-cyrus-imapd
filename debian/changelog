@@ -4,8 +4,12 @@ cyrus-imapd-2.4 (2.4.8-5) unstable; urgency=low
     confusion
   * Remove patch to remove unused Berkeley DB environment
     (Closes: #626418)
+  * Add ptclient binaries (Closes: #626553)
+  * Add dependency on libsasl2-modules to fix timsieved
+  * Move cyrus-makedirs to cyrus-common package where it belongs
+    (fixes piuparts and postinst error)
 
- -- Ondřej Surý <ondrej@debian.org>  Fri, 13 May 2011 09:13:56 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Sat, 14 May 2011 22:17:37 +0200
 
 cyrus-imapd-2.4 (2.4.8-4) unstable; urgency=low
 
