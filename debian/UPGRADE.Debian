@@ -5,15 +5,15 @@ and the web page below, part of the cyrus-utils project at SourceForge:
 
 Upgrading from 2.2.x to 2.4
 ===========================
-The Debian Cyrus 2.4 packages are currently experimental. A proper
-upgrade path has not yet been established. Any upgrade you do is at
-your own risk.
-WE ARE NOT RESPONSIBLE FOR ANY DATA LOSS CAUSED BY THESE PACKAGES!
 
-Notes:
-The 2.4 series packages are built against BDB version 4.8 as opposed
-to 4.2 in the 2.2 series. You might need to upgrade your databases
-accordingly.
+In 2.4.7-6, the new tool for automatic upgrades of cyrus-imapd
+databases was introduced.  The packages now automatically try
+to upgrade the database formats including the dreaded Berkeley
+DB upgrade.  Your databases are automatically backuped to
+/var/backup/cyrus-imapd prior to upgrade, so if something fails
+you will need to restore the databases and do manual upgrade
+or fix the reason for failing and rerun the upgrade tool
+(/usr/lib/cyrus/bin/upgrade-db).
 
 Upgrading from 2.2.12 or 2.2.13 versions prior to 2.2.13-5
 ==========================================================
