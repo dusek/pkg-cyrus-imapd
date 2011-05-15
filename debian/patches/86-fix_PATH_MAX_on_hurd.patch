@@ -24,3 +24,29 @@
  extern int optind, opterr;
  extern char *optarg;
  
+--- a/imap/pop3d.c
++++ b/imap/pop3d.c
+@@ -94,6 +94,10 @@
+ #include "sync_log.h"
+ #include "statuscache.h"
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN
++#endif
++
+ #ifdef HAVE_KRB
+ /* kerberos des is purported to conflict with OpenSSL DES */
+ #define DES_DEFS
+--- a/syslog/syslogd.c
++++ b/syslog/syslogd.c
+@@ -156,6 +156,10 @@ static char sccsid[] = "@(#)syslogd.c	5.
+ #include <ctype.h>
+ #include <string.h>
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN 255
++#endif
++
+ #define SYSLOG_NAMES
+ #include "syslog.h"
+ 
