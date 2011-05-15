@@ -7,16 +7,6 @@
 
 set -e
 
-# debconf hook
-if [ -e /usr/share/debconf/confmodule ]; then
-	. /usr/share/debconf/confmodule
-	DEBCONFEXISTS="true"
-	export DEBCONFEXISTS
-else
-	DEBCONFEXISTS="false"
-	export DEBCONFEXISTS
-fi
-
 # summary of how this script can be called:
 #        * <postrm> `remove'
 #        * <postrm> `purge'
@@ -35,33 +25,27 @@ case "$1" in
 			for i in /var/lib/cyrus /var/spool/sieve \
 				 /var/spool/cyrus \
 				 /var/run/cyrus /var/run/cyrus/socket ; do
-				dpkg-statoverride --remove $i || true
+				dpkg-statoverride --quiet --remove $i || true
 			done
 			rm -rf /var/run/cyrus || true
 			rm -f /usr/lib/cyrus/cyrus-db-types.active || true
 			rm -f /usr/lib/cyrus/cyrus-hardwired-config.active || true
 
 			# Should we remove our precious data?
-			if [ "$DEBCONFEXISTS" = "true" ]; then
-				db_title "Cyrus IMAPd" || true
-				db_fset cyrus-common/removespools seen false || true
-				db_input high cyrus-common/removespools || true
-				db_go || true
-				db_get cyrus-common/removespools
-			else
-				RET="false"
-			fi
+			if [ -e /usr/share/debconf/confmodule ]; then
+			    . /usr/share/debconf/confmodule
 
-			db_get cyrus-common/removespools
-			[ "${RET}" = "true" ] && {
-					for i in /var/spool/cyrus /var/lib/cyrus \
-					 /var/spool/sieve /etc/sieve ; do
-					find "$i" -type f -exec rm -f '{}' \; || true
-					find "$i" -type d -depth -not -name 'lost+found' -exec rmdir '{}' \; || true
+			    db_get cyrus-common/removespools
+			    if [ "${RET}" = "true" ]; then
+				for i in /var/spool/cyrus /var/lib/cyrus \
+				    /var/spool/sieve /etc/sieve ; do
+				    find "$i" -type f -exec rm -f '{}' \; || true
+				    find "$i" -type d -depth -not -name 'lost+found' -exec rmdir '{}' \; || true
 				done
-				# Remove database type information
-				rm -f /usr/lib/cyrus/cyrus-*.active
-			}
+			    fi
+			    # Remove my changes to the db.
+			    db_purge
+			fi
 		;;
 
 		upgrade|failed-upgrade|disappear)
