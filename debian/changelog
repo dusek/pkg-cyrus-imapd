@@ -1,3 +1,19 @@
+cyrus-imapd-2.4 (2.4.8-6) unstable; urgency=low
+
+  * cyrus-makedirs also need /usr/sbin/cyrus and
+    /usr/lib/cyrus/bin/makedirs to be moved to cyrus-common
+  * Install manpages with cyrus- prefix to correct packages
+  * Add a note about automatic upgrade (Closes: #626759)
+  * Define PATH_MAX as 4096 on platforms which doesn't have it defined
+    (fixes Hurd build)
+  * Move the upgrade login to cyrus-common-2.4.postinst as it depends on
+    cyrus-common-2.4 files
+  * Force removal of *.active files in postrm script
+  * Move dbX.Y-util back to Depends to be safe
+  * Move to more standard debconf setup to fix breakage in postrm script
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 15 May 2011 10:57:43 +0200
+
 cyrus-imapd-2.4 (2.4.8-5) unstable; urgency=low
 
   * Add some double lintian-overrides to clean the ./usr vs usr
