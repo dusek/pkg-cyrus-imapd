@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.8-7) unstable; urgency=low
+
+  * More Hurd fixes; Conditionally #define MAXHOSTNAMELEN
+  * Add Breaks/Replaces cyrus-common-2.4 (<< 2.4.8-6) to cyrus-
+    {imapd,replication}-2.4 to fix upgrade breakage on moved man pages
+    (Closes: #627143)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 18 May 2011 10:28:55 +0200
+
 cyrus-imapd-2.4 (2.4.8-6) unstable; urgency=low
 
   * cyrus-makedirs also need /usr/sbin/cyrus and
