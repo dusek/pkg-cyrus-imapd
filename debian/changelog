@@ -1,3 +1,19 @@
+cyrus-imapd-2.4 (2.4.8-8) unstable; urgency=low
+
+  * Link with -ldb only; this should stop builds when the binary is linked
+    with different version from db.h than from shared library
+  * Cherry pick from upstream git:
+    + Fix seen_db related crash (Closes: #627202)
+    + Fix SASL mechs list in IMAP capability response (Closes: #624831)
+  * Remove cyrus 1.5 upgrade check from init.d file
+  * Rewrite init.d script to make use start-stop-daemon and lsb init
+    functions as much as possible
+  * Implement more graceful stop for cyrmaster - sending QUIT/TERM/KILL
+    with timeouts and using sync_shutdown_file for sync_client if defined
+    in /etc/imapd.conf
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 20 May 2011 15:45:07 +0200
+
 cyrus-imapd-2.4 (2.4.8-7) unstable; urgency=low
 
   * More Hurd fixes; Conditionally #define MAXHOSTNAMELEN
