@@ -129,16 +129,6 @@ check_status () {
 
 case "$1" in
   start)
-  	# Verify if there are old Cyrus 1.5 spools that were not upgraded
-	[ -f /var/lib/cyrus/mailboxes -a -d /var/lib/cyrus/deliverdb -a \
-	  -d /var/spool/cyrus/mail/user -a ! -d /var/spool/cyrus/mail/stage. ] && {
-	  	echo "$0: It appears that you still have an version 1.5 spool" 1>&2
-		echo "$0: that needs to be upgraded. Please refer to the guide" 1>&2
-		echo "$0: at /usr/share/doc/cyrus-common/UPGRADE.Debian" 1>&2
-		echo
-		echo "$0: Cyrmaster not started."
-		exit 6
-	}
 	# Verify consistency of database backends
 	[ -f /usr/lib/cyrus/cyrus-db-types.active ] && {
 		# is it safe to start cyrmaster? compare "key value" pairs
