@@ -1,0 +1,40 @@
+From 5de9eee60d947243a4b4b2f4eccc63cff2771b30 Mon Sep 17 00:00:00 2001
+From: Bron Gondwana <brong@opera.com>
+Date: Thu, 31 Mar 2011 05:03:10 +0000
+Subject: seen: fix seen_db related crash
+
+---
+--- a/imap/sync_client.c
++++ b/imap/sync_client.c
+@@ -1423,7 +1423,7 @@ static int update_seen_work(const char *
+ static int do_seen(char *user, char *uniqueid)
+ {
+     int r = 0;
+-    struct seen *seendb;
++    struct seen *seendb = NULL;
+     struct seendata sd;
+ 
+     if (verbose) 
+@@ -1437,12 +1437,8 @@ static int do_seen(char *user, char *uni
+     if (r) return 0;
+ 
+     r = seen_read(seendb, uniqueid, &sd);
+-    if (r) {
+-	seen_close(&seendb);
+-	return 0;
+-    }
+ 
+-    r = update_seen_work(user, uniqueid, &sd);
++    if (!r) r = update_seen_work(user, uniqueid, &sd);
+ 
+     seen_close(&seendb);
+     seen_freedata(&sd);
+@@ -1876,7 +1872,7 @@ static int do_user_seen(char *user, stru
+ {
+     int r;
+     struct sync_seen *mseen, *rseen;
+-    struct seen *seendb;
++    struct seen *seendb = NULL;
+     struct sync_seen_list *list;
+ 
+     /* silently ignore errors */
