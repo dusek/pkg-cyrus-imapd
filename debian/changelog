@@ -10,7 +10,7 @@ cyrus-imapd-2.4 (2.4.8-8) unstable; urgency=low
     functions as much as possible
   * Implement more graceful stop for cyrmaster - sending QUIT/TERM/KILL
     with timeouts and using sync_shutdown_file for sync_client if defined
-    in /etc/imapd.conf
+    in /etc/imapd.conf (Closes: #627339)
 
  -- Ondřej Surý <ondrej@debian.org>  Fri, 20 May 2011 15:45:07 +0200
 
