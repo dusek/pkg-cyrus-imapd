@@ -34,8 +34,8 @@ Build-Depends: autoconf,
 	       quilt (>> 0.46-7~),
 	       transfig,
 	       xutils-dev
-Vcs-Git: git://git.debian.org/git/pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
-Vcs-Browser: http://git.debian.org/?p=git/pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
+Vcs-Git: git://git.debian.org/pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
+Vcs-Browser: http://git.debian.org/?p=pkg-cyrus-imapd/pkg-cyrus-imapd-2.4.git
 Homepage: http://www.cyrusimap.org/
 
 Package: cyrus-common-2.4
