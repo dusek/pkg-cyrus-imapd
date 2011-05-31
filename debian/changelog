@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.8-9) unstable; urgency=low
+
+  * Update Vcs-* links
+  * Replace sv_{yes,no,undef} with PL_sv_{yes,no,undef}
+    (Closes: #628630)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 31 May 2011 12:40:26 +0200
+
 cyrus-imapd-2.4 (2.4.8-8) unstable; urgency=low
 
   * Link with -ldb only; this should stop builds when the binary is linked
