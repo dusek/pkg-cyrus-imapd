@@ -17,7 +17,7 @@ backupdb() {
 	    ;;
 	berkeley*)
 	    cp -a $CONFIG_DIR/$1 $BACKUP_DIR
-	    if [ ! -d $BACKUP_DIR/db ]; then
+	    if [ ! -d $BACKUP_DIR/db -a -d $CONFIG_DIR/db ]; then
 		mkdir -p $BACKUP_DIR/db
 		su cyrus -c "db$3_recover -h $CONFIG_DIR/db"
 		su cyrus -c "db$3_archive -h $CONFIG_DIR/db -l" | \
@@ -61,9 +61,38 @@ upgradealldb() {
     OLD_LIST=$2
     NEW_LIST=$1
 
+    DO_UPGRADE_BDB=
+
     OLD_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $OLD_LIST | sed -e "s/BerkeleyDB//")
     NEW_DBVERSION=$(LC_ALL=C gawk '/^DBENGINE[[:blank:]]/ { print $2 }' $NEW_LIST | sed -e "s/BerkeleyDB//")
 
+    if [ "${OLD_DBVERSION}" != "${NEW_DBVERSION}" ]; then
+	DO_UPGRADE_BDB=yes
+
+	DB_UTIL_NOT_FOUND=
+    
+	if [ ! -x "/usr/bin/db${OLD_DBVERSION}_recover" ]; then
+	    echo "ERROR: db${OLD_DBVERSION}-util not installed"
+	    echo "ERROR: please do: [sudo] apt-get install db${OLD_DBVERSION}-util package";
+	    echo "ERROR: and rerun the upgrade again";
+	    DB_UTIL_NOT_FOUND=yes
+	fi
+
+	if [ ! -x "/usr/bin/db${NEW_DBVERSION}_upgrade" ]; then
+	    echo "ERROR: db${NEW_DBVERSION}-util not installed"
+	    echo "ERROR: please do: [sudo] apt-get install db${NEW_DBVERSION}-util package";
+	    echo "ERROR: and rerun the upgrade again";
+	    DB_UTIL_NOT_FOUND=yes
+	fi
+
+	if [ -n "${DB_UTIL_NOT_FOUND}" ]; then
+	    return 1
+	fi
+    fi
+
+    [ -n "${DO_UPGRADE_BDB}" ] && echo "Upgrading Berkeley DB from ${OLD_DBVERSION} to ${NEW_DBVERSION}"
+
+    BERKELEY_DB_FOUND=
     cat $OLD_LIST | \
     while read -r OLD_DBKEY OLD_DBVALUE ; do
 	NEW_DBVALUE=$(LC_ALL=C gawk "/^${OLD_DBKEY}[[:blank:]]/ { print \$2 }" $NEW_LIST)
@@ -72,63 +101,95 @@ upgradealldb() {
 	    echo "ERROR: Cannot upgrade $OLD_DBKEY from $OLD_DBVALUE to empty"
 	    return 1
 	fi
-	
+
+	DO_UPGRADE_DB=
 	if [ "${NEW_DBVALUE}" != "${OLD_DBVALUE}" ] ; then
-	    
+	    DO_UPGRADE_DB=yes
+	fi
+
+	echo "$OLD_DBKEY $OLD_DBVALUE $NEW_DBVALUE"
+
+	DBFILE=
+	case "$OLD_DBKEY" in
+	    DBENGINE)
+		continue
+		;;
+	    ANNOTATION)
+		DBFILE=annotations.db
+		;;
+	    DUPLICATE)
+		DBFILE=deliver.db
+		;;
+	    MBOX)
+		DBFILE=mailboxes.db
+		;;
+	    QUOTA|SEEN|SUBS)
+		if [ -n "${DO_UPGRADE_DB}" ]; then
+		    echo "ERROR: Cannot upgrade ${OLD_DBKEY} database from ${OLD_DBVALUE} to ${NEW_DBVALUE} yet"
+		    return 1
+		fi
+		;;
+	    PTS|STATUSCACHE|TLS)
+		;;
+	    USERDENY)
+		DBFILE=user_deny.db
+		;;
+	    *)
+		echo "ERROR: Unknown type of DB: $OLD_DBKEY"
+		return 1
+		;;
+	esac
+
+	# Just remove PTS, TLS and STATUSCACHE databases
+	if [ -n "${DO_UPGRADE_DB}" ]; then
 	    case "$OLD_DBKEY" in
-		DBENGINE)
-		    continue
-		    ;;
-		ANNOTATION)
-		    DBFILE=annotations.db
-		    ;;
-		DUPLICATE)
-		    DBFILE=deliver.db
-		    ;;
-		MBOX)
-		    DBFILE=mailboxes.db
-		    ;;
 		PTS)
+		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb ptscache.db
 		    continue
 		    ;;
-		QUOTA|SEEN|SUBS)
-		    echo "ERROR: Cannot upgrade $OLD_DBKEY database from $OLD_DBVALUE to $match yet"
-		    return 1
-		    ;;
 		TLS)
+		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb tls_sessions.db
 		    continue
 		    ;;
 		STATUSCACHE)
+		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb statuscache.db
 		    continue
 		    ;;
-		USERDENY)
-		    DBFILE=user_deny.db
-		    ;;
-		*)
-		    echo "ERROR: Unknown type of DB: $OLD_DBKEY"
-		    return 1
-		    ;;
 	    esac
+	fi
 
-	    if [ -f $CONFIG_DIR/$DBFILE ]; then
-	        backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
-		case "$OLD_DBVALUE" in
+	# Operate only if the database exists
+	if [ -f $CONFIG_DIR/$DBFILE ]; then
+	    # Backup database if we are changing format or upgrading Berkeley DB version
+	    if [ -n "${DO_UPGRADE_DB}" -o -n "${DO_UPGRADE_BDB}" ]; then
+		backupdb $DBFILE $OLD_DBVALUE $OLD_DBVERSION;
+	    fi
+            # Upgrade Berkeley DB database format
+	    if [ -n "${DO_UPGRADE_BDB}" ]; then
+		echo "Upgrading: $OLD_DBKEY ${OLD_DBVALUE}/${OLD_DBVERSION} $NEW_DBVALUE/${NEW_DBVERSION}"
+		case "${OLD_DBVALUE}" in
 		    berkeley*)
-			upgradebdb $DBFILE $NEW_DBVERSION
+			BERKELEY_DB_FOUND=yes
+			upgradebdb $DBFILE ${NEW_DBVERSION}
 			;;
-		    skiplist|flat)
-			;;
-		    *)
-			echo "ERROR: Unknown database format: $OLD_DBVALUE"
-			return 1
-		esac	
+		esac
+	    fi
+	    # Upgrade cyrus database format
+	    if [ -n "${DO_UPGRADE_DB}" ]; then
 		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
 	    fi
-	    if [ -d $BACKUP_DIR/db ]; then
+	fi
+	# Create Berkeley DB checkpoint and remove old logs
+	if [ -n "${DO_UPGRADE_BDB}" -a -d $CONFIG_DIR/db ]; then
+	    if [ -n "${BERKELEY_DB_FOUND}" ]; then
+		# Create new checkpoint
 		checkpointbdb $NEW_DBVERSION
+	    else
+		# Remove empty environment
+		rm -rf $CONFIG_DIR/db
 	    fi
 	fi
     done
