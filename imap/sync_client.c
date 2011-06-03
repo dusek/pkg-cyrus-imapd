@@ -1423,7 +1423,7 @@ static int update_seen_work(const char *user, const char *uniqueid,
 static int do_seen(char *user, char *uniqueid)
 {
     int r = 0;
-    struct seen *seendb;
+    struct seen *seendb = NULL;
     struct seendata sd;
 
     if (verbose) 
@@ -1437,12 +1437,8 @@ static int do_seen(char *user, char *uniqueid)
     if (r) return 0;
 
     r = seen_read(seendb, uniqueid, &sd);
-    if (r) {
-	seen_close(&seendb);
-	return 0;
-    }
 
-    r = update_seen_work(user, uniqueid, &sd);
+    if (!r) r = update_seen_work(user, uniqueid, &sd);
 
     seen_close(&seendb);
     seen_freedata(&sd);
@@ -1820,32 +1816,23 @@ int do_user_main(char *user, struct sync_folder_list *replica_folders,
 
 int do_user_sub(const char *userid, struct sync_name_list *replica_subs)
 {
-    char buf[MAX_MAILBOX_BUFFER];
     struct sync_name_list *master_subs = sync_name_list_create();
     struct sync_name *msubs, *rsubs;
-    int r;
+    int r = 0;
 
     /* Includes subsiduary nodes automatically */
-    r = (sync_namespace.mboxlist_findsub)(&sync_namespace, "*", 1,
-                                          userid, NULL, addmbox_sub,
-                                          master_subs, 1);
-    if (r) {
-	syslog(LOG_ERR, "IOERROR: %s", error_message(r));
-	goto bail;
-    }
+    r = mboxlist_allsubs(userid, addmbox_sub, master_subs);
+    if (r) goto bail;
 
     /* add any folders that need adding, and mark any which
      * still exist */
     for (msubs = master_subs->head; msubs; msubs = msubs->next) {
-	r = (sync_namespace.mboxname_tointernal)(&sync_namespace, msubs->name,
-						 userid, buf);
-	if (r) continue; /* just ignore invalid subs */
-	rsubs = sync_name_lookup(replica_subs, buf);
+	rsubs = sync_name_lookup(replica_subs, msubs->name);
 	if (rsubs) {
 	    rsubs->mark = 1;
 	    continue;
 	}
-	r = set_sub(userid, buf, 1);
+	r = set_sub(userid, msubs->name, 1);
 	if (r) goto bail;
     }
 
@@ -1859,7 +1846,7 @@ int do_user_sub(const char *userid, struct sync_name_list *replica_subs)
 
  bail:
     sync_name_list_free(&master_subs);
-    return(r);
+    return r;
 }
 
 static int get_seen(const char *uniqueid, struct seendata *sd, void *rock)
@@ -1876,7 +1863,7 @@ static int do_user_seen(char *user, struct sync_seen_list *replica_seen)
 {
     int r;
     struct sync_seen *mseen, *rseen;
-    struct seen *seendb;
+    struct seen *seendb = NULL;
     struct sync_seen_list *list;
 
     /* silently ignore errors */

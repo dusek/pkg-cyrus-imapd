@@ -1,101 +1,25 @@
-Changes to the Cyrus IMAP Server since 2.4.7
+Changes to the Cyrus IMAP Server since 2.4.8
 
-      * Bug #3428 - allow charset argument to "thread" to be quoted 
-      * Bug #3429 - fixed mupdate crash 
-      * Bug #3404 - had crept back in! Fix LIST "" user properly 
-      * Bug #3388 - fix reconstruct internaldate flap when file hardlinked
-        with different internaldates 
-      * Bug #3410 - don't require a partition on murder frontends 
-      * Bug #3406 - fix compile on FreeBSD 
-      * Bug #3415 - fix nntpd 
-      * Bug #3390 - add 'proc_path' config variable 
-      * Bug #3364 - allow setting unlimited quota through a proxy server 
-      * Bug #3433 - append '0.' file rather than deleting in reconstruct 
-      * Fixed bug in reconstruct where a record rewrite lost the cache
-        pointer until you did a SECOND reconstruct (no bug number) 
-      * Bug #3440 - fixed cyr_expire crash if run with -x 
-
-Changes to the Cyrus IMAP Server since 2.4.6
-
-      * Fixed Bug #3357 - lmtpd offering STARTTLS in pre-authorized mode. 
-      * Fixed Bug #3392 - allowing INBOX.INBOX to be created if the case
-        didn't match 
-      * Fixed Bug #3404 - incorrect LIST "" "user" response 
-      * Fixed Bug #3417 - crash on zero-byte quota file 
-      * Fixed numberous bugs with mailbox upgrades 
-      * Fixed replication errors, which have been reported many times on
-        the mailing list, but don't have bug numbers. 
-      * Increated "paranoia" about record ordering in mailbox, which would
-        have detected some bad bugs in replication that caused the infinite
-        runaway mailbox filling reported in 2.4.6 and below 
-      * Increased syslogging detail about replication issues 
-      * Fixed reconstruct crash with zero-byte index file 
-      * Fixed cyradm perl library path finding 
-      * Fixed incorrect use of LITERAL+ formats in our responses to
-        clients. Unreported, but could be causing wierd hard-to-track-down
-        bugs out there 
-      * Fixed append immediately on create 
-      * Upgraded Unicode database to version 6.0 
-      * Fixed reconstruct crash on folder names with many digits (i.e. ebay
-        auction numbers) 
-      * Fixed reconstruct crash with file called '0.' 
-      * Made reconstruct '-n' option actually exist, as advertised in the
-        man page 
-      * Fixed bug #3423 - STARTTLS plaintext command injection
-        vulnerability 
-      * Bug #3382 Added "failedloginpause" config option 
-      * Bugs #3383/3385 Removed some obsolete config options 
-      * Bug #3389 $confdir/proc not created on the fly 
-      * Bug #3394 fix imtest parsing of MECHLIST 
-      * Bug #3399 fix with_ldap option default 
-      * Bug #3307 fix mbpath crash on remote mailbox 
-      * Bug #3420 use getpassphrase on Solaris, now passwords over 8
-        characters long work with cyrus tools 
-      * Bug #3400 and others - lots of bugs with XFER between different
-        versions in murder clusters fixed, including a bug that caused only
-        mailboxes with zero messages to be rejected for upgrade 
-      * Bug #3391 fix rename which just moves between partitions 
-      * Bug #3103 fix imtest using plain authentication when it must not 
-      * Bug #3426 fix TLS on sockets other than stdin 
-      * Added support for BDB versions 5 and above 
-
-Changes to the Cyrus IMAP Server since 2.4.5
-
-      * Fixed Bug #3370 - corruption on OpenBSD and other systems without a
-        reliable mmap 
-      * Fixed Bug #3360 - race condition which could lose seen data on XFER
-        with upgrade 
-      * Lots of documentation updates 
-      * Fixed Bug #3355 - added an option to suppress items from the
-        capability response (and bug #3356 when the first attempt was
-        buggy) 
-      * Fixed Bug #3357 - crash when calling ctl_mboxlist on mailboxes with
-        annotations 
-      * Fixed Bug #3369 - crash when undumping mailbox during XFER 
-      * Fixed Bug #3361 - shared folders not listing in LSUB "" % - only
-        with unixheirsep and altnamespace 
-      * Fixed Bug #3362 - "too many open files" when doing XFER of a user
-        with too many sub mailboxes. Makes XFER less "atomic", but now it
-        works, which is good! 
-      * Fixed Bug #3313 - md5 library usage. Properly this time! 
-
-Changes to the Cyrus IMAP Server since 2.4.4
-
-      * Tidy up of the git version number added to the ID response 
-      * Fixed incorrect time field in date searches (Bug #3339) - thanks
-        Greg Banks for noticing this one 
-      * Fixed reconstruct crash and other potential issues (Bug #3353) -
-        first reported Paul Dekkers 
-      * Fixed ACL passing for rename/delete on murder backends (Bug #3342)
-        - first reported by Robert Spellman 
-      * Fixed corruption of long (>1024 byte) seen records on replica (Bug
-        #3344) - found at FastMail by Bron Gondwana 
-      * Made all perl utilities use /usr/bin/perl in the #! line (Bug
-        #2275) - reported by Yann Rouillard over 5 years ago! 
-      * Fixed crash on message with incomplete final boundary (Bug #3345) -
-        found at FastMail by Bron Gondwana 
-      * Regression: sync_crc was being set to 00000000 on repack -
-        introduced in 2.4.4 (Bug #3347) - first found at FastMail, but also
-        seen at multiple other sites 
-      * Always print [CLOSED] response when selecting a new mailbox, even
-        if a CONDSTORE enabling command has not been sent (Bug #3352) -
+      * fixed crashes in seen handling 
+      * Bug #3453 - fixed LSUB replication 
+      * Bug #3442 - allow disabling PCRE if it's buggy at your site 
+      * Bug #3443 - LSUB response fixes 
+      * Bug #3448 - XFER error handling (murder) 
+      * Bug #3437 - fixed regression: quotaroot wasn't being updated on
+        rename 
+      * Bug #3456 - fixed crash on rename user.foo user.foo without
+        partition change 
+      * config update: database paths for most databases are now
+        configurable in imapd.conf 
+      * Bug #3303 - fixed index lock breaking on XFER (thanks Julien
+        Coloos) 
+      * Bug #3457 - fixed ESEARCH parsing (was breaking iPhones) 
+      * Bug #3188 - fixed XFER with unlimited quota (thanks again Julien
+        Coloos) 
+      * Misc other quota fixes (there are still known bugs with the quota
+        system) 
+      * Bug #3169 - fixed GETQUOTAROOT for domain quotaroots 
+      * Bug #3465 - fixed compilation with Perl 5.14 (thanks
+        hsk@imb-jena.de, and also thanks to Ondrej Sury who reported it
+        separately) 
+      * Bug #3464 - fix for sendmail exec failure. This was a nasty one,
