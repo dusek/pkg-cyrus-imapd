@@ -1,3 +1,16 @@
+cyrus-imapd-2.4 (2.4.9~beta1-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.9~beta1
+  * Update patches to a new release
+  * Update cyrus-upgrade-db script:
+    + Only upgrade databases when really needed
+    + Print an error if it doesn't find needed dbX.Y-util packages
+    + Don't fail the postinst script on missing dbX.Y-util
+    + Silence upgrade-db script when upgrading cyrus databases
+  * Only recommends dbX.Y-util to allow backports
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 06 Jun 2011 21:54:45 +0200
+
 cyrus-imapd-2.4 (2.4.8-9) unstable; urgency=low
 
   * Update Vcs-* links
