@@ -155,6 +155,9 @@ plus-addressing.
 The cyrusdb backend to use for mailbox annotations. 
 
 Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+.IP "\fBannotation_db_path:\fR <none>" 5
+The absolute path to the annotations db file.  If not specified,
+will be confdir/annotations.db 
 .IP "\fBanyoneuseracl:\fR 1" 5
 Should non-admin users be allowed to set ACLs for the 'anyone'
 user on their mailboxes?  In a large organization this can cause
@@ -272,6 +275,9 @@ The cyrusdb backend to use for the duplicate delivery suppression
 and sieve. 
 
 Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR
+.IP "\fBduplicate_db_path:\fR <none>" 5
+The absolute path to the duplicate db file.  If not specified,
+will be confdir/deliver.db 
 .IP "\fBduplicatesuppression:\fR 1" 5
 If enabled, lmtpd will suppress delivery of a message to a mailbox if
 a message with the same message-id (or resent-message-id) is recorded
@@ -549,6 +555,9 @@ Allowed values: \fIberkeley\fR, \fIskiplist\fR
 The cyrusdb backend to use for the mailbox list. 
 
 Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+.IP "\fBmboxlist_db_path:\fR <none>" 5
+The absolute path to the mailboxes db file.  If not specified
+will be confdir/mailboxes.db 
 .IP "\fBmboxname_lockpath:\fR <none>" 5
 Path to mailbox name lock files (default $conf/lock) 
 .IP "\fBmetapartition_files:\fR <empty string>" 5
@@ -667,6 +676,9 @@ added to usenet articles.
 .IP "\fBnewsprefix:\fR <none>" 5
 Prefix to be prepended to newsgroup names to make the corresponding
 IMAP mailbox names. 
+.IP "\fBnewsrc_db_path:\fR <none>" 5
+The absolute path to the newsrc db file.  If not specified,
+will be confdir/fetchnews.db 
 .IP "\fBnntptimeout:\fR 3" 5
 Set the length of the NNTP server's inactivity autologout timer,    
 in minutes.  The minimum value is 3, the default. 
@@ -801,6 +813,9 @@ Unix domain socket that ptloader listens on.
 The cyrusdb backend to use for the pts cache. 
 
 Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+.IP "\fBptscache_db_path:\fR <none>" 5
+The absolute path to the ptscache db file.  If not specified,
+will be confdir/ptscache.db 
 .IP "\fBptscache_timeout:\fR 10800" 5
 The timeout (in seconds) for the PTS cache database when using the
 auth_krb_pts authorization method (default: 3 hours). 
@@ -821,6 +836,10 @@ Allowed values: \fIcs0\fR, \fIcs1\fR, \fIcs2\fR, \fIcs3\fR, \fIcs4\fR, \fIcs5\fR
 The cyrusdb backend to use for quotas. 
 
 Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR, \fIquotalegacy\fR
+.IP "\fBquota_db_path:\fR <none>" 5
+The absolute path for the quota database (if you choose a single-file
+quota DB type - or the base path if you choose quotalegacy).  If
+not specified will be confdir/quota.db or confdir/quota/ 
 .IP "\fBquotawarn:\fR 90" 5
 The percent of quota utilization over which the server generates
 warnings. 
@@ -983,6 +1002,9 @@ Enable/disable the imap status cache.
 The cyrusdb backend to use for the imap status cache. 
 
 Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR
+.IP "\fBstatuscache_db_path:\fR <none>" 5
+The absolute path to the statuscache db file.  If not specified,
+will be confdir/statuscache.db 
 .IP "\fBsync_authname:\fR <none>" 5
 The authentication name to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 
@@ -1053,6 +1075,9 @@ openssl(XXX)).
 The cyrusdb backend to use for the TLS cache. 
 
 Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR
+.IP "\fBtlscache_db_path:\fR <none>" 5
+The absolute path to the tlscache db file.  If not specified,
+will be confdir/tls_sessions.db 
 .IP "\fBtls_cert_file:\fR <none>" 5
 File containing the certificate presented for server authentication
 during STARTTLS.  A value of "disabled" will disable SSL/TLS. 
@@ -1074,6 +1099,9 @@ The umask value used by various Cyrus IMAP programs.
 The cyrusdb backend to use for the user access list. 
 
 Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR
+.IP "\fBuserdeny_db_path:\fR <none>" 5
+The absolute path to the userdeny db file.  If not specified,
+will be confdir/user_deny.db 
 .IP "\fBuser_folder_limit:\fR 0" 5
 Limit the number of folders a user can create in their INBOX.  
 Set to 0 (default) for no limit.  Only affects folders in user. 
