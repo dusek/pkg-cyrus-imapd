@@ -1,6 +1,6 @@
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -883,12 +883,13 @@ And the notification message will be ava
+@@ -899,12 +899,13 @@ And the notification message will be ava
     in minutes.  The minimum value is 10, the default. */
  
  { "popuseacl", 0, SWITCH }

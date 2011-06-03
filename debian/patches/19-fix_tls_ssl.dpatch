@@ -16,7 +16,7 @@
  {
      char   *str;
      int     w;
-@@ -729,7 +729,7 @@ int     tls_init_serverengine(const char
+@@ -736,7 +736,7 @@ int     tls_init_serverengine(const char
      s_key_file = config_getstring(IMAPOPT_TLS_KEY_FILE);
  
      if (!set_cert_stuff(s_ctx, s_cert_file, s_key_file)) {
@@ -25,7 +25,7 @@
  	return (-1);
      }
      SSL_CTX_set_tmp_rsa_callback(s_ctx, tmp_rsa_cb);
-@@ -1224,7 +1224,7 @@ int tls_init_clientengine(int verifydept
+@@ -1238,7 +1238,7 @@ int tls_init_clientengine(int verifydept
      
      if (c_cert_file || c_key_file) {
  	if (!set_cert_stuff(c_ctx, c_cert_file, c_key_file)) {

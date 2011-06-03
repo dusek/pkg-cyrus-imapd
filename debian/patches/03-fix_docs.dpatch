@@ -31,7 +31,7 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -260,7 +260,11 @@ Blank lines and lines beginning with ``#
+@@ -264,7 +264,11 @@ Blank lines and lines beginning with ``#
     mailbox that does not have a parent mailbox. */
  
  { "defaultdomain", NULL, STRING }
@@ -44,7 +44,7 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -598,7 +602,10 @@ Blank lines and lines beginning with ``#
+@@ -606,7 +610,10 @@ Blank lines and lines beginning with ``#
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL

@@ -28,9 +28,5 @@
 82-fix_manpage_errors.patch
 cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
 cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
-85-perl-imap-croak-FTBFS-fix.patch
 86-fix_PATH_MAX_on_hurd.patch
 87-try_only_-ldb.patch
-88-fix_SASL_mechs_in_IMAP_capability_6be0fcb9.patch
-89-fix_seen_db_related_crash.patch
-89-perl5.14.patch
