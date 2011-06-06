@@ -27,10 +27,10 @@ backupdb() {
 	    fi
 	    ;;
 	quotalegacy)
-	    echo "ERROR: Cannot backup $2 format"
+	    echo "$0: Cannot backup $2 format" 1>&2
 	    ;;
 	*)
-	    echo "ERROR: Unknown database format";
+	    echo "$0: Unknown database format" 1>&2;
 	    return 1
 	    ;;
     esac
@@ -72,25 +72,23 @@ upgradealldb() {
 	DB_UTIL_NOT_FOUND=
     
 	if [ ! -x "/usr/bin/db${OLD_DBVERSION}_recover" ]; then
-	    echo "ERROR: db${OLD_DBVERSION}-util not installed"
-	    echo "ERROR: please do: [sudo] apt-get install db${OLD_DBVERSION}-util package";
-	    echo "ERROR: and rerun the upgrade again";
+	    echo "$0: db${OLD_DBVERSION}-util not installed" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${OLD_DBVERSION}-util package" 1>&2
+	    echo "$0: and rerun the upgrade again" 1>&2
 	    DB_UTIL_NOT_FOUND=yes
 	fi
 
 	if [ ! -x "/usr/bin/db${NEW_DBVERSION}_upgrade" ]; then
-	    echo "ERROR: db${NEW_DBVERSION}-util not installed"
-	    echo "ERROR: please do: [sudo] apt-get install db${NEW_DBVERSION}-util package";
-	    echo "ERROR: and rerun the upgrade again";
+	    echo "$0: db${NEW_DBVERSION}-util not installed" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${NEW_DBVERSION}-util package" 1>&2
+	    echo "$0: and rerun the upgrade again" 1>&2
 	    DB_UTIL_NOT_FOUND=yes
 	fi
 
 	if [ -n "${DB_UTIL_NOT_FOUND}" ]; then
-	    return 1
+	    return 2
 	fi
     fi
-
-    [ -n "${DO_UPGRADE_BDB}" ] && echo "Upgrading Berkeley DB from ${OLD_DBVERSION} to ${NEW_DBVERSION}"
 
     BERKELEY_DB_FOUND=
     cat $OLD_LIST | \
@@ -98,7 +96,7 @@ upgradealldb() {
 	NEW_DBVALUE=$(LC_ALL=C gawk "/^${OLD_DBKEY}[[:blank:]]/ { print \$2 }" $NEW_LIST)
 
 	if [ -z "${NEW_DBVALUE}" ]; then
-	    echo "ERROR: Cannot upgrade $OLD_DBKEY from $OLD_DBVALUE to empty"
+	    echo "$0: Cannot upgrade $OLD_DBKEY from $OLD_DBVALUE to empty" 1>&2
 	    return 1
 	fi
 
@@ -106,8 +104,6 @@ upgradealldb() {
 	if [ "${NEW_DBVALUE}" != "${OLD_DBVALUE}" ] ; then
 	    DO_UPGRADE_DB=yes
 	fi
-
-	echo "$OLD_DBKEY $OLD_DBVALUE $NEW_DBVALUE"
 
 	DBFILE=
 	case "$OLD_DBKEY" in
@@ -125,7 +121,7 @@ upgradealldb() {
 		;;
 	    QUOTA|SEEN|SUBS)
 		if [ -n "${DO_UPGRADE_DB}" ]; then
-		    echo "ERROR: Cannot upgrade ${OLD_DBKEY} database from ${OLD_DBVALUE} to ${NEW_DBVALUE} yet"
+		    echo "$0: Cannot upgrade ${OLD_DBKEY} database from ${OLD_DBVALUE} to ${NEW_DBVALUE} yet" 1>&2
 		    return 1
 		fi
 		;;
@@ -135,7 +131,7 @@ upgradealldb() {
 		DBFILE=user_deny.db
 		;;
 	    *)
-		echo "ERROR: Unknown type of DB: $OLD_DBKEY"
+		echo "$0: Unknown type of DB: $OLD_DBKEY" 1>&2
 		return 1
 		;;
 	esac
@@ -144,17 +140,14 @@ upgradealldb() {
 	if [ -n "${DO_UPGRADE_DB}" ]; then
 	    case "$OLD_DBKEY" in
 		PTS)
-		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb ptscache.db
 		    continue
 		    ;;
 		TLS)
-		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb tls_sessions.db
 		    continue
 		    ;;
 		STATUSCACHE)
-		    echo "Removing ${OLD_DBKEY} database..."
 		    removedb statuscache.db
 		    continue
 		    ;;
@@ -169,7 +162,6 @@ upgradealldb() {
 	    fi
             # Upgrade Berkeley DB database format
 	    if [ -n "${DO_UPGRADE_BDB}" ]; then
-		echo "Upgrading: $OLD_DBKEY ${OLD_DBVALUE}/${OLD_DBVERSION} $NEW_DBVALUE/${NEW_DBVERSION}"
 		case "${OLD_DBVALUE}" in
 		    berkeley*)
 			BERKELEY_DB_FOUND=yes
@@ -198,3 +190,9 @@ upgradealldb() {
 }
 
 upgradealldb /usr/lib/cyrus/cyrus-db-types.txt /usr/lib/cyrus/cyrus-db-types.active
+RET="$?"
+# Now set active db types to the current package
+[ "$RET" -eq "0" ] && \
+    cp -p /usr/lib/cyrus/cyrus-db-types.txt  /usr/lib/cyrus/cyrus-db-types.active
+
+exit $RET

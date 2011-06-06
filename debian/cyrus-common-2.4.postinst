@@ -29,14 +29,22 @@ export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 case "$1" in
      configure)
      	if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
-	    echo -n "cyrus-common: Upgrading database backends..."
+	    set +e
+            echo -n "cyrus-common: Upgrading database backends..."
 	    /usr/lib/cyrus/bin/upgrade-db
-	    echo "done."
+	    case "$?" in
+		0)
+		    echo "done.";
+		    ;;
+		2)
+		    echo "failed.";
+		    echo "ERROR: Please check the output, fix errors and re-run /usr/lib/cyrus/bin/upgrade-db";
+		    echo "ERROR: script, before trying to start cyrus-imapd."
+		    ;;
+		1|*) echo "fatal error."; exit 1 ;;
+	    esac
+	    set -e
 	fi
-
-	# Now set active db types to the current package
-	cp -p /usr/lib/cyrus/cyrus-db-types.txt \
-	    /usr/lib/cyrus/cyrus-db-types.active
 
 	# Legacy code / needed in case something will change in future
 	# Hopefully this will be handled by upstream next time
