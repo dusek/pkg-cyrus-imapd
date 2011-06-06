@@ -29,21 +29,21 @@ export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 case "$1" in
      configure)
      	if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
-	    set +e
-            echo -n "cyrus-common: Upgrading database backends..."
-	    /usr/lib/cyrus/bin/upgrade-db
-	    case "$?" in
-		0)
-		    echo "done.";
-		    ;;
+	    /usr/lib/cyrus/bin/upgrade-db || RET="$?"
+	    case "$RET" in
+		0) ;;
 		2)
-		    echo "failed.";
-		    echo "ERROR: Please check the output, fix errors and re-run /usr/lib/cyrus/bin/upgrade-db";
-		    echo "ERROR: script, before trying to start cyrus-imapd."
+		    echo "ERROR: Upgrading of database backends failed." 1>&2
+		    echo "ERROR: Please check the output, fix errors and re-run /usr/lib/cyrus/bin/upgrade-db" 1>&2
+		    echo "ERROR: script, before trying to start cyrus-imapd." 1>&2
 		    ;;
-		1|*) echo "fatal error."; exit 1 ;;
+		1|*)
+		    echo "ERROR: Upgrading of database backends failed with a fatal error." 1>&2
+		    echo "ERROR: Please check /usr/share/doc/cyrus-common/README.Debian*" 1>&2
+		    echo "ERROR: for instructions how to upgrade cyrus databases manually." 1>&2
+		    exit $RET;
+		    ;;
 	    esac
-	    set -e
 	fi
 
 	# Legacy code / needed in case something will change in future
