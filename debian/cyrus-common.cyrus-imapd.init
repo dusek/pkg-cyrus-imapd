@@ -205,14 +205,16 @@ if ! check_hardwired_config; then
 fi
 
 if ! check_database_backends; then
-    echo "$0: Database backends mismatch! You must manually" 1>&2
-    echo "$0: verify and update the Cyrus databases to the" 1>&2
-    echo "$0: new backends." 1>&2
-    echo "$0: Please refer to /usr/share/doc/cyrus-common/README.Debian" 1>&2
-    echo "$0: for instructions." 1>&2
-    echo
-    echo "$0: Cyrmaster not started."
-    exit 6
+    /usr/lib/cyrus/bin/upgrade-db || {
+	echo "$0: Database backends mismatch and automatic upgrade failes!" 1>&2
+	echo "$0: You must manually verify and update the Cyrus databases" 1>&2
+	echo "$0: to the new backends." 1>&2
+	echo "$0: Please refer to /usr/share/doc/cyrus-common/README.Debian*" 1>&2
+	echo "$0: for instructions." 1>&2
+	echo
+	echo "$0: Cyrmaster not started."
+	exit 6
+    }
 fi
 
 case "$1" in
