@@ -109,7 +109,7 @@ override_dh_auto_build:
 	# store database configuration for possible automatic
 	# upgrading later
 	echo "DBENGINE $(DBENGINE)" >>debian/cyrus-db-types.txt
-	grep _db lib/imapoptions \
+	grep '_db"' lib/imapoptions \
 	| cut -d, -f1-2 | sed -e 's/{ "//;s/_db", "/ /;s/"$$//' \
 	| sed -e 's/^tls.* /TLS /;s/^subs.* /SUBS /;s/^seen.* /SEEN /;s/^pts.* /PTS /;s/^mbox.* /MBOX /'\
 	| awk '{printf("%s %s\n",toupper($$1),$$2);}' \
