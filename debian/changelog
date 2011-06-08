@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.9~beta1-2) unstable; urgency=low
+
+  * Read only _db and on _db_path from lib/imapoptions (Closes: #629603)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 08 Jun 2011 08:42:32 +0200
+
 cyrus-imapd-2.4 (2.4.9~beta1-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.9~beta1
