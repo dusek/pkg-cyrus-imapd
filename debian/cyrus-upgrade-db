@@ -73,14 +73,14 @@ upgradealldb() {
     
 	if [ ! -x "/usr/bin/db${OLD_DBVERSION}_recover" ]; then
 	    echo "$0: db${OLD_DBVERSION}-util not installed" 1>&2
-	    echo "$0: please do: [sudo] apt-get install db${OLD_DBVERSION}-util package" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${OLD_DBVERSION}-util" 1>&2
 	    echo "$0: and rerun the upgrade again" 1>&2
 	    DB_UTIL_NOT_FOUND=yes
 	fi
 
 	if [ ! -x "/usr/bin/db${NEW_DBVERSION}_upgrade" ]; then
 	    echo "$0: db${NEW_DBVERSION}-util not installed" 1>&2
-	    echo "$0: please do: [sudo] apt-get install db${NEW_DBVERSION}-util package" 1>&2
+	    echo "$0: please do: [sudo] apt-get install db${NEW_DBVERSION}-util" 1>&2
 	    echo "$0: and rerun the upgrade again" 1>&2
 	    DB_UTIL_NOT_FOUND=yes
 	fi
