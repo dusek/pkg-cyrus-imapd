@@ -262,7 +262,7 @@ case "$1" in
        status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
        ;;
   try-restart)
-  	pidofproc "$DAEMON" && exec $0 restart
+  	pidofproc "$DAEMON" >/dev/null && exec $0 restart
 	;;
   *)
 	echo "Usage: $0 {start|stop|status|restart|reload|force-reload|try-restart}" 1>&2
