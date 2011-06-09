@@ -29,7 +29,8 @@ export PATH=/sbin:/usr/sbin:/bin:/usr/bin
 case "$1" in
      configure)
      	if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
-	    /usr/lib/cyrus/bin/upgrade-db || RET="$?"
+	    /usr/lib/cyrus/bin/upgrade-db
+	    RET="$?"
 	    case "$RET" in
 		0) ;;
 		2)
