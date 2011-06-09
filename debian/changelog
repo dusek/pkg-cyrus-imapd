@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.9~beta1-3) unstable; urgency=low
+
+  * Remove word 'package' from instructions to install dbX.Y-util
+  * Always set RET value (thanks to Steven Kurylo for catching that)
+  * Silence pidofproc in try-restart (Courtesy of Steven Kurylo)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 09 Jun 2011 10:05:43 +0200
+
 cyrus-imapd-2.4 (2.4.9~beta1-2) unstable; urgency=low
 
   * Read only _db and on _db_path from lib/imapoptions (Closes: #629603)
