@@ -1,4 +1,10 @@
 #!/bin/sh
+# Cyrus database backends upgrade script
+# (C) 2001 Ondřej Surý <ondrej@sury.org>
+# distributed under the same licence as Cyrus IMAPd
+#
+# Run this script as root.  Ordinarily it will be run automatically in
+# post-install.
 
 set -e
 
