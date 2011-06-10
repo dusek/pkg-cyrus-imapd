@@ -13,15 +13,12 @@ The version 2.3 of Cyrus IMAPd was initially packaged by
 Farzad FARID <ffarid@pragmatic-source.com> for Karavel.
 
 The Debian packaging of Cyrus IMAPd v2.4 is:
- Copyright (c) 2006 by Farzad FARID <ffarid@pragmatic-source.com>
- 		       Benjamin Seidenberg <astronut@dlgeek.net,
-		       Sven Mueller <debian@incase.de>
-		       Henrique de Moraes Holschuh <hmh@debian.org>
-		       Ondřej Surý <ondrej@debian.org>
+ Copyright (c) 2006-2011 by Farzad FARID <ffarid@pragmatic-source.com>
+ 		            Benjamin Seidenberg <astronut@dlgeek.net,
+		            Sven Mueller <debian@incase.de>
+		            Henrique de Moraes Holschuh <hmh@debian.org>
+		            Ondřej Surý <ondrej@debian.org>
  and distributed in the same license as the upstream source it applies to.
-  
-The debian packages are maintained in a subversion repository at:
-	https://mail.incase.de/svn/cyrus22/
 
 Upstream sources are at: ftp://ftp.cyrusimap.org/cyrus-imapd/.
 
