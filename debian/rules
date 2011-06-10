@@ -56,14 +56,11 @@ endif
 override_dh_auto_clean:
 	dh_auto_clean
 	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
-	rm -f config.h config.h.in configure config.cache config.status config.log stamp-config confdefs.h
-	rm -rf autom4te.cache
-	rm -f mkinstalldirs install-sh config.sub config.guess
+	rm -f config.h config.cache config.status config.log stamp-config confdefs.h
+	rm -f mkinstalldirs
 	rm -f netnews/Makefile perl/imap/Makefile.old perl/sieve/managesieve/Makefile.old snmp/Makefile Makefile et/Makefile
-	rm -f doc/pod2htm* doc/murder.png
+	rm -f doc/pod2htm*
 	rm -f master/makedepend.log 
-	rm -rf doc/man
-	rm -f sieve/addr.c sieve/addr.h sieve/addr-lex.c sieve/sieve.c sieve/sieve.h sieve/sieve-lex.c
 	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
 
 override_dh_auto_configure:
