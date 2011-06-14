@@ -86,7 +86,7 @@ static struct db *dupdb = NULL;
 static int duplicate_dbopen = 0;
 
 /* must be called after cyrus_init */
-int duplicate_init(char *fname, int myflags __attribute__((unused)))
+int duplicate_init(const char *fname, int myflags __attribute__((unused)))
 {
     char buf[1024];
     int r = 0;
@@ -102,10 +102,10 @@ int duplicate_init(char *fname, int myflags __attribute__((unused)))
 
 	/* create db file name */
 	if (!fname) {
-	    fname = xmalloc(strlen(config_dir)+sizeof(FNAME_DELIVERDB));
-	    tofree = fname;
-	    strcpy(fname, config_dir);
-	    strcat(fname, FNAME_DELIVERDB);
+	    tofree = xmalloc(strlen(config_dir)+sizeof(FNAME_DELIVERDB));
+	    strcpy(tofree, config_dir);
+	    strcat(tofree, FNAME_DELIVERDB);
+	    fname = tofree;
 	}
 
 	r = (DB->open)(fname, CYRUSDB_CREATE, &dupdb);
@@ -308,16 +308,17 @@ static int prune_cb(void *rock, const char *id, int idlen,
     return 0;
 }
 
-int duplicate_prune(int days, struct hash_table *expire_table)
+int duplicate_prune(int seconds, struct hash_table *expire_table)
 {
     struct prunerock prock;
 
-    if (days < 0) fatal("must specify positive number of days", EC_USAGE);
+    if (seconds < 0) fatal("must specify positive number of seconds", EC_USAGE);
 
     prock.count = prock.deletions = 0;
-    prock.expmark = time(NULL) - (days * 60 * 60 * 24);
+    prock.expmark = time(NULL) - seconds;
     prock.expire_table = expire_table;
-    syslog(LOG_NOTICE, "duplicate_prune: pruning back %d days", days);
+    syslog(LOG_NOTICE, "duplicate_prune: pruning back %0.2f days",
+	   (double)(seconds/86400));
 
     /* check each entry in our database */
     prock.db = dupdb;
