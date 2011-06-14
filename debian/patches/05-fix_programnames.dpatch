@@ -75,7 +75,7 @@
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 --- a/man/cyr_expire.8
 +++ b/man/cyr_expire.8
-@@ -125,4 +125,4 @@ only \fIexpire-days\fR is considered for
+@@ -131,4 +131,4 @@ only \fIexpire-days\fR is considered for
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
