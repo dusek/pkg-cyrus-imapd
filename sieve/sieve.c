@@ -5,7 +5,7 @@ static const char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
 #define YYBYACC 1
 #define YYMAJOR 1
 #define YYMINOR 9
-#define YYPATCH 20101229
+#define YYPATCH 20100610
 
 #define YYEMPTY        (-1)
 #define yyclearin      (yychar = YYEMPTY)
@@ -190,12 +190,6 @@ extern void yyrestart(FILE *f);
    larger to support big sieve scripts (see Bug #3461) */
 #define YYSTACKSIZE 10000
 #line 176 "sieve.y"
-#ifdef YYSTYPE
-#undef  YYSTYPE_IS_DECLARED
-#define YYSTYPE_IS_DECLARED 1
-#endif
-#ifndef YYSTYPE_IS_DECLARED
-#define YYSTYPE_IS_DECLARED 1
 typedef union {
     int nval;
     char *sval;
@@ -210,8 +204,7 @@ typedef union {
     struct ntags *ntag;
     struct dtags *dtag;
 } YYSTYPE;
-#endif /* !YYSTYPE_IS_DECLARED */
-#line 214 "y.tab.c"
+#line 207 "y.tab.c"
 /* compatibility with bison */
 #ifdef YYPARSE_PARAM
 /* compatibility with FreeBSD */
@@ -233,11 +226,8 @@ typedef union {
 # define YYLEX yylex()
 #endif
 
-/* Parameters sent to yyerror. */
-#define YYERROR_DECL() yyerror(const char *s)
-#define YYERROR_CALL(msg) yyerror(msg)
-
 extern int YYPARSE_DECL();
+extern int YYLEX_DECL();
 
 #define NUMBER 257
 #define STRING 258
@@ -1297,7 +1287,7 @@ static int verify_utf8(char *s)
 
     return 1;
 }
-#line 1300 "y.tab.c"
+#line 1290 "y.tab.c"
 
 #if YYDEBUG
 #include <stdio.h>		/* needed for printf */
@@ -1322,14 +1312,18 @@ static int yygrowstack(YYSTACKDATA *data)
         newsize = YYMAXDEPTH;
 
     i = data->s_mark - data->s_base;
-    newss = (short *)realloc(data->s_base, newsize * sizeof(*newss));
+    newss = (data->s_base != 0)
+          ? (short *)realloc(data->s_base, newsize * sizeof(*newss))
+          : (short *)malloc(newsize * sizeof(*newss));
     if (newss == 0)
         return -1;
 
     data->s_base = newss;
     data->s_mark = newss + i;
 
-    newvs = (YYSTYPE *)realloc(data->l_base, newsize * sizeof(*newvs));
+    newvs = (data->l_base != 0)
+          ? (YYSTYPE *)realloc(data->l_base, newsize * sizeof(*newvs))
+          : (YYSTYPE *)malloc(newsize * sizeof(*newvs));
     if (newvs == 0)
         return -1;
 
@@ -2222,7 +2216,7 @@ case 105:
 #line 697 "sieve.y"
 	{ yyval.testl = new_testlist(yystack.l_mark[-2].test, yystack.l_mark[0].testl); }
 break;
-#line 2225 "y.tab.c"
+#line 2219 "y.tab.c"
     }
     yystack.s_mark -= yym;
     yystate = *yystack.s_mark;

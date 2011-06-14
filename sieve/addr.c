@@ -5,7 +5,7 @@ static const char yysccsid[] = "@(#)yaccpar	1.9 (Berkeley) 02/21/93";
 #define YYBYACC 1
 #define YYMAJOR 1
 #define YYMINOR 9
-#define YYPATCH 20101229
+#define YYPATCH 20100610
 
 #define YYEMPTY        (-1)
 #define yyclearin      (yychar = YYEMPTY)
@@ -192,11 +192,8 @@ typedef int YYSTYPE;
 # define YYLEX yylex()
 #endif
 
-/* Parameters sent to yyerror. */
-#define YYERROR_DECL() yyerror(const char *s)
-#define YYERROR_CALL(msg) yyerror(msg)
-
 extern int YYPARSE_DECL();
+extern int YYLEX_DECL();
 
 #define ATOM 257
 #define QTEXT 258
@@ -363,7 +360,7 @@ int yyerror(char *s)
     strlcpy(addrerr, s, ADDRERR_SIZE);
     return 0;
 }
-#line 366 "y.tab.c"
+#line 363 "y.tab.c"
 
 #if YYDEBUG
 #include <stdio.h>		/* needed for printf */
@@ -388,14 +385,18 @@ static int yygrowstack(YYSTACKDATA *data)
         newsize = YYMAXDEPTH;
 
     i = data->s_mark - data->s_base;
-    newss = (short *)realloc(data->s_base, newsize * sizeof(*newss));
+    newss = (data->s_base != 0)
+          ? (short *)realloc(data->s_base, newsize * sizeof(*newss))
+          : (short *)malloc(newsize * sizeof(*newss));
     if (newss == 0)
         return -1;
 
     data->s_base = newss;
     data->s_mark = newss + i;
 
-    newvs = (YYSTYPE *)realloc(data->l_base, newsize * sizeof(*newvs));
+    newvs = (data->l_base != 0)
+          ? (YYSTYPE *)realloc(data->l_base, newsize * sizeof(*newvs))
+          : (YYSTYPE *)malloc(newsize * sizeof(*newvs));
     if (newvs == 0)
         return -1;
 

@@ -1,3 +1,3 @@
-/* Release cyrus-imapd-2.4.9beta1 */
-#define _CYRUS_VERSION "v2.4.9beta1"
-#define CYRUS_GITVERSION "b3af7531 2011-06-01"
+/* Release cyrus-imapd-2.4.9beta2 */
+#define _CYRUS_VERSION "v2.4.9beta2"
+#define CYRUS_GITVERSION "6a5a394d 2011-06-14"
