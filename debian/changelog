@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.9-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.9
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 22 Jun 2011 09:13:52 +0200
+
 cyrus-imapd-2.4 (2.4.9~beta2-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.9~beta2
