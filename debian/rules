@@ -256,6 +256,11 @@ override_dh_installdocs:
 	  dh_installdocs -p cyrus-$$i --link-doc=cyrus-$$i-2.4; \
 	done
 	dh_installdocs -p libcyrus-imap-perl --link=libcyrus-imap-perl24
+	# Install docs for transitional packages
+	for p in common doc imapd pop3d admin murder nntpd clients dev ; do \
+	  dh_installdocs -p cyrus-$$p-2.2 --link-doc=cyrus-common; \
+	done
+	dh_installdocs -p libcyrus-imap-perl22 --link=cyrus-common
 
 override_dh_installinit:
 	dh_installinit -p cyrus-common --noscripts --name=cyrus-imapd
