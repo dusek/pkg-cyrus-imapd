@@ -7,8 +7,9 @@ cyrus-imapd-2.4 (2.4.11-1) unstable; urgency=low
   * Move proc and lock directories to /run and clean them on restart
     (Closes: #629609)
   * Obsolete cyrus-imapd-2.2; it's no longer maintained upstream
+  * Install docs for transitional packages
 
- -- Ondřej Surý <ondrej@debian.org>  Mon, 26 Sep 2011 10:25:12 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 26 Sep 2011 10:43:13 +0200
 
 cyrus-imapd-2.4 (2.4.9-1) unstable; urgency=low
 
