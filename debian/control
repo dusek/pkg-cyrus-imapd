@@ -408,3 +408,84 @@ Description: Interface to Cyrus imap client imclient library (metapackage)
  consider to be in the best shape.
  .
  For more information, please see the cyrus-common-2.4 package.
+
+Package: cyrus-common-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-common-2.4
+Description: Transitional package for cyrus-common-2.4
+ This is a transitional package to ease upgrades to the cyrus-common-2.4
+ package. It can safely be removed.
+
+Package: cyrus-doc-2.2
+Architecture: all
+Section: doc
+Depends: ${misc:Depends}, cyrus-doc-2.4
+Description: Transitional package for cyrus-doc-2.4
+ This is a transitional package to ease upgrades to the cyrus-doc-2.4
+ package. It can safely be removed.
+
+Package: cyrus-imapd-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-imapd-2.4
+Description: Transitional package for cyrus-imapd-2.4
+ This is a transitional package to ease upgrades to the cyrus-imapd-2.4
+ package. It can safely be removed.
+
+Package: cyrus-pop3d-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-pop3d-2.4
+Description: Transitional package for cyrus-pop3d-2.4
+ This is a transitional package to ease upgrades to the cyrus-pop3d-2.4
+ package. It can safely be removed.
+
+Package: cyrus-admin-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-admin-2.4
+Description: Transitional package for cyrus-admin-2.4
+ This is a transitional package to ease upgrades to the cyrus-admin-2.4
+ package. It can safely be removed.
+
+Package: cyrus-murder-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-murder-2.4
+Description: Transitional package for cyrus-murder-2.4
+ This is a transitional package to ease upgrades to the cyrus-murder-2.4
+ package. It can safely be removed.
+
+Package: cyrus-nntpd-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-nntpd-2.4
+Description: Transitional package for cyrus-nntpd-2.4
+ This is a transitional package to ease upgrades to the cyrus-nntpd-2.4
+ package. It can safely be removed.
+
+Package: cyrus-clients-2.2
+Architecture: all
+Section: mail
+Depends: ${misc:Depends}, cyrus-clients-2.4
+Description: Transitional package for cyrus-clients-2.4
+ This is a transitional package to ease upgrades to the cyrus-clients-2.4
+ package. It can safely be removed.
+
+Package: cyrus-dev-2.2
+Architecture: all
+Section: devel
+Depends: ${misc:Depends}, cyrus-dev-2.4
+Description: Transitional package for cyrus-dev-2.4
+ This is a transitional package to ease upgrades to the cyrus-dev-2.4
+ package. It can safely be removed.
+
+Package: libcyrus-imap-perl22
+Architecture: all
+Section: perl
+Depends: ${misc:Depends}, libcyrus-imap-perl24
+Description: Transitional package for libcyrus-imap-perl24
+ This is a transitional package to ease upgrades to the libcyrus-imap-perl24
+ package. It can safely be removed.
+
