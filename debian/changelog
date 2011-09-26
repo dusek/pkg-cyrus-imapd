@@ -1,3 +1,14 @@
+cyrus-imapd-2.4 (2.4.11-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.11
+  * Adapt patches to the new release
+  * Fix Vcs-* Links
+  * Use kfreebsd-any (Closes: #634693)
+  * Move proc and lock directories to /run and clean them on restart
+    (Closes: #629609)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 26 Sep 2011 10:12:05 +0200
+
 cyrus-imapd-2.4 (2.4.9-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.9
