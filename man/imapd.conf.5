@@ -221,6 +221,11 @@ environment.
 .IP "\fBberkeley_txns_max:\fR 100" 5
 Maximum number of transactions to be supported in the berkeley
 environment. 
+.IP "\fBboundary_limit:\fR 1000" 5
+messages are parsed recursively and a deep enough MIME structure
+can cause a stack overflow.  Do not parse deeper than this many
+layers of MIME structure.  The default of 1000 is much higher
+than any sane message should have. 
 .IP "\fBclient_timeout:\fR 10" 5
 Number of seconds to wait before returning a timeout failure when
 performing a client connection (e.g., in a murder environment) 
@@ -265,6 +270,14 @@ Deprecated - only used for backwards compatibility with existing
 installations.  Lists the old RFC 2086 right which was used to
 grant the user the ability to delete a mailbox.  If a user has this
 right, they will automatically be given the new 'x' right. 
+.IP "\fBdisable_user_namespace:\fR 0" 5
+Preclude list command on user namespace.  If set to 'yes', the 
+LIST response will never include any other user's mailbox.  Admin
+users will always see all mailboxes.  The default is 'no' 
+.IP "\fBdisable_shared_namespace:\fR 0" 5
+Preclude list command on user namespace.  If set to 'yes', the 
+LIST response will never include any non-user mailboxes.  Admin
+users will always see all mailboxes.  The default is 'no' 
 .IP "\fBdisconnect_on_vanished_mailbox:\fR 0" 5
 If enabled, IMAP/POP3/NNTP clients will be disconnected by the
 server if the currently selected mailbox is (re)moved by another
@@ -512,9 +525,20 @@ causing the MTA to queue the message and retry later.
 If enabled, lmtpd returns a failure code when the incoming message
 will cause the user's mailbox to exceed its quota.  By default, the
 failure won't occur until the mailbox is already over quota. 
+.IP "\fBlmtp_strict_rfc2821:\fR 1" 5
+By default, lmtpd will be strict (per RFC 2821) with regards to which
+envelope addresses are allowed.  If this option is set to false, 8bit
+characters in the local-part of envelope addresses are changed to 'X'
+instead.  This is useful to avoid generating backscatter with 
+certain MTAs like Postfix or Exim which accept such messages. 
 .IP "\fBlmtpsocket:\fR {configdirectory}/socket/lmtp" 5
 Unix domain socket that lmtpd listens on, used by deliver(8). This should
 match the path specified in cyrus.conf(5). 
+.IP "\fBlmtptxn_timeout:\fR 300" 5
+Timeout (in seconds) used during a lmtp transaction to a remote backend
+(e.g. in a murder environment).  Can be used to prevent hung lmtpds
+on proxy hosts when a backend server becomes unresponsive during a
+lmtp transaction.  The default is 300 - change to zero for infinite. 
 .IP "\fBloginrealms:\fR <empty string>" 5
 The list of remote realms whose users may authenticate using cross-realm
 authentication identifiers.  Separate each realm name by a space.  (A

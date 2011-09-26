@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.21 -->
-<!-- CreationDate: Tue Jun 21 21:51:36 2011 -->
+<!-- CreationDate: Thu Sep  8 21:03:40 2011 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -354,6 +354,14 @@ held or requested in the berkeley environment.</p>
 <p style="margin-left:18%;">Maximum number of transactions
 to be supported in the berkeley environment.</p>
 
+<p style="margin-left:11%;"><b>boundary_limit:</b> 1000</p>
+
+<p style="margin-left:18%;">messages are parsed recursively
+and a deep enough MIME structure can cause a stack overflow.
+Do not parse deeper than this many layers of MIME structure.
+The default of 1000 is much higher than any sane message
+should have.</p>
+
 <p style="margin-left:11%;"><b>client_timeout:</b> 10</p>
 
 <p style="margin-left:18%;">Number of seconds to wait
@@ -438,6 +446,25 @@ the old RFC 2086 right which was used to grant the user the
 ability to delete a mailbox. If a user has this right, they
 will automatically be given the new &rsquo;x&rsquo;
 right.</p>
+
+<p style="margin-left:11%;"><b>disable_user_namespace:</b>
+0</p>
+
+<p style="margin-left:18%;">Preclude list command on user
+namespace. If set to &rsquo;yes&rsquo;, the LIST response
+will never include any other user&rsquo;s mailbox. Admin
+users will always see all mailboxes. The default is
+&rsquo;no&rsquo;</p>
+
+
+<p style="margin-left:11%;"><b>disable_shared_namespace:</b>
+0</p>
+
+<p style="margin-left:18%;">Preclude list command on user
+namespace. If set to &rsquo;yes&rsquo;, the LIST response
+will never include any non-user mailboxes. Admin users will
+always see all mailboxes. The default is
+&rsquo;no&rsquo;</p>
 
 
 <p style="margin-left:11%;"><b>disconnect_on_vanished_mailbox:</b>
@@ -941,12 +968,32 @@ user&rsquo;s mailbox to exceed its quota. By default, the
 failure won&rsquo;t occur until the mailbox is already over
 quota.</p>
 
+<p style="margin-left:11%;"><b>lmtp_strict_rfc2821:</b>
+1</p>
+
+<p style="margin-left:18%;">By default, lmtpd will be
+strict (per RFC 2821) with regards to which envelope
+addresses are allowed. If this option is set to false, 8bit
+characters in the local-part of envelope addresses are
+changed to &rsquo;X&rsquo; instead. This is useful to avoid
+generating backscatter with certain MTAs like Postfix or
+Exim which accept such messages.</p>
+
 <p style="margin-left:11%;"><b>lmtpsocket:</b>
 {configdirectory}/socket/lmtp</p>
 
 <p style="margin-left:18%;">Unix domain socket that lmtpd
 listens on, used by deliver(8). This should match the path
 specified in cyrus.conf(5).</p>
+
+<p style="margin-left:11%;"><b>lmtptxn_timeout:</b> 300</p>
+
+<p style="margin-left:18%;">Timeout (in seconds) used
+during a lmtp transaction to a remote backend (e.g. in a
+murder environment). Can be used to prevent hung lmtpds on
+proxy hosts when a backend server becomes unresponsive
+during a lmtp transaction. The default is 300 - change to
+zero for infinite.</p>
 
 <p style="margin-left:11%;"><b>loginrealms:</b> &lt;empty
 string&gt;</p>

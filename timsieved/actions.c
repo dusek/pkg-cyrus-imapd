@@ -83,7 +83,7 @@
    directory! */
 
 extern int sieved_userisadmin;
-char *sieve_dir = NULL;
+static char *sieve_dir_config = NULL;
 
 static const char *sieved_userid = NULL;
 
@@ -94,7 +94,7 @@ int actions_init(void)
   sieve_usehomedir = config_getswitch(IMAPOPT_SIEVEUSEHOMEDIR);
   
   if (!sieve_usehomedir) {
-      sieve_dir = (char *) config_getstring(IMAPOPT_SIEVEDIR);
+      sieve_dir_config = (char *) config_getstring(IMAPOPT_SIEVEDIR);
   } else {
       /* can't use home directories with timsieved */
       syslog(LOG_ERR, "can't use home directories");
@@ -108,11 +108,10 @@ int actions_init(void)
 int actions_setuser(const char *userid)
 {
   char userbuf[1024], *user, *domain = NULL;
-  char *foo = sieve_dir;
   size_t size = 1024, len;
   int result;  
 
-  sieve_dir = (char *) xzmalloc(size+1);
+  char *sieve_dir = (char *) xzmalloc(size+1);
   
   sieved_userid = xstrdup(userid);
   user = (char *) userid;
@@ -123,7 +122,7 @@ int actions_setuser(const char *userid)
       if ((domain = strrchr(user, '@'))) *domain++ = '\0';
   }
 
-  len = strlcpy(sieve_dir, foo, size);
+  len = strlcpy(sieve_dir, sieve_dir_config, size);
 
   if (domain) {
       char dhash = (char) dir_hash_c(domain, config_fulldirhash);
@@ -146,10 +145,12 @@ int actions_setuser(const char *userid)
       if (!result) result = chdir(sieve_dir);
       if (result) {
 	  syslog(LOG_ERR, "mkdir %s: %m", sieve_dir);
+	  free(sieve_dir);
 	  return TIMSIEVE_FAIL;
       }
   }
 
+  free(sieve_dir);
   return TIMSIEVE_OK;
 }
 
@@ -205,6 +206,7 @@ int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
     if (tls_enabled() && !starttls_done && !authenticated) {
 	prot_printf(conn, "\"STARTTLS\"\r\n");
     }
+    prot_printf(conn, "\"UNAUTHENTICATE\"\r\n");
 
     prot_printf(conn,"OK\r\n");
 
@@ -233,7 +235,7 @@ int getscript(struct protstream *conn, mystring_t *name)
 
   result = stat(path, &filestats);
   if (result != 0) {
-    prot_printf(conn,"NO \"Script doesn't exist\"\r\n");
+    prot_printf(conn,"NO (NONEXISTENT) \"Script doesn't exist\"\r\n");
     return TIMSIEVE_NOEXIST;
   }
   size = filestats.st_size;
@@ -316,7 +318,8 @@ int putscript(struct protstream *conn, mystring_t *name, mystring_t *data,
   FILE *stream;
   char *dataptr;
   char *errstr;
-  int lup;
+  int i;
+  int last_was_r = 0;
   int result;
   char path[1024], p2[1024];
   char bc_path[1024], bc_p2[1024];
@@ -340,7 +343,7 @@ int putscript(struct protstream *conn, mystring_t *name, mystring_t *data,
       if (countscripts(string_DATAPTR(name))+1 > maxscripts)
       {
 	  prot_printf(conn,
-		      "NO (\"QUOTA\") \"You are only allowed %d scripts on this server\"\r\n",
+		      "NO (QUOTA/MAXSCRIPTS) \"You are only allowed %d scripts on this server\"\r\n",
 		      maxscripts);
 	  return TIMSIEVE_FAIL;
       }
@@ -359,16 +362,23 @@ int putscript(struct protstream *conn, mystring_t *name, mystring_t *data,
 
   dataptr = string_DATAPTR(data);
 
-  for (lup=0;lup<= data->len / BLOCKSIZE; lup++) {
-      int amount = BLOCKSIZE;
-
-      if (lup*BLOCKSIZE+BLOCKSIZE > data->len)
-	  amount=data->len % BLOCKSIZE;
-
-      fwrite(dataptr, 1, amount, stream);
-      
-      dataptr += amount;
+  /* copy data to file - replacing any lone \r or \n with the
+   * \r\n pair so notify messages are SMTP compatible */ 
+  for (i = 0; i < data->len; i++) {
+      if (last_was_r) {
+	  if (dataptr[i] != '\n')
+	      putc('\n', stream);
+      }
+      else {
+	  if (dataptr[i] == '\n')
+	      putc('\r', stream);
+      }
+      putc(dataptr[i], stream);
+      last_was_r = (dataptr[i] == '\r');
   }
+  if (last_was_r)
+      putc('\n', stream);
+
 
   /* let's make sure this is a valid script
      (no parse errors)
@@ -496,14 +506,18 @@ int deletescript(struct protstream *conn, mystring_t *name)
 
   snprintf(path, 1023, "%s.script", string_DATAPTR(name));
 
-  if (isactive(string_DATAPTR(name)) && (deleteactive(conn)!=TIMSIEVE_OK)) {
-      return TIMSIEVE_FAIL;
+  if (isactive(string_DATAPTR(name))) {
+    prot_printf(conn, "NO (ACTIVE) \"Active script cannot be deleted\"\r\n");
+    return TIMSIEVE_FAIL;
   }
 
   result = unlink(path);
 
   if (result != 0) {
-      prot_printf(conn,"NO \"Error deleting script\"\r\n");
+      if (result == ENOENT)
+          prot_printf(conn, "NO (NONEXISTENT) \"Script %s does not exist.\"\r\n", string_DATAPTR(name));
+      else
+          prot_printf(conn,"NO \"Error deleting script\"\r\n");
       return TIMSIEVE_FAIL;
   }
 
@@ -610,7 +624,7 @@ int setactive(struct protstream *conn, mystring_t *name)
 
     if (exists(string_DATAPTR(name))==FALSE)
     {
-	prot_printf(conn,"NO \"Script does not exist\"\r\n");
+	prot_printf(conn,"NO (NONEXISTENT) \"Script does not exist\"\r\n");
 	return TIMSIEVE_NOEXIST;
     }
 
@@ -667,7 +681,7 @@ int cmd_havespace(struct protstream *conn, mystring_t *sieve_name, unsigned long
     if (num > maxscriptsize)
     {
 	prot_printf(conn,
-		    "NO (\"QUOTA\") \"Script size is too large. "
+		    "NO (QUOTA/MAXSIZE) \"Script size is too large. "
 		    "Max script size is %ld bytes\"\r\n",
 		    maxscriptsize);
 	return TIMSIEVE_FAIL;
@@ -679,7 +693,7 @@ int cmd_havespace(struct protstream *conn, mystring_t *sieve_name, unsigned long
     if (countscripts(string_DATAPTR(sieve_name))+1 > maxscripts)
     {
 	prot_printf(conn,
-		    "NO (\"QUOTA\") \"You are only allowed %d scripts on this server\"\r\n",
+		    "NO (QUOTA/MAXSCRIPTS) \"You are only allowed %d scripts on this server\"\r\n",
 		    maxscripts);
 	return TIMSIEVE_FAIL;
     }

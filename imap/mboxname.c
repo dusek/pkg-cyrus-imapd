@@ -73,6 +73,8 @@ struct mboxlocklist {
 
 static struct mboxlocklist *open_mboxlocks = NULL;
 
+static struct namespace *admin_namespace;
+
 /* Mailbox patterns which the design of the server prohibits */
 static char *badmboxpatterns[] = {
     "",
@@ -644,6 +646,10 @@ int mboxname_init_namespace(struct namespace *namespace, int isadmin)
 	config_getswitch(IMAPOPT_UNIXHIERARCHYSEP) ? '/' : '.';
     namespace->isalt = !isadmin && config_getswitch(IMAPOPT_ALTNAMESPACE);
 
+    namespace->accessible[NAMESPACE_INBOX] = 1;
+    namespace->accessible[NAMESPACE_USER] = !config_getswitch(IMAPOPT_DISABLE_USER_NAMESPACE);
+    namespace->accessible[NAMESPACE_SHARED] = !config_getswitch(IMAPOPT_DISABLE_SHARED_NAMESPACE);
+
     if (namespace->isalt) {
 	/* alternate namespace */
 	strcpy(namespace->prefix[NAMESPACE_INBOX], "");
@@ -686,6 +692,16 @@ int mboxname_init_namespace(struct namespace *namespace, int isadmin)
     }
 
     return 0;
+}
+
+struct namespace *mboxname_get_adminnamespace()
+{
+    static struct namespace ns;
+    if (!admin_namespace) {
+	mboxname_init_namespace(&ns, /*isadmin*/1);
+	admin_namespace = &ns;
+    }
+    return admin_namespace;
 }
 
 /*
@@ -745,8 +761,7 @@ char *mboxname_hiersep_toexternal(struct namespace *namespace, char *name,
  */
 int mboxname_userownsmailbox(const char *userid, const char *name)
 {
-    struct namespace internal = { '.', 0, 0, { "INBOX.", "user.", "" },
-				  NULL, NULL, NULL, NULL };
+    struct namespace internal = NAMESPACE_INITIALIZER;
     char inboxname[MAX_MAILBOX_BUFFER];
 
     if (!mboxname_tointernal(&internal, "INBOX", userid, inboxname) &&
@@ -994,6 +1009,28 @@ int mboxname_policycheck(const char *name)
     }
     return 0;
 }
+
+int mboxname_is_prefix(const char *longstr, const char *shortstr)
+{
+    int longlen = strlen(longstr);
+    int shortlen = strlen(shortstr);
+
+    /* can't be a child */
+    if (longlen < shortlen)
+	return 0;
+
+    /* don't match along same length */
+    if (strncmp(longstr, shortstr, shortlen))
+	return 0;
+
+    /* longer, and not a separator */
+    if (longlen > shortlen && longstr[shortlen] != '.')
+	return 0;
+
+    /* it's a match! */
+    return 1;
+}
+
 
 void mboxname_hash(char *buf, size_t buf_len,
 		   const char *root,
