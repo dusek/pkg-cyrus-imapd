@@ -9,7 +9,7 @@ if getrlimit(RLIMIT_NUMFDS) failed.
 
 --- a/master/master.c
 +++ b/master/master.c
-@@ -1613,11 +1613,10 @@ void add_event(const char *name, struct
+@@ -1614,11 +1614,10 @@ void add_event(const char *name, struct
  void limit_fds(rlim_t x)
  {
      struct rlimit rl;
@@ -22,7 +22,7 @@ if getrlimit(RLIMIT_NUMFDS) failed.
  	syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %ld: %m", x);
  
  #ifdef HAVE_GETRLIMIT
-@@ -1632,11 +1631,9 @@ void limit_fds(rlim_t x)
+@@ -1633,11 +1632,9 @@ void limit_fds(rlim_t x)
      }
  
  

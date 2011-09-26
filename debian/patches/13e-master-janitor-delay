@@ -42,7 +42,7 @@ NOTE: patch is missing manpage fixes to describe -J
  	} else {
  	    /* Are we multithreaded now? we don't know this child */
  	    syslog(LOG_ERR,
-@@ -1763,9 +1765,9 @@ int main(int argc, char **argv)
+@@ -1764,9 +1766,9 @@ int main(int argc, char **argv)
      p = getenv("CYRUS_VERBOSE");
      if (p) verbose = atoi(p) + 1;
  #ifdef HAVE_NETSNMP
@@ -54,7 +54,7 @@ NOTE: patch is missing manpage fixes to describe -J
  #endif
  	switch (opt) {
  	case 'C': /* alt imapd.conf file */
-@@ -1798,8 +1800,15 @@ int main(int argc, char **argv)
+@@ -1799,8 +1801,15 @@ int main(int argc, char **argv)
  	    /* Janitor frequency */
  	    janitor_frequency = atoi(optarg);
  	    if(janitor_frequency < 1)

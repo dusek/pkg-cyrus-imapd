@@ -19,14 +19,14 @@
      exit(EC_USAGE);
 --- a/imap/quota.c
 +++ b/imap/quota.c
-@@ -212,7 +212,7 @@ int main(int argc,char **argv)
+@@ -207,7 +207,7 @@ int main(int argc,char **argv)
  void usage(void)
  {
      fprintf(stderr,
 -	    "usage: quota [-C <alt_config>] [-d <domain>] [-f] [prefix]...\n");
 +	    "usage: cyrquota [-C <alt_config>] [-d <domain>] [-f] [prefix]...\n");
      exit(EC_USAGE);
- }    
+ }
  
 --- a/imap/reconstruct.c
 +++ b/imap/reconstruct.c
