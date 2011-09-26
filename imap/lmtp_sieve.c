@@ -225,6 +225,7 @@ static int send_rejection(const char *origid,
     time_t t;
     char datestr[80];
     pid_t sm_pid, p;
+    duplicate_key_t dkey = DUPLICATE_INITIALIZER;
 
     smbuf[0] = "sendmail";
     smbuf[1] = "-i";		/* ignore dots */
@@ -244,10 +245,13 @@ static int send_rejection(const char *origid,
 	     global_outgoing_count++, config_servername);
     
     namebuf = make_sieve_db(mailreceip);
-    duplicate_mark(buf, strlen(buf), namebuf, strlen(namebuf), t, 0);
-    fprintf(sm, "Message-ID: %s\r\n", buf);
 
+    dkey.id = buf;
+    dkey.to = namebuf;
     rfc822date_gen(datestr, sizeof(datestr), t);
+    dkey.date = datestr;
+    duplicate_mark(&dkey, t, 0);
+    fprintf(sm, "Message-ID: %s\r\n", buf);
     fprintf(sm, "Date: %s\r\n", datestr);
 
     fprintf(sm, "X-Sieve: %s\r\n", SIEVE_VERSION);
@@ -368,6 +372,7 @@ static int sieve_redirect(void *ac,
     script_data_t *sd = (script_data_t *) sc;
     message_data_t *m = ((deliver_data_t *) mc)->m;
     char buf[8192], *sievedb = NULL;
+    duplicate_key_t dkey = DUPLICATE_INITIALIZER;
     int res;
 
     /* if we have a msgid, we can track our redirects */
@@ -375,17 +380,19 @@ static int sieve_redirect(void *ac,
 	snprintf(buf, sizeof(buf), "%s-%s", m->id, rc->addr);
 	sievedb = make_sieve_db(sd->username);
 
+	dkey.id = buf;
+	dkey.to = sievedb;
+	dkey.date = ((deliver_data_t *) mc)->m->date;
 	/* ok, let's see if we've redirected this message before */
-	if (duplicate_check(buf, strlen(buf), sievedb, strlen(sievedb))) {
-	    duplicate_log(m->id, sd->username, "redirect");
+	if (duplicate_check(&dkey)) {
+	    duplicate_log(&dkey, "redirect");
 	    return SIEVE_OK;
 	}
     }
 
     if ((res = send_forward(rc->addr, m->return_path, m->data)) == 0) {
 	/* mark this message as redirected */
-	if (sievedb) duplicate_mark(buf, strlen(buf), 
-				    sievedb, strlen(sievedb), time(NULL), 0);
+	if (sievedb) duplicate_mark(&dkey, time(NULL), 0);
 
 	snmp_increment(SIEVE_REDIRECT, 1);
 	syslog(LOG_INFO, "sieve redirected: %s to: %s",
@@ -494,7 +501,7 @@ static int sieve_fileinto(void *ac,
 			      fc->imapflags->flag, fc->imapflags->nflags,
 			      (char *) sd->username, sd->authstate, md->id,
 			      sd->username, mdata->notifyheader,
-			      namebuf, quotaoverride, 0);
+			      namebuf, md->date, quotaoverride, 0);
     }
 
     if (!ret) {
@@ -554,6 +561,8 @@ static int sieve_notify(void *ac,
     return SIEVE_OK;
 }
 
+static const char hex[] = "0123456789ABCDEF";
+
 static int autorespond(void *ac, 
 		       void *ic __attribute__((unused)), 
 		       void *sc,
@@ -564,14 +573,25 @@ static int autorespond(void *ac,
     script_data_t *sd = (script_data_t *) sc;
     time_t t, now;
     int ret;
+    int i;
+    duplicate_key_t dkey = DUPLICATE_INITIALIZER;
+    char *id;
 
     snmp_increment(SIEVE_VACATION_TOTAL, 1);
 
     now = time(NULL);
 
     /* ok, let's see if we've responded before */
-    t = duplicate_check((char *) arc->hash, SIEVE_HASHLEN, 
-			sd->username, strlen(sd->username));
+    id = xmalloc(SIEVE_HASHLEN*2 + 1);
+    for (i = 0; i < SIEVE_HASHLEN; i++) {
+	id[i*2+0] = hex[arc->hash[i] / 16];
+	id[i*2+1] = hex[arc->hash[i] % 16];
+    }
+    id[SIEVE_HASHLEN*2] = '\0';
+    dkey.id = id;
+    dkey.to = sd->username;
+    dkey.date = "";  /* no date on these, ID is custom */
+    t = duplicate_check(&dkey);
     if (t) {
 	if (now >= t) {
 	    /* yay, we can respond again! */
@@ -585,10 +605,10 @@ static int autorespond(void *ac,
     }
 
     if (ret == SIEVE_OK) {
-	duplicate_mark((char *) arc->hash, SIEVE_HASHLEN, 
-		       sd->username, strlen(sd->username), 
-		       now + arc->days * (24 * 60 * 60), 0);
+	duplicate_mark(&dkey, now + arc->days * (24 * 60 * 60), 0);
     }
+
+    free(id);
 
     return ret;
 }
@@ -607,6 +627,7 @@ static int send_response(void *ac,
     sieve_send_response_context_t *src = (sieve_send_response_context_t *) ac;
     message_data_t *md = ((deliver_data_t *) mc)->m;
     script_data_t *sdata = (script_data_t *) sc;
+    duplicate_key_t dkey = DUPLICATE_INITIALIZER;
 
     smbuf[0] = "sendmail";
     smbuf[1] = "-i";		/* ignore dots */
@@ -667,8 +688,10 @@ static int send_response(void *ac,
     if (sm_stat == 0) { /* sendmail exit value */
 	sievedb = make_sieve_db(sdata->username);
 
-	duplicate_mark(outmsgid, strlen(outmsgid), 
-		       sievedb, strlen(sievedb), t, 0);
+	dkey.id = outmsgid;
+	dkey.to = sievedb;
+	dkey.date = ((deliver_data_t *) mc)->m->date;
+	duplicate_mark(&dkey, t, 0);
 
 	snmp_increment(SIEVE_VACATION_REPLIED, 1);
 
@@ -879,6 +902,7 @@ int run_sieve(const char *user, const char *domain, const char *mailbox,
     char userbuf[MAX_MAILBOX_BUFFER] = "";
     char authuserbuf[MAX_MAILBOX_BUFFER];
     int r = 0;
+    duplicate_key_t dkey = DUPLICATE_INITIALIZER;
 
     if (!user) {
 	/* shared mailbox, check for annotation */
@@ -935,8 +959,10 @@ int run_sieve(const char *user, const char *domain, const char *mailbox,
 		 domain ? domain : "");
 	sdb = make_sieve_db(namebuf);
 		
-	duplicate_mark(msgdata->m->id, strlen(msgdata->m->id), 
-		       sdb, strlen(sdb), time(NULL), 0);
+	dkey.id = msgdata->m->id;
+	dkey.to = sdb;
+	dkey.date = msgdata->m->date;
+	duplicate_mark(&dkey, time(NULL), 0);
     }
 		
     /* free everything */

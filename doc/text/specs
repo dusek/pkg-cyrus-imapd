@@ -66,7 +66,17 @@ IMAP
 
     RFC 5524 Extended URLFETCH for Binary and Converted Parts
 
-    draft-daboo-imap-annotatemore IMAP ANNOTATEMORE Extension
+    draft-daboo-imap-annotatemore ANNOTATEMORE Draft
+
+    RFC 5464 The IMAP METADATA Extension
+
+    draft-ietf-morg-list-specialuse IMAP SPECIALUSE Draft (And non-standard
+    Google XLIST support)
+
+    RFC 5819 IMAP4 Extension for Returning STATUS Information in Extended
+    LIST
+
+    RFC 5957 Display-Based Address Sorting for the IMAP4 SORT Extension
 
 POP
 

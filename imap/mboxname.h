@@ -63,6 +63,7 @@ struct namespace {
     int isalt;  /* are we using the alternate namespace? */
     int isadmin; /* current user is an admin */
     char prefix[3][MAX_NAMESPACE_PREFIX+1];
+    int accessible[3];
     /* Convert the external mailbox 'name' to an internal name. */
     int (*mboxname_tointernal)(struct namespace *namespace, const char *name,
 			       const char *userid, char *result);
@@ -79,6 +80,11 @@ struct namespace {
 			    void *rock, int force);
 };
 
+#define NAMESPACE_INITIALIZER { '.', 0, 0, \
+				{ "INBOX.", "user.", "" }, \
+				{ 0, 0, 0, }, \
+				NULL, NULL, NULL, NULL }
+
 struct mboxlock {
     char *name;
     int lock_fd;
@@ -91,6 +97,8 @@ void mboxname_release(struct mboxlock **mboxlockptr);
 
 /* Create namespace based on config options. */
 int mboxname_init_namespace(struct namespace *namespace, int isadmin);
+
+struct namespace *mboxname_get_adminnamespace();
 
 /*
  * Translate separator charactors in a mailboxname from its external
@@ -124,6 +132,9 @@ char *mboxname_isusermailbox(const char *name, int isinbox);
  * returns boolean
  */
 int mboxname_isdeletedmailbox(const char *name);
+
+/* check if one mboxname is a parent or same as the other */
+int mboxname_is_prefix(const char *longstr, const char *shortstr);
 
 /*
  * Translate (internal) inboxname into corresponding userid.

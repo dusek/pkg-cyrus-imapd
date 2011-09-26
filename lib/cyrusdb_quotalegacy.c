@@ -75,6 +75,7 @@
 #endif
 
 #include "assert.h"
+#include "bsearch.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "hash.h"
@@ -115,10 +116,32 @@ struct db {
     char *data;		/* allocated buffer for fetched data */
 
     struct txn txn;	/* transaction associated with this db handle */
+
+    /* sorting function */
+    int (*compar) (const void *s1, const void *s2);
 };
 
 static int abort_txn(struct db *db __attribute__((unused)), struct txn *tid);
+static int compar_qr(const void *v1, const void *v2);
+static int compar_qr_mbox(const void *v1, const void *v2);
 
+/* hash the prefix - either with or without 'user.' part */
+static char name_to_hashchar(const char *name)
+{
+    int config_fulldirhash = libcyrus_config_getswitch(CYRUSOPT_FULLDIRHASH);
+    const char *idx;
+
+    if (!*name) return '\0';
+
+    idx = strchr(name, '.'); /* skip past user. */
+    if (idx == NULL) {
+	idx = name;
+    } else {
+	idx++;
+    }
+
+    return (char) dir_hash_c(idx, config_fulldirhash);
+}
 
 /* simple hash so it's easy to find these things in the filesystem;
    our human time is worth more than efficiency */
@@ -126,7 +149,6 @@ static void hash_quota(char *buf, size_t size, const char *qr, char *path)
 {
     int config_virtdomains = libcyrus_config_getswitch(CYRUSOPT_VIRTDOMAINS);
     int config_fulldirhash = libcyrus_config_getswitch(CYRUSOPT_FULLDIRHASH);
-    const char *idx;
     char c, *p;
     unsigned len;
 
@@ -158,13 +180,7 @@ static void hash_quota(char *buf, size_t size, const char *qr, char *path)
 	}
     }
 
-    idx = strchr(qr, '.'); /* skip past user. */
-    if (idx == NULL) {
-	idx = qr;
-    } else {
-	idx++;
-    }
-    c = (char) dir_hash_c(idx, config_fulldirhash);
+    c = name_to_hashchar(qr);
 
     if (snprintf(buf, size, "%s%c/%s", FNAME_QUOTADIR, c, qr) >= (int) size) {
 	fatal("insufficient buffer size in hash_quota", EC_TEMPFAIL);
@@ -333,6 +349,8 @@ static int myopen(const char *fname, int flags, struct db **ret)
 	return CYRUSDB_IOERROR;
     }
 
+    db->compar = (flags & CYRUSDB_MBOXSORT) ? compar_qr_mbox : compar_qr;
+
     *ret = db;
     return 0;
 }
@@ -497,6 +515,17 @@ static int compar_qr(const void *v1, const void *v2)
     return strcmp(qr1, qr2);
 }
 
+static int compar_qr_mbox(const void *v1, const void *v2)
+{
+    const char *qr1, *qr2;
+    char qrbuf1[MAX_QUOTA_PATH+1], qrbuf2[MAX_QUOTA_PATH+1];
+
+    qr1 = path_to_qr(*((const char **) v1), qrbuf1);
+    qr2 = path_to_qr(*((const char **) v2), qrbuf2);
+
+    return bsearch_compare(qr1, qr2);
+}
+
 #define PATH_ALLOC 100
 struct qr_path {
     char **path;
@@ -509,6 +538,7 @@ static void scan_qr_dir(char *quota_path, char *prefix, struct qr_path *pathbuf)
     int config_fulldirhash = libcyrus_config_getswitch(CYRUSOPT_FULLDIRHASH);
     int config_virtdomains = libcyrus_config_getswitch(CYRUSOPT_VIRTDOMAINS);
     char *endp;
+    char onlyc = '\0';
     int c, i;
     DIR *qrdir;
     struct dirent *next = NULL;
@@ -517,8 +547,13 @@ static void scan_qr_dir(char *quota_path, char *prefix, struct qr_path *pathbuf)
     endp = strstr(quota_path, FNAME_QUOTADIR) + strlen(FNAME_QUOTADIR);
     strcpy(endp, "?/");
 
+    /* check for path restriction - if there's a prefix we only
+     * need to scan a single directory */
+    onlyc = name_to_hashchar(prefix);
+
     c = config_fulldirhash ? 'A' : 'a';
     for (i = 0; i < 26; i++, c++) {
+	if (onlyc && c != onlyc) continue;
 	*endp = c;
 
 	qrdir = opendir(quota_path);
@@ -601,15 +636,16 @@ static int foreach(struct db *db,
 	DIR *qrdir;
 	struct dirent *next = NULL;
 
-	n = snprintf(quota_path, sizeof(quota_path), "%s%s",
+	n = snprintf(quota_path, sizeof(quota_path)-3, "%s%s",
 		     db->path, FNAME_DOMAINDIR);
 
 	endp = quota_path + n;
-	strcpy(endp, "?/");
 
 	c = config_fulldirhash ? 'A' : 'a';
 	for (i = 0; i < 26; i++, c++) {
-	    *endp = c;
+	    endp[0] = c;
+	    endp[1] = '/';
+	    endp[2] = '\0';
 
 	    qrdir = opendir(quota_path);
 
@@ -633,7 +669,7 @@ static int foreach(struct db *db,
     if (tid && !*tid) *tid = &db->txn;
 
     /* sort the quotaroots (ignoring paths) */
-    qsort(pathbuf.path, pathbuf.count, sizeof(char *), &compar_qr);
+    qsort(pathbuf.path, pathbuf.count, sizeof(char *), db->compar);
 
     for (i = 0; i < pathbuf.count; i++) {
 	const char *data, *key;
@@ -645,14 +681,14 @@ static int foreach(struct db *db,
 	key = path_to_qr(pathbuf.path[i], quota_path);
 	keylen = strlen(key);
 
-	free(pathbuf.path[i]);
-
 	if (!goodp || goodp(rock, key, keylen, data, datalen)) {
 	    /* make callback */
 	    r = cb(rock, key, keylen, data, datalen);
 	    if (r) break;
 	}
     }
+    for (i = 0; i < pathbuf.count; i++)
+	free(pathbuf.path[i]);
 
     free(pathbuf.path);
 

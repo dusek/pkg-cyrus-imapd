@@ -700,33 +700,37 @@ static int user_sub(const char *userid, const char *mboxname)
 static int copy_local(struct mailbox *mailbox, unsigned long uid)
 {
     uint32_t recno;
-    struct index_record record;
-    char *oldfname, *newfname;
+    struct index_record oldrecord;
     int r;
 
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {
-	r = mailbox_read_index_record(mailbox, recno, &record);
+	r = mailbox_read_index_record(mailbox, recno, &oldrecord);
 	if (r) return r;
-	if (record.uid == uid) {
-	    /* store the old record, expunged */
-	    record.system_flags |= FLAG_EXPUNGED;
-	    r = mailbox_rewrite_index_record(mailbox, &record);
-	    if (r) return r;
 
-	    /* create the new record */
-	    record.system_flags &= ~FLAG_EXPUNGED;
-	    record.uid = mailbox->i.last_uid + 1;
+	/* found the record, renumber it */
+	if (oldrecord.uid == uid) {
+	    char *oldfname, *newfname;
+	    struct index_record newrecord;
+
+	    /* create the new record as a clone of the old record */
+	    newrecord = oldrecord;
+	    newrecord.uid = mailbox->i.last_uid + 1;
 
 	    /* copy the file in to place */
-	    oldfname = xstrdup(mailbox_message_fname(mailbox, uid));
-	    newfname = xstrdup(mailbox_message_fname(mailbox, record.uid));
+	    oldfname = xstrdup(mailbox_message_fname(mailbox, oldrecord.uid));
+	    newfname = xstrdup(mailbox_message_fname(mailbox, newrecord.uid));
 	    r = mailbox_copyfile(oldfname, newfname, 0);
 	    free(oldfname);
 	    free(newfname);
 	    if (r) return r;
 
-	    /* and append the new record (a clone apart from the EXPUNGED flag) */
-	    r = mailbox_append_index_record(mailbox, &record);
+	    /* append the new record */
+	    r = mailbox_append_index_record(mailbox, &newrecord);
+	    if (r) return r;
+
+	    /* and expunge the old record */
+	    oldrecord.system_flags |= FLAG_EXPUNGED;
+	    r = mailbox_rewrite_index_record(mailbox, &oldrecord);
 
 	    /* done - return */
 	    return r;
@@ -2599,39 +2603,43 @@ void replica_connect(const char *channel)
 		syslog(LOG_ERR, "unable to setsocketopt(TCP_NODELAY): %m");
 	    }
 
-            /* turn on TCP keepalive if set */
-            if (config_getswitch(IMAPOPT_TCP_KEEPALIVE)) {
+	    /* turn on TCP keepalive if set */
+	    if (config_getswitch(IMAPOPT_TCP_KEEPALIVE)) {
 		int r;
-                int optval = 1;
-                socklen_t optlen = sizeof(optval);
+		int optval = 1;
+		socklen_t optlen = sizeof(optval);
+		struct protoent *proto = getprotobyname("TCP");
 
-                r = setsockopt(sync_backend->sock, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
-                if (r < 0) {
-                    syslog(LOG_ERR, "unable to setsocketopt(SO_KEEPALIVE): %m");
-                }
+		r = setsockopt(sync_backend->sock, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
+		if (r < 0) {
+		    syslog(LOG_ERR, "unable to setsocketopt(SO_KEEPALIVE): %m");
+		}
 #ifdef TCP_KEEPCNT
-                if (config_getint(IMAPOPT_TCP_KEEPALIVE_CNT)) {
-                    r = setsockopt(sync_backend->sock, SOL_TCP, TCP_KEEPCNT, &optval, optlen);
-                    if (r < 0) {
-                        syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPCNT): %m");
-                    }
-                }
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_CNT);
+		if (optval) {
+		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPCNT, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPCNT): %m");
+		    }
+		}
 #endif
 #ifdef TCP_KEEPIDLE
-                if (config_getint(IMAPOPT_TCP_KEEPALIVE_IDLE)) {
-                    r = setsockopt(sync_backend->sock, SOL_TCP, TCP_KEEPIDLE, &optval, optlen);
-                    if (r < 0) {
-                        syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPIDLE): %m");
-                    }
-                }
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_IDLE);
+		if (optval) {
+		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPIDLE, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPIDLE): %m");
+		    }
+		}
 #endif
 #ifdef TCP_KEEPINTVL
-                if (config_getint(IMAPOPT_TCP_KEEPALIVE_INTVL)) {
-                    r = setsockopt(sync_backend->sock, SOL_TCP, TCP_KEEPINTVL, &optval, optlen);
-                    if (r < 0) {
-                        syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPINTVL): %m");
-                    }
-                }
+		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_INTVL);
+		if (optval) {
+		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPINTVL, &optval, optlen);
+		    if (r < 0) {
+			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPINTVL): %m");
+		    }
+		}
 #endif
 	    }
 	} else {
@@ -2658,6 +2666,11 @@ void replica_connect(const char *channel)
     /* links to sockets */
     sync_in = sync_backend->in;
     sync_out = sync_backend->out;
+
+    /* Force use of LITERAL+ so we don't need two way communications */
+    prot_setisclient(sync_in, 1);
+    prot_setisclient(sync_out, 1);
+
 }
 
 static void replica_disconnect()

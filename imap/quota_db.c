@@ -71,6 +71,14 @@ struct db *qdb;
 
 static int quota_dbopen = 0;
 
+static int quota_parseval(const char *data, struct quota *quota)
+{
+    if (sscanf(data, UQUOTA_T_FMT " %d",
+	       &quota->used, &quota->limit) != 2)
+	return 0;
+    return 1;
+}
+
 /*
  * Read the quota entry 'quota'
  */
@@ -94,13 +102,11 @@ int quota_read(struct quota *quota, struct txn **tid, int wrlock)
 
     switch (r) {
     case CYRUSDB_OK:
-	if (!*data)
-	    return IMAP_QUOTAROOT_NONEXISTENT;
-	else if (sscanf(data, UQUOTA_T_FMT " %d", 
-			&quota->used, &quota->limit) != 2) {
+	if (!*data) return IMAP_QUOTAROOT_NONEXISTENT;
+	if (!quota_parseval(data, quota)) {
 	    syslog(LOG_ERR, "DBERROR: error fetching quota "
-			    "root=<%s> value=<%s> error=<%s>",
-		   quota->root, data, cyrusdb_strerror(r));
+			    "root=<%s> value=<%s>",
+		   quota->root, data);
 	    return CYRUSDB_IOERROR;
 	}
 	break;
@@ -121,6 +127,47 @@ int quota_read(struct quota *quota, struct txn **tid, int wrlock)
     }
 
     return 0;
+}
+
+struct quota_foreach_t {
+    quotaproc_t *proc;
+    void *rock;
+};
+
+static int do_onequota(void *rock,
+		       const char *key, int keylen,
+		       const char *data, int datalen)
+{
+    int r = 0;
+    struct quota quota;
+    struct quota_foreach_t *fd = (struct quota_foreach_t *)rock;
+    char *root = xstrndup(key, keylen);
+
+    quota.root = root;
+
+    /* XXX - error if not parsable? */
+    if (datalen && quota_parseval(data, &quota)) {
+	r = fd->proc(&quota, fd->rock);
+    }
+
+    free(root);
+
+    return r;
+}
+
+int quota_foreach(const char *prefix, quotaproc_t *proc, void *rock)
+{
+    int r;
+    char *search = prefix ? (char *)prefix : "";
+    struct quota_foreach_t foreach_d;
+
+    foreach_d.proc = proc;
+    foreach_d.rock = rock;
+
+    r = QDB->foreach(qdb, search, strlen(search), NULL,
+		     do_onequota, &foreach_d, NULL);
+
+    return r;
 }
 
 /*
@@ -227,7 +274,6 @@ int quota_findroot(char *ret, size_t retlen, const char *name)
     return (QDB->fetch(qdb, ret, strlen(ret), NULL, NULL, NULL) == 0);
 }
 
-
 /* must be called after cyrus_init */
 void quotadb_init(int myflags)
 {
@@ -242,6 +288,7 @@ void quotadb_open(const char *fname)
 {
     int ret;
     char *tofree = NULL;
+    int flags = CYRUSDB_CREATE;
 
     if (!fname)
 	fname = config_getstring(IMAPOPT_QUOTA_DB_PATH);
@@ -252,7 +299,10 @@ void quotadb_open(const char *fname)
 	fname = tofree;
     }
 
-    ret = (QDB->open)(fname, CYRUSDB_CREATE, &qdb);
+    if (config_getswitch(IMAPOPT_IMPROVED_MBOXLIST_SORT))
+	flags |= CYRUSDB_MBOXSORT;
+
+    ret = (QDB->open)(fname, flags, &qdb);
     if (ret != 0) {
 	syslog(LOG_ERR, "DBERROR: opening %s: %s", fname,
 	       cyrusdb_strerror(ret));

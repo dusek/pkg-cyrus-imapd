@@ -1,3 +1,60 @@
+Changes to the Cyrus IMAP Server since 2.4.10
+
+      * fixed replication recovery from different messages at the each end 
+      * Bug #3489 - fixed quotalegacy handling of prefixes so only exact
+        subfolders match 
+      * Bug #3498 - fixed deletion of users quota files with
+        unixheriarchysep enabled, thanks Leena Heino 
+      * Bug #3491 - NOOP and UNAUTHENTICATE for timsieved, thanks Dilyan
+        Palauzov 
+      * Bug #3492 - better response codes for timsieved, thanks Dilyan
+        Palauzov 
+      * Bug #3497 - fix cmd syslog from master, thanks Kristof Katus 
+      * Bug #3503 - compilation of perl libraries on dragonfly and freebsd,
+        thanks OBATA Akio 
+      * Bug #3451 - allow CC to have spaces 
+      * Bug #3505 - fix sync_reset, thanks David Carter 
+      * Bug #3506 - use literal+ for sync_(client|server), thanks David
+        Carter 
+      * Bug #3300 - use portable function for TCP constants, thanks OBATA
+        Akio 
+      * Bug #3507 - fix replication recovery with non-delayed expunge,
+        thanks Julien Coloos 
+      * Bug #3495 - improved duplicate suppression, thanks Kristof Katus 
+      * Bug #2772/3463 - fixed crashes in THREAD by correcting folding of
+        references headers 
+      * Bug #3439 - fix ugly syslog message for vacation 
+      * Bug #3499 - options to disable namespaces to reduce load on big
+        servers with no shared folders. Thanks Olivier ROLAND 
+      * Changed skiplist to truncate old files after checkpoint, which can
+        save disk space on tmpfs or small ssds when old copies were held
+        open by other processes 
+      * Made Cyrus more robust against corruption in mailboxes.db data, so
+        it will return an error rather than crashing on invalid entries 
+      * Fix for CVE-2011-3208, a remotely exploitable buffer overflow in
+        nntpd - thanks Coverity 
+
+Changes to the Cyrus IMAP Server since 2.4.9
+
+      * fixed handling of unparsable emails during append (which would
+        cause invalid cyrus.index records otherwise) 
+      * quota: fix a pile of bugs. #1801, virtdomain support; #2728, slow
+        user delete; #3178, "file name too long" with big mailbox names;
+        #3179, quota -f doubles usage. 
+      * Bug #3043 - parse multiple groups in headers correctly 
+      * Bug #3158 - lmtp backend connection timeout 
+      * Bug #3223 - limit MIME parsing depth to avoid stack overflows 
+      * Bug #3273 - add SORT=DISPLAY support (but note: still questions
+        about correctness of unicode sorting) 
+      * Bug #3504 - convert all sieve scripts to \r\n line endings on
+        upload 
+      * Bug #3402 - options to munge 8bit characters in headers during lmtp
+        delivery to avoid backscatter 
+      * sync_client: fix broken keepalive TCP options (I doubt anyone ever
+        tried to use it) 
+      * Bug #3482 - add "-o" option to ipurge to only purge messages with
+        \Deleted flag set 
+
 Changes to the Cyrus IMAP Server since 2.4.8
 
       * fixed crashes in seen handling 
