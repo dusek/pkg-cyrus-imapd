@@ -80,7 +80,7 @@ case "$1" in
 	if [ -z "$2" ]; then
 	    echo -n "cyrus-common: Creating cyrus-imapd directories..."
             cyrus-makedirs --cleansquat
-	    echo -n "done."
+	    echo "done."
 	fi
 
         # Add USERDENY database if doesn't exist
