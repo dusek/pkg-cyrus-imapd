@@ -1428,6 +1428,14 @@ int annotatemore_write_entry(const char *mboxname, const char *entry,
     return write_entry(mboxname, entry, userid, &theentry, tid);
 }
 
+int annotatemore_commit(struct txn *tid) {
+    return tid ? DB->commit(anndb, tid) : 0;
+}
+
+int annotatemore_abort(struct txn *tid) {
+    return tid ? DB->abort(anndb, tid) : 0;
+}
+
 struct storedata {
     struct namespace *namespace;
     const char *userid;
@@ -2275,7 +2283,8 @@ void init_annotation_definitions()
 	ae = xmalloc(sizeof(struct annotate_st_entry));
 
 	p2 = p;
-	for (; *p && (isalnum(*p) || *p=='.' || *p=='-' || *p=='_' || *p=='/');
+	for (; *p && (isalnum(*p) ||
+		      *p=='.' || *p=='-' || *p=='_' || *p=='/' || *p==':');
 	     p++);
 	/* TV-TODO: should test for empty */
 	ae->name = xstrndup(p2, p-p2);

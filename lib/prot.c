@@ -86,9 +86,7 @@ struct protgroup
  * Create a new protection stream for file descriptor 'fd'.  Stream
  * will be used for writing iff 'write' is nonzero.
  */
-struct protstream *prot_new(fd, write)
-int fd;
-int write;
+struct protstream *prot_new(int fd, int write)
 {
     struct protstream *newstream;
 
@@ -105,9 +103,23 @@ int write;
     if(write)
 	newstream->cnt = PROT_BUFSIZE;
 
-    newstream->can_unget = 0;
-    newstream->bytes_in = 0;
-    newstream->bytes_out = 0;
+    return newstream;
+}
+
+/* Create a protstream which is just an interface to a mapped piece of
+ * memory, allowing prot commands to be used to read from it */
+struct protstream *prot_readmap(const char *buf, uint32_t len)
+{
+    struct protstream *newstream;
+
+    newstream = (struct protstream *) xzmalloc(sizeof(struct protstream));
+    /* dodgy, but the alternative is two pointers */
+    newstream->ptr = (unsigned char *)buf;
+    newstream->cnt = len;
+    newstream->fixedsize = 1;
+    newstream->fd = PROT_NO_FD;
+    newstream->logfd = PROT_NO_FD;
+    newstream->big_buffer = PROT_NO_FD;
 
     return newstream;
 }
@@ -134,7 +146,7 @@ int prot_free(struct protstream *s)
     if (s->zbuf) free(s->zbuf);
 #endif
 
-    free((char*)s);
+    free(s);
 
     return 0;
 }
@@ -566,6 +578,7 @@ int prot_fill(struct protstream *s)
     /* Zero errno just in case */
     errno = 0;
 
+    if (s->fixedsize) s->eof = 1;
     if (s->eof || s->error) return EOF;
 
     do {
@@ -1692,13 +1705,17 @@ int prot_ungetc(int c, struct protstream *s)
 {
     assert(!s->write);
 
+    if (c == EOF) return EOF;
+
     if (!s->can_unget)
 	fatal("Can't unwind any more", EC_SOFTWARE);
 
     s->cnt++;
     s->can_unget--;
     s->bytes_in--;
-    *--(s->ptr) = c;
+    s->ptr--;
+    if (*s->ptr != c)
+	fatal("Trying to unput wrong character", EC_SOFTWARE);
 
     return c;
 }

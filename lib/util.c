@@ -527,7 +527,7 @@ void buf_getmap(struct buf *buf, const char **base, int *len)
     *len = buf->len;
 }
 
-unsigned buf_len(struct buf *buf)
+unsigned buf_len(const struct buf *buf)
 {
     return buf->len;
 }
@@ -538,12 +538,24 @@ void buf_reset(struct buf *buf)
     buf->flags &= ~BUF_CSTRING;
 }
 
-void buf_setcstr(struct buf *buf, char *str)
+void buf_truncate(struct buf *buf, unsigned int len)
+{
+    if (len > buf->alloc) {
+	/* grow the buffer and zero-fill the new bytes */
+	unsigned int more = len - buf->len;
+	buf_ensure(buf, more);
+	memset(buf->s + buf->len, 0, more);
+    }
+    buf->len = len;
+    buf->flags &= ~BUF_CSTRING;
+}
+
+void buf_setcstr(struct buf *buf, const char *str)
 {
     buf_setmap(buf, str, strlen(str));
 }
 
-void buf_setmap(struct buf *buf, char *base, int len)
+void buf_setmap(struct buf *buf, const char *base, int len)
 {
     buf_reset(buf);
     if (len) {
@@ -553,17 +565,17 @@ void buf_setmap(struct buf *buf, char *base, int len)
     }
 }
 
-void buf_copy(struct buf *dst, struct buf *src)
+void buf_copy(struct buf *dst, const struct buf *src)
 {
     buf_setmap(dst, src->s, src->len);
 }
 
-void buf_append(struct buf *dst, struct buf *src)
+void buf_append(struct buf *dst, const struct buf *src)
 {
     buf_appendmap(dst, src->s, src->len);
 }
 
-void buf_appendcstr(struct buf *buf, char *str)
+void buf_appendcstr(struct buf *buf, const char *str)
 {
     buf_appendmap(buf, str, strlen(str));
 }
@@ -575,7 +587,7 @@ void buf_appendbit32(struct buf *buf, bit32 num)
     buf_appendmap(buf, item, 4);
 }
 
-void buf_appendmap(struct buf *buf, char *base, int len)
+void buf_appendmap(struct buf *buf, const char *base, int len)
 {
     if (len) {
 	buf_ensure(buf, len);
@@ -592,6 +604,118 @@ void buf_putc(struct buf *buf, char c)
     buf->flags &= ~BUF_CSTRING;
 }
 
+void buf_printf(struct buf *buf, const char *fmt, ...)
+{
+    va_list args;
+    int room;
+    int n;
+
+    /* Add some more room to the buffer.  We just guess a
+     * size and rely on vsnprintf() to tell us if it
+     * needs to overrun the size. */
+    buf_ensure(buf, 1024);
+
+    room = buf->alloc - buf->len - 1;
+    va_start(args, fmt);
+    n = vsnprintf(buf->s + buf->len, room+1, fmt, args);
+    va_end(args);
+
+    if (n > room) {
+	/* woops, we guessed wrong...retry */
+	buf_ensure(buf, n-room);
+	va_start(args, fmt);
+	n = vsnprintf(buf->s + buf->len, n+1, fmt, args);
+	va_end(args);
+    }
+
+    buf->len += n;
+    /* vsnprintf() gave us a trailing NUL, so we may as well remember
+     * that for later */
+    buf->flags |= BUF_CSTRING;
+}
+
+/**
+ * Replace all instances of the string literal @match in @buf
+ * with the string @replace, which may be NULL to just remove
+ * instances of @match.
+ * Returns: the number of substitutions made.
+ */
+unsigned int buf_replace_all(struct buf *buf, const char *match,
+			     const char *replace)
+{
+    unsigned int n = 0;
+    int matchlen = strlen(match);
+    int replacelen = (replace ? strlen(replace) : 0);
+    char *p;
+
+    /* we need buf to be a nul terminated string now please */
+    buf_cstring(buf);
+
+    p = buf->s;
+    while ((p = strstr(p, match))) {
+	if (replacelen > matchlen) {
+	    /* string will need to expand */
+	    int dp = (p - buf->s);
+	    buf_ensure(buf, replacelen - matchlen);
+	    p = buf->s + dp;
+	}
+	if (matchlen != replacelen) {
+	    memmove(p+replacelen, p+matchlen,
+		    buf->len - (p - buf->s) - matchlen + replacelen + 1);
+	    buf->len += (replacelen - matchlen);
+	}
+	if (replace)
+	    memcpy(p, replace, replacelen);
+	n++;
+	p += replacelen;
+    }
+
+    return n;
+}
+
+/*
+ * Compare two struct bufs bytewise.  Returns a number
+ * like strcmp(), suitable for sorting e.g. with qsort(),
+ */
+int buf_cmp(const struct buf *a, const struct buf *b)
+{
+    unsigned len = MIN(a->len, b->len);
+    int r = 0;
+
+    if (len)
+	r = memcmp(a->s, b->s, len);
+
+    if (!r) {
+	if (a->len < b->len)
+	    r = -1;
+	else if (a->len > b->len)
+	    r = 1;
+    }
+
+    return r;
+}
+
+void buf_init(struct buf *buf)
+{
+    buf->alloc = 0;
+    buf->len = 0;
+    buf->flags = 0;
+    buf->s = NULL;
+}
+
+/*
+ * Initialise a struct buf to point to read-only data.  The key here is
+ * setting buf->alloc=0 which indicates CoW is in effect, i.e. the data
+ * pointed to needs to be copied should it ever be modified.
+ */
+void buf_init_ro(struct buf *buf, const char *base, int len)
+{
+    buf->alloc = 0;
+    buf->len = len;
+    buf->flags = 0;
+    buf->s = (char *)base;
+}
+
 void buf_free(struct buf *buf)
 {
     if (buf->alloc)
@@ -600,6 +724,14 @@ void buf_free(struct buf *buf)
     buf->s = NULL;
     buf->len = 0;
     buf->flags = 0;
+}
+
+void buf_move(struct buf *dst, struct buf *src)
+{
+    if (dst->alloc)
+	free(dst->s);
+    *dst = *src;
+    buf_init(src);
 }
 
 char *strconcat(const char *s1, ...)

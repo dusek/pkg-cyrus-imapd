@@ -214,6 +214,7 @@ static void free_wildmats(struct wildmat *wild);
 static void cmdloop(void);
 static int open_group(char *name, int has_prefix,
 		      struct backend **ret, int *postable);
+static int getuserpass(struct protstream *in, struct buf *buf);
 static int parserange(char *str, uint32_t *uid, uint32_t *last,
 		      char **msgid, struct backend **be);
 static time_t parse_datetime(char *datestr, char *timestr, char *gmt);
@@ -899,7 +900,7 @@ static void cmdloop(void)
     
 	/* Only Authinfo/Capabilities/Check/Head/Help/Ihave/List Active/
 	   Mode/Quit/Starttls/Stat/Takethis allowed when not logged in */
-	if (!nntp_userid && !allowanonymous &&
+	if (!nntp_authstate && !allowanonymous &&
 	    !strchr("ACHILMQST", cmd.s[0])) goto nologin;
 
 	/* In case a [LIST]GROUP fails or
@@ -909,42 +910,53 @@ static void cmdloop(void)
 	switch (cmd.s[0]) {
 	case 'A':
 	    if (!strcmp(cmd.s, "Authinfo")) {
-		arg2.len = arg3.len = 0;
 		if (c != ' ') goto missingargs;
 		c = getword(nntp_in, &arg1); /* subcommand */
 		if (c == EOF) goto missingargs;
 
 		lcase(arg1.s);
 
-		if (strcmp(arg1.s, "generic") && c != ' ') {
-		    /* arg2 is required for all subcommands except generic */
-		    goto missingargs;
-		}
-		if (c == ' ') {
-		    c = getword(nntp_in, &arg2); /* argument/sasl mech */
+		if (!strcmp(arg1.s, "user") || !strcmp(arg1.s, "pass")) {
+		    if (c != ' ') goto missingargs;
+		    c = getuserpass(nntp_in, &arg2); /* user/pass */
 		    if (c == EOF) goto missingargs;
-		}
 
-		if (!strcmp(arg1.s, "sasl") && c == ' ') {
-		    c = getword(nntp_in, &arg3); /* init response (optional) */
-		    if (c == EOF) goto missingargs;
-		}
-		if (c == '\r') c = prot_getc(nntp_in);
-		if (c != '\n') goto extraargs;
+		    if (c == '\r') c = prot_getc(nntp_in);
+		    if (c != '\n') goto extraargs;
 
-		if (!strcmp(arg1.s, "user"))
-		    cmd_authinfo_user(arg2.s);
-		else if (!strcmp(arg1.s, "pass"))
-		    cmd_authinfo_pass(arg2.s);
-		else if (!strcmp(arg1.s, "sasl") || !strcmp(arg1.s, "generic"))
+		    if (arg1.s[0] == 'u')
+			cmd_authinfo_user(arg2.s);
+		    else
+			cmd_authinfo_pass(arg2.s);
+		}
+		else if (!strcmp(arg1.s, "sasl") || !strcmp(arg1.s, "generic")) {
+		    arg2.len = arg3.len = 0;
+
+		    /* mech name required for SASL but not GENERIC */
+		    if ((arg1.s[0] == 's') && (c != ' ')) goto missingargs;
+
+		    if (c == ' ') {
+			c = getword(nntp_in, &arg2); /* mech name */
+			if (c == EOF) goto missingargs;
+
+			if (c == ' ') {
+			    c = getword(nntp_in, &arg3); /* init response */
+			    if (c == EOF) goto missingargs;
+			}
+		    }
+
+		    if (c == '\r') c = prot_getc(nntp_in);
+		    if (c != '\n') goto extraargs;
+
 		    cmd_authinfo_sasl(arg1.s, arg2.len ? arg2.s : NULL,
 				      arg3.len ? arg3.s : NULL);
+		}
 		else
 		    prot_printf(nntp_out,
 				"501 Unrecognized AUTHINFO command\r\n");
 	    }
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
-	    else if (!nntp_userid && !allowanonymous) goto nologin;
+	    else if (!nntp_authstate && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Article")) {
 		char *msgid;
 
@@ -1136,7 +1148,7 @@ static void cmdloop(void)
 		cmd_help();
 	    }
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
-	    else if (!nntp_userid && !allowanonymous) goto nologin;
+	    else if (!nntp_authstate && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Hdr")) {
 		char *msgid;
 
@@ -1215,7 +1227,7 @@ static void cmdloop(void)
 		goto prevgroup;  /* In case we did LIST [ACTIVE] */
 	    }
 	    else if (!(nntp_capa & MODE_READ)) goto noperm;
-	    else if (!nntp_userid && !allowanonymous) goto nologin;
+	    else if (!nntp_authstate && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Last")) {
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
@@ -1415,7 +1427,7 @@ static void cmdloop(void)
 		mode = ARTICLE_STAT;
 		goto article;
 	    }
-	    else if (!nntp_userid && !allowanonymous) goto nologin;
+	    else if (!nntp_authstate && !allowanonymous) goto nologin;
 	    else if (!strcmp(cmd.s, "Slave")) {	
 		if (c == '\r') c = prot_getc(nntp_in);
 		if (c != '\n') goto extraargs;
@@ -1587,6 +1599,28 @@ static int find_msgid(char *msgid, char **mailbox, uint32_t *uid)
     }
 
     return 1;
+}
+
+/*
+ * Parse a username or password (token which may contain SP or TAB)
+ */
+#define MAX_NNTP_ARG 497
+static int getuserpass(struct protstream *in, struct buf *buf)
+{
+    int c;
+
+    buf_reset(buf);
+    for (;;) {
+	c = prot_getc(in);
+	if (c == EOF || c == '\r' || c == '\n') {
+	    buf_cstring(buf); /* appends a '\0' */
+	    return c;
+	}
+	buf_putc(buf, c);
+	if (buf_len(buf) > MAX_NNTP_ARG) {
+	    fatal("argument too long", EC_IOERR);
+	}
+    }
 }
 
 static int parserange(char *str, uint32_t *uid, uint32_t *last,
@@ -1766,7 +1800,7 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
     if (newserver) {
 	/* remote group */
 	backend_next = proxy_findserver(newserver, &nntp_protocol,
-					nntp_userid ? nntp_userid : "anonymous",
+					nntp_authstate ? nntp_userid : "anonymous",
 					&backend_cached, &backend_current,
 					NULL, nntp_in);
 	if (!backend_next) return IMAP_SERVER_UNAVAILABLE;
@@ -1777,7 +1811,7 @@ static int open_group(char *name, int has_prefix, struct backend **ret,
 	/* local group */
 	struct index_init init;
 	memset(&init, 0, sizeof(struct index_init));
-	init.userid = nntp_userid;
+	init.userid = nntp_authstate ? nntp_userid : NULL;
 	init.authstate = nntp_authstate;
 	r = index_open(name, &init, &group_state);
 	if (r) return r;
@@ -1824,7 +1858,7 @@ static void cmd_capabilities(char *keyword __attribute__((unused)))
     if (mechcount) prot_printf(nntp_out, "%s", mechlist);
 
     /* add the reader capabilities/extensions */
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "READER\r\n");
 	prot_printf(nntp_out, "POST\r\n");
 	if (config_getswitch(IMAPOPT_ALLOWNEWNEWS))
@@ -1842,7 +1876,7 @@ static void cmd_capabilities(char *keyword __attribute__((unused)))
 
     /* add the LIST variants */
     prot_printf(nntp_out, "LIST ACTIVE%s\r\n",
-		((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) ?
+	        ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) ?
 		" HEADERS NEWSGROUPS OVERVIEW.FMT" : "");
 
     prot_printf(nntp_out, ".\r\n");
@@ -2321,7 +2355,7 @@ static void cmd_help(void)
 {
     prot_printf(nntp_out, "100 Supported commands:\r\n");
 
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tARTICLE [ message-id | number ]\r\n"
 		    "\t\tRetrieve entirety of the specified article.\r\n");
     }
@@ -2336,7 +2370,7 @@ static void cmd_help(void)
 	prot_printf(nntp_out, "\tAUTHINFO PASS password\r\n"
 		    "\t\tPresent clear-text password for authentication.\r\n");
     }
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tBODY [ message-id | number ]\r\n"
 		    "\t\tRetrieve body of the specified article.\r\n");
     }
@@ -2346,7 +2380,7 @@ static void cmd_help(void)
 	prot_printf(nntp_out, "\tCHECK message-id\r\n"
 		    "\t\tCheck if the server wants the specified article.\r\n");
     }
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tDATE\r\n"
 		    "\t\tRequest the current server UTC date and time.\r\n");
 	prot_printf(nntp_out, "\tGROUP group\r\n"
@@ -2363,13 +2397,13 @@ static void cmd_help(void)
 	prot_printf(nntp_out, "\tIHAVE message-id\r\n"
 		    "\t\tPresent/transfer the specified article to the server.\r\n");
     }
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tLAST\r\n"
 		    "\t\tSelect the previous article.\r\n");
     }
     prot_printf(nntp_out, "\tLIST [ ACTIVE wildmat ]\r\n"
 		"\t\tList the (subset of) valid newsgroups.\r\n");
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tLIST HEADERS [ MSGID | RANGE ]\r\n"
 		    "\t\tList the headers and metadata items available via HDR.\r\n");
 	prot_printf(nntp_out, "\tLIST NEWSGROUPS [wildmat]\r\n"
@@ -2402,7 +2436,7 @@ static void cmd_help(void)
 	prot_printf(nntp_out, "\tTAKETHIS message-id\r\n"
 		    "\t\tTransfer the specified article to the server.\r\n");
     }
-    if ((nntp_capa & MODE_READ) && (nntp_userid || allowanonymous)) {
+    if ((nntp_capa & MODE_READ) && (nntp_authstate || allowanonymous)) {
 	prot_printf(nntp_out, "\tXPAT header message-id|range wildmat\r\n"
 		    "\t\tList the specified article(s) in which the contents\r\n"
 		    "\t\tof the specified header/metadata matches the wildmat.\r\n");
@@ -2470,7 +2504,7 @@ void list_proxy(char *server, void *data __attribute__((unused)), void *rock)
     char *result;
 
     be = proxy_findserver(server, &nntp_protocol,
-			  nntp_userid ? nntp_userid : "anonymous",
+			  nntp_authstate ? nntp_userid : "anonymous",
 			  &backend_cached, &backend_current, NULL, nntp_in);
     if (!be) return;
 
@@ -2605,7 +2639,8 @@ static void cmd_list(char *arg1, char *arg2)
 	strcpy(pattern, newsprefix);
 	strcat(pattern, "*");
 	list_cb(NULL, 0, 0, NULL);
-	mboxlist_findall(NULL, pattern, 0, nntp_userid, nntp_authstate,
+	mboxlist_findall(NULL, pattern, 0,
+			 nntp_authstate ? nntp_userid : NULL, nntp_authstate,
 			 list_cb, &lrock);
 
 	/* proxy to the backends */
@@ -2627,7 +2662,7 @@ static void cmd_list(char *arg1, char *arg2)
 	prot_printf(nntp_out, "502 Permission denied\r\n");
 	return;
     }
-    else if (!nntp_userid && !allowanonymous) {
+    else if (!nntp_authstate && !allowanonymous) {
 	prot_printf(nntp_out, "480 Authentication required\r\n");
 	return;
     }
@@ -2664,7 +2699,8 @@ static void cmd_list(char *arg1, char *arg2)
 	strcpy(pattern, newsprefix);
 	strcat(pattern, "*");
 	list_cb(NULL, 0, 0, NULL);
-	mboxlist_findall(NULL, pattern, 0, nntp_userid, nntp_authstate,
+	mboxlist_findall(NULL, pattern, 0,
+			 nntp_authstate ? nntp_userid : NULL, nntp_authstate,
 			 list_cb, &lrock);
 
 	/* proxy to the backends */
@@ -3240,7 +3276,7 @@ static int deliver_remote(message_data_t *msg, struct dest *dlist)
 	char buf[4096];
 
 	be = proxy_findserver(d->server, &nntp_protocol,
-			      nntp_userid ? nntp_userid : "anonymous",
+			      nntp_authstate ? nntp_userid : "anonymous",
 			      &backend_cached, &backend_current,
 			      NULL, nntp_in);
 	if (!be) return IMAP_SERVER_UNAVAILABLE;
@@ -3318,7 +3354,9 @@ static int deliver(message_data_t *msg)
 		continue;
 	    }
 
-	    r = append_setup(&as, rcpt, nntp_userid, nntp_authstate, ACL_POST, 0);
+	    r = append_setup(&as, rcpt,
+			     nntp_authstate ? nntp_userid : NULL,
+			     nntp_authstate, ACL_POST, 0);
 
 	    if (!r) {
 		prot_rewind(msg->data);

@@ -417,7 +417,6 @@ struct imapopt_s imapopts[] =
       { "cache" , IMAP_ENUM_METAPARTITION_FILES_CACHE },
       { "expunge" , IMAP_ENUM_METAPARTITION_FILES_EXPUNGE },
       { "squat" , IMAP_ENUM_METAPARTITION_FILES_SQUAT },
-      { "lock" , IMAP_ENUM_METAPARTITION_FILES_LOCK },
       { NULL, IMAP_ENUM_ZERO } } },
   { IMAPOPT_MUPDATE_AUTHNAME, "mupdate_authname", 0, OPT_STRING,
     {(void *)(NULL)},

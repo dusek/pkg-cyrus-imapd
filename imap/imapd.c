@@ -439,7 +439,7 @@ static int list_cb(char *name, int matchlen, int maycreate,
 static int subscribed_cb(const char *name, int matchlen, int maycreate,
 			 struct list_rock *rock);
 static void list_data(struct listargs *listargs);
-static void list_data_remote(char *tag, struct listargs *listargs);
+static int list_data_remote(char *tag, struct listargs *listargs);
 
 extern int saslserver(sasl_conn_t *conn, const char *mech,
 		      const char *init_resp, const char *resp_prefix,
@@ -3658,7 +3658,7 @@ void cmd_select(char *tag, char *cmd, char *name)
 	prot_printf(backend_current->out, "%s %s {" SIZE_T_FMT "+}\r\n%s",
 		    tag, cmd, strlen(name), name);
 	if (v->uidvalidity) {
-	    prot_printf(backend_current->out, " (QRESYNC %lu " MODSEQ_FMT,
+	    prot_printf(backend_current->out, " (QRESYNC (%lu " MODSEQ_FMT,
 			v->uidvalidity, v->modseq);
 	    if (v->sequence) {
 		prot_printf(backend_current->out, " %s", v->sequence);
@@ -3667,7 +3667,7 @@ void cmd_select(char *tag, char *cmd, char *name)
 		prot_printf(backend_current->out, " (%s %s)",
 			    v->match_seq, v->match_uid);
 	    }
-	    prot_printf(backend_current->out, ")");
+	    prot_printf(backend_current->out, "))");
 	}
 	prot_printf(backend_current->out, "\r\n");
 
@@ -5997,7 +5997,8 @@ void cmd_list(char *tag, struct listargs *listargs)
 	   mailboxes locally (frontend) and the subscriptions remotely
 	   (INBOX backend).  We can only pass the buck to the INBOX backend
 	   if its running a unified config */
-	list_data_remote(tag, listargs);
+	if (list_data_remote(tag, listargs))
+	    return;
     } else {
 	list_data(listargs);
     }
@@ -6634,11 +6635,14 @@ void cmd_setquota(const char *tag, const char *quotaroot)
 	    c = getword(imapd_in, &arg);
 	    if (c != ' ' && c != ')') goto badlist;
 	    if (arg.s[0] == '\0') goto badlist;
-	    newquota = 0;
-	    for (p = arg.s; *p; p++) {
-		if (!Uisdigit(*p)) goto badlist;
-		newquota = newquota * 10 + *p - '0';
-                if (newquota < 0) goto badlist; /* overflow */
+	    /* accept "(storage -1)" as "()" to make move from unpatched cyrus possible */
+	    if (strcmp(arg.s, "-1") != 0) {
+		newquota = 0;
+		for (p = arg.s; *p; p++) {
+		    if (!Uisdigit(*p)) goto badlist;
+		    newquota = newquota * 10 + *p - '0';
+                    if (newquota < 0) goto badlist; /* overflow */
+		}
 	    }
 	    if (c == ')') break;
 	}
@@ -8854,9 +8858,16 @@ static int xfer_setquotaroot(struct xfer_header *xfer, const char *mboxname)
     
     /* note use of + to force the setting of a nonexistant
      * quotaroot */
-    prot_printf(xfer->be->out, "Q01 SETQUOTA {" SIZE_T_FMT "+}\r\n" \
-		"+%s (STORAGE %d)\r\n",
-		strlen(extname)+1, extname, quota.limit);
+    if (quota.limit == -1) {
+	prot_printf(xfer->be->out, "Q01 SETQUOTA {" SIZE_T_FMT "+}\r\n" \
+		    "+%s ()\r\n",
+		    strlen(extname)+1, extname);
+    }
+    else {
+	prot_printf(xfer->be->out, "Q01 SETQUOTA {" SIZE_T_FMT "+}\r\n" \
+		    "+%s (STORAGE %d)\r\n",
+		    strlen(extname)+1, extname, quota.limit);
+    }
     r = getresult(xfer->be->in, "Q01");
     if (r) syslog(LOG_ERR,
 		  "Could not move mailbox: %s, " \
@@ -10318,16 +10329,16 @@ static void list_data(struct listargs *listargs)
  * Retrieves the data and prints the untagged responses for a LIST command in
  * the case of a remote inbox.
  */
-static void list_data_remote(char *tag, struct listargs *listargs)
+static int list_data_remote(char *tag, struct listargs *listargs)
 {
     if ((listargs->cmd & LIST_CMD_EXTENDED) &&
 	!CAPA(backend_inbox, CAPA_LISTEXTENDED)) {
 	/* client wants to use extended list command but backend doesn't
 	 * support it */
-	prot_printf(backend_inbox->out,
+	prot_printf(imapd_out,
 		    "%s NO Backend server does not support LIST-EXTENDED\r\n",
 		    tag);
-	return;
+	return IMAP_MAILBOX_NOTSUPPORTED;
     }
 
     /* print tag, command and list selection options */
@@ -10383,6 +10394,8 @@ static void list_data_remote(char *tag, struct listargs *listargs)
     prot_printf(backend_inbox->out, "\r\n");
     pipe_lsub(backend_inbox, imapd_userid, tag, 0,
 	      (listargs->cmd & LIST_CMD_LSUB) ? "LSUB" : "LIST");
+
+    return 0;
 }
 
 /* Reset the given sasl_conn_t to a sane state */
@@ -10996,8 +11009,7 @@ void cmd_enable(char *tag)
 {
     static struct buf arg;
     int c;
-
-    prot_printf(imapd_out, "* ENABLED");
+    unsigned new_capa = imapd_client_capa;
 
     do {
 	c = getword(imapd_in, &arg);
@@ -11008,19 +11020,11 @@ void cmd_enable(char *tag)
 	    eatline(imapd_in, c);
 	    return;
 	}
-	lcase(arg.s);
-	if (!strcmp(arg.s, "condstore")) {
-	    imapd_client_capa |= CAPA_CONDSTORE;
-	    prot_printf(imapd_out, " CONDSTORE");
-	}
-	else if (!strcmp(arg.s, "qresync")) {
-	    imapd_client_capa |= CAPA_QRESYNC | CAPA_CONDSTORE;
-	    if (imapd_index) imapd_index->qresync = 1;
-	    prot_printf(imapd_out, " QRESYNC CONDSTORE");
-	}
+	if (!strcasecmp(arg.s, "condstore"))
+	    new_capa |= CAPA_CONDSTORE;
+	else if (!strcasecmp(arg.s, "qresync"))
+	    new_capa |= CAPA_QRESYNC | CAPA_CONDSTORE;
     } while (c == ' ');
-
-    prot_printf(imapd_out, "\r\n");
 
     /* check for CRLF */
     if (c == '\r') c = prot_getc(imapd_in);
@@ -11030,6 +11034,23 @@ void cmd_enable(char *tag)
 	eatline(imapd_in, c);
 	return;
     }
+
+    prot_printf(imapd_out, "* ENABLED");
+    if (!(imapd_client_capa & CAPA_CONDSTORE) &&
+	 (new_capa & CAPA_CONDSTORE)) {
+	prot_printf(imapd_out, " CONDSTORE");
+    }
+    if (!(imapd_client_capa & CAPA_QRESYNC) &&
+	 (new_capa & CAPA_QRESYNC)) {
+	prot_printf(imapd_out, " QRESYNC");
+	/* RFC5161 says that enable while selected is actually bogus,
+	 * but it's no skin off our nose to support it */
+	if (imapd_index) imapd_index->qresync = 1;
+    }
+    prot_printf(imapd_out, "\r\n");
+
+    /* track the new capabilities */
+    imapd_client_capa = new_capa;
 
     prot_printf(imapd_out, "%s OK %s\r\n", tag,
 		error_message(IMAP_OK_COMPLETED));
