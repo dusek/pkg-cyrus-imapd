@@ -92,6 +92,13 @@ extern const unsigned char convert_to_uppercase[256];
 #define TOUPPER(c) (convert_to_uppercase[(unsigned char)(c)])
 #define TOLOWER(c) (convert_to_lowercase[(unsigned char)(c)])
 
+#ifndef MAX
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
+#ifndef MIN
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
+
 typedef struct keyvalue {
     char *key, *value;
 } keyvalue;
@@ -173,20 +180,31 @@ struct buf {
     unsigned alloc;
     int flags;
 };
+#define BUF_INITIALIZER	{ NULL, 0, 0, 0 }
 
 const char *buf_cstring(struct buf *buf);
+void buf_ensure(struct buf *buf, int morebytes);
 void buf_getmap(struct buf *buf, const char **base, int *len);
-unsigned buf_len(struct buf *buf);
+unsigned buf_len(const struct buf *buf);
 void buf_reset(struct buf *buf);
-void buf_setcstr(struct buf *buf, char *str);
-void buf_setmap(struct buf *buf, char *base, int len);
-void buf_copy(struct buf *dst, struct buf *src);
-void buf_append(struct buf *dst, struct buf *src);
-void buf_appendcstr(struct buf *buf, char *str);
+void buf_truncate(struct buf *buf, unsigned int len);
+void buf_setcstr(struct buf *buf, const char *str);
+void buf_setmap(struct buf *buf, const char *base, int len);
+void buf_copy(struct buf *dst, const struct buf *src);
+void buf_append(struct buf *dst, const struct buf *src);
+void buf_appendcstr(struct buf *buf, const char *str);
 void buf_appendbit32(struct buf *buf, bit32 num);
-void buf_appendmap(struct buf *buf, char *base, int len);
+void buf_appendmap(struct buf *buf, const char *base, int len);
 void buf_putc(struct buf *buf, char c);
+void buf_printf(struct buf *buf, const char *fmt, ...)
+    __attribute__((format(printf,2,3)));
+unsigned int buf_replace_all(struct buf *buf, const char *match,
+			     const char *replace);
+int buf_cmp(const struct buf *, const struct buf *);
+void buf_init(struct buf *buf);
+void buf_init_ro(struct buf *buf, const char *base, int len);
 void buf_free(struct buf *buf);
+void buf_move(struct buf *dst, struct buf *src);
 
 /* use getpassphrase on machines which support it */
 #ifdef HAVE_GETPASSPHRASE

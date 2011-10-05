@@ -589,7 +589,7 @@ Space-separated list of metadata files to be stored on a
 \fImetapartition\fR rather than in the mailbox directory on a spool
 partition. 
 
-Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR, \fIlock\fR
+Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR
 .IP "\fBmetapartition-name:\fR <none>" 5
 The pathname of the metadata partition \fIname\fR, corresponding to
 spool partition \fBpartition-name\fR.  For any mailbox residing in
@@ -1017,9 +1017,9 @@ Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
 .IP "\fBsuppress_capabilities:\fR <none>" 5
 Suppress the named capabilities from any capability response.  Use the
 exact case as it appears in the response, e.g. 
-"suppress_capabilities: ESEARCH QRESYNC WITHIN XLIST" if you have
-a murder with 2.3.x backends and don't want clients being confused
-by new capabilities that some backends don't support. 
+"suppress_capabilities: ESEARCH QRESYNC WITHIN XLIST LIST-EXTENDED"
+if you have a murder with 2.3.x backends and don't want clients being
+confused by new capabilities that some backends don't support. 
 .IP "\fBstatuscache:\fR 0" 5
 Enable/disable the imap status cache. 
 .IP "\fBstatuscache_db:\fR skiplist" 5
