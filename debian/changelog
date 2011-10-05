@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.12-1) unstable; urgency=low
+
+  * Optimize cyrus-makedirs finds that chown incorrect permissions in
+    the spool
+  * Imported Upstream version 2.4.12
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 05 Oct 2011 09:39:35 +0200
+
 cyrus-imapd-2.4 (2.4.11-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.11
