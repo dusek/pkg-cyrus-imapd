@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.12-2) unstable; urgency=low
+
+  * Add versioned conflicts with *-2.2 (Closes: 644503)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 06 Oct 2011 21:53:28 +0200
+
 cyrus-imapd-2.4 (2.4.12-1) unstable; urgency=low
 
   * Optimize cyrus-makedirs finds that chown incorrect permissions in
