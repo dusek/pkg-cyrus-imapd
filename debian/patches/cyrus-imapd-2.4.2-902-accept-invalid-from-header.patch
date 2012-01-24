@@ -17,7 +17,7 @@ Cyrus should not raise problems.
 
 --- a/imap/message.c
 +++ b/imap/message.c
-@@ -246,6 +246,8 @@ int allow_null;
+@@ -173,6 +173,8 @@ int allow_null;
      int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
      int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
      int inheader = 1, blankline = 1;
@@ -26,7 +26,7 @@ Cyrus should not raise problems.
  
      while (size) {
  	n = prot_read(from, buf, size > 4096 ? 4096 : size);
-@@ -322,11 +324,24 @@ int allow_null;
+@@ -249,11 +251,24 @@ int allow_null;
  	/* Check for valid header name */
  	if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
  	    if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;

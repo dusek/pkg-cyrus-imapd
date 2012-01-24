@@ -95,7 +95,7 @@
  .PP
  The \fB/etc/cyrus.conf\fR file consists of a series of entries divided
  into sections of the form
-@@ -106,7 +106,7 @@ string field is required and takes one o
+@@ -109,7 +109,7 @@ string field is required and takes one o
  \fR[ \fIhost\fR \fB: \fR] \fIport\fR
  .br
  .sp
@@ -104,7 +104,7 @@
  either the hostname or bracket-enclosed IP address of a network
  interface, and \fIport\fR is either a port number or service name (as listed
  in \fB/etc/services\fR).
-@@ -178,6 +178,6 @@ different modes or configurations (i.e.,
+@@ -186,6 +186,6 @@ different modes or configurations (i.e.,
  still have separate access control rules.
  .SH SEE ALSO
  .PP

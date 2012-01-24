@@ -8,9 +8,9 @@
 @DPATCH@
 --- a/imap/global.c
 +++ b/imap/global.c
-@@ -108,6 +108,9 @@ char session_id_buf[MAX_SESSIONID_SIZE];
- int session_id_time = 0;
- int session_id_count = 0;
+@@ -111,6 +111,9 @@ int session_id_count = 0;
+ 
+ strarray_t *suppressed_capabilities = NULL;
  
 +/* syslog prefix tag */
 +static char syslog_prefix[20];
@@ -18,7 +18,7 @@
  /* Called before a cyrus application starts (but after command line parameters
   * are read) */
  int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
-@@ -135,7 +138,9 @@ int cyrus_init(const char *alt_config, c
+@@ -138,7 +141,9 @@ int cyrus_init(const char *alt_config, c
      
      /* xxx we lose here since we can't have the prefix until we load the
       * config file */
