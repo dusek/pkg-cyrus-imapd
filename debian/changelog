@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.13-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.13
+  * Refresh patches for new release
+  * Add Danish translation (Joe Hansen).  (Closes: #633670)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 24 Jan 2012 09:04:13 +0100
+
 cyrus-imapd-2.4 (2.4.12-2) unstable; urgency=low
 
   * Add versioned conflicts with *-2.2 (Closes: 644503)
