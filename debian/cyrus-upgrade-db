@@ -180,18 +180,17 @@ upgradealldb() {
 		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
 	    fi
 	fi
-	# Create Berkeley DB checkpoint and remove old logs
-	if [ -n "${DO_UPGRADE_BDB}" -a -d $CONFIG_DIR/db ]; then
-	    if [ -n "${BERKELEY_DB_FOUND}" ]; then
-		# Create new checkpoint
-		checkpointbdb $NEW_DBVERSION
-	    else
-		# Remove empty environment
-		rm -rf $CONFIG_DIR/db
-	    fi
-	fi
     done
-	
+    # Create Berkeley DB checkpoint and remove old logs
+    if [ -n "${DO_UPGRADE_BDB}" -a -d $CONFIG_DIR/db ]; then
+	if [ -n "${BERKELEY_DB_FOUND}" ]; then
+	    # Create new checkpoint
+	    checkpointbdb $NEW_DBVERSION
+	else
+	    # Remove empty environment
+	    rm -rf $CONFIG_DIR/db
+	fi
+    fi	
     return 0
 }
 
