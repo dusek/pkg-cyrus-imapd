@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.13-2) unstable; urgency=low
+
+  * Move all transitional packages to oldlibs section
+  * Do mass Berkeley DB operations after all databases have been
+    upgraded (Closes: #658915)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 06 Feb 2012 22:44:23 +0100
+
 cyrus-imapd-2.4 (2.4.13-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.13
