@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.13-3) UNRELEASED; urgency=low
+
+  [ Christoph Berg ]
+  * Update watch file to point at cyrusimap.org. (Closes: #659690)
+  * Remove myself from uploaders.
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 13 Feb 2012 10:21:18 +0100
+
 cyrus-imapd-2.4 (2.4.13-2) unstable; urgency=low
 
   * Move all transitional packages to oldlibs section
