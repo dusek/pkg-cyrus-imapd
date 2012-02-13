@@ -6,7 +6,6 @@ Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
 	   Sven Mueller <sven@debian.org>,
 	   Benjamin Seidenberg <benjamin@debian.org>,
 	   Ondřej Surý <ondrej@debian.org>,
-	   Christoph Berg <myon@debian.org>,
 	   Anthony Prades <toony.debian@chezouam.net>
 Standards-Version: 3.9.2
 Build-Depends: autoconf,
