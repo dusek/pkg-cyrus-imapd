@@ -1,10 +1,15 @@
-cyrus-imapd-2.4 (2.4.13-3) UNRELEASED; urgency=low
+cyrus-imapd-2.4 (2.4.14-1) unstable; urgency=low
 
   [ Christoph Berg ]
   * Update watch file to point at cyrusimap.org. (Closes: #659690)
   * Remove myself from uploaders.
 
- -- Ondřej Surý <ondrej@debian.org>  Mon, 13 Feb 2012 10:21:18 +0100
+  [ Ondřej Surý ]
+  * Depend on db-util (Closes: #663939)
+  * Imported Upstream version 2.4.14
+  * Refresh patches for 2.4.14 release
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 16 Apr 2012 16:07:01 +0200
 
 cyrus-imapd-2.4 (2.4.13-2) unstable; urgency=low
 
