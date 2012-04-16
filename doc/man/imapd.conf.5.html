@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.21 -->
-<!-- CreationDate: Fri Dec 30 22:20:28 2011 -->
+<!-- CreationDate: Mon Mar 12 11:59:32 2012 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -61,11 +61,11 @@ option is being set to.</p>
 
 <p style="margin-left:11%; margin-top: 1em">Although there
 is no limit to the length of a line, a
-&rsquo;&rsquo;\&rsquo;&rsquo; (backslash) character may be
+&lsquo;&lsquo;\&rsquo;&rsquo; (backslash) character may be
 used as the last character on a line to force it to continue
 on the next one. No additional whitespace is inserted before
-or after the &rsquo;&rsquo;\&rsquo;&rsquo;. Note that a line
-that is split using &rsquo;&rsquo;\&rsquo;&rsquo;
+or after the &lsquo;&lsquo;\&rsquo;&rsquo;. Note that a line
+that is split using &lsquo;&lsquo;\&rsquo;&rsquo;
 character(s) is still considered a single line. For
 example</p>
 
@@ -84,21 +84,21 @@ to</p>
 <i>value</i>1 <i>value</i>2 <i>value</i>3</p>
 
 <p style="margin-left:11%; margin-top: 1em">Blank lines and
-lines beginning with &rsquo;&rsquo;#&rsquo;&rsquo; are
+lines beginning with &lsquo;&lsquo;#&rsquo;&rsquo; are
 ignored.</p>
 
 <p style="margin-left:11%; margin-top: 1em">For boolean and
 enumerated options, the values
-&rsquo;&rsquo;yes&rsquo;&rsquo;,
-&rsquo;&rsquo;on&rsquo;&rsquo;,
-&rsquo;&rsquo;t&rsquo;&rsquo;,
-&rsquo;&rsquo;true&rsquo;&rsquo; and
-&rsquo;&rsquo;1&rsquo;&rsquo; turn the option on, the values
-&rsquo;&rsquo;no&rsquo;&rsquo;,
-&rsquo;&rsquo;off&rsquo;&rsquo;,
-&rsquo;&rsquo;f&rsquo;&rsquo;,
-&rsquo;&rsquo;false&rsquo;&rsquo; and
-&rsquo;&rsquo;0&rsquo;&rsquo; turn the option off.</p>
+&lsquo;&lsquo;yes&rsquo;&rsquo;,
+&lsquo;&lsquo;on&rsquo;&rsquo;,
+&lsquo;&lsquo;t&rsquo;&rsquo;,
+&lsquo;&lsquo;true&rsquo;&rsquo; and
+&lsquo;&lsquo;1&rsquo;&rsquo; turn the option on, the values
+&lsquo;&lsquo;no&rsquo;&rsquo;,
+&lsquo;&lsquo;off&rsquo;&rsquo;,
+&lsquo;&lsquo;f&rsquo;&rsquo;,
+&lsquo;&lsquo;false&rsquo;&rsquo; and
+&lsquo;&lsquo;0&rsquo;&rsquo; turn the option off.</p>
 
 <h2>FIELD DESCRIPTIONS
 <a name="FIELD DESCRIPTIONS"></a>
@@ -109,9 +109,9 @@ enumerated options, the values
 below detail options that can be placed in the
 <b>/etc/imapd.conf</b> file, and show each option&rsquo;s
 default value. Some options have no default value, these are
-listed with &rsquo;&rsquo;&lt;no default&gt;&rsquo;&rsquo;.
+listed with &lsquo;&lsquo;&lt;no default&gt;&rsquo;&rsquo;.
 Some options default to the empty string, these are listed
-with &rsquo;&rsquo;&lt;none&gt;&rsquo;&rsquo;. <b><br>
+with &lsquo;&lsquo;&lt;none&gt;&rsquo;&rsquo;. <b><br>
 admins:</b> &lt;empty string&gt;</p>
 
 <p style="margin-left:18%;">The list of userids with
@@ -309,7 +309,7 @@ on the mailbox) are hard-wired in the server</p></td></tr>
 </table>
 
 <p style="margin-left:11%; margin-top: 1em">Blank lines and
-lines beginning with &rsquo;&rsquo;#&rsquo;&rsquo; are
+lines beginning with &lsquo;&lsquo;#&rsquo;&rsquo; are
 ignored. <b><br>
 auditlog:</b> 0</p>
 
@@ -1141,7 +1141,7 @@ the same mailspool, but each have their own
 
 <p style="margin-left:18%;">If enabled, lmtpd munges
 messages with 8-bit characters in the headers. The 8-bit
-characters are changed to &rsquo;X&rsquo;. If
+characters are changed to &lsquo;X&rsquo;. If
 <b>reject8bit</b> is enabled, setting <b>munge8bit</b> has
 no effect. (A proper solution to non-ASCII characters in
 headers is offered by RFC 2047 and its predecessors.)</p>
@@ -1226,6 +1226,26 @@ this specifies a URL to reply when Netscape asks the server
 where the mail administration HTTP server is. Administrators
 should set this to a local resource.</p>
 
+<p style="margin-left:11%;"><b>newsaddheaders:</b> to</p>
+
+<p style="margin-left:18%;">Space-separated list of headers
+to be added to incoming usenet articles. Added <i>To:</i>
+headers will contain email delivery addresses corresponding
+to each newsgroup in the <i>Newsgroups:</i> header. Added
+<i>Reply-To:</i> headers will contain email delivery
+addresses corresponding to each newsgroup in the
+<i>Followup-To:</i> or <i>Newsgroups:</i> header. If the
+specified header(s) already exist in an article, the email
+delivery addresses will be appended to the original header
+body(s).</p>
+
+<p style="margin-left:18%; margin-top: 1em">This option
+applies if and only if the <b>newspostuser</b> option is
+set.</p>
+
+<p style="margin-left:18%; margin-top: 1em">Allowed values:
+<i>to</i>, <i>replyto</i></p>
+
 <p style="margin-left:11%;"><b>newsgroups:</b> *</p>
 
 <p style="margin-left:18%;">A wildmat pattern specifying
@@ -1286,11 +1306,11 @@ example, if set to &quot;post&quot;, email sent to
 &quot;comp.mail.imap&quot; folder.</p>
 
 <p style="margin-left:18%; margin-top: 1em">When set, the
-Cyrus NNTP server will add a <i>To:</i> header to each
-incoming usenet article. This <i>To:</i> header will contain
-email delivery addresses corresponding to each newsgroup in
-the <i>Newsgroups:</i> header. By default, a <i>To:</i>
-header is not added to usenet articles.</p>
+Cyrus NNTP server will add the header(s) specified in the
+<b>newsaddheaders</b> option to each incoming usenet
+article. The added header(s) will contain email delivery
+addresses corresponding to each relevent newsgroup. If not
+set, no headers are added to usenet articles.</p>
 
 <p style="margin-left:11%;"><b>newsprefix:</b>
 &lt;none&gt;</p>
@@ -1828,6 +1848,13 @@ temporary failures if the client does not successfully
 authenticate. Otherwise lmtpd returns permanent failures
 (causing the mail to bounce immediately).</p>
 
+<p style="margin-left:11%;"><b>specialusealways:</b> 0</p>
+
+<p style="margin-left:18%;">If enabled, this option causes
+LIST and LSUB output to always include the XLIST
+&quot;special-use&quot; flags. See
+&quot;xlist-*&rsquo;&quot;</p>
+
 <p style="margin-left:11%;"><b>sql_database:</b>
 &lt;none&gt;</p>
 
@@ -2189,19 +2216,35 @@ default domain (if set).</p>
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>off</i>, <i>userid</i>, <i>on</i></p>
 
+<p style="margin-left:11%;"><b>xlist-*:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">Cyrus 2.4 ONLY - enable special
+use flags. The valid names can be taken from GMail&rsquo;s
+XLIST documents or RFC 6154. Attribute name in the
+configuration key should be defined in lowercase. The
+attribute value is case sensitive, may contain whitespace
+and and must valid UTF7-IMAP string. It must exactly match
+the name of the subfolder of a user&rsquo;s INBOX.</p>
+
+<p style="margin-left:18%; margin-top: 1em">Example:
+xlist-drafts: My Drafts</p>
+
+<p style="margin-left:18%; margin-top: 1em">Every user on
+your server with a &rsquo;INBOX.My Drafts&rsquo; folder will
+get the special use flag &quot; versions of Cyrus have a
+much more flexible RFC 6154 compatible system.</p>
+
 <h2>SEE ALSO
 <a name="SEE ALSO"></a>
 </h2>
 
 
 
-<p style="margin-left:11%; margin-top: 1em"><i><b>imapd(8)</b></i>,
+<p style="margin-left:11%; margin-top: 1em"><b>imapd(8)</b>,
 <b>pop3d(8)</b>, <b>nntpd(8)</b>, <b>lmtpd(8)</b>,
 <b>timsieved(8)</b>, <b>idled(8)</b>, <b>notifyd(8)</b>,
 <b>deliver(8)</b>, <b>master(8)</b>, <b>ciphers(1)</b></p>
-
-<p style="margin-left:11%; margin-top: 1em">Allowed values:
-<i>off</i>, <i>userid</i>, <i>on</i></p>
 <hr>
 </body>
 </html>

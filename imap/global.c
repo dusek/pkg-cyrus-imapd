@@ -104,7 +104,6 @@ struct cyrusdb_backend *config_ptscache_db;
 struct cyrusdb_backend *config_statuscache_db;
 struct cyrusdb_backend *config_userdeny_db;
 
-#define MAX_SESSIONID_SIZE 256
 char session_id_buf[MAX_SESSIONID_SIZE];
 int session_id_time = 0;
 int session_id_count = 0;
@@ -806,6 +805,29 @@ const char *session_id()
     if (!session_id_count) 
         session_new_id();
     return (const char *)session_id_buf;
+}
+
+/* parse sessionid out of protocol answers */
+void parse_sessionid(const char *str, char *sessionid)
+{
+    char *sp, *ep;
+    int len;
+
+    if ((str) && (sp = strstr(str, "SESSIONID=<")) && (ep = strchr(sp, '>')))
+    {
+	sp += 11;
+	len = ep - sp;
+	if (len < MAX_SESSIONID_SIZE)
+	{
+	    strncpy(sessionid, sp, len);
+	    ep = sessionid + len;
+	    *ep = '\0';
+	}
+	else
+	    strcpy(sessionid, "invalid");
+    }
+    else
+	strcpy(sessionid, "unknown");
 }
 
 int capa_is_disabled(const char *str)

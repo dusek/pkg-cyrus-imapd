@@ -2248,12 +2248,15 @@ void cmd_login(char *tag, char *user)
 	}
     }
     else if ( nosaslpasswdcheck ) {
-	reply = "User logged in";
+	snprintf(replybuf, sizeof(replybuf),
+	    "User logged in SESSIONID=<%s>", session_id());
+	reply = replybuf;
 	imapd_userid = xstrdup(canon_user);
 	imapd_authstate = auth_newstate(canon_user);
 	syslog(LOG_NOTICE, "login: %s %s%s nopassword%s %s", imapd_clienthost,
 	       imapd_userid, imapd_magicplus ? imapd_magicplus : "",
-	       imapd_starttls_done ? "+TLS" : "", reply);
+	       imapd_starttls_done ? "+TLS" : "",
+	       reply ? reply : "");
     }
     else if ((r = sasl_checkpass(imapd_saslconn,
 				 canon_user,
@@ -2343,6 +2346,8 @@ void cmd_authenticate(char *tag, char *authtype, char *resp)
 
     const void *val;
     char *ssfmsg=NULL;
+    char replybuf[MAX_MAILBOX_BUFFER];
+    const char *reply = NULL;
 
     const char *canon_user;
 
@@ -2433,9 +2438,13 @@ void cmd_authenticate(char *tag, char *authtype, char *resp)
 	imapd_userid = xstrdup(canon_user);
     }
 
+    snprintf(replybuf, sizeof(replybuf),
+	"User logged in SESSIONID=<%s>", session_id());
+    reply = replybuf;
     syslog(LOG_NOTICE, "login: %s %s%s %s%s %s", imapd_clienthost,
 	   imapd_userid, imapd_magicplus ? imapd_magicplus : "",
-	   authtype, imapd_starttls_done ? "+TLS" : "", "User logged in");
+	   authtype, imapd_starttls_done ? "+TLS" : "",
+	   reply ? reply : "");
 
     sasl_getprop(imapd_saslconn, SASL_SSF, &val);
     saslprops.ssf = *((sasl_ssf_t *) val);
@@ -2463,9 +2472,11 @@ void cmd_authenticate(char *tag, char *authtype, char *resp)
     if (!saslprops.ssf) {
 	prot_printf(imapd_out, "%s OK [CAPABILITY ", tag);
 	capa_response(CAPA_PREAUTH|CAPA_POSTAUTH);
-	prot_printf(imapd_out, "] Success (%s)\r\n", ssfmsg);
+	prot_printf(imapd_out, "] Success (%s) SESSIONID=<%s>\r\n",
+		    ssfmsg, session_id());
     } else {
-	prot_printf(imapd_out, "%s OK Success (%s)\r\n", tag, ssfmsg);
+	prot_printf(imapd_out, "%s OK Success (%s) SESSIONID=<%s>\r\n",
+		    tag, ssfmsg, session_id());
     }
 
     prot_setsasl(imapd_in,  imapd_saslconn);
@@ -5404,20 +5415,17 @@ void cmd_rename(char *tag, char *oldname, char *newname, char *partition)
     }
 
     /* canonicalize names */
-    r = (*imapd_namespace.mboxname_tointernal)(&imapd_namespace, oldname,
-					       imapd_userid, oldmailboxname);
-    if (!r)
-	r = (*imapd_namespace.mboxname_tointernal)(&imapd_namespace, newname,
-						   imapd_userid, newmailboxname);
+    if (!r) r = (*imapd_namespace.mboxname_tointernal)(&imapd_namespace, oldname,
+						       imapd_userid, oldmailboxname);
+    if (!r) r = (*imapd_namespace.mboxname_tointernal)(&imapd_namespace, newname,
+						       imapd_userid, newmailboxname);
 
     /* Keep temporary copy: master is trashed */
     strcpy(oldmailboxname2, oldmailboxname);
     strcpy(newmailboxname2, newmailboxname);
 
-    if (!r) {
-	r = mlookup(NULL, NULL, oldmailboxname, &mbtype,
-		    &server, NULL, NULL);
-    }
+    if (!r) r = mlookup(NULL, NULL, oldmailboxname, &mbtype,
+			&server, NULL, NULL);
 
     if (!r && (mbtype & MBTYPE_REMOTE)) {
 	/* remote mailbox */
@@ -5550,6 +5558,16 @@ void cmd_rename(char *tag, char *oldname, char *newname, char *partition)
 	return;
     }
 
+    /* local rename: it's OK if the mailbox doesn't exist, we'll check
+     * if sub mailboxes can be renamed */
+    if (r == IMAP_MAILBOX_NONEXISTENT)
+	r = 0;
+
+    if (r) {
+	prot_printf(imapd_out, "%s NO %s\r\n", tag, error_message(r));
+	return;
+    }
+
     /* local destination */
 
     /* if this is my inbox, don't do recursive renames */
@@ -5580,8 +5598,6 @@ void cmd_rename(char *tag, char *oldname, char *newname, char *partition)
 	    recursive_rename = 0;
 	}
     }
-
-    r = 0; /* doesn't matter if we didn't find it now */
 
     (*imapd_namespace.mboxname_toexternal)(&imapd_namespace,
 					   oldmailboxname,
@@ -5628,7 +5644,9 @@ void cmd_rename(char *tag, char *oldname, char *newname, char *partition)
 				   imapd_userisadmin, 
 				   imapd_userid, imapd_authstate, 0, rename_user);
 	/* it's OK to not exist if there are subfolders */
-	if (r == IMAP_MAILBOX_NONEXISTENT && subcount && !rename_user) 
+	if (r == IMAP_MAILBOX_NONEXISTENT && subcount && !rename_user &&
+	   mboxname_userownsmailbox(imapd_userid, oldmailboxname) &&
+	   mboxname_userownsmailbox(imapd_userid, newmailboxname))
 	    goto submboxes;
     }
 
@@ -5959,6 +5977,13 @@ void getlistargs(char *tag, struct listargs *listargs)
 	}
     }
 
+    /* Per RFC 5258:
+     * "Note that the SUBSCRIBED selection option implies the SUBSCRIBED
+     * return option."
+     */
+    if (listargs->sel & LIST_SEL_SUBSCRIBED)
+	listargs->ret |= LIST_RET_SUBSCRIBED;
+
     /* check for CRLF */
     if (c == '\r') c = prot_getc(imapd_in);
     if (c != '\n') {
@@ -6205,7 +6230,6 @@ char *identifier;
     if (!r) {
 	struct auth_state *authstate = auth_newstate(identifier);
 	char *canon_identifier;
-	int canonidlen = 0;
 	int implicit;
 	char rightsdesc[100], optional[33];
 
@@ -6214,8 +6238,6 @@ char *identifier;
 	else
 	    canon_identifier = canonify_userid(identifier, imapd_userid, NULL);
 	auth_freestate(authstate);
-
-	if (canon_identifier) canonidlen = strlen(canon_identifier);
 
 	if (!canon_identifier) {
 	    implicit = 0;
@@ -8588,7 +8610,7 @@ static int xfer_backport_seen_item(struct xfer_item *item,
     struct mailbox *mailbox = NULL;
     struct seqset *outlist = NULL;
     struct index_record record;
-    struct seendata sd;
+    struct seendata sd = SEENDATA_INITIALIZER;
     unsigned recno;
     int r;
 
@@ -9231,7 +9253,7 @@ int getlistselopts(char *tag, unsigned *opts)
 	lcase(buf.s);
 
 	if (!strcmp(buf.s, "subscribed")) {
-	    *opts |= LIST_SEL_SUBSCRIBED | LIST_RET_SUBSCRIBED;
+	    *opts |= LIST_SEL_SUBSCRIBED;
 	} else if (!strcmp(buf.s, "remote")) {
 	    *opts |= LIST_SEL_REMOTE;
 	} else if (!strcmp(buf.s, "recursivematch")) {
@@ -9903,7 +9925,8 @@ static void list_response(char *name, int attributes,
     if (attributes & (MBOX_ATTRIBUTE_NONEXISTENT | MBOX_ATTRIBUTE_NOSELECT)) {
 	int keep = 0;
 	/* we have to mention this, it has children */
-	if (listargs->cmd & LIST_CMD_LSUB) {
+	if (listargs->ret & LIST_RET_SUBSCRIBED ||
+	    listargs->sel & LIST_SEL_SUBSCRIBED) {
 	    /* subscribed children need a mention */
 	    if (attributes & MBOX_ATTRIBUTE_CHILDINFO_SUBSCRIBED)
 		keep = 1;
@@ -9965,8 +9988,10 @@ static void list_response(char *name, int attributes,
     (*imapd_namespace.mboxname_toexternal)(&imapd_namespace, name,
             imapd_userid, mboxname);
 
-    if (listargs->cmd == LIST_CMD_XLIST)
+    if (config_getswitch(IMAPOPT_SPECIALUSEALWAYS) ||
+	    listargs->cmd == LIST_CMD_XLIST)
 	xlist_flags(internal_name, sep);
+
     prot_printf(imapd_out, ") ");
 
     prot_printf(imapd_out, "\"%c\" ", imapd_namespace.hier_sep);
