@@ -269,7 +269,7 @@ int dir_hash_c(const char *name, int full)
 
     if (full) {
 	unsigned char *pt;
-	unsigned int n;
+	unsigned long long int n;
 	enum {
 	    DIR_X = 3,
 	    DIR_Y = 5,
@@ -394,6 +394,15 @@ int become_cyrus(void)
     /* Save these in case initgroups does a getpw*() */
     newuid = p->pw_uid;
     newgid = p->pw_gid;
+
+    if (newuid == (int)geteuid() &&
+        newuid == (int)getuid() &&
+	newgid == (int)getegid() &&
+	newgid == (int)getgid()) {
+	/* already the Cyrus user, stop trying */
+	uid = newuid;
+	return 0;
+    }
 
     if (initgroups(CYRUS_USER, newgid)) {
         syslog(LOG_ERR, "unable to initialize groups for user %s: %s",

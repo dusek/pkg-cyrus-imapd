@@ -649,6 +649,21 @@ The number of mupdate worker threads to start
 If enabled at compile time, this specifies a URL to reply when
 Netscape asks the server where the mail administration HTTP server
 is.  Administrators should set this to a local resource. 
+.IP "\fBnewsaddheaders:\fR to" 5
+Space-separated list of headers to be added to incoming usenet
+articles.  Added \fITo:\fR headers will contain email
+delivery addresses corresponding to each newsgroup in the
+\fINewsgroups:\fR header.  Added \fIReply-To:\fR headers will
+contain email delivery addresses corresponding to each newsgroup in
+the \fIFollowup-To:\fR or \fINewsgroups:\fR header.  If the
+specified header(s) already exist in an article, the email
+delivery addresses will be appended to the original header body(s).
+.br
+.sp
+This option applies if and only if the \fBnewspostuser\fR option is
+set. 
+
+Allowed values: \fIto\fR, \fIreplyto\fR
 .IP "\fBnewsgroups:\fR *" 5
 A wildmat pattern specifying which mailbox hierarchies should be
 treated as newsgroups.  Only mailboxes matching the wildmat will
@@ -692,11 +707,11 @@ to "post+comp.mail.imap" would be delivered to the "comp.mail.imap"
 folder.
 .br
 .sp
-When set, the Cyrus NNTP server will add a \fITo:\fR header to each
-incoming usenet article.  This \fITo:\fR header will contain email
-delivery addresses corresponding to each newsgroup in the
-\fINewsgroups:\fR header.  By default, a \fITo:\fR header is not
-added to usenet articles. 
+When set, the Cyrus NNTP server will add the header(s) specified in
+the \fBnewsaddheaders\fR option to each incoming usenet article.
+The added header(s) will contain email delivery addresses
+corresponding to each relevent newsgroup.  If not set, no headers
+are added to usenet articles. 
 .IP "\fBnewsprefix:\fR <none>" 5
 Prefix to be prepended to newsgroup names to make the corresponding
 IMAP mailbox names. 
@@ -987,6 +1002,9 @@ not sync writes to the disk.  Enabling this option is NOT RECOMMENDED.
 If enabled, lmtpd returns temporary failures if the client does not
 successfully authenticate.  Otherwise lmtpd returns permanent failures
 (causing the mail to bounce immediately). 
+.IP "\fBspecialusealways:\fR 0" 5
+If enabled, this option causes LIST and LSUB output to always include
+the XLIST "special-use" flags. See "xlist-*'"
 .IP "\fBsql_database:\fR <none>" 5
 Name of the database which contains the cyrusdb table(s). 
 .IP "\fBsql_engine:\fR <none>" 5
@@ -1155,6 +1173,19 @@ interface, otherwise the user is assumed to be in the default
 domain (if set). 
 
 Allowed values: \fIoff\fR, \fIuserid\fR, \fIon\fR
+.IP "\fBxlist-*:\fR <none>" 5
+Cyrus 2.4 ONLY - enable special use flags.  The valid names
+can be taken from GMail's XLIST documents or RFC 6154.
+Attribute name in the configuration key should be defined in
+lowercase. The attribute value is case sensitive, may contain
+whitespace and and must valid UTF7-IMAP string.  It must
+exactly match the name of the subfolder of a user's INBOX.
+
+Example: xlist-drafts: My Drafts
+
+Every user on your server with a 'INBOX.My Drafts' folder will get 
+the special use flag "\Drafts" added.  Later versions of Cyrus
+have a much more flexible RFC 6154 compatible system.  
 
 .SH SEE ALSO
 .PP
@@ -1162,5 +1193,3 @@ Allowed values: \fIoff\fR, \fIuserid\fR, \fIon\fR
 \fBtimsieved(8)\fR, \fBidled(8)\fR, \fBnotifyd(8)\fR,
 \fBdeliver(8)\fR, \fBmaster(8)\fR, \fBciphers(1)\fR
 
-
-Allowed values: \fIoff\fR, \fIuserid\fR, \fIon\fR
