@@ -55,9 +55,9 @@ By normalize, it is intended that;
  
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -1392,6 +1392,11 @@ product version in the capabilities */
-    interface, otherwise the user is assumed to be in the default
-    domain (if set). */
+@@ -1424,6 +1424,11 @@ product version in the capabilities */
+    the special use flag "\Drafts" added.  Later versions of Cyrus
+    have a much more flexible RFC 6154 compatible system.  */
  
 +{ "normalizeuid", 0, SWITCH }
 +/* Lowercase uid and strip leading and trailing blanks. It is recommended

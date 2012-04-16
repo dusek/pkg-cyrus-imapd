@@ -8,7 +8,7 @@
 @DPATCH@
 --- a/imap/global.c
 +++ b/imap/global.c
-@@ -111,6 +111,9 @@ int session_id_count = 0;
+@@ -110,6 +110,9 @@ int session_id_count = 0;
  
  strarray_t *suppressed_capabilities = NULL;
  
@@ -18,7 +18,7 @@
  /* Called before a cyrus application starts (but after command line parameters
   * are read) */
  int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
-@@ -138,7 +141,9 @@ int cyrus_init(const char *alt_config, c
+@@ -137,7 +140,9 @@ int cyrus_init(const char *alt_config, c
      
      /* xxx we lose here since we can't have the prefix until we load the
       * config file */

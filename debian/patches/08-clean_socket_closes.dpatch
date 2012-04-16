@@ -18,7 +18,7 @@ need similar patches.
 
 --- a/imap/backend.c
 +++ b/imap/backend.c
-@@ -553,6 +553,7 @@ struct backend *backend_connect(struct b
+@@ -554,6 +554,7 @@ struct backend *backend_connect(struct b
  	    syslog(LOG_ERR, "couldn't authenticate to backend server: %s",
  		   sasl_errstring(r, NULL, NULL));
  	    if (!ret_backend) free(ret);
@@ -59,7 +59,7 @@ need similar patches.
  
 --- a/imap/lmtpd.c
 +++ b/imap/lmtpd.c
-@@ -979,6 +979,9 @@ void shut_down(int code)
+@@ -977,6 +977,9 @@ void shut_down(int code)
  
      cyrus_done();
  

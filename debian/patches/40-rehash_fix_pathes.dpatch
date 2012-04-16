@@ -7,7 +7,7 @@
 @DPATCH@
 --- a/tools/rehash
 +++ b/tools/rehash
-@@ -165,7 +165,7 @@ sub read_conf {
+@@ -186,7 +186,7 @@ sub read_conf {
  $imapdconf = shift || "/etc/imapd.conf";
  
  $yn = "y";
@@ -16,7 +16,7 @@
  $nosievedir = 0;
  $hashispool = 0;
  $virtdomains = 0;
-@@ -176,7 +176,7 @@ while ($conf = shift @configs) {
+@@ -197,7 +197,7 @@ while ($conf = shift @configs) {
      read_conf($conf);
  }
  
@@ -25,7 +25,7 @@
  
  if ($interactive) {
      print "upgrade $confdir? ";
-@@ -550,6 +550,7 @@ sub move_part {
+@@ -632,6 +632,7 @@ sub move_part {
  	      or die "couldn't rename .$i/$s/$t to $s/$t";
  	  }
  	  closedir MV;

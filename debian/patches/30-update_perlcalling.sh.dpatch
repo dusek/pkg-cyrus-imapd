@@ -334,8 +334,8 @@
 -
 -__END__
  require 5;
+ require Math::BigInt;
  
- $| = 1;
 --- a/tools/translatesieve
 +++ b/tools/translatesieve
 @@ -1,6 +1,4 @@
