@@ -19,7 +19,7 @@
      exit(EC_USAGE);
 --- a/imap/quota.c
 +++ b/imap/quota.c
-@@ -207,7 +207,7 @@ int main(int argc,char **argv)
+@@ -206,7 +206,7 @@ int main(int argc,char **argv)
  void usage(void)
  {
      fprintf(stderr,

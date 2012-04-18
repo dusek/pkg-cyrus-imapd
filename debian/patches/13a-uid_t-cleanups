@@ -7,7 +7,7 @@ Use the proper types for UIDs and GIDs.
 
 --- a/lib/util.c
 +++ b/lib/util.c
-@@ -379,9 +379,10 @@ int cyrus_mkdir(const char *path, mode_t
+@@ -380,9 +380,10 @@ int cyrus_mkdir(const char *path, mode_t
  int become_cyrus(void)
  {
      struct passwd *p;
