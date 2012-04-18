@@ -239,8 +239,7 @@ Description: Cyrus mail system - developer files
 
 Package: cyrus-common
 Architecture: all
-Depends: ${misc:Depends}, adduser, db-util
-Recommends: db4.7-util, db4.8-util, db5.1-util
+Depends: ${misc:Depends}, adduser, db-util, db4.7-util, db4.8-util, db5.1-util
 Conflicts: cyrus-common-2.2 (<< 2.2.13p1-9~), cyrus-common-2.4 (<< 2.4.8-6~)
 Replaces: cyrus-common-2.2 (<< 2.2.13p1-9~), cyrus-common-2.4 (<< 2.4.8-6~)
 Description: Cyrus mail system - common files
