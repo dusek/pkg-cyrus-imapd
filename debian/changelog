@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.15-1) unstable; urgency=low
+
+  * Imported Upstream version 2.4.15
+  * Depend on dbX.Y-util to allow smooth upgrades (Closes: #663939)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 18 Apr 2012 13:52:18 +0200
+
 cyrus-imapd-2.4 (2.4.14-1) unstable; urgency=low
 
   [ Christoph Berg ]
