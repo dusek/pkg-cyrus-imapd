@@ -1,5 +1,11 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.4.15
+
+      * The tools/rehash utility has been fixed, we recommend ALL sites
+        with the fulldirhash option enabled to run tools/rehash on their
+        mailspools. 
+
 Upgrading from 2.4.14
 
       * We recommend that ALL sites with fulldirhash enabled run
