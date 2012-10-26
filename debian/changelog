@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.16-2) unstable; urgency=low
+
+  [ Gregor Herrman ]
+  * Add postinst scripts for all transitional packages to handle the 
+    directory to symlink transition of their docdirs.
+    (Closes: #690147)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 24 Oct 2012 18:50:42 +0200
+
 cyrus-imapd-2.4 (2.4.16-1) unstable; urgency=low
 
   * Imported Upstream version 2.4.16
