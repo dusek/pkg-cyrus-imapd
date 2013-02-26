@@ -1,3 +1,14 @@
+cyrus-imapd-2.4 (2.4.16-3) unstable; urgency=low
+
+  * Use find -H instead of plain find to fix the permissions inside the
+    sieve dir (Closes: #693507)
+  * Really clean (instead of printing) the stale lock and proc directories
+    (Closes: #629609)
+  * Pull fix for crashes when fetching message parts (Closes: #700801)
+  * Fix crash in sync client (found in upstream git)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 26 Feb 2013 12:37:09 +0100
+
 cyrus-imapd-2.4 (2.4.16-2) unstable; urgency=low
 
   [ Gregor Herrman ]
