@@ -89,7 +89,7 @@ for i in user quota lock; do
     	[ -d "$confdir/$i/$j" ] || mkdir "$confdir/$i/$j"
     done
 done
-find "$confdir" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
+find -H "$confdir" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
 
 # Now, create the spool partitions
 for i in $partitions ; do
@@ -102,9 +102,9 @@ for i in $partitions ; do
 	   done
 	}
 	[ -d "$i/stage." ] || mkdir "$i/stage."
-	find "$i" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
+	find -H "$i" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
 	# and kill any squatter indexes
-	[ $killsquat -ne 0 ] && find "$i" -name 'cyrus.squat' -type f -exec rm -f "{}" \;
+	[ $killsquat -ne 0 ] && find -H "$i" -name 'cyrus.squat' -type f -exec rm -f "{}" \;
 done
 
 # And the sieve directory structure
@@ -115,7 +115,7 @@ done
 		[ -d "$sievedir/$j" ] || mkdir "$sievedir/$j"
 		chmod 755 "$sievedir/$j"
 	done
-	find "$sievedir" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
+	find -H "$sievedir" \( -not -user cyrus -or -not -group mail \) -execdir chown cyrus:mail '{}' \;
 }
 
 [ "x${CYRUSOPTFILESYS}" != "x1" ] && exit 0
@@ -133,11 +133,11 @@ for i in ${filesys} ; do
 	case ${i} in
 	ext2)
   		echo "Setting attributes to +S for  ${partsys%% *}..."
-		find "${partsys%% *}" -type d -exec chattr +S "{}" \;
+		find -H "${partsys%% *}" -type d -exec chattr +S "{}" \;
 		;;
 	ext3)
   		echo "Setting attributes to -S -j for  ${partsys%% *}..."
-		find "${partsys%% *}" -type d -exec chattr -S -j "{}" \;
+		find -H "${partsys%% *}" -type d -exec chattr -S -j "{}" \;
 		;;
 	esac
 	partsys="${partsys#* }"
