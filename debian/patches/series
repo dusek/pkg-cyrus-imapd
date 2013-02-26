@@ -30,3 +30,4 @@ cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
 cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
 86-fix_PATH_MAX_on_hurd.patch
 87-try_only_-ldb.patch
+fix_consistent_crash_fetching_message_parts.patch
