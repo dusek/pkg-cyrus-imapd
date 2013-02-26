@@ -145,8 +145,8 @@ do_start()
     #   2 if daemon could not be started
     
     # Clean stale entries
-    find "$LOCK_DIR" -mindepth 1 -depth -size 0 # -delete
-    find "$PROC_DIR" -mindepth 1 -depth -name '[0-9]*' # -delete
+    find "$LOCK_DIR" -mindepth 1 -depth -size 0 -delete
+    find "$PROC_DIR" -mindepth 1 -depth -name '[0-9]*' -delete
 
     start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
 	|| return 1
