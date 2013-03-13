@@ -15,6 +15,17 @@ By normalize, it is intended that;
  lib/libcyr_cfg.h |    2 ++
  4 files changed, 29 insertions(+), 0 deletions(-)
 
+--- a/imap/global.c
++++ b/imap/global.c
+@@ -224,6 +224,8 @@ int cyrus_init(const char *alt_config, c
+ 				  config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
+ 	libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
+ 				  config_getswitch(IMAPOPT_USERNAME_TOLOWER));
++	libcyrus_config_setswitch(CYRUSOPT_NORMALIZEUID,
++				  config_getswitch(IMAPOPT_NORMALIZEUID));
+ 	libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_UNSAFE,
+ 				  config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
+ 	libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
 --- a/lib/auth_unix.c
 +++ b/lib/auth_unix.c
 @@ -156,10 +156,12 @@ const char *identifier;
