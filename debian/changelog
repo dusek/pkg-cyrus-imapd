@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.16-4) unstable; urgency=low
+
+  * Update normalize patch to correctly set the normalize option in the
+    global library (Closes: #702941)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 13 Mar 2013 11:12:57 +0100
+
 cyrus-imapd-2.4 (2.4.16-3) unstable; urgency=low
 
   * Use find -H instead of plain find to fix the permissions inside the
