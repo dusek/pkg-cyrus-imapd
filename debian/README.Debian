@@ -15,12 +15,11 @@ IMPORTANT: Cyrus is a closed-box email system.  Your system will access your
 email through LMTP, IMAP and POP3 *only*.  No direct file access to the email
 store is supposed to take place.
 
-For more information, please consult http://asg.web.cmu.edu/cyrus/imapd/ and
-http://asg.web.cmu.edu/twiki/bin/view/Cyrus/WebHome (Cyrus WiKi).  There is
-also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the LDP HOWTO
-collection.  Upgrade hints are in UPGRADE.Debian.gz  Outdated documentation
-will cause you much grief, so beware of that when hunting anywhere else than
-the Cyrus mailinglist for information.
+For more information, please consult http://cyrusimap.org/.
+There is also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the
+LDP HOWTO collection.  Upgrade hints are in UPGRADE.Debian.gz Outdated
+documentation will cause you much grief, so beware of that when
+hunting anywhere else than the Cyrus mailinglist for information.
 
 Backports of the latest packages for Debian Stable are available from
 http://www.backports.org

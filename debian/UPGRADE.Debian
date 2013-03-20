@@ -1,7 +1,7 @@
 For more information, see README.Debian[.gz] in /usr/share/doc/cyrus-common-2.4/
-and the web page below, part of the cyrus-utils project at SourceForge:
+and the web page below, part of the Cyrus project at http://cyrusimap.org/
 
-  http://cyrus-utils.sourceforge.net/faq
+  http://cyrusimap.org/mediawiki/index.php/FAQ
 
 Upgrading from 2.2.x to 2.4
 ===========================
