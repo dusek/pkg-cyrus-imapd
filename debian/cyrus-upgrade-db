@@ -97,7 +97,6 @@ upgradealldb() {
     fi
 
     BERKELEY_DB_FOUND=
-    cat $OLD_LIST | \
     while read -r OLD_DBKEY OLD_DBVALUE ; do
 	NEW_DBVALUE=$(LC_ALL=C gawk "/^${OLD_DBKEY}[[:blank:]]/ { print \$2 }" $NEW_LIST)
 
@@ -180,7 +179,7 @@ upgradealldb() {
 		upgradedb $DBFILE $OLD_DBVALUE $NEW_DBVALUE
 	    fi
 	fi
-    done
+    done < $OLD_LIST
     # Create Berkeley DB checkpoint and remove old logs
     if [ -n "${DO_UPGRADE_BDB}" -a -d $CONFIG_DIR/db ]; then
 	if [ -n "${BERKELEY_DB_FOUND}" ]; then
