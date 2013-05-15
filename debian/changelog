@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.16-5) unstable; urgency=high
+
+  * Fix links in the README.Debian and UPGRADE.Debian (courtesy of Gijs
+    Hillenius)
+  * When piping data to while loop the subshell is created and variables
+    are lost (Closes: #706862)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 15 May 2013 08:54:27 +0200
+
 cyrus-imapd-2.4 (2.4.16-4) unstable; urgency=low
 
   * Update normalize patch to correctly set the normalize option in the
