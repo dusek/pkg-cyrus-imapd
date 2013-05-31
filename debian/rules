@@ -82,7 +82,6 @@ override_dh_auto_configure:
 	 --with-lock=fcntl \
 	 --with-perl=/usr/bin/perl \
 	 --with-openssl=/usr \
-	 --enable-afs \
 	 --with-bdb=db \
 	 --with-bdb-libdir=/usr/lib --with-bdb-incdir=/usr/include \
 	 --enable-murder --enable-nntp --enable-replication \
@@ -95,8 +94,7 @@ override_dh_auto_configure:
 	 --with-com_err="" \
 	 --with-pidfile=/var/run/cyrmaster.pid \
 	 --with-syslogfacility=MAIL \
-	 --with-ucdsnmp=/usr \
-	 --with-ldap=/usr
+	 --with-ucdsnmp=/usr
 	echo 'To build this package, configure was called as follows:' \
 		> debian/README.configure-options
 	grep '^ac_cs_config=' config.status \
