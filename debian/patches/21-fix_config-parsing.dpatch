@@ -5,8 +5,8 @@
 ## DP: Fix parsing of master.conf
 
 @DPATCH@
---- a/master/masterconf.c
-+++ b/master/masterconf.c
+--- cyrus-imapd-2.4.orig/master/masterconf.c
++++ cyrus-imapd-2.4/master/masterconf.c
 @@ -152,8 +152,13 @@ int masterconf_getint(struct entry *e,
      const char *val = masterconf_getstring(e, key, NULL);
  

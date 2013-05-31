@@ -9,8 +9,8 @@
 ## DP: supported option names
 
 @DPATCH@
---- a/lib/imapoptions
-+++ b/lib/imapoptions
+--- cyrus-imapd-2.4.orig/lib/imapoptions
++++ cyrus-imapd-2.4/lib/imapoptions
 @@ -90,7 +90,10 @@ The sections below detail options that c
  \fB/etc/imapd.conf\fR file, and show each option's default value.
  Some options have no default value, these are listed with
@@ -23,7 +23,7 @@
  */
  
  # OPTIONS
-@@ -143,7 +146,17 @@ are listed with ``<none>''.
+@@ -149,7 +152,17 @@ are listed with ``<none>''.
    enabled when absolutely necessary. */
  
  { "allowplaintext", 0, SWITCH }

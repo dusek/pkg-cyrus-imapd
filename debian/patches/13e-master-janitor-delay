@@ -22,8 +22,8 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
 
 NOTE: patch is missing manpage fixes to describe -J
 
---- a/master/master.c
-+++ b/master/master.c
+--- cyrus-imapd-2.4.orig/master/master.c
++++ cyrus-imapd-2.4/master/master.c
 @@ -176,6 +176,8 @@ struct centry {
  static struct centry *ctable[child_table_size];
  static struct centry *cfreelist;

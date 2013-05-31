@@ -12,9 +12,9 @@ locks.
 Is this patch correct?  Will it cause issues with other uses of alarm()
 in Cyrus code?
 
---- a/configure.in
-+++ b/configure.in
-@@ -1463,7 +1463,11 @@ enum {
+--- cyrus-imapd-2.4.orig/configure.in
++++ cyrus-imapd-2.4/configure.in
+@@ -1554,7 +1554,11 @@ enum {
      SQUAT_ENGINE = 1,
  
      /* should we have long LMTP error messages? */
@@ -27,8 +27,8 @@ in Cyrus code?
  };
  
  #endif /* _CYRUS_IMAPD_CONFIG_H_ */
---- a/lib/lock_fcntl.c
-+++ b/lib/lock_fcntl.c
+--- cyrus-imapd-2.4.orig/lib/lock_fcntl.c
++++ cyrus-imapd-2.4/lib/lock_fcntl.c
 @@ -48,11 +48,43 @@
  #include <unistd.h>
  #include <fcntl.h>
@@ -251,8 +251,8 @@ in Cyrus code?
 +    return 0;
  }
  
---- a/lib/lock_flock.c
-+++ b/lib/lock_flock.c
+--- cyrus-imapd-2.4.orig/lib/lock_flock.c
++++ cyrus-imapd-2.4/lib/lock_flock.c
 @@ -47,6 +47,8 @@
  #include <sys/stat.h>
  #include <fcntl.h>
@@ -450,8 +450,8 @@ in Cyrus code?
 +    return 0;
  }
  
---- a/lib/cyr_lock.h
-+++ b/lib/cyr_lock.h
+--- cyrus-imapd-2.4.orig/lib/cyr_lock.h
++++ cyrus-imapd-2.4/lib/cyr_lock.h
 @@ -55,6 +55,8 @@
  
  #include <sys/stat.h>

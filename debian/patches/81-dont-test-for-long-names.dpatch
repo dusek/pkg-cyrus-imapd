@@ -6,8 +6,8 @@
 ## DP: this is a _very_ old patch from Cyrus 2.1, might not be needed anymore
 
 @DPATCH@
---- a/configure.in
-+++ b/configure.in
+--- cyrus-imapd-2.4.orig/configure.in
++++ cyrus-imapd-2.4/configure.in
 @@ -99,10 +99,12 @@ AC_AIX
  AC_ISC_POSIX
  AC_PROG_AWK

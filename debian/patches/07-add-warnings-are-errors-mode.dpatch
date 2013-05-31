@@ -6,8 +6,8 @@
 ## DP: add a maintainer mode to abort on any warnings
 
 @DPATCH@
---- a/configure.in
-+++ b/configure.in
+--- cyrus-imapd-2.4.orig/configure.in
++++ cyrus-imapd-2.4/configure.in
 @@ -51,6 +51,11 @@ AC_PREREQ([2.54])
  AC_CONFIG_HEADER(config.h)
  AC_CANONICAL_SYSTEM

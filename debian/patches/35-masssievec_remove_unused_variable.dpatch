@@ -5,8 +5,8 @@
 ## DP: Remove the $nosievedir variable which is set once but never used.
 
 @DPATCH@
---- a/tools/masssievec
-+++ b/tools/masssievec
+--- cyrus-imapd-2.4.orig/tools/masssievec
++++ cyrus-imapd-2.4/tools/masssievec
 @@ -84,7 +84,6 @@ sub read_conf {
  	    push @configs, $1;
  	}

@@ -1,5 +1,5 @@
---- a/master/master.c
-+++ b/master/master.c
+--- cyrus-imapd-2.4.orig/master/master.c
++++ cyrus-imapd-2.4/master/master.c
 @@ -72,6 +72,10 @@
  #include <errno.h>
  #include <limits.h>
@@ -11,8 +11,8 @@
  #ifndef INADDR_NONE
  #define INADDR_NONE 0xffffffff
  #endif
---- a/master/service.c
-+++ b/master/service.c
+--- cyrus-imapd-2.4.orig/master/service.c
++++ cyrus-imapd-2.4/master/service.c
 @@ -76,6 +76,10 @@
  #include "xstrlcat.h"
  #include "signals.h"
@@ -24,8 +24,8 @@
  extern int optind, opterr;
  extern char *optarg;
  
---- a/imap/pop3d.c
-+++ b/imap/pop3d.c
+--- cyrus-imapd-2.4.orig/imap/pop3d.c
++++ cyrus-imapd-2.4/imap/pop3d.c
 @@ -94,6 +94,10 @@
  #include "sync_log.h"
  #include "statuscache.h"
@@ -37,8 +37,8 @@
  #ifdef HAVE_KRB
  /* kerberos des is purported to conflict with OpenSSL DES */
  #define DES_DEFS
---- a/syslog/syslogd.c
-+++ b/syslog/syslogd.c
+--- cyrus-imapd-2.4.orig/syslog/syslogd.c
++++ cyrus-imapd-2.4/syslog/syslogd.c
 @@ -156,6 +156,10 @@ static char sccsid[] = "@(#)syslogd.c	5.
  #include <ctype.h>
  #include <string.h>

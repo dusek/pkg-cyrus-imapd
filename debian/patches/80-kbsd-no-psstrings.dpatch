@@ -5,8 +5,8 @@
 ## DP: disable PS_STRINGS for GNU/kFreeBSD
 
 @DPATCH@
---- a/configure.in
-+++ b/configure.in
+--- cyrus-imapd-2.4.orig/configure.in
++++ cyrus-imapd-2.4/configure.in
 @@ -479,16 +479,15 @@ if test "$spt_type" = ""; then
  fi
  if test "$spt_type" = ""; then

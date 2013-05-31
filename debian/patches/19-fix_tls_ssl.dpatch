@@ -5,8 +5,8 @@
 ## DP: Make TLS/SSL error message more informative
 
 @DPATCH@
---- a/imap/tls.c
-+++ b/imap/tls.c
+--- cyrus-imapd-2.4.orig/imap/tls.c
++++ cyrus-imapd-2.4/imap/tls.c
 @@ -172,7 +172,7 @@ int tls_enabled(void)
   * tim - this seems to just be giving logging messages
   */
@@ -16,7 +16,7 @@
  {
      char   *str;
      int     w;
-@@ -736,7 +736,7 @@ int     tls_init_serverengine(const char
+@@ -752,7 +752,7 @@ int     tls_init_serverengine(const char
      s_key_file = config_getstring(IMAPOPT_TLS_KEY_FILE);
  
      if (!set_cert_stuff(s_ctx, s_cert_file, s_key_file)) {
@@ -25,7 +25,7 @@
  	return (-1);
      }
      SSL_CTX_set_tmp_rsa_callback(s_ctx, tmp_rsa_cb);
-@@ -1238,7 +1238,7 @@ int tls_init_clientengine(int verifydept
+@@ -1259,7 +1259,7 @@ int tls_init_clientengine(int verifydept
      
      if (c_cert_file || c_key_file) {
  	if (!set_cert_stuff(c_ctx, c_cert_file, c_key_file)) {
@@ -34,8 +34,8 @@
  	    return (-1);
  	}
      }
---- a/imtest/imtest.c
-+++ b/imtest/imtest.c
+--- cyrus-imapd-2.4.orig/imtest/imtest.c
++++ cyrus-imapd-2.4/imtest/imtest.c
 @@ -65,6 +65,7 @@
  
  #include <limits.h>
@@ -62,8 +62,8 @@
  	    return IMTEST_FAIL;
  	}
      SSL_CTX_set_tmp_rsa_callback(tls_ctx, tmp_rsa_cb);
---- a/lib/imclient.c
-+++ b/lib/imclient.c
+--- cyrus-imapd-2.4.orig/lib/imclient.c
++++ cyrus-imapd-2.4/lib/imclient.c
 @@ -1731,7 +1731,7 @@ static int tls_init_clientengine(struct
  
      if (c_cert_file || c_key_file)

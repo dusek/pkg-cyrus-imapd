@@ -1,6 +1,6 @@
---- a/lib/imapoptions
-+++ b/lib/imapoptions
-@@ -945,12 +945,13 @@ And the notification message will be ava
+--- cyrus-imapd-2.4.orig/lib/imapoptions
++++ cyrus-imapd-2.4/lib/imapoptions
+@@ -1044,12 +1044,13 @@ And the notification message will be ava
     in minutes.  The minimum value is 10, the default. */
  
  { "popuseacl", 0, SWITCH }
@@ -19,8 +19,8 @@
     \fIpopuseimapflags\fR is also enabled). */
  
  { "popuseimapflags", 0, SWITCH }
---- a/man/cyr_dbtool.8
-+++ b/man/cyr_dbtool.8
+--- cyrus-imapd-2.4.orig/man/cyr_dbtool.8
++++ cyrus-imapd-2.4/man/cyr_dbtool.8
 @@ -79,8 +79,8 @@ terminated by tab or newline, values are
  Running without any options will list the available database backends and
  usable actions.

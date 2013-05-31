@@ -6,8 +6,8 @@
 ## DP: script is missing
 
 @DPATCH@
---- a/sieve/script.c
-+++ b/sieve/script.c
+--- cyrus-imapd-2.4.orig/sieve/script.c
++++ cyrus-imapd-2.4/sieve/script.c
 @@ -55,6 +55,7 @@
  #include <sys/types.h>
  #include <unistd.h>

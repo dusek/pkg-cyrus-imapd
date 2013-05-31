@@ -10,32 +10,32 @@
 ## DP:       This should be the default actually. 
 
 @DPATCH@
---- a/perl/imap/examples/auditmbox.pl
-+++ b/perl/imap/examples/auditmbox.pl
+--- cyrus-imapd-2.4.orig/perl/imap/examples/auditmbox.pl
++++ cyrus-imapd-2.4/perl/imap/examples/auditmbox.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- a/perl/imap/examples/imapcollate.pl
-+++ b/perl/imap/examples/imapcollate.pl
+--- cyrus-imapd-2.4.orig/perl/imap/examples/imapcollate.pl
++++ cyrus-imapd-2.4/perl/imap/examples/imapcollate.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- a/perl/imap/examples/imapdu.pl
-+++ b/perl/imap/examples/imapdu.pl
+--- cyrus-imapd-2.4.orig/perl/imap/examples/imapdu.pl
++++ cyrus-imapd-2.4/perl/imap/examples/imapdu.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- a/perl/sieve/scripts/installsieve.pl
-+++ b/perl/sieve/scripts/installsieve.pl
+--- cyrus-imapd-2.4.orig/perl/sieve/scripts/installsieve.pl
++++ cyrus-imapd-2.4/perl/sieve/scripts/installsieve.pl
 @@ -1,6 +1,4 @@
 -#! /bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -44,8 +44,8 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- a/perl/sieve/scripts/sieveshell.pl
-+++ b/perl/sieve/scripts/sieveshell.pl
+--- cyrus-imapd-2.4.orig/perl/sieve/scripts/sieveshell.pl
++++ cyrus-imapd-2.4/perl/sieve/scripts/sieveshell.pl
 @@ -1,6 +1,4 @@
 -#! /bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -54,8 +54,8 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- a/snmp/snmpgen
-+++ b/snmp/snmpgen
+--- cyrus-imapd-2.4.orig/snmp/snmpgen
++++ cyrus-imapd-2.4/snmp/snmpgen
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -87,8 +87,8 @@
  require 5;
  
  #Tim Martin
---- a/tools/config2header
-+++ b/tools/config2header
+--- cyrus-imapd-2.4.orig/tools/config2header
++++ cyrus-imapd-2.4/tools/config2header
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -120,8 +120,8 @@
  require 5;
  
  use strict;
---- a/tools/config2man
-+++ b/tools/config2man
+--- cyrus-imapd-2.4.orig/tools/config2man
++++ cyrus-imapd-2.4/tools/config2man
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -153,8 +153,8 @@
  require 5;
  
  use strict;
---- a/tools/dohash
-+++ b/tools/dohash
+--- cyrus-imapd-2.4.orig/tools/dohash
++++ cyrus-imapd-2.4/tools/dohash
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -188,8 +188,8 @@
  require 5;
  
  $| = 1;
---- a/tools/masssievec
-+++ b/tools/masssievec
+--- cyrus-imapd-2.4.orig/tools/masssievec
++++ cyrus-imapd-2.4/tools/masssievec
 @@ -1,4 +1,6 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -225,8 +225,8 @@
  require 5;
  
  $| = 1;
---- a/tools/mkimap
-+++ b/tools/mkimap
+--- cyrus-imapd-2.4.orig/tools/mkimap
++++ cyrus-imapd-2.4/tools/mkimap
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -258,8 +258,8 @@
  require 5;
  
  sub read_conf {
---- a/tools/mknewsgroups
-+++ b/tools/mknewsgroups
+--- cyrus-imapd-2.4.orig/tools/mknewsgroups
++++ cyrus-imapd-2.4/tools/mknewsgroups
 @@ -1,4 +1,6 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -296,8 +296,8 @@
  require 5;
  
  use Getopt::Long;
---- a/tools/translatesieve
-+++ b/tools/translatesieve
+--- cyrus-imapd-2.4.orig/tools/translatesieve
++++ cyrus-imapd-2.4/tools/translatesieve
 @@ -1,6 +1,4 @@
 -#!/bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -328,16 +328,16 @@
  require 5;
  
  $| = 1;
---- a/tools/undohash
-+++ b/tools/undohash
+--- cyrus-imapd-2.4.orig/tools/undohash
++++ cyrus-imapd-2.4/tools/undohash
 @@ -1,4 +1,4 @@
 -#!/usr/bin/perl
 +#!/usr/bin/perl -w
  # script to downgrade from cyrus imapd 1.6.2+ to earlier.
  # do NOT run this script while imapd's are running
  #
---- a/tools/upgradesieve
-+++ b/tools/upgradesieve
+--- cyrus-imapd-2.4.orig/tools/upgradesieve
++++ cyrus-imapd-2.4/tools/upgradesieve
 @@ -1,6 +1,4 @@
 -#!/bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-

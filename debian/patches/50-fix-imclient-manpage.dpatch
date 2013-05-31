@@ -5,8 +5,8 @@
 ## DP: Fix formatting of imclient manpage
 
 @DPATCH@
---- a/man/imclient.3
-+++ b/man/imclient.3
+--- cyrus-imapd-2.4.orig/man/imclient.3
++++ cyrus-imapd-2.4/man/imclient.3
 @@ -41,7 +41,7 @@
  .\"
  .\" $Id: imclient.3,v 1.14 2010/01/06 17:01:51 murch Exp $

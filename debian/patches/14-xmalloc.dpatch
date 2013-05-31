@@ -5,8 +5,8 @@
 ## DP: Fix xmalloc usage
 
 @DPATCH@
---- a/lib/map_stupidshared.c
-+++ b/lib/map_stupidshared.c
+--- cyrus-imapd-2.4.orig/lib/map_stupidshared.c
++++ cyrus-imapd-2.4/lib/map_stupidshared.c
 @@ -49,6 +49,7 @@
  #include <sys/stat.h>
  #include <syslog.h>
@@ -15,8 +15,8 @@
  #include "map.h"
  #include "exitcodes.h"
  
---- a/lib/xmalloc.h
-+++ b/lib/xmalloc.h
+--- cyrus-imapd-2.4.orig/lib/xmalloc.h
++++ cyrus-imapd-2.4/lib/xmalloc.h
 @@ -58,7 +58,7 @@ extern char *xstrndup (const char *str,
  
  /* Functions using xmalloc.h must provide a function called fatal() conforming

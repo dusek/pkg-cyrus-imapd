@@ -5,8 +5,8 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
 ## DP: Fix FAQ and virtual domains installation docs
 
 @DPATCH@
---- a/doc/faq.html
-+++ b/doc/faq.html
+--- cyrus-imapd-2.4.orig/doc/faq.html
++++ cyrus-imapd-2.4/doc/faq.html
 @@ -169,7 +169,7 @@ Dec  6 12:58:57 mail3.andrew.cmu.edu ima
  </pre>
  
@@ -16,8 +16,8 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  
  </dd>
  
---- a/doc/install-virtdomains.html
-+++ b/doc/install-virtdomains.html
+--- cyrus-imapd-2.4.orig/doc/install-virtdomains.html
++++ cyrus-imapd-2.4/doc/install-virtdomains.html
 @@ -99,6 +99,10 @@ then set <tt>defaultdomain</tt> to 'xxx.
  to the <tt>defaultdomain</tt>.  See <a href=#admins>Administrators</a>
  below for further discussion.
@@ -29,9 +29,9 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  <p>Here is a sample <tt>imapd.conf</tt> with a minimal set of configuration
  options.</p>
  
---- a/lib/imapoptions
-+++ b/lib/imapoptions
-@@ -270,7 +270,11 @@ Blank lines and lines beginning with ``#
+--- cyrus-imapd-2.4.orig/lib/imapoptions
++++ cyrus-imapd-2.4/lib/imapoptions
+@@ -300,7 +300,11 @@ Blank lines and lines beginning with ``#
     mailbox that does not have a parent mailbox. */
  
  { "defaultdomain", NULL, STRING }
@@ -44,7 +44,7 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -638,7 +642,10 @@ Blank lines and lines beginning with ``#
+@@ -737,7 +741,10 @@ Blank lines and lines beginning with ``#
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL

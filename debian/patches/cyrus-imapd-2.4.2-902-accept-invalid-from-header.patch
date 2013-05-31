@@ -15,8 +15,8 @@ Cyrus should not raise problems.
  imap/message.c |   18 ++++++++++++++++--
  1 files changed, 16 insertions(+), 2 deletions(-)
 
---- a/imap/message.c
-+++ b/imap/message.c
+--- cyrus-imapd-2.4.orig/imap/message.c
++++ cyrus-imapd-2.4/imap/message.c
 @@ -173,6 +173,8 @@ int allow_null;
      int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
      int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);

@@ -8,8 +8,8 @@
 ## DP: been resolved upsteam (thanks mainly to Bron Gondwana).
 
 @DPATCH@
---- a/imtest/imtest.c
-+++ b/imtest/imtest.c
+--- cyrus-imapd-2.4.orig/imtest/imtest.c
++++ cyrus-imapd-2.4/imtest/imtest.c
 @@ -1242,7 +1242,7 @@ static void interactive(struct protocol_
  	
  	/* can't have this and a file for input */
@@ -19,8 +19,8 @@
  	unlink(output_socket);
  
  	listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
---- a/master/master.c
-+++ b/master/master.c
+--- cyrus-imapd-2.4.orig/master/master.c
++++ cyrus-imapd-2.4/master/master.c
 @@ -197,13 +197,17 @@ void event_free(struct event *a)
      free(a);
  }
@@ -41,8 +41,8 @@
  }
  
  void get_statsock(int filedes[2])
---- a/master/masterconf.c
-+++ b/master/masterconf.c
+--- cyrus-imapd-2.4.orig/master/masterconf.c
++++ cyrus-imapd-2.4/master/masterconf.c
 @@ -135,7 +135,7 @@ const char *masterconf_getstring(struct
  	} else {
  	    /* one word */
@@ -52,8 +52,8 @@
  		v[i] = *p++;
  	    }
  	}
---- a/notifyd/notifyd.c
-+++ b/notifyd/notifyd.c
+--- cyrus-imapd-2.4.orig/notifyd/notifyd.c
++++ cyrus-imapd-2.4/notifyd/notifyd.c
 @@ -145,7 +145,7 @@ int do_notify()
  	if (cp) nopt = strtol(cp, NULL, 10);
  	if (nopt < 0 || errno == ERANGE) cp = NULL;

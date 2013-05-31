@@ -7,8 +7,8 @@ Fixes setrlimit(RLIMIT_NUMFDS) handling to be less obnoxious and
 not barf error messages to syslog incorrectly, nor log nonsense
 if getrlimit(RLIMIT_NUMFDS) failed.
 
---- a/master/master.c
-+++ b/master/master.c
+--- cyrus-imapd-2.4.orig/master/master.c
++++ cyrus-imapd-2.4/master/master.c
 @@ -1614,11 +1614,10 @@ void add_event(const char *name, struct
  void limit_fds(rlim_t x)
  {

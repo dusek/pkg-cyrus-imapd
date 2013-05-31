@@ -6,8 +6,8 @@
 ## DP: log prefix.
 
 @DPATCH@
---- a/imap/global.c
-+++ b/imap/global.c
+--- cyrus-imapd-2.4.orig/imap/global.c
++++ cyrus-imapd-2.4/imap/global.c
 @@ -110,6 +110,9 @@ int session_id_count = 0;
  
  strarray_t *suppressed_capabilities = NULL;
@@ -29,8 +29,8 @@
  
      /* Load configuration file.  This will set config_dir when it finds it */
      config_read(alt_config);
---- a/ptclient/ptexpire.c
-+++ b/ptclient/ptexpire.c
+--- cyrus-imapd-2.4.orig/ptclient/ptexpire.c
++++ cyrus-imapd-2.4/ptclient/ptexpire.c
 @@ -118,7 +118,7 @@ int main(int argc, char *argv[])
  	fatal("must run as the Cyrus user", EC_USAGE);
      }
@@ -40,8 +40,8 @@
  
      while ((opt = getopt(argc, argv, "C:E:")) != EOF) {
  	switch (opt) {
---- a/ptclient/test.c
-+++ b/ptclient/test.c
+--- cyrus-imapd-2.4.orig/ptclient/test.c
++++ cyrus-imapd-2.4/ptclient/test.c
 @@ -57,7 +57,7 @@ int main(int argc, char **argv) {
      cacheid=cache;
    } else
@@ -51,8 +51,8 @@
    
    if (!auth_setid(argv[1],cacheid))
      printf ("Auth_memberof(%s,%s) is %d\n", argv[1], argv[2],
---- a/ptclient/test2.c
-+++ b/ptclient/test2.c
+--- cyrus-imapd-2.4.orig/ptclient/test2.c
++++ cyrus-imapd-2.4/ptclient/test2.c
 @@ -46,7 +46,7 @@
  
  int main(void) {

@@ -5,8 +5,8 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
 
 * Cleans up various data fields for reconfig.
 
---- a/master/master.c
-+++ b/master/master.c
+--- cyrus-imapd-2.4.orig/master/master.c
++++ cyrus-imapd-2.4/master/master.c
 @@ -1494,8 +1494,9 @@ void add_service(const char *name, struc
  	char buf[1024];
  	snprintf(buf, sizeof(buf),
