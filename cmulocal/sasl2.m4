@@ -1,6 +1,6 @@
 # sasl2.m4--sasl2 libraries and includes
 # Rob Siemborski
-# $Id: sasl2.m4,v 1.55 2010/01/06 17:01:27 murch Exp $
+# $Id: sasl2.m4,v 1.61 2011/11/09 15:49:47 murch Exp $
 
 # SASL2_CRYPT_CHK
 # ---------------
@@ -68,7 +68,7 @@ if test "$gssapi" != no; then
   AC_CHECK_HEADER([gssapi.h],,
                   [AC_CHECK_HEADER([gssapi/gssapi.h],,
                                    [AC_WARN([Disabling GSSAPI - no include files found]); gssapi=no])])
-
+  AC_CHECK_HEADERS(gssapi/gssapi_ext.h)
   CPPFLAGS=$cmu_saved_CPPFLAGS
 
 fi
@@ -215,17 +215,17 @@ if test "$gssapi" != "no"; then
                     hostbased_service_gss_nt_yes
                   #endif],
                  [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
-                            [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])],
+                            [Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE])],
                  [AC_WARN([Cybersafe define not found])])
 
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
     AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h,
                     [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
-                               [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])])
+                               [Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE])])
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
     AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h,
                     [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
-                               [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])])
+                               [Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE])])
   fi
 
   if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
@@ -235,16 +235,20 @@ if test "$gssapi" != "no"; then
                    user_name_yes_gss_nt
                   #endif],
                  [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
-                            [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])],
+                            [Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME])],
                  [AC_WARN([Cybersafe define not found])])
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
     AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi.h,
                     [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
-                               [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])])
+                               [Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME])])
+    AC_EGREP_HEADER(gss_inquire_attrs_for_mech, gssapi.h, rfc5587=yes)
+    AC_EGREP_HEADER(gss_inquire_mech_for_saslname, gssapi.h, rfc5801=yes)
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
     AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi/gssapi.h,
                     [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
-                               [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])])
+                               [Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME])])
+    AC_EGREP_HEADER(gss_inquire_attrs_for_mech, gssapi/gssapi.h, rfc5587=yes)
+    AC_EGREP_HEADER(gss_inquire_mech_for_saslname, gssapi.h, rfc5801=yes)
   fi
 fi
 
@@ -256,11 +260,55 @@ if test "$gssapi" != no; then
   SASL_MECHS="$SASL_MECHS libgssapiv2.la"
   SASL_STATIC_OBJS="$SASL_STATIC_OBJS gssapi.o"
   SASL_STATIC_SRCS="$SASL_STATIC_SRCS \$(top_srcdir)/plugins/gssapi.c"
+  if test "$rfc5587" = "yes" -a "$rfc5801" = "yes"; then
+    SASL_MECHS="$SASL_MECHS libgs2.la"
+    SASL_STATIC_OBJS="$SASL_STATIC_OBJS gs2.o"
+    SASL_STATIC_SRCS="$SASL_STATIC_SRCS \$(top_srcdir)/plugins/gs2.c"
+  fi
 
   cmu_save_LIBS="$LIBS"
   LIBS="$LIBS $GSSAPIBASE_LIBS"
   AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity)
+  AC_CHECK_FUNCS(gss_decapsulate_token)
+  AC_CHECK_FUNCS(gss_encapsulate_token)
+  AC_CHECK_FUNCS(gss_oid_equal)
   LIBS="$cmu_save_LIBS"
+
+  cmu_save_LIBS="$LIBS"
+  LIBS="$LIBS $GSSAPIBASE_LIBS"
+  AC_CHECK_FUNCS(gss_get_name_attribute)
+  LIBS="$cmu_save_LIBS"
+
+  cmu_save_LIBS="$LIBS"
+  LIBS="$LIBS $GSSAPIBASE_LIBS"
+  AC_MSG_CHECKING([for SPNEGO support in GSSAPI libraries])
+  AC_TRY_RUN([
+#ifdef HAVE_GSSAPI_H
+#include <gssapi.h>
+#else
+#include <gssapi/gssapi.h>
+#endif
+
+int main(void)
+{
+    gss_OID_desc spnego_oid = { 6, (void *) "\x2b\x06\x01\x05\x05\x02" };
+    gss_OID_set mech_set;
+    OM_uint32 min_stat;
+    int have_spnego = 0;
+                                                                               
+    if (gss_indicate_mechs(&min_stat, &mech_set) == GSS_S_COMPLETE) {
+	gss_test_oid_set_member(&min_stat, &spnego_oid, mech_set, &have_spnego);
+	gss_release_oid_set(&min_stat, &mech_set);
+    }
+
+    return (!have_spnego);  // 0 = success, 1 = failure
+}
+],	
+	[ AC_DEFINE(HAVE_GSS_SPNEGO,,[Define if your GSSAPI implementation supports SPNEGO])
+	AC_MSG_RESULT(yes) ],
+	AC_MSG_RESULT(no))
+  LIBS="$cmu_save_LIBS"
+
 else
   AC_MSG_RESULT([disabled])
 fi

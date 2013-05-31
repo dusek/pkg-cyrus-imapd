@@ -222,6 +222,10 @@ static void send_lmtp_error(struct protstream *pout, int r)
 	prot_printf(pout, "451 4.2.1 Mailbox Moved\r\n");
 	break;
 
+    case IMAP_MAILBOX_RESERVED:
+	prot_printf(pout, "451 4.2.1 Mailbox Reserved\r\n");
+	break;
+
     case IMAP_MESSAGE_CONTAINSNULL:
 	prot_printf(pout, "554 5.6.0 Message contains NUL characters\r\n");
 	break;
@@ -1713,6 +1717,13 @@ static int revconvert_lmtp(const char *code)
 	}
 	else if (code[4] == '4' && code [6] == '4') {
 	    return IMAP_SERVER_UNAVAILABLE;
+	}
+	else if (code[4] == '4' && code[6] == '2') {
+	    if (code[8] == '1') {
+		return IMAP_MAILBOX_MOVED;
+	    } else {
+		return IMAP_MAILBOX_BADFORMAT;
+	    }
 	}
 	else {
 	    return IMAP_IOERROR;

@@ -36,6 +36,7 @@ Cyrus IMAP Server Man Pages
       * deliver(8) 
       * fetchnews(8) 
       * fud(8) 
+      * httpd(8) 
       * idled(8) 
       * imapd(8) 
       * ipurge(8) 

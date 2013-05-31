@@ -582,7 +582,7 @@ int mboxlist_createmailbox_full(const char *name, int mbtype,
 	/* 2. verify ACL's to best of ability (CRASH: abort) */
 	r = mboxlist_mycreatemailboxcheck(name, mbtype, partition, isadmin, 
 					  userid, auth_state, 
-					  &acl, &newpartition, 1, localonly,
+					  &acl, &newpartition, 0, localonly,
 					  forceuser, NULL);
 	if (r) goto done;
     }
@@ -1626,13 +1626,17 @@ static int find_p(void *rockp,
 	return 0;
     }
 
-    /* Suppress deleted hierarchy unless admin: overrides ACL_LOOKUP test */
+    /* Suppress deleted hierarchy, calendar, and addressbook mailboxes
+       unless admin: overrides ACL_LOOKUP test */
     if (!rock->isadmin) {
 	char namebuf[MAX_MAILBOX_BUFFER];
+	int mbtype = strtol(data, NULL, 10);
 
 	memcpy(namebuf, key, keylen);
 	namebuf[keylen] = '\0';
-	if (mboxname_isdeletedmailbox(namebuf))
+	if (mboxname_isdeletedmailbox(namebuf) ||
+	    mboxname_iscalendarmailbox(namebuf, mbtype) ||
+	    mboxname_isaddressbookmailbox(namebuf, mbtype))
 	    return 0;
     }
 

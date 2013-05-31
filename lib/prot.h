@@ -251,6 +251,7 @@ extern int prot_flush(struct protstream *s);
 /* These are protlayer versions of the specified functions */
 extern int prot_write(struct protstream *s, const char *buf, unsigned len);
 extern int prot_putbuf(struct protstream *s, struct buf *buf);
+extern int prot_puts(struct protstream *s, const char *str);
 extern int prot_printf(struct protstream *, const char *, ...)
 #ifdef __GNUC__
     __attribute__ ((format (printf, 2, 3)));
@@ -262,6 +263,7 @@ extern int prot_printliteral(struct protstream *out, const char *s,
 extern int prot_printstring(struct protstream *out, const char *s);
 extern int prot_printastring(struct protstream *out, const char *s);
 extern int prot_read(struct protstream *s, char *buf, unsigned size);
+extern int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size);
 extern char *prot_fgets(char *buf, unsigned size, struct protstream *s);
 
 /* select() for protstreams */

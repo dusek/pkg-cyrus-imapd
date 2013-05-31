@@ -190,26 +190,27 @@ struct buf {
 #define BUF_INITIALIZER	{ NULL, 0, 0, 0 }
 
 const char *buf_cstring(struct buf *buf);
-void buf_ensure(struct buf *buf, int morebytes);
-void buf_getmap(struct buf *buf, const char **base, int *len);
+void buf_ensure(struct buf *buf, unsigned morebytes);
+void buf_getmap(struct buf *buf, const char **base, unsigned *len);
 unsigned buf_len(const struct buf *buf);
 void buf_reset(struct buf *buf);
 void buf_truncate(struct buf *buf, unsigned int len);
 void buf_setcstr(struct buf *buf, const char *str);
-void buf_setmap(struct buf *buf, const char *base, int len);
+void buf_setmap(struct buf *buf, const char *base, unsigned len);
 void buf_copy(struct buf *dst, const struct buf *src);
 void buf_append(struct buf *dst, const struct buf *src);
 void buf_appendcstr(struct buf *buf, const char *str);
 void buf_appendbit32(struct buf *buf, bit32 num);
-void buf_appendmap(struct buf *buf, const char *base, int len);
+void buf_appendmap(struct buf *buf, const char *base, unsigned len);
 void buf_putc(struct buf *buf, char c);
+void buf_vprintf(struct buf *buf, const char *fmt, va_list args);
 void buf_printf(struct buf *buf, const char *fmt, ...)
     __attribute__((format(printf,2,3)));
 unsigned int buf_replace_all(struct buf *buf, const char *match,
 			     const char *replace);
 int buf_cmp(const struct buf *, const struct buf *);
 void buf_init(struct buf *buf);
-void buf_init_ro(struct buf *buf, const char *base, int len);
+void buf_init_ro(struct buf *buf, const char *base, unsigned len);
 void buf_free(struct buf *buf);
 void buf_move(struct buf *dst, struct buf *src);
 
@@ -230,5 +231,16 @@ void buf_move(struct buf *dst, struct buf *src);
  * is really quite amazingly convenient.
  */
 char *strconcat(const char *s1, ...);
+
+#ifdef HAVE_ZLIB
+enum {
+    DEFLATE_RAW,
+    DEFLATE_GZIP,
+    DEFLATE_ZLIB
+};
+
+int buf_inflate(struct buf *buf, int scheme);
+int buf_deflate(struct buf *buf, int compLevel, int scheme);
+#endif
 
 #endif /* INCLUDED_UTIL_H */

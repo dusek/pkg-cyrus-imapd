@@ -58,13 +58,20 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 
 #include <sys/socket.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "exitcodes.h"
 #include "util.h"
 #include "xmalloc.h"
+#ifdef HAVE_ZLIB
+#include "zlib.h"
+#endif
 
 #define BEAUTYBUFSIZE 4096
 
@@ -513,12 +520,18 @@ int parseuint32(const char *p, const char **ptr, uint32_t *res)
 /* buffer handling functions */
 
 #define BUF_GROW 1024
-void buf_ensure(struct buf *buf, int n)
+void buf_ensure(struct buf *buf, unsigned n)
 {
-    int newlen = (buf->len + n + BUF_GROW);  /* XXX - size mod logic? */
+    unsigned newlen;
 
-    if (buf->alloc >= (buf->len + n))
+    assert(buf->len < UINT_MAX - n);
+
+    newlen = buf->len + n;
+    if (buf->alloc >= newlen)
 	return;
+
+    if (newlen < UINT_MAX - BUF_GROW)
+	newlen += BUF_GROW;
 
     if (buf->alloc) {
 	buf->s = xrealloc(buf->s, newlen);
@@ -544,7 +557,7 @@ const char *buf_cstring(struct buf *buf)
     return buf->s;
 }
 
-void buf_getmap(struct buf *buf, const char **base, int *len)
+void buf_getmap(struct buf *buf, const char **base, unsigned *len)
 {
     *base = buf->s;
     *len = buf->len;
@@ -578,7 +591,7 @@ void buf_setcstr(struct buf *buf, const char *str)
     buf_setmap(buf, str, strlen(str));
 }
 
-void buf_setmap(struct buf *buf, const char *base, int len)
+void buf_setmap(struct buf *buf, const char *base, unsigned len)
 {
     buf_reset(buf);
     if (len) {
@@ -605,12 +618,11 @@ void buf_appendcstr(struct buf *buf, const char *str)
 
 void buf_appendbit32(struct buf *buf, bit32 num)
 {
-    char item[4];
-    *((bit32 *)item) = htonl(num);
-    buf_appendmap(buf, item, 4);
+    bit32 nbit32 = htonl(num);
+    buf_appendmap(buf, (const char *) &nbit32, sizeof(bit32));
 }
 
-void buf_appendmap(struct buf *buf, const char *base, int len)
+void buf_appendmap(struct buf *buf, const char *base, unsigned len)
 {
     if (len) {
 	buf_ensure(buf, len);
@@ -627,9 +639,9 @@ void buf_putc(struct buf *buf, char c)
     buf->flags &= ~BUF_CSTRING;
 }
 
-void buf_printf(struct buf *buf, const char *fmt, ...)
+void buf_vprintf(struct buf *buf, const char *fmt, va_list args)
 {
-    va_list args;
+    va_list ap;
     int room;
     int n;
 
@@ -638,23 +650,32 @@ void buf_printf(struct buf *buf, const char *fmt, ...)
      * needs to overrun the size. */
     buf_ensure(buf, 1024);
 
-    room = buf->alloc - buf->len - 1;
-    va_start(args, fmt);
-    n = vsnprintf(buf->s + buf->len, room+1, fmt, args);
-    va_end(args);
+    /* Copy args in case we guess wrong on the size */
+    va_copy(ap, args);
 
-    if (n > room) {
-	/* woops, we guessed wrong...retry */
-	buf_ensure(buf, n-room);
-	va_start(args, fmt);
-	n = vsnprintf(buf->s + buf->len, n+1, fmt, args);
-	va_end(args);
+    room = buf->alloc - buf->len;
+    n = vsnprintf(buf->s + buf->len, room, fmt, args);
+
+    if (n >= room) {
+	/* woops, we guessed wrong...retry with enough space */
+	buf_ensure(buf, n+1);
+	n = vsnprintf(buf->s + buf->len, n+1, fmt, ap);
     }
+    va_end(ap);
 
     buf->len += n;
     /* vsnprintf() gave us a trailing NUL, so we may as well remember
      * that for later */
     buf->flags |= BUF_CSTRING;
+}
+
+void buf_printf(struct buf *buf, const char *fmt, ...)
+{
+    va_list args;
+
+    va_start(args, fmt);
+    buf_vprintf(buf, fmt, args);
+    va_end(args);
 }
 
 /**
@@ -731,7 +752,7 @@ void buf_init(struct buf *buf)
  * setting buf->alloc=0 which indicates CoW is in effect, i.e. the data
  * pointed to needs to be copied should it ever be modified.
  */
-void buf_init_ro(struct buf *buf, const char *base, int len)
+void buf_init_ro(struct buf *buf, const char *base, unsigned len)
 {
     buf->alloc = 0;
     buf->len = len;
@@ -790,3 +811,138 @@ char *strconcat(const char *s1, ...)
 
     return buf;
 }
+#ifdef HAVE_ZLIB
+
+/* Wrappers for our memory management functions */
+static voidpf zalloc(voidpf opaque __attribute__((unused)),
+		     uInt items, uInt size)
+{
+    return (voidpf) xmalloc(items * size);
+}
+
+static void zfree(voidpf opaque __attribute__((unused)),
+		  voidpf address)
+{
+    free(address);
+}
+
+int buf_inflate(struct buf *src, int scheme)
+{
+    struct buf localbuf = BUF_INITIALIZER;
+    int zr = Z_OK;
+    z_stream *zstrm = (z_stream *) xmalloc(sizeof(z_stream));
+    int windowBits;
+
+    switch (scheme) {
+    case DEFLATE_RAW:
+	windowBits = -MAX_WBITS;	/* raw deflate */
+	break;
+
+    case DEFLATE_GZIP:
+	windowBits = 16+MAX_WBITS;	/* gzip header */
+	break;
+
+    case DEFLATE_ZLIB:
+    default:
+	windowBits = MAX_WBITS;		/* zlib header */
+	break;
+    }
+
+    zstrm->zalloc = zalloc;
+    zstrm->zfree = zfree;
+    zstrm->opaque = Z_NULL;
+
+    zstrm->next_in = Z_NULL;
+    zstrm->avail_in = 0;
+    zr = inflateInit2(zstrm, windowBits);
+    if (zr != Z_OK) goto err;
+
+    /* set up the source */
+    zstrm->next_in = (unsigned char *)src->s;
+    zstrm->avail_in = src->len;
+
+    /* prepare the destination */
+    do {
+	buf_ensure(&localbuf, 4096);
+	/* find the buffer */
+	zstrm->next_out = (unsigned char *)localbuf.s + localbuf.len;
+	zstrm->avail_out = localbuf.alloc - localbuf.len;
+	zr = inflate(zstrm, Z_SYNC_FLUSH);
+	if (!(zr == Z_OK || zr == Z_STREAM_END || zr == Z_BUF_ERROR))
+	   goto err;
+	localbuf.len = localbuf.alloc - zstrm->avail_out;
+    } while (zstrm->avail_out == 0);
+
+    inflateEnd(zstrm);
+    free(zstrm);
+
+    buf_free(src); /* dispose of current buffer */
+    *src = localbuf; /* in place replace */
+    return 0;
+
+ err:
+    free(zstrm);
+    buf_free(&localbuf);
+    return -1;
+}
+
+int buf_deflate(struct buf *src, int compLevel, int scheme)
+{
+    struct buf localbuf = BUF_INITIALIZER;
+    int zr = Z_OK;
+    z_stream *zstrm = (z_stream *) xmalloc(sizeof(z_stream));
+    int windowBits;
+
+    switch (scheme) {
+    case DEFLATE_RAW:
+	windowBits = -MAX_WBITS;	/* raw deflate */
+	break;
+
+    case DEFLATE_GZIP:
+	windowBits = 16+MAX_WBITS;	/* gzip header */
+	break;
+
+    case DEFLATE_ZLIB:
+    default:
+	windowBits = MAX_WBITS;		/* zlib header */
+	break;
+    }
+
+    zstrm->zalloc = zalloc;
+    zstrm->zfree = zfree;
+    zstrm->opaque = Z_NULL;
+
+    zr = deflateInit2(zstrm, compLevel, Z_DEFLATED, windowBits,
+		      MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
+    if (zr != Z_OK) goto err;
+
+    /* set up the source */
+    zstrm->next_in = (unsigned char *)src->s;
+    zstrm->avail_in = src->len;
+
+    /* prepare the destination */
+    do {
+	buf_ensure(&localbuf, 4096);
+	/* find the buffer */
+	zstrm->next_out = (unsigned char *)localbuf.s + localbuf.len;
+	zstrm->avail_out = localbuf.alloc - localbuf.len;
+	zr = deflate(zstrm, Z_SYNC_FLUSH);
+	if (!(zr == Z_OK || zr == Z_STREAM_END || zr == Z_BUF_ERROR))
+	   goto err;
+	localbuf.len = localbuf.alloc - zstrm->avail_out;
+    } while (zstrm->avail_out == 0);
+
+    deflateEnd(zstrm);
+    free(zstrm);
+
+    buf_free(src); /* dispose of current buffer */
+    *src = localbuf; /* in place replace */
+    return 0;
+
+ err:
+    free(zstrm);
+    buf_free(&localbuf);
+    return -1;
+}
+
+#endif

@@ -1,8 +1,8 @@
-/* A Bison parser, made by GNU Bison 2.5.  */
+/* A Bison parser, made by GNU Bison 2.6.1.  */
 
 /* Bison implementation for Yacc-like parsers in C
    
-      Copyright (C) 1984, 1989-1990, 2000-2011 Free Software Foundation, Inc.
+      Copyright (C) 1984, 1989-1990, 2000-2012 Free Software Foundation, Inc.
    
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@
 #define YYBISON 1
 
 /* Bison version.  */
-#define YYBISON_VERSION "2.5"
+#define YYBISON_VERSION "2.6.1"
 
 /* Skeleton name.  */
 #define YYSKELETON_NAME "yacc.c"
@@ -58,14 +58,11 @@
 /* Pull parsers.  */
 #define YYPULL 1
 
-/* Using locations.  */
-#define YYLSP_NEEDED 0
 
 
 
 /* Copy the first part of user declarations.  */
-
-/* Line 268 of yacc.c  */
+/* Line 336 of yacc.c  */
 #line 1 "sieve.y"
 
 /* sieve.y -- sieve parser
@@ -241,14 +238,16 @@ extern void yyrestart(FILE *f);
    larger to support big sieve scripts (see Bug #3461) */
 #define YYSTACKSIZE 10000
 
+/* Line 336 of yacc.c  */
+#line 243 "y.tab.c"
 
-/* Line 268 of yacc.c  */
-#line 247 "y.tab.c"
-
-/* Enabling traces.  */
-#ifndef YYDEBUG
-# define YYDEBUG 0
-#endif
+# ifndef YY_NULL
+#  if defined __cplusplus && 201103L <= __cplusplus
+#   define YY_NULL nullptr
+#  else
+#   define YY_NULL 0
+#  endif
+# endif
 
 /* Enabling verbose error messages.  */
 #ifdef YYERROR_VERBOSE
@@ -258,11 +257,17 @@ extern void yyrestart(FILE *f);
 # define YYERROR_VERBOSE 0
 #endif
 
-/* Enabling the token table.  */
-#ifndef YYTOKEN_TABLE
-# define YYTOKEN_TABLE 0
+/* In a future release of Bison, this section will be replaced
+   by #include "y.tab.h".  */
+#ifndef YY_Y_TAB_H
+# define YY_Y_TAB_H
+/* Enabling traces.  */
+#ifndef YYDEBUG
+# define YYDEBUG 0
 #endif
-
+#if YYDEBUG
+extern int yydebug;
+#endif
 
 /* Tokens.  */
 #ifndef YYTOKENTYPE
@@ -422,12 +427,10 @@ extern void yyrestart(FILE *f);
 
 
 
-
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
 {
-
-/* Line 293 of yacc.c  */
+/* Line 350 of yacc.c  */
 #line 176 "sieve.y"
 
     int nval;
@@ -444,21 +447,36 @@ typedef union YYSTYPE
     struct dtags *dtag;
 
 
-
-/* Line 293 of yacc.c  */
-#line 450 "y.tab.c"
+/* Line 350 of yacc.c  */
+#line 452 "y.tab.c"
 } YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
 #endif
 
+extern YYSTYPE yylval;
+
+#ifdef YYPARSE_PARAM
+#if defined __STDC__ || defined __cplusplus
+int yyparse (void *YYPARSE_PARAM);
+#else
+int yyparse ();
+#endif
+#else /* ! YYPARSE_PARAM */
+#if defined __STDC__ || defined __cplusplus
+int yyparse (void);
+#else
+int yyparse ();
+#endif
+#endif /* ! YYPARSE_PARAM */
+
+#endif /* !YY_Y_TAB_H  */
 
 /* Copy the second part of user declarations.  */
 
-
-/* Line 343 of yacc.c  */
-#line 462 "y.tab.c"
+/* Line 353 of yacc.c  */
+#line 480 "y.tab.c"
 
 #ifdef short
 # undef short
@@ -564,6 +582,7 @@ YYID (yyi)
 #    if ! defined _ALLOCA_H && ! defined EXIT_SUCCESS && (defined __STDC__ || defined __C99__FUNC__ \
      || defined __cplusplus || defined _MSC_VER)
 #     include <stdlib.h> /* INFRINGES ON USER NAME SPACE */
+      /* Use EXIT_SUCCESS as a witness for stdlib.h.  */
 #     ifndef EXIT_SUCCESS
 #      define EXIT_SUCCESS 0
 #     endif
@@ -655,20 +674,20 @@ union yyalloc
 #endif
 
 #if defined YYCOPY_NEEDED && YYCOPY_NEEDED
-/* Copy COUNT objects from FROM to TO.  The source and destination do
+/* Copy COUNT objects from SRC to DST.  The source and destination do
    not overlap.  */
 # ifndef YYCOPY
 #  if defined __GNUC__ && 1 < __GNUC__
-#   define YYCOPY(To, From, Count) \
-      __builtin_memcpy (To, From, (Count) * sizeof (*(From)))
+#   define YYCOPY(Dst, Src, Count) \
+      __builtin_memcpy (Dst, Src, (Count) * sizeof (*(Src)))
 #  else
-#   define YYCOPY(To, From, Count)		\
-      do					\
-	{					\
-	  YYSIZE_T yyi;				\
-	  for (yyi = 0; yyi < (Count); yyi++)	\
-	    (To)[yyi] = (From)[yyi];		\
-	}					\
+#   define YYCOPY(Dst, Src, Count)              \
+      do                                        \
+        {                                       \
+          YYSIZE_T yyi;                         \
+          for (yyi = 0; yyi < (Count); yyi++)   \
+            (Dst)[yyi] = (Src)[yyi];            \
+        }                                       \
       while (YYID (0))
 #  endif
 # endif
@@ -794,18 +813,18 @@ static const yytype_uint16 yyrline[] =
        0,   222,   222,   223,   226,   227,   230,   238,   239,   242,
      243,   244,   247,   248,   249,   252,   261,   269,   273,   274,
      275,   276,   285,   294,   303,   312,   317,   323,   331,   341,
-     348,   355,   356,   357,   360,   361,   364,   367,   370,   373,
-     378,   379,   382,   397,   407,   408,   409,   412,   413,   416,
-     424,   430,   436,   442,   448,   449,   452,   453,   456,   457,
-     460,   461,   462,   463,   464,   465,   489,   511,   537,   538,
-     540,   543,   544,   551,   552,   557,   561,   569,   579,   580,
-     584,   592,   602,   603,   608,   613,   621,   625,   633,   644,
-     645,   646,   647,   652,   658,   659,   660,   661,   668,   673,
-     681,   682,   685,   686,   693,   696,   697
+     354,   361,   362,   363,   366,   367,   370,   373,   376,   379,
+     384,   385,   388,   403,   413,   414,   415,   418,   419,   422,
+     430,   436,   442,   448,   454,   455,   458,   459,   462,   463,
+     466,   467,   468,   469,   470,   471,   495,   517,   543,   544,
+     546,   549,   550,   557,   558,   563,   567,   575,   585,   586,
+     590,   598,   608,   609,   614,   619,   627,   631,   639,   650,
+     651,   652,   653,   658,   664,   665,   666,   667,   674,   679,
+     687,   688,   691,   692,   699,   702,   703
 };
 #endif
 
-#if YYDEBUG || YYERROR_VERBOSE || YYTOKEN_TABLE
+#if YYDEBUG || YYERROR_VERBOSE || 0
 /* YYTNAME[SYMBOL-NUM] -- String name of the symbol SYMBOL-NUM.
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
@@ -825,7 +844,7 @@ static const char *const yytname[] =
   "commands", "command", "elsif", "action", "location", "ntags", "dtags",
   "priority", "vtags", "stringlist", "strings", "block", "test",
   "addrorenv", "aetags", "htags", "btags", "addrparttag", "comptag",
-  "relcomp", "sizetag", "copy", "testlist", "tests", 0
+  "relcomp", "sizetag", "copy", "testlist", "tests", YY_NULL
 };
 #endif
 
@@ -1060,17 +1079,18 @@ static const yytype_uint8 yystos[] =
 
 #define YYRECOVERING()  (!!yyerrstatus)
 
-#define YYBACKUP(Token, Value)					\
-do								\
-  if (yychar == YYEMPTY && yylen == 1)				\
-    {								\
-      yychar = (Token);						\
-      yylval = (Value);						\
-      YYPOPSTACK (1);						\
-      goto yybackup;						\
-    }								\
-  else								\
-    {								\
+#define YYBACKUP(Token, Value)                                  \
+do                                                              \
+  if (yychar == YYEMPTY)                                        \
+    {                                                           \
+      yychar = (Token);                                         \
+      yylval = (Value);                                         \
+      YYPOPSTACK (yylen);                                       \
+      yystate = *yyssp;                                         \
+      goto yybackup;                                            \
+    }                                                           \
+  else                                                          \
+    {                                                           \
       yyerror (YY_("syntax error: cannot back up")); \
       YYERROR;							\
     }								\
@@ -1080,31 +1100,32 @@ while (YYID (0))
 #define YYTERROR	1
 #define YYERRCODE	256
 
-
 /* YYLLOC_DEFAULT -- Set CURRENT to span from RHS[1] to RHS[N].
    If N is 0, then set CURRENT to the empty location which ends
    the previous symbol: RHS[0] (always defined).  */
 
-#define YYRHSLOC(Rhs, K) ((Rhs)[K])
 #ifndef YYLLOC_DEFAULT
-# define YYLLOC_DEFAULT(Current, Rhs, N)				\
-    do									\
-      if (YYID (N))                                                    \
-	{								\
-	  (Current).first_line   = YYRHSLOC (Rhs, 1).first_line;	\
-	  (Current).first_column = YYRHSLOC (Rhs, 1).first_column;	\
-	  (Current).last_line    = YYRHSLOC (Rhs, N).last_line;		\
-	  (Current).last_column  = YYRHSLOC (Rhs, N).last_column;	\
-	}								\
-      else								\
-	{								\
-	  (Current).first_line   = (Current).last_line   =		\
-	    YYRHSLOC (Rhs, 0).last_line;				\
-	  (Current).first_column = (Current).last_column =		\
-	    YYRHSLOC (Rhs, 0).last_column;				\
-	}								\
+# define YYLLOC_DEFAULT(Current, Rhs, N)                                \
+    do                                                                  \
+      if (YYID (N))                                                     \
+        {                                                               \
+          (Current).first_line   = YYRHSLOC (Rhs, 1).first_line;        \
+          (Current).first_column = YYRHSLOC (Rhs, 1).first_column;      \
+          (Current).last_line    = YYRHSLOC (Rhs, N).last_line;         \
+          (Current).last_column  = YYRHSLOC (Rhs, N).last_column;       \
+        }                                                               \
+      else                                                              \
+        {                                                               \
+          (Current).first_line   = (Current).last_line   =              \
+            YYRHSLOC (Rhs, 0).last_line;                                \
+          (Current).first_column = (Current).last_column =              \
+            YYRHSLOC (Rhs, 0).last_column;                              \
+        }                                                               \
     while (YYID (0))
 #endif
+
+#define YYRHSLOC(Rhs, K) ((Rhs)[K])
+
 
 
 /* This macro is provided for backward compatibility. */
@@ -1165,6 +1186,8 @@ yy_symbol_value_print (yyoutput, yytype, yyvaluep)
     YYSTYPE const * const yyvaluep;
 #endif
 {
+  FILE *yyo = yyoutput;
+  YYUSE (yyo);
   if (!yyvaluep)
     return;
 # ifdef YYPRINT
@@ -1416,12 +1439,12 @@ static int
 yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
                 yytype_int16 *yyssp, int yytoken)
 {
-  YYSIZE_T yysize0 = yytnamerr (0, yytname[yytoken]);
+  YYSIZE_T yysize0 = yytnamerr (YY_NULL, yytname[yytoken]);
   YYSIZE_T yysize = yysize0;
   YYSIZE_T yysize1;
   enum { YYERROR_VERBOSE_ARGS_MAXIMUM = 5 };
   /* Internationalized format string. */
-  const char *yyformat = 0;
+  const char *yyformat = YY_NULL;
   /* Arguments of yyformat. */
   char const *yyarg[YYERROR_VERBOSE_ARGS_MAXIMUM];
   /* Number of reported tokens (one for the "unexpected", one per
@@ -1481,7 +1504,7 @@ yysyntax_error (YYSIZE_T *yymsg_alloc, char **yymsg,
                     break;
                   }
                 yyarg[yycount++] = yytname[yyx];
-                yysize1 = yysize + yytnamerr (0, yytname[yyx]);
+                yysize1 = yysize + yytnamerr (YY_NULL, yytname[yyx]);
                 if (! (yysize <= yysize1
                        && yysize1 <= YYSTACK_ALLOC_MAXIMUM))
                   return 2;
@@ -1573,20 +1596,6 @@ yydestruct (yymsg, yytype, yyvaluep)
 }
 
 
-/* Prevent warnings from -Wmissing-prototypes.  */
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
-#endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
 
 /* The lookahead symbol.  */
@@ -1633,7 +1642,7 @@ yyparse ()
        `yyss': related to states.
        `yyvs': related to semantic values.
 
-       Refer to the stacks thru separate pointers, to allow yyoverflow
+       Refer to the stacks through separate pointers, to allow yyoverflow
        to reallocate them elsewhere.  */
 
     /* The state stack.  */
@@ -1687,7 +1696,6 @@ yyparse ()
      The wasted elements are never initialized.  */
   yyssp = yyss;
   yyvsp = yyvs;
-
   goto yysetstate;
 
 /*------------------------------------------------------------.
@@ -1865,22 +1873,19 @@ yyreduce:
   switch (yyn)
     {
         case 2:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 222 "sieve.y"
     { ret = NULL; }
     break;
 
   case 3:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 223 "sieve.y"
     { ret = (yyvsp[(2) - (2)].cl); }
     break;
 
   case 6:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 230 "sieve.y"
     { char *err = check_reqs((yyvsp[(2) - (3)].sl));
                                   if (err) {
@@ -1891,64 +1896,55 @@ yyreduce:
     break;
 
   case 7:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 238 "sieve.y"
     { (yyval.cl) = (yyvsp[(1) - (1)].cl); }
     break;
 
   case 8:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 239 "sieve.y"
     { (yyvsp[(1) - (2)].cl)->next = (yyvsp[(2) - (2)].cl); (yyval.cl) = (yyvsp[(1) - (2)].cl); }
     break;
 
   case 9:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 242 "sieve.y"
     { (yyval.cl) = (yyvsp[(1) - (2)].cl); }
     break;
 
   case 10:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 243 "sieve.y"
     { (yyval.cl) = new_if((yyvsp[(2) - (4)].test), (yyvsp[(3) - (4)].cl), (yyvsp[(4) - (4)].cl)); }
     break;
 
   case 11:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 244 "sieve.y"
     { (yyval.cl) = new_command(STOP); }
     break;
 
   case 12:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 247 "sieve.y"
     { (yyval.cl) = NULL; }
     break;
 
   case 13:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 248 "sieve.y"
     { (yyval.cl) = new_if((yyvsp[(2) - (4)].test), (yyvsp[(3) - (4)].cl), (yyvsp[(4) - (4)].cl)); }
     break;
 
   case 14:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 249 "sieve.y"
     { (yyval.cl) = (yyvsp[(2) - (2)].cl); }
     break;
 
   case 15:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 252 "sieve.y"
     { if (!parse_script->support.reject) {
 				     yyerror("reject MUST be enabled with \"require\"");
@@ -1962,8 +1958,7 @@ yyreduce:
     break;
 
   case 16:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 261 "sieve.y"
     { if (!parse_script->support.fileinto) {
 				     yyerror("fileinto MUST be enabled with \"require\"");
@@ -1976,8 +1971,7 @@ yyreduce:
     break;
 
   case 17:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 269 "sieve.y"
     { if (!verify_address((yyvsp[(3) - (3)].sval))) {
 				     YYERROR; /* va should call yyerror() */
@@ -1986,29 +1980,25 @@ yyreduce:
     break;
 
   case 18:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 273 "sieve.y"
     { (yyval.cl) = new_command(KEEP); }
     break;
 
   case 19:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 274 "sieve.y"
     { (yyval.cl) = new_command(STOP); }
     break;
 
   case 20:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 275 "sieve.y"
     { (yyval.cl) = new_command(DISCARD); }
     break;
 
   case 21:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 276 "sieve.y"
     { if (!parse_script->support.vacation) {
 				     yyerror("vacation MUST be enabled with \"require\"");
@@ -2022,8 +2012,7 @@ yyreduce:
     break;
 
   case 22:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 285 "sieve.y"
     { if (!parse_script->support.imapflags) {
                                     yyerror("imapflags MUST be enabled with \"require\"");
@@ -2037,8 +2026,7 @@ yyreduce:
     break;
 
   case 23:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 294 "sieve.y"
     { if (!parse_script->support.imapflags) {
                                     yyerror("imapflags MUST be enabled with \"require\"");
@@ -2052,8 +2040,7 @@ yyreduce:
     break;
 
   case 24:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 303 "sieve.y"
     { if (!parse_script->support.imapflags) {
                                     yyerror("imapflags MUST be enabled with \"require\"");
@@ -2067,8 +2054,7 @@ yyreduce:
     break;
 
   case 25:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 312 "sieve.y"
     { if (!parse_script->support.imapflags) {
                                     yyerror("imapflags MUST be enabled with \"require\"");
@@ -2078,8 +2064,7 @@ yyreduce:
     break;
 
   case 26:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 317 "sieve.y"
     { if (!parse_script->support.imapflags) {
                                     yyerror("imapflags MUST be enabled with \"require\"");
@@ -2089,8 +2074,7 @@ yyreduce:
     break;
 
   case 27:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 323 "sieve.y"
     { if (!parse_script->support.notify) {
 				       yyerror("notify MUST be enabled with \"require\"");
@@ -2103,8 +2087,7 @@ yyreduce:
     break;
 
   case 28:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 331 "sieve.y"
     { if (!parse_script->support.notify) {
                                        yyerror("notify MUST be enabled with \"require\"");
@@ -2118,8 +2101,7 @@ yyreduce:
     break;
 
   case 29:
-
-/* Line 1806 of yacc.c  */
+/* Line 1787 of yacc.c  */
 #line 341 "sieve.y"
     { if (!parse_script->support.include) {
 				     yyerror("include MUST be enabled with \"require\"");
@@ -2127,13 +2109,18 @@ yyreduce:
                                    }
 	                           (yyval.cl) = new_command(INCLUDE);
 				   (yyval.cl)->u.inc.location = (yyvsp[(2) - (3)].nval);
+				   int i;
+				   for (i=0; (yyvsp[(3) - (3)].sval)[i] != '\0'; i++)
+				     if ((yyvsp[(3) - (3)].sval)[i] == '/') {
+				       yyerror("included script name must not contain slash"); YYERROR;
+				       break;
+				     }
 				   (yyval.cl)->u.inc.script = (yyvsp[(3) - (3)].sval); }
     break;
 
   case 30:
-
-/* Line 1806 of yacc.c  */
-#line 348 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 354 "sieve.y"
     { if (!parse_script->support.include) {
                                     yyerror("include MUST be enabled with \"require\"");
                                     YYERROR;
@@ -2142,98 +2129,86 @@ yyreduce:
     break;
 
   case 31:
-
-/* Line 1806 of yacc.c  */
-#line 355 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 361 "sieve.y"
     { (yyval.nval) = PERSONAL; }
     break;
 
   case 32:
-
-/* Line 1806 of yacc.c  */
-#line 356 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 362 "sieve.y"
     { (yyval.nval) = PERSONAL; }
     break;
 
   case 33:
-
-/* Line 1806 of yacc.c  */
-#line 357 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 363 "sieve.y"
     { (yyval.nval) = GLOBAL; }
     break;
 
   case 34:
-
-/* Line 1806 of yacc.c  */
-#line 360 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 366 "sieve.y"
     { (yyval.ntag) = new_ntags(); }
     break;
 
   case 35:
-
-/* Line 1806 of yacc.c  */
-#line 361 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 367 "sieve.y"
     { if ((yyval.ntag)->id != NULL) { 
 					yyerror("duplicate :method"); YYERROR; }
 				   else { (yyval.ntag)->id = (yyvsp[(3) - (3)].sval); } }
     break;
 
   case 36:
-
-/* Line 1806 of yacc.c  */
-#line 364 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 370 "sieve.y"
     { if ((yyval.ntag)->method != NULL) { 
 					yyerror("duplicate :method"); YYERROR; }
 				   else { (yyval.ntag)->method = (yyvsp[(3) - (3)].sval); } }
     break;
 
   case 37:
-
-/* Line 1806 of yacc.c  */
-#line 367 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 373 "sieve.y"
     { if ((yyval.ntag)->options != NULL) { 
 					yyerror("duplicate :options"); YYERROR; }
 				     else { (yyval.ntag)->options = (yyvsp[(3) - (3)].sl); } }
     break;
 
   case 38:
-
-/* Line 1806 of yacc.c  */
-#line 370 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 376 "sieve.y"
     { if ((yyval.ntag)->priority != -1) { 
                                  yyerror("duplicate :priority"); YYERROR; }
                                    else { (yyval.ntag)->priority = (yyvsp[(2) - (2)].nval); } }
     break;
 
   case 39:
-
-/* Line 1806 of yacc.c  */
-#line 373 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 379 "sieve.y"
     { if ((yyval.ntag)->message != NULL) { 
 					yyerror("duplicate :message"); YYERROR; }
 				   else { (yyval.ntag)->message = (yyvsp[(3) - (3)].sval); } }
     break;
 
   case 40:
-
-/* Line 1806 of yacc.c  */
-#line 378 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 384 "sieve.y"
     { (yyval.dtag) = new_dtags(); }
     break;
 
   case 41:
-
-/* Line 1806 of yacc.c  */
-#line 379 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 385 "sieve.y"
     { if ((yyval.dtag)->priority != -1) { 
 				yyerror("duplicate priority level"); YYERROR; }
 				   else { (yyval.dtag)->priority = (yyvsp[(2) - (2)].nval); } }
     break;
 
   case 42:
-
-/* Line 1806 of yacc.c  */
-#line 382 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 388 "sieve.y"
     { if ((yyval.dtag)->comptag != -1)
 	                             { 
 					 yyerror("duplicate comparator type tag"); YYERROR;
@@ -2252,9 +2227,8 @@ yyreduce:
     break;
 
   case 43:
-
-/* Line 1806 of yacc.c  */
-#line 397 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 403 "sieve.y"
     { (yyval.dtag) = (yyvsp[(1) - (3)].dtag);
 				   if ((yyval.dtag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2266,46 +2240,40 @@ yyreduce:
     break;
 
   case 44:
-
-/* Line 1806 of yacc.c  */
-#line 407 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 413 "sieve.y"
     { (yyval.nval) = LOW; }
     break;
 
   case 45:
-
-/* Line 1806 of yacc.c  */
-#line 408 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 414 "sieve.y"
     { (yyval.nval) = NORMAL; }
     break;
 
   case 46:
-
-/* Line 1806 of yacc.c  */
-#line 409 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 415 "sieve.y"
     { (yyval.nval) = HIGH; }
     break;
 
   case 47:
-
-/* Line 1806 of yacc.c  */
-#line 412 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 418 "sieve.y"
     { (yyval.vtag) = new_vtags(); }
     break;
 
   case 48:
-
-/* Line 1806 of yacc.c  */
-#line 413 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 419 "sieve.y"
     { if ((yyval.vtag)->days != -1) { 
 					yyerror("duplicate :days"); YYERROR; }
 				   else { (yyval.vtag)->days = (yyvsp[(3) - (3)].nval); } }
     break;
 
   case 49:
-
-/* Line 1806 of yacc.c  */
-#line 416 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 422 "sieve.y"
     { if ((yyval.vtag)->addresses != NULL) { 
 					yyerror("duplicate :addresses"); 
 					YYERROR;
@@ -2317,9 +2285,8 @@ yyreduce:
     break;
 
   case 50:
-
-/* Line 1806 of yacc.c  */
-#line 424 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 430 "sieve.y"
     { if ((yyval.vtag)->subject != NULL) { 
 					yyerror("duplicate :subject"); 
 					YYERROR;
@@ -2329,9 +2296,8 @@ yyreduce:
     break;
 
   case 51:
-
-/* Line 1806 of yacc.c  */
-#line 430 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 436 "sieve.y"
     { if ((yyval.vtag)->from != NULL) { 
 					yyerror("duplicate :from"); 
 					YYERROR;
@@ -2341,9 +2307,8 @@ yyreduce:
     break;
 
   case 52:
-
-/* Line 1806 of yacc.c  */
-#line 436 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 442 "sieve.y"
     { if ((yyval.vtag)->handle != NULL) { 
 					yyerror("duplicate :handle"); 
 					YYERROR;
@@ -2353,9 +2318,8 @@ yyreduce:
     break;
 
   case 53:
-
-/* Line 1806 of yacc.c  */
-#line 442 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 448 "sieve.y"
     { if ((yyval.vtag)->mime != -1) { 
 					yyerror("duplicate :mime"); 
 					YYERROR; }
@@ -2363,86 +2327,74 @@ yyreduce:
     break;
 
   case 54:
-
-/* Line 1806 of yacc.c  */
-#line 448 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 454 "sieve.y"
     { (yyval.sl) = sl_reverse((yyvsp[(2) - (3)].sl)); }
     break;
 
   case 55:
-
-/* Line 1806 of yacc.c  */
-#line 449 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 455 "sieve.y"
     { (yyval.sl) = new_sl((yyvsp[(1) - (1)].sval), NULL); }
     break;
 
   case 56:
-
-/* Line 1806 of yacc.c  */
-#line 452 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 458 "sieve.y"
     { (yyval.sl) = new_sl((yyvsp[(1) - (1)].sval), NULL); }
     break;
 
   case 57:
-
-/* Line 1806 of yacc.c  */
-#line 453 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 459 "sieve.y"
     { (yyval.sl) = new_sl((yyvsp[(3) - (3)].sval), (yyvsp[(1) - (3)].sl)); }
     break;
 
   case 58:
-
-/* Line 1806 of yacc.c  */
-#line 456 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 462 "sieve.y"
     { (yyval.cl) = (yyvsp[(2) - (3)].cl); }
     break;
 
   case 59:
-
-/* Line 1806 of yacc.c  */
-#line 457 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 463 "sieve.y"
     { (yyval.cl) = NULL; }
     break;
 
   case 60:
-
-/* Line 1806 of yacc.c  */
-#line 460 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 466 "sieve.y"
     { (yyval.test) = new_test(ANYOF); (yyval.test)->u.tl = (yyvsp[(2) - (2)].testl); }
     break;
 
   case 61:
-
-/* Line 1806 of yacc.c  */
-#line 461 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 467 "sieve.y"
     { (yyval.test) = new_test(ALLOF); (yyval.test)->u.tl = (yyvsp[(2) - (2)].testl); }
     break;
 
   case 62:
-
-/* Line 1806 of yacc.c  */
-#line 462 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 468 "sieve.y"
     { (yyval.test) = new_test(EXISTS); (yyval.test)->u.sl = (yyvsp[(2) - (2)].sl); }
     break;
 
   case 63:
-
-/* Line 1806 of yacc.c  */
-#line 463 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 469 "sieve.y"
     { (yyval.test) = new_test(SFALSE); }
     break;
 
   case 64:
-
-/* Line 1806 of yacc.c  */
-#line 464 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 470 "sieve.y"
     { (yyval.test) = new_test(STRUE); }
     break;
 
   case 65:
-
-/* Line 1806 of yacc.c  */
-#line 466 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 472 "sieve.y"
     {
 				     if (!verify_stringlist((yyvsp[(3) - (4)].sl), verify_header)) {
 					 YYERROR; /* vh should call yyerror() */
@@ -2467,9 +2419,8 @@ yyreduce:
     break;
 
   case 66:
-
-/* Line 1806 of yacc.c  */
-#line 490 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 496 "sieve.y"
     { 
 				     if (((yyvsp[(1) - (4)].nval) == ADDRESS) &&
 					 !verify_stringlist((yyvsp[(3) - (4)].sl), verify_addrheader))
@@ -2493,9 +2444,8 @@ yyreduce:
     break;
 
   case 67:
-
-/* Line 1806 of yacc.c  */
-#line 512 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 518 "sieve.y"
     {
 				     if (!parse_script->support.body) {
                                        yyerror("body MUST be enabled with \"require\"");
@@ -2522,38 +2472,33 @@ yyreduce:
     break;
 
   case 68:
-
-/* Line 1806 of yacc.c  */
-#line 537 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 543 "sieve.y"
     { (yyval.test) = new_test(NOT); (yyval.test)->u.t = (yyvsp[(2) - (2)].test); }
     break;
 
   case 69:
-
-/* Line 1806 of yacc.c  */
-#line 538 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 544 "sieve.y"
     { (yyval.test) = new_test(SIZE); (yyval.test)->u.sz.t = (yyvsp[(2) - (3)].nval);
 		                   (yyval.test)->u.sz.n = (yyvsp[(3) - (3)].nval); }
     break;
 
   case 70:
-
-/* Line 1806 of yacc.c  */
-#line 540 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 546 "sieve.y"
     { (yyval.test) = NULL; }
     break;
 
   case 71:
-
-/* Line 1806 of yacc.c  */
-#line 543 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 549 "sieve.y"
     { (yyval.nval) = ADDRESS; }
     break;
 
   case 72:
-
-/* Line 1806 of yacc.c  */
-#line 544 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 550 "sieve.y"
     {if (!parse_script->support.envelope)
 	                              {yyerror("envelope MUST be enabled with \"require\""); YYERROR;}
 	                          else{(yyval.nval) = ENVELOPE; }
@@ -2561,16 +2506,14 @@ yyreduce:
     break;
 
   case 73:
-
-/* Line 1806 of yacc.c  */
-#line 551 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 557 "sieve.y"
     { (yyval.aetag) = new_aetags(); }
     break;
 
   case 74:
-
-/* Line 1806 of yacc.c  */
-#line 552 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 558 "sieve.y"
     { (yyval.aetag) = (yyvsp[(1) - (2)].aetag);
 				   if ((yyval.aetag)->addrtag != -1) { 
 			yyerror("duplicate or conflicting address part tag");
@@ -2579,9 +2522,8 @@ yyreduce:
     break;
 
   case 75:
-
-/* Line 1806 of yacc.c  */
-#line 557 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 563 "sieve.y"
     { (yyval.aetag) = (yyvsp[(1) - (2)].aetag);
 				   if ((yyval.aetag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2589,9 +2531,8 @@ yyreduce:
     break;
 
   case 76:
-
-/* Line 1806 of yacc.c  */
-#line 561 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 567 "sieve.y"
     { (yyval.aetag) = (yyvsp[(1) - (3)].aetag);
 				   if ((yyval.aetag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2603,9 +2544,8 @@ yyreduce:
     break;
 
   case 77:
-
-/* Line 1806 of yacc.c  */
-#line 569 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 575 "sieve.y"
     { (yyval.aetag) = (yyvsp[(1) - (3)].aetag);
 	if ((yyval.aetag)->comparator != NULL) { 
 			yyerror("duplicate comparator tag"); YYERROR; }
@@ -2617,16 +2557,14 @@ yyreduce:
     break;
 
   case 78:
-
-/* Line 1806 of yacc.c  */
-#line 579 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 585 "sieve.y"
     { (yyval.htag) = new_htags(); }
     break;
 
   case 79:
-
-/* Line 1806 of yacc.c  */
-#line 580 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 586 "sieve.y"
     { (yyval.htag) = (yyvsp[(1) - (2)].htag);
 				   if ((yyval.htag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2634,9 +2572,8 @@ yyreduce:
     break;
 
   case 80:
-
-/* Line 1806 of yacc.c  */
-#line 584 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 590 "sieve.y"
     { (yyval.htag) = (yyvsp[(1) - (3)].htag);
 				   if ((yyval.htag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2648,9 +2585,8 @@ yyreduce:
     break;
 
   case 81:
-
-/* Line 1806 of yacc.c  */
-#line 592 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 598 "sieve.y"
     { (yyval.htag) = (yyvsp[(1) - (3)].htag);
 				   if ((yyval.htag)->comparator != NULL) { 
 			 yyerror("duplicate comparator tag"); YYERROR; }
@@ -2662,16 +2598,14 @@ yyreduce:
     break;
 
   case 82:
-
-/* Line 1806 of yacc.c  */
-#line 602 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 608 "sieve.y"
     { (yyval.btag) = new_btags(); }
     break;
 
   case 83:
-
-/* Line 1806 of yacc.c  */
-#line 603 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 609 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (2)].btag);
 				   if ((yyval.btag)->transform != -1) {
 			yyerror("duplicate or conflicting transform tag");
@@ -2680,9 +2614,8 @@ yyreduce:
     break;
 
   case 84:
-
-/* Line 1806 of yacc.c  */
-#line 608 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 614 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (2)].btag);
 				   if ((yyval.btag)->transform != -1) {
 			yyerror("duplicate or conflicting transform tag");
@@ -2691,9 +2624,8 @@ yyreduce:
     break;
 
   case 85:
-
-/* Line 1806 of yacc.c  */
-#line 613 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 619 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (3)].btag);
 				   if ((yyval.btag)->transform != -1) {
 			yyerror("duplicate or conflicting transform tag");
@@ -2705,9 +2637,8 @@ yyreduce:
     break;
 
   case 86:
-
-/* Line 1806 of yacc.c  */
-#line 621 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 627 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (2)].btag);
 				   if ((yyval.btag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2715,9 +2646,8 @@ yyreduce:
     break;
 
   case 87:
-
-/* Line 1806 of yacc.c  */
-#line 625 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 631 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (3)].btag);
 				   if ((yyval.btag)->comptag != -1) { 
 			yyerror("duplicate comparator type tag"); YYERROR; }
@@ -2729,9 +2659,8 @@ yyreduce:
     break;
 
   case 88:
-
-/* Line 1806 of yacc.c  */
-#line 633 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 639 "sieve.y"
     { (yyval.btag) = (yyvsp[(1) - (3)].btag);
 				   if ((yyval.btag)->comparator != NULL) { 
 			 yyerror("duplicate comparator tag"); YYERROR; }
@@ -2743,30 +2672,26 @@ yyreduce:
     break;
 
   case 89:
-
-/* Line 1806 of yacc.c  */
-#line 644 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 650 "sieve.y"
     { (yyval.nval) = ALL; }
     break;
 
   case 90:
-
-/* Line 1806 of yacc.c  */
-#line 645 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 651 "sieve.y"
     { (yyval.nval) = LOCALPART; }
     break;
 
   case 91:
-
-/* Line 1806 of yacc.c  */
-#line 646 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 652 "sieve.y"
     { (yyval.nval) = DOMAIN; }
     break;
 
   case 92:
-
-/* Line 1806 of yacc.c  */
-#line 647 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 653 "sieve.y"
     { if (!parse_script->support.subaddress) {
 				     yyerror("subaddress MUST be enabled with \"require\"");
 				     YYERROR;
@@ -2775,9 +2700,8 @@ yyreduce:
     break;
 
   case 93:
-
-/* Line 1806 of yacc.c  */
-#line 652 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 658 "sieve.y"
     { if (!parse_script->support.subaddress) {
 				     yyerror("subaddress MUST be enabled with \"require\"");
 				     YYERROR;
@@ -2786,30 +2710,26 @@ yyreduce:
     break;
 
   case 94:
-
-/* Line 1806 of yacc.c  */
-#line 658 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 664 "sieve.y"
     { (yyval.nval) = IS; }
     break;
 
   case 95:
-
-/* Line 1806 of yacc.c  */
-#line 659 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 665 "sieve.y"
     { (yyval.nval) = CONTAINS; }
     break;
 
   case 96:
-
-/* Line 1806 of yacc.c  */
-#line 660 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 666 "sieve.y"
     { (yyval.nval) = MATCHES; }
     break;
 
   case 97:
-
-/* Line 1806 of yacc.c  */
-#line 661 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 667 "sieve.y"
     { if (!parse_script->support.regex) {
 				     yyerror("regex MUST be enabled with \"require\"");
 				     YYERROR;
@@ -2818,9 +2738,8 @@ yyreduce:
     break;
 
   case 98:
-
-/* Line 1806 of yacc.c  */
-#line 668 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 674 "sieve.y"
     { if (!parse_script->support.relational) {
 				     yyerror("relational MUST be enabled with \"require\"");
 				     YYERROR;
@@ -2829,9 +2748,8 @@ yyreduce:
     break;
 
   case 99:
-
-/* Line 1806 of yacc.c  */
-#line 673 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 679 "sieve.y"
     { if (!parse_script->support.relational) {
 				     yyerror("relational MUST be enabled with \"require\"");
 				     YYERROR;
@@ -2840,30 +2758,26 @@ yyreduce:
     break;
 
   case 100:
-
-/* Line 1806 of yacc.c  */
-#line 681 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 687 "sieve.y"
     { (yyval.nval) = OVER; }
     break;
 
   case 101:
-
-/* Line 1806 of yacc.c  */
-#line 682 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 688 "sieve.y"
     { (yyval.nval) = UNDER; }
     break;
 
   case 102:
-
-/* Line 1806 of yacc.c  */
-#line 685 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 691 "sieve.y"
     { (yyval.nval) = 0; }
     break;
 
   case 103:
-
-/* Line 1806 of yacc.c  */
-#line 686 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 692 "sieve.y"
     { if (!parse_script->support.copy) {
 				     yyerror("copy MUST be enabled with \"require\"");
 	                             YYERROR;
@@ -2872,30 +2786,26 @@ yyreduce:
     break;
 
   case 104:
-
-/* Line 1806 of yacc.c  */
-#line 693 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 699 "sieve.y"
     { (yyval.testl) = (yyvsp[(2) - (3)].testl); }
     break;
 
   case 105:
-
-/* Line 1806 of yacc.c  */
-#line 696 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 702 "sieve.y"
     { (yyval.testl) = new_testlist((yyvsp[(1) - (1)].test), NULL); }
     break;
 
   case 106:
-
-/* Line 1806 of yacc.c  */
-#line 697 "sieve.y"
+/* Line 1787 of yacc.c  */
+#line 703 "sieve.y"
     { (yyval.testl) = new_testlist((yyvsp[(1) - (3)].test), (yyvsp[(3) - (3)].testl)); }
     break;
 
 
-
-/* Line 1806 of yacc.c  */
-#line 2899 "y.tab.c"
+/* Line 1787 of yacc.c  */
+#line 2809 "y.tab.c"
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -3082,7 +2992,7 @@ yyabortlab:
   yyresult = 1;
   goto yyreturn;
 
-#if !defined(yyoverflow) || YYERROR_VERBOSE
+#if !defined yyoverflow || YYERROR_VERBOSE
 /*-------------------------------------------------.
 | yyexhaustedlab -- memory exhaustion comes here.  |
 `-------------------------------------------------*/
@@ -3124,9 +3034,8 @@ yyreturn:
 }
 
 
-
-/* Line 2067 of yacc.c  */
-#line 700 "sieve.y"
+/* Line 2048 of yacc.c  */
+#line 706 "sieve.y"
 
 commandlist_t *sieve_parse(sieve_script_t *script, FILE *f)
 {

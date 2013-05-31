@@ -105,7 +105,7 @@ struct subtxn {
 struct txn {
     hash_table table;	/* hash table of sub-transactions */
 
-    int (*proc)(char *, struct subtxn *);  /* commit/abort procedure */
+    int (*proc)(const char *, struct subtxn *);  /* commit/abort procedure */
 
     int result;		/* final result of the commit/abort */
 };
@@ -126,12 +126,14 @@ static int compar_qr(const void *v1, const void *v2);
 static int compar_qr_mbox(const void *v1, const void *v2);
 
 /* hash the prefix - either with or without 'user.' part */
-static char name_to_hashchar(const char *name)
+static char name_to_hashchar(const char *name, int isprefix)
 {
     int config_fulldirhash = libcyrus_config_getswitch(CYRUSOPT_FULLDIRHASH);
     const char *idx;
 
     if (!*name) return '\0';
+    /* you can't actually prefix with a fulldirhash character! (Bug 3735) */
+    if (config_fulldirhash && isprefix) return '\0';
 
     idx = strchr(name, '.'); /* skip past user. */
     if (idx == NULL) {
@@ -180,7 +182,7 @@ static void hash_quota(char *buf, size_t size, const char *qr, char *path)
 	}
     }
 
-    c = name_to_hashchar(qr);
+    c = name_to_hashchar(qr, 0);
 
     if (snprintf(buf, size, "%s%c/%s", FNAME_QUOTADIR, c, qr) >= (int) size) {
 	fatal("insufficient buffer size in hash_quota", EC_TEMPFAIL);
@@ -188,7 +190,7 @@ static void hash_quota(char *buf, size_t size, const char *qr, char *path)
 }
 
 /* other routines call this one when they fail */
-static int abort_subtxn(char *fname, struct subtxn *tid)
+static int abort_subtxn(const char *fname, struct subtxn *tid)
 {
     int r = CYRUSDB_OK;
 
@@ -225,7 +227,7 @@ static int abort_subtxn(char *fname, struct subtxn *tid)
     return r;
 }
 
-static int commit_subtxn(char *fname, struct subtxn *tid)
+static int commit_subtxn(const char *fname, struct subtxn *tid)
 {
     int writefd;
     int r = 0;
@@ -549,7 +551,7 @@ static void scan_qr_dir(char *quota_path, char *prefix, struct qr_path *pathbuf)
 
     /* check for path restriction - if there's a prefix we only
      * need to scan a single directory */
-    onlyc = name_to_hashchar(prefix);
+    onlyc = name_to_hashchar(prefix, 1);
 
     c = config_fulldirhash ? 'A' : 'a';
     for (i = 0; i < 26; i++, c++) {
@@ -862,7 +864,7 @@ static int delete(struct db *db,
     return mystore(db, key, keylen, NULL, 0, mytid, 1);
 }
 
-static void txn_proc(char *fname, void *data, void *rock)
+static void txn_proc(const char *fname, void *data, void *rock)
 {
     struct txn *tid = (struct txn *) rock;
     int r;

@@ -314,6 +314,22 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
 }
 
 
+#if (OPENSSL_VERSION_NUMBER >= 0x0090806fL)
+static int servername_callback(SSL *ssl, int *ad __attribute__((unused)),
+			       void *arg __attribute__((unused)))
+{
+    const char *servername = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name);
+
+    if (servername) {
+	syslog(LOG_DEBUG, "TLS Server Name Indication (SNI) Extension: \"%s\"",
+	       servername);
+    }
+
+    return SSL_TLSEXT_ERR_OK;
+}
+#endif
+
+
 /*
  * taken from OpenSSL crypto/bio/b_dump.c, modified to save a lot of strcpy
  * and strcat by Matti Aarnio.
@@ -756,6 +772,10 @@ int     tls_init_serverengine(const char *ident,
 	verify_flags |= SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT
 	    | SSL_VERIFY_CLIENT_ONCE;
     SSL_CTX_set_verify(s_ctx, verify_flags, verify_callback);
+
+#if (OPENSSL_VERSION_NUMBER >= 0x0090806fL)
+    SSL_CTX_set_tlsext_servername_callback(s_ctx, servername_callback);
+#endif
 
     if (askcert || requirecert) {
       if (CAfile == NULL) {
@@ -1208,7 +1228,8 @@ int tls_init_clientengine(int verifydepth,
 	printf("TLS client engine: cannot seed PRNG\n");
 	return -1;
     }
-    
+
+    /* XXX  May need to use only SSLv3 for iSchedule */
     c_ctx = SSL_CTX_new(TLSv1_client_method());
     if (c_ctx == NULL) {
 	return (-1);

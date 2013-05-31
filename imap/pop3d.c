@@ -162,17 +162,17 @@ static struct namespace popd_namespace;
 struct backend *backend = NULL;
 
 static struct protocol_t pop3_protocol =
-{ "pop3", "pop",
-  { 0, "+OK " },
-  { "CAPA", NULL, ".", NULL,
-    { { "SASL ", CAPA_AUTH },
-      { "STLS", CAPA_STARTTLS },
-      { NULL, 0 } } },
-  { "STLS", "+OK", "-ERR", 0 },
-  { "AUTH", 255, 0, "+OK", "-ERR", "+ ", "*", NULL, 0 },
-  { NULL, NULL, NULL },
-  { "NOOP", NULL, "+OK" },
-  { "QUIT", NULL, "+OK" }
+{ "pop3", "pop", TYPE_STD,
+  { { { 0, "+OK " },
+      { "CAPA", NULL, ".", NULL,
+	{ { "SASL ", CAPA_AUTH },
+	  { "STLS", CAPA_STARTTLS },
+	  { NULL, 0 } } },
+      { "STLS", "+OK", "-ERR", 0 },
+      { "AUTH", 255, 0, "+OK", "-ERR", "+ ", "*", NULL, 0 },
+      { NULL, NULL, NULL },
+      { "NOOP", NULL, "+OK" },
+      { "QUIT", NULL, "+OK" } } }
 };
 
 static void bitpipe(void);
@@ -1753,12 +1753,29 @@ int openinbox(void)
 	    IMAP_PERMISSION_DENIED : IMAP_MAILBOX_NONEXISTENT;
 	log_level = LOG_INFO;
     }
+    else if (!r && (mbentry.mbtype & MBTYPE_DELETED)) {
+	r = IMAP_MAILBOX_NONEXISTENT;
+	log_level = LOG_INFO;
+    }
     if (r) {
 	sleep(3);
 	syslog(log_level, "Unable to locate maildrop %s: %s",
 	       inboxname, error_message(r));
 	prot_printf(popd_out,
 		    "-ERR [SYS/PERM] Unable to locate maildrop: %s\r\n",
+		    error_message(r));
+	goto fail;
+    }
+
+    if (mbentry.mbtype & MBTYPE_RESERVE) r = IMAP_MAILBOX_RESERVED;
+    if (mbentry.mbtype & MBTYPE_MOVING) r = IMAP_MAILBOX_MOVED;
+    if (r) {
+	sleep(3);
+	log_level = LOG_INFO;
+	syslog(log_level, "Unable to open maildrop %s: %s",
+	       inboxname, error_message(r));
+	prot_printf(popd_out,
+		    "-ERR [SYS/TEMP] Unable to open maildrop: %s\r\n",
 		    error_message(r));
 	goto fail;
     }
@@ -2060,7 +2077,7 @@ static int update_seen(void)
 
     /* we know this mailbox must be owned by the user, because 
      * all POP mailboxes are */
-    for (i = 0; i < popd_exists; i++) {
+    for (i = 1; i <= popd_exists; i++) {
 	if (!popd_msg[i].seen)
 	    continue; /* don't even need to check */
 	if (mailbox_read_index_record(popd_mailbox, popd_msg[i].recno, &record))

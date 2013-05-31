@@ -117,17 +117,17 @@ static int background      = 0;
 static int do_compress     = 0;
 
 static struct protocol_t csync_protocol =
-{ "csync", "csync",
-  { 1, "* OK" },
-  { NULL, NULL, "* OK", NULL,
-    { { "* SASL ", CAPA_AUTH },
-      { "* STARTTLS", CAPA_STARTTLS },
-      { NULL, 0 } } },
-  { "STARTTLS", "OK", "NO", 1 },
-  { "AUTHENTICATE", USHRT_MAX, 0, "OK", "NO", "+ ", "*", NULL, 0 },
-  { NULL, NULL, NULL },
-  { "NOOP", NULL, "OK" },
-  { "EXIT", NULL, "OK" }
+{ "csync", "csync", TYPE_STD,
+  { { { 1, "* OK" },
+      { NULL, NULL, "* OK", NULL,
+	{ { "* SASL ", CAPA_AUTH },
+	  { "* STARTTLS", CAPA_STARTTLS },
+	  { NULL, 0 } } },
+      { "STARTTLS", "OK", "NO", 1 },
+      { "AUTHENTICATE", USHRT_MAX, 0, "OK", "NO", "+ ", "*", NULL, 0 },
+      { NULL, NULL, NULL },
+      { "NOOP", NULL, "OK" },
+      { "EXIT", NULL, "OK" } } }
 };
 
 static int do_meta(char *user);
@@ -1306,7 +1306,10 @@ static int update_mailbox_once(struct sync_folder *local,
     r = mailbox_open_irl(local->name, &mailbox);
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	/* been deleted in the meanwhile... */
-	r = folder_delete(remote->name);
+	if (remote)
+	    r = folder_delete(remote->name);
+	else
+	    r = 0;
 	goto done;
     }
     else if (r)
@@ -2705,7 +2708,7 @@ void do_daemon(const char *sync_log_file, const char *sync_shutdown_file,
 	     * If we are, we had some type of error, so we exit.
 	     * Otherwise, try reconnecting.
 	     */
-	    if (!backend_ping(sync_backend)) restart = 1;
+	    if (!backend_ping(sync_backend, NULL)) restart = 1;
 	}
 	replica_disconnect();
     }

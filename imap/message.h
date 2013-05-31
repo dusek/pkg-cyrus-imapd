@@ -79,6 +79,7 @@ struct body {
     struct param *disposition_params;
     struct param *language;
     char *location;
+    int charset_cte;		/* charset/encoding in binary bodystructure */
 
     /* Location/size information */
     long header_offset;
@@ -178,5 +179,7 @@ extern int message_write_cache P((struct index_record *record, struct body *body
 extern int message_create_record P((struct index_record *message_index,
 				    struct body *body));
 extern void message_free_body P((struct body *body));
+extern void message_read_bodystructure(struct index_record *record,
+				       struct body **body);
 
 #endif /* INCLUDED_MESSAGE_H */

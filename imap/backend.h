@@ -71,6 +71,7 @@ struct backend {
     struct prot_waitevent *timeout; /* event for idle timeout */
 
     sasl_conn_t *saslconn;
+    sasl_ssf_t ext_ssf;
 #ifdef HAVE_SSL
     SSL *tlsconn;
     SSL_SESSION *tlssess;
@@ -88,8 +89,10 @@ struct backend {
 struct backend *backend_connect(struct backend *cache, const char *server,
 				struct protocol_t *prot, const char *userid,
 				sasl_callback_t *cb, const char **auth_status);
-int backend_ping(struct backend *s);
+int backend_starttls(struct backend *s, struct tls_cmd_t *tls_cmd);
+int backend_ping(struct backend *s, const char *userid);
 void backend_disconnect(struct backend *s);
+char *intersect_mechlists(char *config, char *server);
 
 #define CAPA(s, c) ((s)->capability & (c))
 

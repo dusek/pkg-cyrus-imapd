@@ -837,7 +837,7 @@ int index_fetch(struct index_state *state,
 {
     struct seqset *seq;
     struct seqset *vanishedlist = NULL;
-    uint32_t msgno;
+    uint32_t msgno, start, end;
     unsigned checkval;
     int r;
     struct index_map *im;
@@ -848,9 +848,35 @@ int index_fetch(struct index_state *state,
 
     seq = _parse_sequence(state, sequence, usinguid);
 
+    start = 1;
+    end = state->exists;
+
+    /* compress the search range down if a sequence was given */
+    if (seq) {
+	unsigned first = seqset_first(seq);
+	unsigned last = seqset_last(seq);
+
+	if (usinguid) {
+	    if (first > 1)
+		start = index_finduid(state, first);
+	    if (first == last)
+		end = start;
+	    else if (last < state->last_uid)
+		end = index_finduid(state, last);
+	}
+	else {
+	    start = first;
+	    end = last;
+	}
+    }
+
+    /* make sure we didn't go outside the range! */
+    if (start < 1) start = 1;
+    if (end > state->exists) end = state->exists;
+
     /* set the \Seen flag if necessary - while we still have the lock */
     if (fetchargs->fetchitems & FETCH_SETSEEN && !state->examining) {
-	for (msgno = 1; msgno <= state->exists; msgno++) {
+	for (msgno = start; msgno <= end; msgno++) {
 	    im = &state->map[msgno-1];
 	    checkval = usinguid ? im->record.uid : msgno;
 	    if (!seqset_ismember(seq, checkval))
@@ -882,7 +908,7 @@ int index_fetch(struct index_state *state,
 
     seqset_free(vanishedlist);
 
-    for (msgno = 1; msgno <= state->exists; msgno++) {
+    for (msgno = start; msgno <= end; msgno++) {
 	im = &state->map[msgno-1];
 	checkval = usinguid ? im->record.uid : msgno;
 	if (!seqset_ismember(seq, checkval))
@@ -4488,10 +4514,12 @@ static void ref_link_messages(MsgData *msgdata, Thread **newnode,
 /*
  * Gather orphan messages under the root node.
  */
-static void ref_gather_orphans(char *key __attribute__((unused)),
-			       Thread *node,
-			       struct rootset *rootset)
+static void ref_gather_orphans(const char *key __attribute__((unused)),
+			       void *data, void *rock)
 {
+    Thread *node = (Thread *)data;
+    struct rootset *rootset = (struct rootset *)rock;
+
     /* we only care about nodes without parents */
     if (!node->parent) {
 	if (node->next) {
@@ -4519,6 +4547,7 @@ static void ref_prune_tree(Thread *parent)
 	 cur;
 	 prev = cur, cur = next, next = (cur ? cur->next : NULL)) {
 
+retry:
 	/* if we have an empty container with no children, delete it */
 	if (!cur->msgdata && !cur->child) {
 	    if (!prev)	/* first child */
@@ -4573,8 +4602,14 @@ static void ref_prune_tree(Thread *parent)
 	}
 
 	/* if we have a message with children, prune it's children */
-	else if (cur->child)
+	else if (cur->child) {
 	    ref_prune_tree(cur);
+	    if (!cur->msgdata && !cur->child) {
+		/* Did we end up with a completely empty node here?
+		 * Go back and prune it too.  See Bug 3784.  */
+		goto retry;
+	    }
+	}
     }
 }
 
@@ -4890,8 +4925,7 @@ static void _index_thread_ref(struct index_state *state, unsigned *msgno_list, i
 
     /* Step 2: find the root set (gather all of the orphan messages) */
     rootset.nroot = 0;
-    hash_enumerate(&id_table, (void (*)(char*,void*,void*)) ref_gather_orphans,
-		   &rootset);
+    hash_enumerate(&id_table, ref_gather_orphans, &rootset);
 
     /* discard id_table */
     free_hash_table(&id_table, NULL);
