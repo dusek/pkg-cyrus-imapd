@@ -282,3 +282,6 @@ override_dh_installchangelogs:
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
+
+override_dh_install:
+	dh_install --fail-missing
