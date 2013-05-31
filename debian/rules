@@ -82,6 +82,7 @@ override_dh_auto_configure:
 	 --with-lock=fcntl \
 	 --with-perl=/usr/bin/perl \
 	 --with-openssl=/usr \
+	 --enable-afs \
 	 --with-bdb=db \
 	 --with-bdb-libdir=/usr/lib --with-bdb-incdir=/usr/include \
 	 --enable-murder --enable-nntp --enable-replication \
