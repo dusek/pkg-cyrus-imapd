@@ -87,6 +87,9 @@ override_dh_auto_configure:
 	 --enable-murder --enable-nntp --enable-replication \
 	 --disable-listext --with-sasl=/usr \
 	 --enable-idled \
+	 --enable-http \
+	 --with-opendkim-libdir=/usr/include/opendkim \
+	 --with-opendkim-incdir=/usr/lib
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
 	 --with-com_err="" \
 	 --with-pidfile=/var/run/cyrmaster.pid \
