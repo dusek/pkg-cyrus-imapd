@@ -1196,10 +1196,15 @@ int prot_putbuf(struct protstream *s, struct buf *buf)
     return prot_write(s, buf->s, buf->len);
 }
 
+int prot_puts(struct protstream *s, const char *str)
+{
+    return prot_write(s, str, strlen(str));
+}
+
 /*
  * Stripped-down version of printf() that works on protection streams
- * Only understands '%lld', '%llu', '%ld', '%lu', '%d', %u', '%s',
- * '%tu', '%td', '%c', and '%%' in the format string.
+ * Only understands '%lld', '%llu', '%llx', '%ld', '%lu', '%lx',
+ * '%d', %u', '%x', '%s', '%tu', '%td', '%c', and '%%' in the format string.
  */
 int prot_printf(struct protstream *s, const char *fmt, ...)
 {
@@ -1235,6 +1240,12 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 		prot_write(s, buf, strlen(buf));
 		break;
 
+	    case 'x':
+		l = va_arg(pvar, long);
+		snprintf(buf, sizeof(buf), "%lx", l);
+		prot_write(s, buf, strlen(buf));
+		break;
+
 #ifdef HAVE_LONG_LONG_INT
             case 'l': {
 		long long int ll;
@@ -1250,6 +1261,12 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 		case 'u':
 		    ull = va_arg(pvar, unsigned long long int);
 		    snprintf(buf, sizeof(buf), "%llu", ull);
+		    prot_write(s, buf, strlen(buf));
+		    break;
+
+		case 'x':
+		    ll = va_arg(pvar, long long int);
+		    snprintf(buf, sizeof(buf), "%llx", ll);
 		    prot_write(s, buf, strlen(buf));
 		    break;
 
@@ -1277,6 +1294,15 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 	    prot_write(s, buf, strlen(buf));
 	    break;
 
+	case 'x':
+	    i = va_arg(pvar, int);
+	    snprintf(buf, sizeof(buf), "%x", i);
+	    prot_write(s, buf, strlen(buf));
+	    break;
+
+	/* according to linux 'man 3 printf' this is supposed to be
+	 * of type "ptrdiff_t", not "size_t" - but don't want to break
+	 * running code! */
 	case 't': {
 	    size_t tu;
 	    ssize_t td;
@@ -1309,6 +1335,29 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
 	    i = va_arg(pvar, int);
 	    (void)prot_putc(i, s);
 	    break;
+
+	case 'z': {
+	    size_t zu;
+	    ssize_t zd;
+
+	    switch (*++percent) {
+	    case 'u':
+		zu = va_arg(pvar, size_t);
+		snprintf(buf, sizeof(buf), "%zu", zu);
+		prot_write(s, buf, strlen(buf));
+		break;
+
+	    case 'd':
+		zd = va_arg(pvar, ssize_t);
+		snprintf(buf, sizeof(buf), "%zd", zd);
+		prot_write(s, buf, strlen(buf));
+		break;
+
+	    default:
+		abort();
+	    }
+	    break;
+	}
 
 	default:
 	    abort();
@@ -1397,6 +1446,18 @@ int prot_read(struct protstream *s, char *buf, unsigned size)
     s->cnt -= size;
     s->can_unget += size;
     s->bytes_in += size;  /* prot_fill added the 1 already */
+    return size;
+}
+
+/*
+ * Read from the protections stream 's' up to 'size' bytes, and append them
+ * to the buffer 'buf'.  Returns the number of bytes read, or 0 for some error.
+ */
+int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size)
+{
+    buf_ensure(buf, size);
+    size = prot_read(s, buf->s + buf->len, size);
+    buf->len += size;
     return size;
 }
 

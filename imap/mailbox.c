@@ -835,13 +835,10 @@ int mailbox_open_advanced(const char *name,
 	if (listitem->m.index_locktype)
 	    return IMAP_MAILBOX_LOCKED;   
 
-	r = mailbox_lock_index(&listitem->m, index_locktype);
-	if (r) return r;
-
 	listitem->nopen++;
 	mailbox = &listitem->m;
 
-	goto done;
+	goto lockindex;
     }
 
     listitem = create_listitem(name);
@@ -858,6 +855,11 @@ int mailbox_open_advanced(const char *name,
     r = mboxlist_lookup(name, &mbentry, NULL);
     if (r) goto done;
 
+    if (mbentry.mbtype & MBTYPE_MOVING) {
+	r = IMAP_MAILBOX_MOVED;
+	goto done;
+    }
+
     mailbox->part = xstrdup(mbentry.partition);
     /* Note that the header does have the ACL information, but it is only
      * a backup, and the mboxlist data is considered authoritative, so
@@ -872,6 +874,7 @@ int mailbox_open_advanced(const char *name,
 	goto done;
     }
 
+lockindex:
     /* this will open, map and parse the header file */
     r = mailbox_lock_index(mailbox, index_locktype);
     if (r) {
@@ -1625,9 +1628,12 @@ void mailbox_unlock_index(struct mailbox *mailbox, struct statusdata *sdata)
     if (mailbox->has_changed) {
 	if (updatenotifier) updatenotifier(mailbox->name);
 	sync_log_mailbox(mailbox->name);
-	if (config_getswitch(IMAPOPT_STATUSCACHE))
-	    statuscache_invalidate(mailbox->name, sdata);
+	statuscache_invalidate(mailbox->name, sdata);
 	mailbox->has_changed = 0;
+    }
+    else if (sdata) {
+	/* updated data, always write */
+	statuscache_invalidate(mailbox->name, sdata);
     }
 
     if (mailbox->index_locktype) {
@@ -3005,9 +3011,11 @@ int mailbox_delete_cleanup(const char *part, const char *name)
 	    /* Hit top of 'user' hierarchy */
 	    break;
 	}
+
 	r = mboxlist_lookup(nbuf, &mbentry, NULL);
-	/* not the same partition, we can keep cleaning up */
-	if (!r && strcmp(mbentry.partition, part))
+	/* if it's not being moved, and not the same partition, then it's safe to
+	 * clean up the parent directory too */
+	if (!r && !(mbentry.mbtype & MBTYPE_MOVING) && strcmp(mbentry.partition, part))
 	    r = IMAP_MAILBOX_NONEXISTENT;
     } while (r == IMAP_MAILBOX_NONEXISTENT);
 
@@ -3860,6 +3868,10 @@ static int mailbox_reconstruct_append(struct mailbox *mailbox, uint32_t uid,
 
     r = message_parse(fname, &record);
     if (r) return r;
+
+    /* copy the timestamp from the file if not calculated */
+    if (!record.internaldate)
+	record.internaldate = sbuf.st_mtime;
 
     if (uid > mailbox->i.last_uid) {
 	printf("%s uid %u found - adding\n", mailbox->name, uid);

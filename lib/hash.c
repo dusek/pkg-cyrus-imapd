@@ -41,11 +41,8 @@
 
 hash_table *construct_hash_table(hash_table *table, size_t size, int use_mpool)
 {
-      if(!table)
-	  fatal("construct_hash_table called without a starting table",
-		EC_TEMPFAIL);
-      if(!size)
-	  fatal("construct_hash_table called without a size", EC_TEMPFAIL);
+      assert(table);
+      assert(size);
 
       table->size  = size;
 
@@ -70,8 +67,8 @@ hash_table *construct_hash_table(hash_table *table, size_t size, int use_mpool)
 
 /*
 ** Insert 'key' into hash table.
-** Returns pointer to old data associated with the key, if any, or
-** NULL if the key wasn't in the table previously.
+** Returns a non-NULL pointer which is either the passed @data pointer
+** or, if there was already an entry for @key, the old data pointer.
 */
 
 void *hash_insert(const char *key, void *data, hash_table *table)
@@ -180,7 +177,7 @@ void *hash_lookup(const char *key, hash_table *table)
 */
 /* Warning: use this function judiciously if you are using memory pools,
  * since it will leak memory until you get rid of the entire hash table */
-void *hash_del(char *key, hash_table *table)
+void *hash_del(const char *key, hash_table *table)
 {
       unsigned val = strhash(key) % table->size;
       void *data;
@@ -296,7 +293,7 @@ void free_hash_table(hash_table *table, void (*func)(void *))
 ** node in the table, passing it the key, the associated data and 'rock'.
 */
 
-void hash_enumerate(hash_table *table, void (*func)(char *, void *, void *),
+void hash_enumerate(hash_table *table, void (*func)(const char *, void *, void *),
 		    void *rock)
 {
       unsigned i;

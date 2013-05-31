@@ -8,6 +8,83 @@
 </head>
 <body>
 
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta4</h1>
+<ul>
+<li>Always verify authorization credentials supplied by the client (a
+  proxy may be reusing an existing connection as a different user)</li>
+<li>Don't bother supporting Digest qop=auth-int since no clients seem
+  to use it</li>
+<li>Don't show addressbook mailboxes in IMAP LIST output</li>
+<li>Plugged leaked memory found by Valgrind</li>
+<li>Better handling of request/response bodies</li>
+<li>Added <tt>httpprettytelemetry</tt> option<li>
+<li>Added <tt>httpallowcors</tt> option (Cross-Origin Resource Sharing)<li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta3</h1>
+<ul>
+<li>Plugged leaked memory found by Valgrind</li>
+<li>Rewrote list_feeds() to not use memmem()</li>
+<li>OPTIONS method can be used without authentication</li>
+<li>Better handling of Connection:keep-alive</li>
+<li>Added <tt>httpallowedurls</tt> option<li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta2</h1>
+<ul>
+<li>Fixed security bug where a user-agent could access files
+  outside of <tt>httpdocroot</tt>.
+<li>Changed annotation entry name scheme to be
+  "/vendor/cmu/cyrus-httpd/<" ns-href ">" prop</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta1</h1>
+<ul>
+<li>Fixed Bug #3792: Build failures on Solaris 10</li>
+<li>Path to user's DAV DB will be created, if necessary</li>
+<li>Fixed bug where calendars and addressbooks were using the same
+  mailbox type flag</li>
+<li>Fixed [un]signed int / size_t mismatches in formatted output</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.17</h1>
+<ul>
+<li>Added httpd service with CalDAV, CardDAV, RSS, and iSchedule
+  modules</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.16</h1>
+<ul>
+<li>A bunch of cleanups and fixes to compiling</li>
+<li>A bunch of sieve cleanups</li>
+<li>Fixed bug #3691: unixhierarchysep is now obeyed when printing the
+    mailbox name in unexpunge</li>
+<li>Fixed bug #3718: crashes fetching message parts</li>
+<li>Fixed bug #3719: pop3 seen update of final message in a mailbox</li>
+<li>Improved documentation of "proxyservers" option</li>
+<li>Fixed bug #3737: lost emails in XFER delivery race</li>
+<li>Fixed bug #3725: inefficient statuscache use in some cases</li>
+<li>Fixed bug #3484: use of sasl property types (compile fix)</li>
+<li>Fixed bug #3754: failure to support binary append.  This was
+    found by a popular library switching to using binary appends</li>
+<li>Fixed bug #3735: user prefix searching now works with fulldirhash</li>
+<li>Fixed bug #3696: can no longer rename the same mailbox twice, which
+    left things in a corrupted state if you caught the race.</li>
+<li>Fixed bug #3715: using berkeley for mailboxes.db was very
+    broken.  It now works.</li>
+<li>Fixed bug #3733: reconstruct with missing cyrus.index will use
+    file timestamps for internaldate rather than setting it to NOW if 
+    internaldate_heuristic is set to standard</li>
+<li>Fixed bug #3729: better documentation for xlist-* in 2.4.</li>
+<li>Fixed bug #2717: fetches of individual messages or short ranges
+    no longer need to parse over the entire index.</li>
+<li>Fixed bug #3742: reconstruct can now fix multiple folders
+    with the same uniqueid again (regression from 2.3) and also
+    sync_client avoids a crash in that broken case.</li>
+<li>Fixed bug #3711: detect the buggy /usr/bin/compile_et shipped
+    on MacOS X and fall back to our bundled copy.</li>
+</ul>
+
 <h1>Changes to the Cyrus IMAP Server since 2.4.15</h1>
 <ul>
 <li>Bug #3651 - 64 bit dirhash breaks existing systems. NOTE this includes a fix to

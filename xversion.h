@@ -1,3 +1,3 @@
-/* Release cyrus-imapd-2.4.16 */
-#define _CYRUS_VERSION "v2.4.16"
-#define CYRUS_GITVERSION "dab84161 2012-04-19"
+/* Release cyrus-imapd-2.4.17-caldav-beta5 */
+#define _CYRUS_VERSION "v2.4.17-caldav-beta5"
+#define CYRUS_GITVERSION "8c94e19e 2013-05-30"

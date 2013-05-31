@@ -8,7 +8,7 @@
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
 #define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 35
+#define YY_FLEX_SUBMINOR_VERSION 36
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
@@ -53,7 +53,6 @@ typedef int flex_int32_t;
 typedef unsigned char flex_uint8_t; 
 typedef unsigned short int flex_uint16_t;
 typedef unsigned int flex_uint32_t;
-#endif /* ! C99 */
 
 /* Limits of integral types. */
 #ifndef INT8_MIN
@@ -83,6 +82,8 @@ typedef unsigned int flex_uint32_t;
 #ifndef UINT32_MAX
 #define UINT32_MAX             (4294967295U)
 #endif
+
+#endif /* ! C99 */
 
 #endif /* ! FLEXINT_H */
 
@@ -152,7 +153,12 @@ typedef unsigned int flex_uint32_t;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 #endif
 
-extern int yyleng;
+#ifndef YY_TYPEDEF_YY_SIZE_T
+#define YY_TYPEDEF_YY_SIZE_T
+typedef size_t yy_size_t;
+#endif
+
+extern yy_size_t yyleng;
 
 extern FILE *yyin, *yyout;
 
@@ -191,11 +197,6 @@ extern FILE *yyin, *yyout;
 
 #define unput(c) yyunput( c, (yytext_ptr)  )
 
-#ifndef YY_TYPEDEF_YY_SIZE_T
-#define YY_TYPEDEF_YY_SIZE_T
-typedef size_t yy_size_t;
-#endif
-
 #ifndef YY_STRUCT_YY_BUFFER_STATE
 #define YY_STRUCT_YY_BUFFER_STATE
 struct yy_buffer_state
@@ -213,7 +214,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	int yy_n_chars;
+	yy_size_t yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can realloc() it to grow it, and should free() it to
@@ -283,8 +284,8 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 
 /* yy_hold_char holds the character lost when yytext is formed. */
 static char yy_hold_char;
-static int yy_n_chars;		/* number of characters read into yy_ch_buf */
-int yyleng;
+static yy_size_t yy_n_chars;		/* number of characters read into yy_ch_buf */
+yy_size_t yyleng;
 
 /* Points to current character in buffer. */
 static char *yy_c_buf_p = (char *) 0;
@@ -312,7 +313,7 @@ static void yy_init_buffer (YY_BUFFER_STATE b,FILE *file  );
 
 YY_BUFFER_STATE yy_scan_buffer (char *base,yy_size_t size  );
 YY_BUFFER_STATE yy_scan_string (yyconst char *yy_str  );
-YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,int len  );
+YY_BUFFER_STATE yy_scan_bytes (yyconst char *bytes,yy_size_t len  );
 
 void *yyalloc (yy_size_t  );
 void *yyrealloc (void *,yy_size_t  );
@@ -344,7 +345,7 @@ void yyfree (void *  );
 
 /* Begin user sect3 */
 
-#define yywrap(n) 1
+#define yywrap() 1
 #define YY_SKIP_YYWRAP
 
 typedef unsigned char YY_CHAR;
@@ -747,7 +748,7 @@ static int mlbufsz, mlcur;
 extern int yyerror(char *);
 
 
-#line 751 "<stdout>"
+#line 752 "<stdout>"
 
 #define INITIAL 0
 #define MULTILINE 1
@@ -788,7 +789,7 @@ FILE *yyget_out (void );
 
 void yyset_out  (FILE * out_str  );
 
-int yyget_leng (void );
+yy_size_t yyget_leng (void );
 
 char *yyget_text (void );
 
@@ -847,7 +848,7 @@ static int input (void );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		unsigned n; \
+		size_t n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( yyin )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -934,7 +935,7 @@ YY_DECL
     
 #line 77 "sieve-lex.l"
 
-#line 938 "<stdout>"
+#line 939 "<stdout>"
 
 	if ( !(yy_init) )
 		{
@@ -1052,18 +1053,20 @@ YY_RULE_SETUP
 case YY_STATE_EOF(MULTILINE):
 #line 85 "sieve-lex.l"
 { yyerror("unexpected end of file in string"); 
+		     BEGIN INITIAL;
+		     if (mlbuf) free(mlbuf);
 		     yyterminate(); }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 87 "sieve-lex.l"
+#line 89 "sieve-lex.l"
 { BEGIN INITIAL;
                      if (mlbuf) mlbuf[mlcur] = '\0';
 		     yylval.sval = chkstr(mlbuf); return STRING; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 90 "sieve-lex.l"
+#line 92 "sieve-lex.l"
 { if (mlcur == mlbufsz) 
 			mlbuf = xrealloc(mlbuf, 1 + (mlbufsz+=1024));
 		    mlbuf[mlcur++] = yytext[1]; }
@@ -1071,379 +1074,385 @@ YY_RULE_SETUP
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
-#line 93 "sieve-lex.l"
+#line 95 "sieve-lex.l"
 { if (mlcur == mlbufsz) 
 			mlbuf = xrealloc(mlbuf, 1 + (mlbufsz+=1024));
 		    mlbuf[mlcur++] = yytext[0]; }
 	YY_BREAK
+case YY_STATE_EOF(QSTRING):
+#line 98 "sieve-lex.l"
+{ yyerror("unexpected end of file in string");
+		    BEGIN INITIAL;
+		    if (mlbuf) free(mlbuf);
+		    yyterminate(); }
+	YY_BREAK
 case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
-#line 96 "sieve-lex.l"
+#line 102 "sieve-lex.l"
 { BEGIN MULTILINE;
 			  mlcur = 0; mlbufsz = 0; mlbuf = NULL; }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 98 "sieve-lex.l"
+#line 104 "sieve-lex.l"
 { BEGIN QSTRING;
                     mlcur = 0; mlbufsz = 0; mlbuf = NULL; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 100 "sieve-lex.l"
+#line 106 "sieve-lex.l"
 { yylval.nval = tonum(yytext); return NUMBER; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 101 "sieve-lex.l"
+#line 107 "sieve-lex.l"
 return IF;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 102 "sieve-lex.l"
+#line 108 "sieve-lex.l"
 return ELSIF;
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 103 "sieve-lex.l"
+#line 109 "sieve-lex.l"
 return ELSE;
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 104 "sieve-lex.l"
+#line 110 "sieve-lex.l"
 return ANYOF;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 105 "sieve-lex.l"
+#line 111 "sieve-lex.l"
 return ALLOF;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 106 "sieve-lex.l"
+#line 112 "sieve-lex.l"
 return EXISTS;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 107 "sieve-lex.l"
+#line 113 "sieve-lex.l"
 return SFALSE;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 108 "sieve-lex.l"
+#line 114 "sieve-lex.l"
 return STRUE;
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 109 "sieve-lex.l"
+#line 115 "sieve-lex.l"
 return ADDRESS;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 110 "sieve-lex.l"
+#line 116 "sieve-lex.l"
 return ENVELOPE;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 111 "sieve-lex.l"
+#line 117 "sieve-lex.l"
 return HEADER;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 112 "sieve-lex.l"
+#line 118 "sieve-lex.l"
 return BODY;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 113 "sieve-lex.l"
+#line 119 "sieve-lex.l"
 return NOT;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 114 "sieve-lex.l"
+#line 120 "sieve-lex.l"
 return SIZE;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 115 "sieve-lex.l"
+#line 121 "sieve-lex.l"
 return REJCT;
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 116 "sieve-lex.l"
+#line 122 "sieve-lex.l"
 return FILEINTO;
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 117 "sieve-lex.l"
+#line 123 "sieve-lex.l"
 return REDIRECT;
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 118 "sieve-lex.l"
+#line 124 "sieve-lex.l"
 return KEEP;
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 119 "sieve-lex.l"
+#line 125 "sieve-lex.l"
 return REQUIRE;
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 120 "sieve-lex.l"
+#line 126 "sieve-lex.l"
 return STOP;
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 121 "sieve-lex.l"
+#line 127 "sieve-lex.l"
 return DISCARD;
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 122 "sieve-lex.l"
+#line 128 "sieve-lex.l"
 return SETFLAG;
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 123 "sieve-lex.l"
+#line 129 "sieve-lex.l"
 return ADDFLAG;
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 124 "sieve-lex.l"
+#line 130 "sieve-lex.l"
 return REMOVEFLAG;
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 125 "sieve-lex.l"
+#line 131 "sieve-lex.l"
 return MARK;
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 126 "sieve-lex.l"
+#line 132 "sieve-lex.l"
 return UNMARK;
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 127 "sieve-lex.l"
+#line 133 "sieve-lex.l"
 return NOTIFY;
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 128 "sieve-lex.l"
+#line 134 "sieve-lex.l"
 return DENOTIFY;
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 129 "sieve-lex.l"
+#line 135 "sieve-lex.l"
 return ID;
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 130 "sieve-lex.l"
+#line 136 "sieve-lex.l"
 return METHOD;
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 131 "sieve-lex.l"
+#line 137 "sieve-lex.l"
 return OPTIONS;
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 132 "sieve-lex.l"
+#line 138 "sieve-lex.l"
 return LOW;
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 133 "sieve-lex.l"
+#line 139 "sieve-lex.l"
 return NORMAL;
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 134 "sieve-lex.l"
+#line 140 "sieve-lex.l"
 return HIGH;
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 135 "sieve-lex.l"
+#line 141 "sieve-lex.l"
 return MESSAGE;
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 136 "sieve-lex.l"
+#line 142 "sieve-lex.l"
 return VACATION;
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 137 "sieve-lex.l"
+#line 143 "sieve-lex.l"
 return DAYS;
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 138 "sieve-lex.l"
+#line 144 "sieve-lex.l"
 return ADDRESSES;
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 139 "sieve-lex.l"
+#line 145 "sieve-lex.l"
 return SUBJECT;
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-#line 140 "sieve-lex.l"
+#line 146 "sieve-lex.l"
 return FROM;
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 141 "sieve-lex.l"
+#line 147 "sieve-lex.l"
 return HANDLE;
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 142 "sieve-lex.l"
+#line 148 "sieve-lex.l"
 return MIME;
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 143 "sieve-lex.l"
+#line 149 "sieve-lex.l"
 return COMPARATOR;
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 144 "sieve-lex.l"
+#line 150 "sieve-lex.l"
 return IS;
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 145 "sieve-lex.l"
+#line 151 "sieve-lex.l"
 return CONTAINS;
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-#line 146 "sieve-lex.l"
+#line 152 "sieve-lex.l"
 return MATCHES;
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 147 "sieve-lex.l"
+#line 153 "sieve-lex.l"
 return REGEX;
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-#line 148 "sieve-lex.l"
+#line 154 "sieve-lex.l"
 return COUNT;
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 149 "sieve-lex.l"
+#line 155 "sieve-lex.l"
 return VALUE;
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
-#line 150 "sieve-lex.l"
+#line 156 "sieve-lex.l"
 return OVER;
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 151 "sieve-lex.l"
+#line 157 "sieve-lex.l"
 return UNDER;
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
-#line 152 "sieve-lex.l"
+#line 158 "sieve-lex.l"
 return ALL;
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 153 "sieve-lex.l"
+#line 159 "sieve-lex.l"
 return LOCALPART;
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 154 "sieve-lex.l"
+#line 160 "sieve-lex.l"
 return DOMAIN;
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 155 "sieve-lex.l"
+#line 161 "sieve-lex.l"
 return USER;
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 156 "sieve-lex.l"
+#line 162 "sieve-lex.l"
 return DETAIL;
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 157 "sieve-lex.l"
+#line 163 "sieve-lex.l"
 return RAW;
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 158 "sieve-lex.l"
+#line 164 "sieve-lex.l"
 return TEXT;
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-#line 159 "sieve-lex.l"
+#line 165 "sieve-lex.l"
 return CONTENT;
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 160 "sieve-lex.l"
+#line 166 "sieve-lex.l"
 return INCLUDE;
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 161 "sieve-lex.l"
+#line 167 "sieve-lex.l"
 return PERSONAL;
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 162 "sieve-lex.l"
+#line 168 "sieve-lex.l"
 return GLOBAL;
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 163 "sieve-lex.l"
+#line 169 "sieve-lex.l"
 return RETURN;
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 164 "sieve-lex.l"
+#line 170 "sieve-lex.l"
 return COPY;
 	YY_BREAK
 case 74:
 /* rule 74 can match eol */
 YY_RULE_SETUP
-#line 165 "sieve-lex.l"
+#line 171 "sieve-lex.l"
 ;	/* ignore whitespace */
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
-#line 166 "sieve-lex.l"
+#line 172 "sieve-lex.l"
 ;		/* ignore hash comments */
 	YY_BREAK
 case 76:
 /* rule 76 can match eol */
 YY_RULE_SETUP
-#line 167 "sieve-lex.l"
+#line 173 "sieve-lex.l"
 ;	/* ignore bracket comments */
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 168 "sieve-lex.l"
+#line 174 "sieve-lex.l"
 return yytext[0];
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
-#line 170 "sieve-lex.l"
+#line 176 "sieve-lex.l"
 ECHO;
 	YY_BREAK
-#line 1445 "<stdout>"
+#line 1455 "<stdout>"
 case YY_STATE_EOF(INITIAL):
-case YY_STATE_EOF(QSTRING):
 	yyterminate();
 
 	case YY_END_OF_BUFFER:
@@ -1628,21 +1637,21 @@ static int yy_get_next_buffer (void)
 
 	else
 		{
-			int num_to_read =
+			yy_size_t num_to_read =
 			YY_CURRENT_BUFFER_LVALUE->yy_buf_size - number_to_move - 1;
 
 		while ( num_to_read <= 0 )
 			{ /* Not enough room in the buffer - grow it. */
 
 			/* just a shorter name for the current buffer */
-			YY_BUFFER_STATE b = YY_CURRENT_BUFFER;
+			YY_BUFFER_STATE b = YY_CURRENT_BUFFER_LVALUE;
 
 			int yy_c_buf_p_offset =
 				(int) ((yy_c_buf_p) - b->yy_ch_buf);
 
 			if ( b->yy_is_our_buffer )
 				{
-				int new_size = b->yy_buf_size * 2;
+				yy_size_t new_size = b->yy_buf_size * 2;
 
 				if ( new_size <= 0 )
 					b->yy_buf_size += b->yy_buf_size / 8;
@@ -1673,7 +1682,7 @@ static int yy_get_next_buffer (void)
 
 		/* Read in more data. */
 		YY_INPUT( (&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move]),
-			(yy_n_chars), (size_t) num_to_read );
+			(yy_n_chars), num_to_read );
 
 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = (yy_n_chars);
 		}
@@ -1769,7 +1778,7 @@ static int yy_get_next_buffer (void)
 	yy_current_state = yy_nxt[yy_base[yy_current_state] + (unsigned int) yy_c];
 	yy_is_jam = (yy_current_state == 358);
 
-	return yy_is_jam ? 0 : yy_current_state;
+		return yy_is_jam ? 0 : yy_current_state;
 }
 
 #ifndef YY_NO_INPUT
@@ -1796,7 +1805,7 @@ static int yy_get_next_buffer (void)
 
 		else
 			{ /* need more input */
-			int offset = (yy_c_buf_p) - (yytext_ptr);
+			yy_size_t offset = (yy_c_buf_p) - (yytext_ptr);
 			++(yy_c_buf_p);
 
 			switch ( yy_get_next_buffer(  ) )
@@ -1962,10 +1971,6 @@ static void yy_load_buffer_state  (void)
 	yyfree((void *) b  );
 }
 
-#ifndef __cplusplus
-extern int isatty (int );
-#endif /* __cplusplus */
-    
 /* Initializes or reinitializes a buffer.
  * This function is sometimes called more than once on the same buffer,
  * such as during a yyrestart() or at EOF.
@@ -2078,7 +2083,7 @@ void yypop_buffer_state (void)
  */
 static void yyensure_buffer_stack (void)
 {
-	int num_to_alloc;
+	yy_size_t num_to_alloc;
     
 	if (!(yy_buffer_stack)) {
 
@@ -2170,12 +2175,12 @@ YY_BUFFER_STATE yy_scan_string (yyconst char * yystr )
 
 /** Setup the input buffer state to scan the given bytes. The next call to yylex() will
  * scan from a @e copy of @a bytes.
- * @param bytes the byte buffer to scan
- * @param len the number of bytes in the buffer pointed to by @a bytes.
+ * @param yybytes the byte buffer to scan
+ * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
  * 
  * @return the newly allocated buffer state object.
  */
-YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, int  _yybytes_len )
+YY_BUFFER_STATE yy_scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_len )
 {
 	YY_BUFFER_STATE b;
 	char *buf;
@@ -2262,7 +2267,7 @@ FILE *yyget_out  (void)
 /** Get the length of the current token.
  * 
  */
-int yyget_leng  (void)
+yy_size_t yyget_leng  (void)
 {
         return yyleng;
 }
@@ -2413,7 +2418,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 170 "sieve-lex.l"
+#line 176 "sieve-lex.l"
 
 
 /*  */

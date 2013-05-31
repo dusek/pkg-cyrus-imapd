@@ -177,7 +177,7 @@ void config_foreachoverflowstring(void (*func)(const char *, const char *, void 
 {
     if (!config_filename) return;
 
-    hash_enumerate(&confighash, (void (*)(char *, void *, void *)) func, rock);
+    hash_enumerate(&confighash, (void (*)(const char *, void *, void *)) func, rock);
 }
 
 const char *config_partitiondir(const char *partition)
@@ -384,7 +384,7 @@ void config_read_file(const char *filename)
 
     if (!infile) {
 	snprintf(buf, bufsize, "can't open configuration file %s: %s",
-		 filename, error_message(errno));
+		 filename, strerror(errno));
 	fatal(buf, EC_CONFIG);
     }
 

@@ -76,6 +76,7 @@
 #include "backend.h"
 #include "bsearch.h"
 #include "charset.h"
+#include "dlist.h"
 #include "exitcodes.h"
 #include "idle.h"
 #include "global.h"
@@ -251,7 +252,7 @@ struct list_rock {
 
 /* Information about one mailbox name that LIST returns */
 struct list_entry {
-    char *name;
+    const char *name;
     int attributes; /* bitmap of MBOX_ATTRIBUTE_* */
 };
 
@@ -347,7 +348,7 @@ void cmd_sort(char *tag, int usinguid);
 void cmd_thread(char *tag, int usinguid);
 void cmd_copy(char *tag, char *sequence, char *name, int usinguid);
 void cmd_expunge(char *tag, char *sequence);
-void cmd_create(char *tag, char *name, char *partition, int localonly);
+void cmd_create(char *tag, char *name, struct dlist *extargs, int localonly);
 void cmd_delete(char *tag, char *name, int localonly, int force);
 void cmd_dump(char *tag, char *name, int uid_start);
 void cmd_undump(char *tag, char *name);
@@ -396,6 +397,8 @@ void cmd_setannotation(char* tag, char *mboxpat);
 
 void cmd_enable(char* tag);
 
+int parsecreateargs(struct dlist **extargs);
+
 int getannotatefetchdata(char *tag,
 			 struct strlist **entries, struct strlist **attribs);
 int getannotatestoredata(char *tag, struct entryattlist **entryatts);
@@ -426,7 +429,7 @@ static void freesortcrit(struct sortcrit *s);
 
 static int set_haschildren(char *name, int matchlen, int maycreate,
 			   int *attributes);
-static void list_response(char *name, int attributes,
+static void list_response(const char *name, int attributes,
 			  struct listargs *listargs);
 static int set_subscribed(char *name, int matchlen, int maycreate,
 			  void *rock);
@@ -597,7 +600,7 @@ int mlookup(const char *tag, const char *ext_name,
     struct mboxlist_entry mbentry;
 
     r = mboxlist_lookup(name, &mbentry, tid);
-    if ((r == IMAP_MAILBOX_NONEXISTENT || (mbentry.mbtype & MBTYPE_RESERVE)) &&
+    if ((r == IMAP_MAILBOX_NONEXISTENT || (!r && (mbentry.mbtype & MBTYPE_RESERVE))) &&
 	config_mupdate_server) {
 	/* It is not currently active, make sure we have the most recent
 	 * copy of the database */
@@ -611,6 +614,7 @@ int mlookup(const char *tag, const char *ext_name,
     if(r) return r;
 
     if(mbentry.mbtype & MBTYPE_RESERVE) return IMAP_MAILBOX_RESERVED;
+    if(mbentry.mbtype & MBTYPE_DELETED) return IMAP_MAILBOX_NONEXISTENT;
     
     if(mbentry.mbtype & MBTYPE_MOVING) {
 	/* do we have rights on the mailbox? */
@@ -1331,18 +1335,19 @@ void cmdloop()
 		snmp_increment(COPY_COUNT, 1);
 	    }
 	    else if (!strcmp(cmd.s, "Create")) {
-		havepartition = 0;
+		struct dlist *extargs = NULL;
+
 		if (c != ' ') goto missingargs;
 		c = getastring(imapd_in, imapd_out, &arg1);
 		if (c == EOF) goto missingargs;
 		if (c == ' ') {
-		    havepartition = 1;
-		    c = getword(imapd_in, &arg2);
-		    if (!imparse_isatom(arg2.s)) goto badpartition;
+		    c = parsecreateargs(&extargs);
+		    if (c == EOF) goto badpartition;
 		}
 		if (c == '\r') c = prot_getc(imapd_in);
 		if (c != '\n') goto extraargs;
-		cmd_create(tag.s, arg1.s, havepartition ? arg2.s : 0, 0);
+		cmd_create(tag.s, arg1.s, extargs, 0);
+		dlist_free(&extargs);
 
 		snmp_increment(CREATE_COUNT, 1);
 	    }
@@ -1598,18 +1603,19 @@ void cmdloop()
 	    }
 	    else if (!strcmp(cmd.s, "Localcreate")) {
 		/* create a local-only mailbox */
-		havepartition = 0;
+		struct dlist *extargs = NULL;
+
 		if (c != ' ') goto missingargs;
 		c = getastring(imapd_in, imapd_out, &arg1);
 		if (c == EOF) goto missingargs;
 		if (c == ' ') {
-		    havepartition = 1;
-		    c = getword(imapd_in, &arg2);
-		    if (!imparse_isatom(arg2.s)) goto badpartition;
+		    c = parsecreateargs(&extargs);
+		    if (c == EOF) goto badpartition;
 		}
 		if (c == '\r') c = prot_getc(imapd_in);
 		if (c != '\n') goto extraargs;
-		cmd_create(tag.s, arg1.s, havepartition ? arg2.s : NULL, 1);
+		cmd_create(tag.s, arg1.s, extargs, 1);
+		dlist_free(&extargs);
 
 		/* xxxx snmp_increment(CREATE_COUNT, 1); */
 	    }
@@ -4988,11 +4994,22 @@ void cmd_expunge(char *tag, char *sequence)
 /*
  * Perform a CREATE command
  */
-void cmd_create(char *tag, char *name, char *partition, int localonly)
+void cmd_create(char *tag, char *name, struct dlist *extargs, int localonly)
 {
     int r = 0;
     char mailboxname[MAX_MAILBOX_BUFFER];
-    int autocreatequota;
+    int autocreatequota, mbtype = 0;
+    const char *partition = NULL;
+    const char *server = NULL;
+    const char *type = NULL;
+
+    dlist_getatom(extargs, "PARTITION", &partition);
+    dlist_getatom(extargs, "SERVER", &server);
+    if (dlist_getatom(extargs, "TYPE", &type)) {
+	if (!strcasecmp(type, "CALENDAR")) mbtype |= MBTYPE_CALENDAR;
+	else if (!strcasecmp(type, "ADDRESSBOOK")) mbtype |= MBTYPE_ADDRESSBOOK;
+	else r = IMAP_MAILBOX_BADTYPE;
+    }
 
     if (partition && !imapd_userisadmin) {
 	r = IMAP_PERMISSION_DENIED;
@@ -5012,12 +5029,14 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
 	int guessedpart = 0;
 
 	/* determine if we're creating locally or remotely */
-	if (!partition) {
+	if (!partition && !server) {
+	    char *foundpart = NULL;
 	    guessedpart = 1;
 	    r = mboxlist_createmailboxcheck(mailboxname, 0, 0,
 					    imapd_userisadmin || imapd_userisproxyadmin,
 					    imapd_userid, imapd_authstate,
-					    NULL, &partition, 0);
+					    NULL, &foundpart, 0);
+	    partition = foundpart;
 
 	    if (!r && !partition &&
 		(config_mupdate_config == IMAP_ENUM_MUPDATE_CONFIG_STANDARD) &&
@@ -5026,7 +5045,7 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
 		guessedpart = 0;
 
 		/* use defaultserver if specified */
-		partition = (char *)config_getstring(IMAPOPT_DEFAULTSERVER);
+		partition = config_getstring(IMAPOPT_DEFAULTSERVER);
 
 		/* otherwise, find server with most available space */
 		if (!partition) partition = find_free_server();
@@ -5037,15 +5056,15 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
 
 	if (!r && !config_partitiondir(partition)) {
 	    /* invalid partition, assume its a server (remote mailbox) */
-	    char *server;
 	    struct backend *s = NULL;
+	    char *p;
 	    int res;
  
 	    /* check for a remote partition */
 	    server = partition;
-	    partition = strchr(server, '!');
-	    if (partition) *partition++ = '\0';
-	    if (guessedpart) partition = NULL;
+	    p = strchr(server, '!');
+	    if (p) *p++ = '\0';
+	    partition = guessedpart ? NULL : p;
 
 	    s = proxy_findserver(server, &imap_protocol,
 				 proxy_userid, &backend_cached,
@@ -5067,15 +5086,15 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
 
 	    if (!r) {
 		/* ok, send the create to that server */
+		prot_printf(s->out, "%s CREATE ", tag);
+		prot_printastring(s->out, name);
+		/* Send partition as an atom, since its all we accept */
 		if (partition) {
-		    /* Send partition as an atom, since its all we accept */
-		    prot_printf(s->out,
-				"%s CREATE {" SIZE_T_FMT "+}\r\n%s %s\r\n", 
-				tag, strlen(name), name, partition);
+		    prot_putc(' ', s->out);
+		    prot_printastring(s->out, partition);
 		}
-		else
-		    prot_printf(s->out, "%s CREATE {" SIZE_T_FMT "+}\r\n%s\r\n", 
-				tag, strlen(name), name);
+		prot_printf(s->out, "\r\n");
+
 		res = pipe_until_tag(s, tag, 0);
 	
 		if (!CAPA(s, CAPA_MUPDATE)) {
@@ -5117,7 +5136,7 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
     if (!r) {
 	/* xxx we do forced user creates on LOCALCREATE to facilitate
 	 * mailbox moves */
-	r = mboxlist_createmailbox(mailboxname, 0, partition,
+	r = mboxlist_createmailbox(mailboxname, mbtype, partition,
 				   imapd_userisadmin || imapd_userisproxyadmin, 
 				   imapd_userid, imapd_authstate,
 				   localonly, localonly, 0);
@@ -5126,7 +5145,7 @@ void cmd_create(char *tag, char *name, char *partition, int localonly)
 	    (autocreatequota = config_getint(IMAPOPT_AUTOCREATEQUOTA))) {
 
 	    /* Auto create */
-	    r = mboxlist_createmailbox(mailboxname, 0, partition, 
+	    r = mboxlist_createmailbox(mailboxname, mbtype, partition, 
 				       1, imapd_userid, imapd_authstate,
 				       0, 0, 0);
 	    
@@ -7188,6 +7207,68 @@ void cmd_namespace(tag)
 		error_message(IMAP_OK_COMPLETED));
 }
 
+int parsecreateargs(struct dlist **extargs)
+{
+    int c;
+    static struct buf arg, val;
+    struct dlist *res;
+    struct dlist *sub;
+    char *p;
+    const char *name;
+
+    res = dlist_kvlist(NULL, "CREATE");
+
+    c = prot_getc(imapd_in);
+    if (c == '(') {
+	/* new style RFC4466 arguments */
+	do {
+	    c = getword(imapd_in, &arg);
+	    name = ucase(arg.s);
+	    if (c != ' ') goto fail;
+	    c = prot_getc(imapd_in);
+	    if (c == '(') {
+		/* fun - more lists! */
+		sub = dlist_list(res, name);
+		do {
+		    c = getword(imapd_in, &val);
+		    dlist_atom(sub, name, val.s);
+		} while (c == ' ');
+		if (c != ')') goto fail;
+		c = prot_getc(imapd_in);
+	    }
+	    else {
+		prot_ungetc(c, imapd_in);
+		c = getword(imapd_in, &val);
+		dlist_atom(res, name, val.s);
+	    }
+	} while (c == ' ');
+	if (c != ')') goto fail;
+	c = prot_getc(imapd_in);
+    }
+    else {
+	prot_ungetc(c, imapd_in);
+	c = getword(imapd_in, &arg);
+	if (c == EOF) goto fail;
+	p = strchr(arg.s, '!');
+	if (p) {
+	    /* with a server */
+	    *p = '\0';
+	    dlist_atom(res, "SERVER", arg.s);
+	    dlist_atom(res, "PARTITION", p+1);
+	}
+	else {
+	    dlist_atom(res, "PARTITION", arg.s);
+	}
+    }
+
+    *extargs = res;
+    return c;
+
+ fail:
+    dlist_free(&res);
+    return EOF;
+}
+
 /*
  * Parse annotate fetch data.
  *
@@ -8370,13 +8451,21 @@ static int dumpacl(struct protstream *pin, struct protstream *pout,
     return r;
 }
 
+enum {
+    XFER_DEACTIVATED = 1,
+    XFER_REMOTE_CREATED,
+    XFER_LOCAL_MOVING,
+    XFER_UNDUMPED,
+};
+
 struct xfer_item {
     char *name;
     char *part;
     char *acl;
     int mbtype;
-    int remote_created;
-    int done;
+    char extname[MAX_MAILBOX_NAME];
+    struct mailbox *mailbox;
+    int state;
     struct xfer_item *next;
 };
 
@@ -8386,6 +8475,7 @@ struct xfer_header {
     int remoteversion;
     char *toserver;
     char *topart;
+    struct seen *seendb;
     struct xfer_item *items;
 };
 
@@ -8427,44 +8517,6 @@ static void xfer_done(struct xfer_header **xferptr)
 {
     struct xfer_header *xfer = *xferptr;
     struct xfer_item *item, *next;
-    int r;
-    char extname[MAX_MAILBOX_NAME];
-
-    for (item = xfer->items; item; item = item->next) {
-	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
-					       imapd_userid, extname);
-	/* done! */
-	if (item->done)
-	    continue;
-	/* tell murder it's back here and active */
-	r = xfer_mupdate(xfer, 1, item->name, item->part,
-			 config_servername, item->acl);
-	if (r) {
-	    syslog(LOG_ERR,
-		   "Could not back out mupdate during move of %s (%s)",
-		   item->name, error_message(r));
-	}
-
-	/* delete remote if created */
-	if (item->remote_created) {
-	    prot_printf(xfer->be->out, "LD1 LOCALDELETE {" SIZE_T_FMT "+}\r\n%s\r\n",
-			strlen(extname), extname);
-	    r = getresult(xfer->be->in, "LD1");
-	    if (r) {
-		syslog(LOG_ERR,
-		       "Could not back out remote mailbox during move of %s (%s)",
-		       item->name, error_message(r));
-	    }
-	}
-
-	/* remove remote flag from local mailbox */
-	r = mboxlist_update(item->name, item->mbtype, item->part, item->acl, 1);
-	if (r) {
-	    syslog(LOG_ERR,
-		   "Could not unset remote flag on mailbox: %s",
-		   item->name);
-	}
-    }
 
     /* remove items */
     item = xfer->items;
@@ -8482,6 +8534,8 @@ static void xfer_done(struct xfer_header **xferptr)
     if (xfer->be) backend_disconnect(xfer->be);
     free(xfer->toserver);
     free(xfer->topart);
+
+    seen_close(&xfer->seendb);
 
     free(xfer);
 
@@ -8553,6 +8607,7 @@ static int xfer_init(const char *toserver, const char *topart,
 
     xfer->toserver = xstrdup(toserver);
     xfer->topart = xstrdup(topart);
+    xfer->seendb = NULL;
 
     /* connect to mupdate server if configured */
     if (config_mupdate_server) {
@@ -8579,7 +8634,10 @@ static void xfer_addmbox(struct xfer_header *xfer,
     item->part = xstrdup(entry->partition);
     item->acl = xstrdup(entry->acl);
     item->mbtype = entry->mbtype;
-    item->done = 0;
+    (*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
+					   imapd_userid, item->extname);
+    item->mailbox = NULL;
+    item->state = 0;
 
     /* and link on to the list (reverse order) */
     item->next = xfer->items;
@@ -8590,18 +8648,15 @@ static int xfer_localcreate(struct xfer_header *xfer)
 {
     struct xfer_item *item;
     int r;
-    char extname[MAX_MAILBOX_NAME];
 
     for (item = xfer->items; item; item = item->next) {
-	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
-					       imapd_userid, extname);
 	if (xfer->topart) {
 	    /* need to send partition as an atom */
 	    prot_printf(xfer->be->out, "LC1 LOCALCREATE {" SIZE_T_FMT "+}\r\n%s %s\r\n",
-			strlen(extname), extname, xfer->topart);
+			strlen(item->extname), item->extname, xfer->topart);
 	} else {
 	    prot_printf(xfer->be->out, "LC1 LOCALCREATE {" SIZE_T_FMT "+}\r\n%s\r\n",
-			strlen(extname), extname);
+			strlen(item->extname), item->extname);
 	}
 	r = getresult(xfer->be->in, "LC1");
 	if (r) {
@@ -8609,7 +8664,8 @@ static int xfer_localcreate(struct xfer_header *xfer)
 		   item->name);
 	    return r;
 	}
-	item->remote_created = 1;
+
+	item->state = XFER_REMOTE_CREATED;
     }
 
     return 0;
@@ -8618,15 +8674,12 @@ static int xfer_localcreate(struct xfer_header *xfer)
 static int xfer_backport_seen_item(struct xfer_item *item,
 				   struct seen *seendb)
 {
-    struct mailbox *mailbox = NULL;
+    struct mailbox *mailbox = item->mailbox;
     struct seqset *outlist = NULL;
     struct index_record record;
     struct seendata sd = SEENDATA_INITIALIZER;
     unsigned recno;
     int r;
-
-    r = mailbox_open_irl(item->name, &mailbox);
-    if (r) return r;
 
     outlist = seqset_init(mailbox->i.last_uid, SEQ_MERGE);
 
@@ -8650,27 +8703,6 @@ static int xfer_backport_seen_item(struct xfer_item *item,
     r = seen_write(seendb, mailbox->uniqueid, &sd);
 
     seen_freedata(&sd);
-    mailbox_close(&mailbox);
-
-    return r;
-}
-
-static int xfer_backport_seen(struct xfer_header *xfer, const char *userid)
-{
-    struct xfer_item *item;
-    struct seen *seendb = NULL;
-    int r;
-
-    r = seen_open(userid, SEEN_CREATE, &seendb);
-    if (r) return r;
-
-    /* Step 3: mupdate.DEACTIVATE(mailbox, newserver) */
-    for (item = xfer->items; item; item = item->next) {
-	r = xfer_backport_seen_item(item, seendb);
-	if (r) break;
-    }
-
-    seen_close(&seendb);
 
     return r;
 }
@@ -8690,6 +8722,8 @@ static int xfer_deactivate(struct xfer_header *xfer)
 		   item->name);
 	    return r;
 	}
+
+	item->state = XFER_DEACTIVATED;
     }
 
     return 0;
@@ -8700,11 +8734,9 @@ static int xfer_undump(struct xfer_header *xfer)
     struct xfer_item *item;
     int r;
     struct mailbox *mailbox = NULL;
-    char extname[MAX_MAILBOX_NAME];
+    char buf[MAX_PARTITION_LEN+HOSTNAME_SIZE+2];
 
     for (item = xfer->items; item; item = item->next) {
-	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, item->name,
-					       imapd_userid, extname);
 	r = mailbox_open_irl(item->name, &mailbox);
 	if (r) {
 	    syslog(LOG_ERR,
@@ -8713,21 +8745,42 @@ static int xfer_undump(struct xfer_header *xfer)
 	    return r;
 	}
 
-	/* Step 4: Dump local -> remote */
-	prot_printf(xfer->be->out, "D01 UNDUMP {" SIZE_T_FMT "+}\r\n%s ",
-		    strlen(extname), extname);
+	/* Step 3.5: Set mailbox as MOVING on local server */
+	snprintf(buf, sizeof(buf), "%s!%s", xfer->toserver, xfer->topart);
+	r = mboxlist_update(item->name, item->mbtype|MBTYPE_MOVING,
+			    buf, item->acl, 1);
+	if (r) {
+	    syslog(LOG_ERR,
+		   "Could not move mailbox: %s, mboxlist_update() failed %s",
+		   item->name, error_message(r));
+	}
 
-	r = dump_mailbox(NULL, mailbox, 0, xfer->remoteversion,
-			 xfer->be->in, xfer->be->out, imapd_authstate);
+	if (!r && xfer->seendb) {
+	    /* Backport the user's seendb on-the-fly */
+	    item->mailbox = mailbox;
+	    r = xfer_backport_seen_item(item, xfer->seendb);
+
+	    /* Need to close seendb before dumping Inbox (last item) */
+	    if (!item->next) seen_close(&xfer->seendb);
+	}
+
+	/* Step 4: Dump local -> remote */
+	if (!r) {
+	    prot_printf(xfer->be->out, "D01 UNDUMP {" SIZE_T_FMT "+}\r\n%s ",
+			strlen(item->extname), item->extname);
+
+	    r = dump_mailbox(NULL, mailbox, 0, xfer->remoteversion,
+			     xfer->be->in, xfer->be->out, imapd_authstate);
+	    if (r) {
+		syslog(LOG_ERR,
+		       "Could not move mailbox: %s, dump_mailbox() failed %s",
+		       item->name, error_message(r));
+	    }
+	}
 
 	mailbox_close(&mailbox);
 
-	if (r) {
-	    syslog(LOG_ERR,
-		   "Could not move mailbox: %s, dump_mailbox() failed %s",
-		   item->name, error_message(r));
-	    return r;
-	}
+	if (r) return r;
 
 	r = getresult(xfer->be->in, "D01");
 	if (r) {
@@ -8738,7 +8791,7 @@ static int xfer_undump(struct xfer_header *xfer)
     
 	/* Step 5: Set ACL on remote */
 	r = trashacl(xfer->be->in, xfer->be->out,
-		     extname);
+		     item->extname);
 	if (r) {
 	    syslog(LOG_ERR, "Could not clear remote acl on %s",
 		   item->name);
@@ -8746,18 +8799,30 @@ static int xfer_undump(struct xfer_header *xfer)
 	}
 
 	r = dumpacl(xfer->be->in, xfer->be->out,
-		    extname, item->acl);
+		    item->extname, item->acl);
 	if (r) {
 	    syslog(LOG_ERR, "Could not set remote acl on %s",
 		   item->name);
 	    return r;
 	}
 
-	/* No need to push the MUPDATE if we're not part of a murder */
-	if (!xfer->mupdate_h) continue;
+	item->state = XFER_UNDUMPED;
+    }
 
+    return 0;
+}
+
+static int xfer_reactivate(struct xfer_header *xfer)
+{
+    struct xfer_item *item;
+    int r;
+
+    if (!xfer->mupdate_h) return 0;
+
+    /* 6.5) Kick remote server to correct mupdate entry */
+    for (item = xfer->items; item; item = item->next) {
 	prot_printf(xfer->be->out, "MP1 MUPDATEPUSH {" SIZE_T_FMT "+}\r\n%s\r\n",
-		    strlen(extname), extname);
+		    strlen(item->extname), item->extname);
 	r = getresult(xfer->be->in, "MP1");
 	if (r) {
 	    syslog(LOG_ERR, "MUPDATE: can't activate mailbox entry '%s'",
@@ -8777,43 +8842,80 @@ static int xfer_delete(struct xfer_header *xfer)
     /* 7) local delete of mailbox
      * & remove local "remote" mailboxlist entry */
     for (item = xfer->items; item; item = item->next) {
-	if (config_mupdate_config != IMAP_ENUM_MUPDATE_CONFIG_UNIFIED) {
-	    /* Note that we do not check the ACL, and we don't update MUPDATE */
-	    /* note also that we need to remember to let proxyadmins do this */
-	    r = mboxlist_deletemailbox(item->name,
-				       imapd_userisadmin || imapd_userisproxyadmin,
-				       imapd_userid, imapd_authstate, 0, 1, 0);
-	    if (r) {
-		syslog(LOG_ERR,
-		       "Could not delete local mailbox during move of %s",
-		       item->name);
-		/* can't abort now! */
-	    }
-	} else {
-	    struct mailbox *mailbox = NULL;
-	    /* Delete mailbox and quota root.  Don't use the mboxlist
-	     * function because we've already got the right value for
-	     * the new server in the mboxlist */
-	    /* note: delete closes mailbox */
-	    r = mailbox_open_iwl(item->name, &mailbox);
-	    if (!r) r = mailbox_delete(&mailbox);
-	    if (r) {
-		syslog(LOG_ERR,
-		       "Could not delete local mailbox during move of %s",
-		       item->name);
-		/* can't abort now! */
-	    }
-	    /* XXX - quota root? */
+	/* Set mailbox as DELETED on local server
+	   (need to also reset to local partition,
+	   otherwise mailbox can not be opened for deletion) */
+	r = mboxlist_update(item->name, item->mbtype|MBTYPE_DELETED,
+			    item->part, item->acl, 1);
+	if (r) {
+	    syslog(LOG_ERR,
+		   "Could not move mailbox: %s, mboxlist_update failed (%s)",
+		   item->name, error_message(r));
+	}
+
+	/* Note that we do not check the ACL, and we don't update MUPDATE */
+	/* note also that we need to remember to let proxyadmins do this */
+	/* On a unified system, the subsequent MUPDATE PUSH on the remote
+	   should repopulate the local mboxlist entry */
+	r = mboxlist_deletemailbox(item->name,
+				   imapd_userisadmin || imapd_userisproxyadmin,
+				   imapd_userid, imapd_authstate, 0, 1, 0);
+	if (r) {
+	    syslog(LOG_ERR,
+		   "Could not delete local mailbox during move of %s",
+		   item->name);
+	    /* can't abort now! */
 	}
 
 	/* Delete mailbox annotations */
 	annotatemore_delete(item->name);
-
-	/* mark this item done so the cleanup doesn't revert it! */
-	item->done = 1;
     }
 
     return 0;
+}
+
+static void xfer_recover(struct xfer_header *xfer)
+{
+    struct xfer_item *item;
+    int r;
+
+    /* Backout any changes - we stop on first untouched mailbox */
+    for (item = xfer->items; item && item->state; item = item->next) {
+	switch (item->state) {
+	case XFER_UNDUMPED:
+	case XFER_LOCAL_MOVING:
+	    /* Unset mailbox as MOVING on local server */
+	    r = mboxlist_update(item->name, item->mbtype,
+				 item->part, item->acl, 1);
+	    if (r) {
+		syslog(LOG_ERR,
+		       "Could not back out MOVING flag during move of %s (%s)",
+		       item->name, error_message(r));
+	    }
+
+	case XFER_REMOTE_CREATED:
+	    /* Delete remote mailbox */
+	    prot_printf(xfer->be->out,
+			"LD1 LOCALDELETE {" SIZE_T_FMT "+}\r\n%s\r\n",
+			strlen(item->extname), item->extname);
+	    r = getresult(xfer->be->in, "LD1");
+	    if (r) {
+		syslog(LOG_ERR,
+		       "Could not back out remote mailbox during move of %s (%s)",
+		       item->name, error_message(r));
+	    }
+
+	case XFER_DEACTIVATED:
+	    /* Tell murder it's back here and active */
+	    r = xfer_mupdate(xfer, 1, item->name, item->part,
+			      config_servername, item->acl);
+	    if (r) {
+		syslog(LOG_ERR,
+		       "Could not back out mupdate during move of %s (%s)",
+		       item->name, error_message(r));
+	    }
+	}
+    }
 }
 
 static int xfer_user_cb(char *name,
@@ -8844,11 +8946,20 @@ static int do_xfer(struct xfer_header *xfer)
     r = xfer_deactivate(xfer);
     if (!r) r = xfer_localcreate(xfer);
     if (!r) r = xfer_undump(xfer);
-    /* note - we don't report errors if this one
-     * fails! */
-    if (!r) xfer_delete(xfer);
 
-    return r;
+    if (r) {
+	/* Something failed, revert back to local server */
+	xfer_recover(xfer);
+	return r;
+    }
+
+    /* Successful dump of all mailboxes to remote server.
+     * Remove them locally and activate them on remote.
+     * Note - we don't report errors if this fails! */
+    xfer_delete(xfer);
+    xfer_reactivate(xfer);
+
+    return 0;
 }
 
 static int xfer_setquotaroot(struct xfer_header *xfer, const char *mboxname)
@@ -9000,7 +9111,7 @@ void cmd_xfer(char *tag, char *name, char *toserver, char *topart)
 
 	/* backport the seen file if needed */
 	if (xfer->remoteversion < 12) {
-	    r = xfer_backport_seen(xfer, userid);
+	    r = seen_open(userid, SEEN_CREATE, &xfer->seendb);
 	    if (r) goto done;
 	}
 
@@ -9815,7 +9926,7 @@ static void xlist_flags(const char *mboxname, char *sep)
 }
 
 /* Print LIST or LSUB untagged response */
-static void list_response(char *name, int attributes,
+static void list_response(const char *name, int attributes,
 			  struct listargs *listargs)
 {
     struct mbox_name_attribute *attr;
@@ -10211,7 +10322,8 @@ static int recursivematch_cb(char *name, int matchlen, int maycreate,
 }
 
 /* callback for hash_enumerate */
-void copy_to_array(char *key, void *data, void *void_rock) {
+void copy_to_array(const char *key, void *data, void *void_rock)
+{
     int *attributes = (int *)data;
     struct list_rock_recursivematch *rock =
 	(struct list_rock_recursivematch *)void_rock;

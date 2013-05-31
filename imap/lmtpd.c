@@ -148,19 +148,19 @@ mupdate_handle *mhandle = NULL;
 struct backend **backend_cached = NULL;
 
 static struct protocol_t lmtp_protocol =
-{ "lmtp", "lmtp",
-  { 0, "220 " },
-  { "LHLO", "lmtpproxyd", "250 ", NULL,
-    { { "AUTH ", CAPA_AUTH },
-      { "STARTTLS", CAPA_STARTTLS },
-      { "PIPELINING", CAPA_PIPELINING },
-      { "IGNOREQUOTA", CAPA_IGNOREQUOTA },
-      { NULL, 0 } } },
-  { "STARTTLS", "220", "454", 0 },
-  { "AUTH", 512, 0, "235", "5", "334 ", "*", NULL, 0 },
-  { NULL, NULL, NULL },
-  { "NOOP", NULL, "250" },
-  { "QUIT", NULL, "221" }
+{ "lmtp", "lmtp", TYPE_STD,
+  { { { 0, "220 " },
+      { "LHLO", "lmtpproxyd", "250 ", NULL,
+	{ { "AUTH ", CAPA_AUTH },
+	  { "STARTTLS", CAPA_STARTTLS },
+	  { "PIPELINING", CAPA_PIPELINING },
+	  { "IGNOREQUOTA", CAPA_IGNOREQUOTA },
+	  { NULL, 0 } } },
+      { "STARTTLS", "220", "454", 0 },
+      { "AUTH", 512, 0, "235", "5", "334 ", "*", NULL, 0 },
+      { NULL, NULL, NULL },
+      { "NOOP", NULL, "250" },
+      { "QUIT", NULL, "221" } } }
 };
 
 static struct sasl_callback mysasl_cb[] = {
@@ -446,6 +446,8 @@ static int mlookup(const char *name, char **server, char **aclp, void *tid)
 	    fatal("error communicating with MUPDATE server", EC_TEMPFAIL);
 	}
 
+	if (mailboxdata->t == RESERVE) return IMAP_MAILBOX_RESERVED;
+
 	if (aclp) *aclp = (char *) mailboxdata->acl;
 	if (server) *server = (char *) mailboxdata->server;
 	c = strchr(*server, '!');
@@ -460,6 +462,8 @@ static int mlookup(const char *name, char **server, char **aclp, void *tid)
 	    r = mboxlist_lookup(name, &mbentry, tid);
 	}
 	if (r) return r;
+	if (mbentry.mbtype & MBTYPE_MOVING)  return IMAP_MAILBOX_MOVED;
+	if (mbentry.mbtype & MBTYPE_DELETED) return IMAP_MAILBOX_NONEXISTENT;
 
 	if (aclp) *aclp = mbentry.acl;
 	if (server) {

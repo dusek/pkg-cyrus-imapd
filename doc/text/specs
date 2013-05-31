@@ -190,6 +190,74 @@ Sieve
     draft-ietf-sieve-managesieve A Protocol for Remotely Managing Sieve
     Scripts
 
+HTTP
+
+    RFC 2616 Hypertext Transfer Protocol -- HTTP/1.1 
+    being revised by draft-ietf-httpbis-*
+
+    RFC 2617 HTTP Authentication: Basic and Digest Access Authentication
+
+    RFC 4559 SPNEGO-based Kerberos and NTLM HTTP Authentication in
+    Microsoft Windows
+
+    [MS-NTHT] NTLM Over HTTP Protocol Specification
+
+    RFC 2817 HTTP Upgrading to TLS Within HTTP/1.1
+
+    RFC 2818 HTTP Over TLS
+
+    RFC 6797 HTTP Strict Transport Security (HSTS)
+
+    RFC 4918 HTTP Extensions for Web Distributed Authoring and Versioning
+    (WebDAV)
+
+    RFC 3253 Versioning Extensions to WebDAV (Web Distributed Authoring and
+    Versioning)
+
+    RFC 3744 Web Distributed Authoring and Versioning (WebDAV) Access
+    Control Protocol
+
+    RFC 4331 Quota and Size Properties for Distributed Authoring and
+    Versioning (DAV) Collections
+
+    RFC 5397 WebDAV Current Principal Extension
+
+    RFC 5689 Extended MKCOL for Web Distributed Authoring and Versioning
+    (WebDAV)
+
+    RFC 5995 Using POST to Add Members to Web Distributed Authoring and
+    Versioning (WebDAV) Collections
+
+    RFC 6578 Collection Synchronization for Web Distributed Authoring and
+    Versioning (WebDAV)
+
+    RFC 4791 Calendaring Extensions to WebDAV (CalDAV)
+
+    RFC 6638 Scheduling Extensions to CalDAV
+
+    RFC 6352 CardDAV: vCard Extensions to Web Distributed Authoring and
+    Versioning (WebDAV)
+
+    RFC 6764 Locating Services for Calendaring Extensions to WebDAV
+    (CalDAV) and vCard Extensions to WebDAV (CardDAV)
+
+    draft-desruisseaux-ischedule Internet Calendar Scheduling Protocol
+    (iSchedule)
+
+    draft-thomson-hybi-http-timeout Hypertext Transfer Protocol (HTTP)
+    Keep-Alive Header
+
+    draft-ietf-appsawg-http-forwarded Forwarded HTTP Extension
+
+    draft-snell-http-prefer Prefer Header for HTTP
+
+    draft-murchison-webdav-prefer Use of the Prefer Header Field in Web
+    Distributed Authoring and Versioning (WebDAV)
+
+    caldav-ctag Calendar Collection Entity Tag (CTag) in CalDAV
+
+    Brief HeaderMicrosoft 'Brief' header extension
+
 Other
 
     RFC 5322 Internet Message Format
@@ -199,4 +267,16 @@ Other
     RFC 5537 Netnews Architecture and Protocols
 
     RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+
+    RFC 5545 Internet Calendaring and Scheduling Core Object Specification
+    (iCalendar) 
+
+    RFC 5546 iCalendar Transport-Independent Interoperability Protocol
+    (iTIP) 
+
+    RFC 6047 iCalendar Message-Based Interoperability Protocol (iMIP)
+
+    RFC 6350 vCard Format Specification
+
+    RFC 6376 DomainKeys Identified Mail (DKIM) Signatures
 

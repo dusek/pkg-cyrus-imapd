@@ -131,6 +131,9 @@
 /* Define to 1 if you have the `getrlimit' function. */
 #undef HAVE_GETRLIMIT
 
+/* Define to 1 if you have the <gssapi/gssapi_ext.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_EXT_H
+
 /* Define if you have the gssapi.h header file */
 #undef HAVE_GSSAPI_H
 
@@ -138,11 +141,26 @@
    */
 #undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE */
+/* Define if your GSSAPI implementation defines GSS_C_NT_HOSTBASED_SERVICE */
 #undef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 
-/* Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME */
+/* Define if your GSSAPI implementation defines GSS_C_NT_USER_NAME */
 #undef HAVE_GSS_C_NT_USER_NAME
+
+/* Define to 1 if you have the `gss_decapsulate_token' function. */
+#undef HAVE_GSS_DECAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_encapsulate_token' function. */
+#undef HAVE_GSS_ENCAPSULATE_TOKEN
+
+/* Define to 1 if you have the `gss_get_name_attribute' function. */
+#undef HAVE_GSS_GET_NAME_ATTRIBUTE
+
+/* Define to 1 if you have the `gss_oid_equal' function. */
+#undef HAVE_GSS_OID_EQUAL
+
+/* Define if your GSSAPI implementation supports SPNEGO */
+#undef HAVE_GSS_SPNEGO
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -170,6 +188,9 @@
 
 /* Does the compiler support long long int? */
 #undef HAVE_LONG_LONG_INT
+
+/* Define to 1 if you have the `memmem' function. */
+#undef HAVE_MEMMEM
 
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
@@ -252,6 +273,9 @@
 
 /* Define to 1 if you have the `strlcpy' function. */
 #undef HAVE_STRLCPY
+
+/* Define to 1 if you have the `strsep' function. */
+#undef HAVE_STRSEP
 
 /* Do we have a sockaddr_storage? */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE
@@ -411,8 +435,17 @@
 #endif
 
 
+/* Build DAV support into httpd? */
+#undef WITH_DAV
+
+/* Build DKIM support into iSchedule? */
+#undef WITH_DKIM
+
 /* Build in PTS support? */
 #undef WITH_PTS
+
+/* Build RSS support into httpd? */
+#undef WITH_RSS
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
@@ -577,6 +610,14 @@ struct sockaddr_storage {
 #define strtoofft(nptr, endptr, base) strtoll(nptr, endptr, base)
 #else
 #error dont know what to use for OFF_T_FMT
+#endif
+
+#ifndef HAVE_STRSEP
+extern char *strsep(char **, const char *);
+#endif
+
+#ifndef HAVE_MEMMEM
+extern void *memmem(const void *, size_t, const void *, size_t);
 #endif
 
 /* compile time options; think carefully before modifying */

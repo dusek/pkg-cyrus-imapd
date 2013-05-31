@@ -150,9 +150,11 @@ static char *statuscache_buildkey(const char *mailboxname, const char *userid,
 
     /* Build statuscache key */
     len = strlcpy(key, mailboxname, sizeof(key));
+    /* double % is a safe separator, it can't exist in a mailboxname */
     key[len++] = '%';
     key[len++] = '%';
-    len += strlcpy(key + len, userid, sizeof(key) - len);
+    if (userid)
+	len += strlcpy(key + len, userid, sizeof(key) - len);
 
     *keylen = len;
 
@@ -198,8 +200,8 @@ int status_lookup(const char *mboxname, const char *userid,
 
     /* We always have message count, uidnext,
        uidvalidity, and highestmodseq for cache */
-     c_statusitems = STATUS_MESSAGES | STATUS_UIDNEXT |
-		     STATUS_UIDVALIDITY | STATUS_HIGHESTMODSEQ;
+    c_statusitems = STATUS_MESSAGES | STATUS_UIDNEXT |
+		    STATUS_UIDVALIDITY | STATUS_HIGHESTMODSEQ;
 
     if (!mailbox->i.exists) {
 	/* no messages, so these two must also be zero */
@@ -410,11 +412,9 @@ int statuscache_invalidate(const char *mboxname, struct statusdata *sdata)
     drock.db = statuscachedb;
     drock.tid = NULL;
 
-    key = statuscache_buildkey(mboxname, "", &keylen);
+    key = statuscache_buildkey(mboxname, /*userid*/NULL, &keylen);
 
-    /* strip off the second NULL that buildkey added, so we match 
-     * the entires for all users */
-    r = DB->foreach(drock.db, key, keylen - 1, NULL, delete_cb,
+    r = DB->foreach(drock.db, key, keylen, NULL, delete_cb,
 		    &drock, &drock.tid);
     if (r != CYRUSDB_OK) {
 	syslog(LOG_ERR, "DBERROR: error invalidating: %s (%s)",

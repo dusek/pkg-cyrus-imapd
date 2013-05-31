@@ -68,6 +68,8 @@ extern struct db *mbdb;
 #define MBTYPE_NETNEWS (1<<2) /* Netnews Mailbox - NO LONGER USED */
 #define MBTYPE_MOVING (1<<3) /* Mailbox in mid-transfer (part is remotehost!localpart) */
 #define MBTYPE_DELETED (1<<4) /* Mailbox has been deleted, but not yet cleaned up */
+#define MBTYPE_CALENDAR (1<<5) /* Calendar Mailbox */
+#define MBTYPE_ADDRESSBOOK (1<<6) /* Addressbook Mailbox */
 
 /* master name of the mailboxes file */
 #define FNAME_MBOXLIST "/mailboxes.db"
@@ -120,6 +122,15 @@ int mboxlist_createsync(const char *name, int mbtype,
 			const char *userid, struct auth_state *auth_state,
 			int options, unsigned uidvalidity, const char *acl,
 			const char *uniqueid, struct mailbox **mboxptr);
+
+int mboxlist_createmailbox_full(const char *name, int mbtype,
+				const char *partition,
+				int isadmin, const char *userid,
+				struct auth_state *auth_state,
+				int options, unsigned uidvalidity,
+				const char *copyacl, const char *uniqueid,
+				int localonly, int forceuser, int dbonly,
+				struct mailbox **mboxptr);
 
 /* delated delete */
 /* Translate delete into rename */

@@ -1,5 +1,5 @@
-<!-- Creator     : groff version 1.21 -->
-<!-- CreationDate: Thu Apr 19 10:41:08 2012 -->
+<!-- Creator     : groff version 1.22.1 -->
+<!-- CreationDate: Fri May 31 12:26:39 2013 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -112,7 +112,17 @@ default value. Some options have no default value, these are
 listed with &lsquo;&lsquo;&lt;no default&gt;&rsquo;&rsquo;.
 Some options default to the empty string, these are listed
 with &lsquo;&lsquo;&lt;none&gt;&rsquo;&rsquo;. <b><br>
-admins:</b> &lt;empty string&gt;</p>
+addressbookprefix:</b> #addressbooks</p>
+
+<p style="margin-left:18%;">The prefix for the addressbook
+mailboxes hierarchies. The hierarchy delimiter will be
+automatically appended. The public addressbook hierarchy
+will be at the toplevel of the shared namespace. A
+user&rsquo;s personal calendar hierarchy will be a child of
+their Inbox.</p>
+
+<p style="margin-left:11%;"><b>admins:</b> &lt;empty
+string&gt;</p>
 
 <p style="margin-left:18%;">The list of userids with
 administrative rights. Separate each userid with a space.
@@ -362,6 +372,38 @@ Do not parse deeper than this many layers of MIME structure.
 The default of 1000 is much higher than any sane message
 should have.</p>
 
+<p style="margin-left:11%;"><b>caldav_allowscheduling:</b>
+1</p>
+
+<p style="margin-left:18%;">If enabled, the server will
+perform calendar scheduling operations.</p>
+
+<p style="margin-left:11%;"><b>caldav_realm:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">The realm to present for HTTP
+authentication of CalDAV resources. If not set (the
+default), the value of the &quot;servername&quot; option
+will be used.</p>
+
+<p style="margin-left:11%;"><b>calendarprefix:</b>
+#calendars</p>
+
+<p style="margin-left:18%;">The prefix for the calendar
+mailboxes hierarchies. The hierarchy delimiter will be
+automatically appended. The public calendar hierarchy will
+be at the toplevel of the shared namespace. A user&rsquo;s
+personal calendar hierarchy will be a child of their
+Inbox.</p>
+
+<p style="margin-left:11%;"><b>carddav_realm:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">The realm to present for HTTP
+authentication of CardDAV resources. If not set (the
+default), the value of the &quot;servername&quot; option
+will be used.</p>
+
 <p style="margin-left:11%;"><b>client_timeout:</b> 10</p>
 
 <p style="margin-left:18%;">Number of seconds to wait
@@ -379,6 +421,14 @@ command that takes longer than this time is logged.</p>
 
 <p style="margin-left:18%;">The pathname of the IMAP
 configuration directory. This field is required.</p>
+
+<p style="margin-left:11%;"><b>dav_realm:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">The realm to present for HTTP
+authentication of generic DAV resources (principals). If not
+set (the default), the value of the &quot;servername&quot;
+option will be used.</p>
 
 <p style="margin-left:11%;"><b>debug_command:</b>
 &lt;none&gt;</p>
@@ -475,6 +525,19 @@ clients will be disconnected by the server if the currently
 selected mailbox is (re)moved by another session. Otherwise,
 the missing mailbox is treated as empty while in use by the
 client.</p>
+
+<p style="margin-left:11%;"><b>dkim_domain:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">The domain to be reported as
+doing DKIM signing.</p>
+
+<p style="margin-left:11%;"><b>dkim_selector:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">Name of the selector
+subdividing the domain namespace. This specifies the actual
+key used for DKIM signing within the domain.</p>
 
 <p style="margin-left:11%;"><b>duplicate_db:</b>
 skiplist</p>
@@ -603,6 +666,97 @@ Cyrus Murder</p>
 authentication to the backend server hostname (where
 hostname is the short hostname of the server) - Cyrus
 Murder</p>
+
+<p style="margin-left:11%;"><b>httpallowcompress:</b> 1</p>
+
+<p style="margin-left:18%;">If enabled, the server will
+compress response payloads if the client indicates that it
+can accept them. Note that the compressed data will appear
+in telemetry logs, leaving only the response headers as
+human-readable.</p>
+
+<p style="margin-left:11%;"><b>httpallowcors:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">A wildmat pattern specifying a
+list of origin URIs ( scheme &quot;://&quot; host [
+&quot;:&quot; port ] ) that are allowed to make Cross-Origin
+Resource Sharing (CORS) requests on the server. By default,
+CORS requests are disabled.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that the
+scheme and host should both be lowercase, the port should be
+omitted if using the default for the scheme (80 for http,
+443 for https), and there should be no trailing
+&rsquo;/&rsquo; (e.g.:
+&quot;http://www.example.com:8080&quot;,
+&quot;https://example.org&quot;). <b><br>
+httpallowtrace:</b> 0</p>
+
+<p style="margin-left:18%;">Allow use of the TRACE
+method.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that
+sensitive data might be disclosed by the response. <b><br>
+httpallowedurls:</b> &lt;none&gt;</p>
+
+<p style="margin-left:18%;">Space-separated list of
+relative URLs (paths) rooted at &quot;httpdocroot&quot; (see
+below) to be served by httpd. If set, this option will limit
+served static content to only those paths specified
+(returning &quot;404 Not Found&quot; to any other client
+requested URLs). Otherwise, httpd will serve any content
+found in &quot;httpdocroot&quot;.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Note that any
+path specified by &quot;rss_feedlist_template&quot; is an
+exception to this rule. <b><br>
+httpdocroot:</b> &lt;none&gt;</p>
+
+<p style="margin-left:18%;">If set, http will serve the
+static content (html/text/jpeg/gif files, etc) rooted at
+this directory. Otherwise, httpd will not serve any static
+content.</p>
+
+<p style="margin-left:11%;"><b>httpkeepalive:</b> 20</p>
+
+<p style="margin-left:18%;">Set the length of the HTTP
+server&rsquo;s keepalive heartbeat in seconds. The default
+is 20. The minimum value is 0, which will disable the
+keepalive heartbeat. When enabled, if a request takes longer
+than <i>httpkeepalive</i> seconds to process, the server
+will send the client provisional responses every
+<i>httpkeepalive</i> seconds until the final response can be
+sent</p>
+
+<p style="margin-left:11%;"><b>httpmodules:</b> &lt;empty
+string&gt;</p>
+
+<p style="margin-left:18%;">Space-separated list of HTTP
+modules that will be enabled in httpd(8). This option has no
+effect on modules that are disabled at compile time due to
+missing dependencies (e.g. libical).</p>
+
+<p style="margin-left:18%; margin-top: 1em">Allowed values:
+<i>caldav</i>, <i>carddav</i>, <i>domainkey</i>,
+<i>ischedule</i>, <i>rss</i></p>
+
+<p style="margin-left:11%;"><b>httpprettytelemetry:</b>
+0</p>
+
+<p style="margin-left:18%;">If enabled, HTTP response
+payloads including server-generated markup languages (HTML,
+XML) will utilize line breaks and indentation to promote
+better human-readability in telemetry logs. Note that
+enabling this option will increase the amount of data sent
+across the wire.</p>
+
+<p style="margin-left:11%;"><b>httptimeout:</b> 5</p>
+
+<p style="margin-left:18%;">Set the length of the HTTP
+server&rsquo;s inactivity autologout timer, in minutes. The
+default is 5. The minimum value is 0, which will disable
+persistent connections.</p>
 
 <p style="margin-left:11%;"><b>idlesocket:</b>
 {configdirectory}/socket/idle</p>
@@ -1077,7 +1231,7 @@ the mailbox list.</p>
 
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>flat</i>, <i>berkeley</i>, <i>berkeley-hash</i>,
-<i>skiplist</i></p>
+<i>skiplist</i>, <i>sql</i></p>
 
 <p style="margin-left:11%;"><b>mboxlist_db_path:</b>
 &lt;none&gt;</p>
@@ -1101,7 +1255,7 @@ than in the mailbox directory on a spool partition.</p>
 
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>header</i>, <i>index</i>, <i>cache</i>, <i>expunge</i>,
-<i>squat</i></p>
+<i>squat</i>, <i>lock</i></p>
 
 <p style="margin-left:11%;"><b>metapartition-name:</b>
 &lt;none&gt;</p>
@@ -1653,6 +1807,75 @@ addresses will be allowed in address tests and only
 envelope tests. When disabled, ANY grammatically correct
 header will be allowed.</p>
 
+<p style="margin-left:11%;"><b>rss_feedlist_template:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">File containing HTML that will
+be used as a template for displaying the list of available
+RSS feeds. A single instance of the variable %RSS_FEEDLIST%
+should appear in the file, which will be replaced by a
+nested unordered list of feeds. The toplevel unordered list
+will be tagged with an id of &quot;feed&quot; (&lt;ul
+id=&rsquo;feed&rsquo;&gt;) which can be used by
+stylesheet(s) in your template. The dynamically created list
+of feeds based on the HTML template will be accessible at
+the &quot;/rss&quot; URL on the server.</p>
+
+<p style="margin-left:11%;"><b>rss_feeds:</b> *</p>
+
+<p style="margin-left:18%;">A wildmat pattern specifying
+which mailbox hierarchies should be treated as RSS feeds.
+Only mailboxes matching the wildmat will have their messages
+available via RSS. If not set, a default wildmat of
+&quot;*&quot; (ALL mailboxes) will be used.</p>
+
+<p style="margin-left:11%;"><b>rss_maxage:</b> 0</p>
+
+<p style="margin-left:18%;">Maximum age (in days) of items
+to display in an RSS channel. If non-zero, httpd will only
+display items received within the last <i>rss_maxage</i>
+days. If set to 0, all available items will be displayed
+(the default).</p>
+
+<p style="margin-left:11%;"><b>rss_maxitems:</b> 0</p>
+
+<p style="margin-left:18%;">Maximum number of items to
+display in an RSS channel. If non-zero, httpd will display
+no more than the <i>rss_maxitems</i> most recent items. If
+set to 0, all available items will be displayed (the
+default).</p>
+
+<p style="margin-left:11%;"><b>rss_maxsynopsis:</b> 0</p>
+
+<p style="margin-left:18%;">Maximum RSS item synopsis
+length. If non-zero, httpd will display no more than the
+first <i>rss_maxsynopsis</i> characters of an item&rsquo;s
+synopsis. If set to 0, the entire synopsis will be displayed
+(the default).</p>
+
+<p style="margin-left:11%;"><b>rss_realm:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">The realm to present for HTTP
+authentication of RSS feeds. If not set (the default), the
+value of the &quot;servername&quot; option will be used.</p>
+
+<p style="margin-left:11%;"><b>rss_ttl:</b> 30</p>
+
+<p style="margin-left:18%;">RSS channel time to live.
+Indicates to the client the number of minutes that a channel
+can be cached before refreshing from the source. If set to
+0, no indication will be made to the client. The default is
+30 minutes.</p>
+
+<p style="margin-left:11%;"><b>rss_webmaster:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">Email address of the person
+responsible for technical issues with the RSS feeds. If not
+set (the default), no webMaster will be included in the
+feeds.</p>
+
 <p style="margin-left:11%;"><b>sasl_auto_transition:</b>
 0</p>
 
@@ -1948,7 +2171,7 @@ the imap status cache.</p>
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>berkeley</i>, <i>berkeley-nosync</i>,
 <i>berkeley-hash</i>, <i>berkeley-hash-nosync</i>,
-<i>skiplist</i></p>
+<i>skiplist</i>, <i>sql</i></p>
 
 <p style="margin-left:11%;"><b>statuscache_db_path:</b>
 &lt;none&gt;</p>
@@ -2227,7 +2450,7 @@ use flags. The valid names can be taken from GMail&rsquo;s
 XLIST documents or RFC 6154. Attribute name in the
 configuration key should be defined in lowercase. The
 attribute value is case sensitive, may contain whitespace
-and and must valid UTF7-IMAP string. It must exactly match
+and must be valid UTF7-IMAP string. It must exactly match
 the name of the subfolder of a user&rsquo;s INBOX.</p>
 
 <p style="margin-left:18%; margin-top: 1em">Example:
@@ -2246,8 +2469,9 @@ much more flexible RFC 6154 compatible system.</p>
 
 <p style="margin-left:11%; margin-top: 1em"><b>imapd(8)</b>,
 <b>pop3d(8)</b>, <b>nntpd(8)</b>, <b>lmtpd(8)</b>,
-<b>timsieved(8)</b>, <b>idled(8)</b>, <b>notifyd(8)</b>,
-<b>deliver(8)</b>, <b>master(8)</b>, <b>ciphers(1)</b></p>
+<b>httpd(8)</b>, <b>timsieved(8)</b>, <b>idled(8)</b>,
+<b>notifyd(8)</b>, <b>deliver(8)</b>, <b>master(8)</b>,
+<b>ciphers(1)</b></p>
 <hr>
 </body>
 </html>
