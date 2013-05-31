@@ -1,7 +1,9 @@
 cyrus-imapd-2.4 (2.4.17~caldav-beta5-1) experimental; urgency=low
 
   * Imported Upstream version 2.4.17~caldav-beta5
-  * Cyrus IMAPd now also support CalDAV, CardDAV and RSS.
+    + Cyrus IMAPd now also support CalDAV, CardDAV and RSS.
+  * debian/patches: Update patches for 2.4.17 release
+  * debian/rules: Build with generic libdb
 
  -- Ondřej Surý <ondrej@debian.org>  Fri, 31 May 2013 19:38:37 +0200
 
