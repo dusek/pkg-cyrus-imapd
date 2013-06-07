@@ -231,7 +231,7 @@ override_dh_installinit:
 	dh_installinit -p cyrus-common-2.4 --onlyscripts --name=cyrus-imapd
 
 override_dh_installchangelogs:
-	dh_installchangelogs -p cyrus-common-2.4 -p cyrus-doc-2.4 doc/changes.html
+	dh_installchangelogs -p cyrus-common -p cyrus-doc-2.4 doc/changes.html
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
