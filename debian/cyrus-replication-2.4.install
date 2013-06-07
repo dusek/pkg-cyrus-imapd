@@ -5,10 +5,7 @@ usr/lib/cyrus/bin/sync_reset
 usr/lib/cyrus/bin/sync_server
 usr/sbin/cyr_synclog
 usr/lib/cyrus/bin/cyr_synclog
-usr/share/man/man8/sync_client.8
 usr/share/man/man8/cyrus-sync_client.8
 usr/share/man/man8/sync_server.8
-usr/share/man/man8/sync_reset.8
 usr/share/man/man8/cyrus-sync_reset.8
-usr/share/man/man8/cyr_synclog.8
 usr/share/man/man8/cyrus-cyr_synclog.8
