@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+DOCDIR=/usr/share/doc/cyrus-clients-2.4
+DOCLINK=cyrus-common
+
+if [ -d $DOCDIR ] && [ ! -L $DOCDIR ]; then
+    rmdir $DOCDIR
+    ln -s $DOCLINK $DOCDIR
+fi
+
+#DEBHELPER#
+
+exit 0

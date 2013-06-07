@@ -18,10 +18,8 @@ export DEB_BUILD_HARDENING=1
 # DebHelper control
 export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
 
-export MAINPKG=cyrus-common-2.4
 export DOCPKG=cyrus-doc-2.4
 export TMPPKG := $(CURDIR)/debian/tmp
-export PKGDIR := $(CURDIR)/debian/$(MAINPKG)
 export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
 
 CFLAGS=-Wall -Wextra -g -fno-strict-aliasing -pipe $(if $(findstring noopt,$(DEB_BUILD_OPTIONS)),-O0,-O2)
@@ -224,13 +222,9 @@ override_dh_auto_install:
 	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
-	dh_installdocs -p cyrus-common -p cyrus-admin-2.4 -p cyrus-doc-2.4
-	dh_installdocs -p cyrus-clients-2.4 -p libcyrus-imap-perl24
-	dh_installdocs -p cyrus-common-2.4 --link-doc=cyrus-common
-	for i in clients imapd pop3d admin murder replication nntpd caldav doc dev ; do \
-	  dh_installdocs -p cyrus-$$i --link-doc=cyrus-$$i-2.4; \
-	done
-	dh_installdocs -p libcyrus-imap-perl --link=libcyrus-imap-perl24
+	dh_installdocs -p cyrus-common -p cyrus-doc-2.4
+	dh_installdocs -p cyrus-doc --link-doc cyrus-doc-2.4
+	dh_installdocs --remaining-packages --link-doc=cyrus-common
 
 override_dh_installinit:
 	dh_installinit -p cyrus-common --noscripts --name=cyrus-imapd
