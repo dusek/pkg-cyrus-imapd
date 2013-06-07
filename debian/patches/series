@@ -32,3 +32,4 @@ cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
 cyrus-tls-1.2.patch
 90-fix_imtest_race.patch
 91-fix-extra-libpci.patch
+parse-GUID-for-binary-appends-as-well.patch
