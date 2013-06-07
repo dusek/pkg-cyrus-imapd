@@ -1,3 +1,5 @@
 etc/pam.d/nntp
 usr/lib/cyrus/bin/fetchnews
 usr/lib/cyrus/bin/nntpd
+usr/share/man/man8/fetchnews.8
+usr/share/man/man8/nntpd.8

@@ -1,2 +1,7 @@
 usr/lib/perl*
 usr/share/perl*
+usr/share/man/man3/Cyrus::SIEVE::managesieve.3pm
+usr/share/man/man3/Cyrus::IMAP::Admin.3pm
+usr/share/man/man3/Cyrus::IMAP::IMSP.3pm
+usr/share/man/man3/Cyrus::IMAP::Shell.3pm
+usr/share/man/man3/Cyrus::IMAP.3pm
