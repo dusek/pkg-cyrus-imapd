@@ -227,7 +227,7 @@ override_dh_installdocs:
 	dh_installdocs -p cyrus-common -p cyrus-admin-2.4 -p cyrus-doc-2.4
 	dh_installdocs -p cyrus-clients-2.4 -p libcyrus-imap-perl24
 	dh_installdocs -p cyrus-common-2.4 --link-doc=cyrus-common
-	for i in clients imapd pop3d admin murder replication nntpd doc dev ; do \
+	for i in clients imapd pop3d admin murder replication nntpd caldav doc dev ; do \
 	  dh_installdocs -p cyrus-$$i --link-doc=cyrus-$$i-2.4; \
 	done
 	dh_installdocs -p libcyrus-imap-perl --link=libcyrus-imap-perl24
