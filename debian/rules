@@ -140,105 +140,76 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	dh_auto_install -- DESTDIR=$(TMPPKG)
-	# fix totaly broken location of the include files;
-	# while at it, also avoid namespace collision, and move
-	# lots of admin-only/system-only stuff to sbin and lib
-	# also, do the renaming needed for alternatives
-	# and fix the weird side-effect of setting the proper cyrus
-	# location in configure.
+
+	# install the cyrus tool
 	install -d -m 755 $(TMPPKG)/usr/sbin
 	install -m 755 debian/cyrus $(TMPPKG)/usr/sbin
-	# This is handled by /usr/sbin/cyrus tool from now
-	#
-	#for i in master reconstruct quota deliver ; do \
-	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
-	#done
 
-	for i in master deliver ; do \
-		mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/cyr$$i ;\
-	done
-	#for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
-	#         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
-	#	 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-	#	 cyr_dbtool cyr_df ; do \
-	#	mv $(TMPPKG)/usr/lib/cyrus/bin/$$i $(TMPPKG)/usr/sbin/$$i ;\
-	#done
-	for i in mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
-	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
-		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-		 cyr_dbtool cyr_df cyrus-makedirs cyrreconstruct cyrquota; do \
-		ln -fs cyrus $(TMPPKG)/usr/sbin/$$i ;\
-	done
-	install -d -m 755 $(TMPPKG)/usr/include
-	mv $(TMPPKG)/usr/share/include/cyrus $(TMPPKG)/usr/include
-	#mv $(TMPPKG)/bin/* $(TMPPKG)/usr/bin
-	# Move the perl crap to a saner place
-	install -d -m 755 $(TMPPKG)/usr/lib
-	install -d -m 755 $(TMPPKG)/usr/share/perl5
-	#mv $(TMPPKG)/lib/perl5/Cyrus $(TMPPKG)/usr/share/perl5/Cyrus
-	#mv $(TMPPKG)/lib/* $(TMPPKG)/usr/lib
 	# for stuff in /etc
 	install -d -m 755 $(TMPPKG)/etc/cyrus $(TMPPKG)/etc/pam.d
-	install -m 644 debian/imapd.conf    $(TMPPKG)/etc
-	install -m 644 debian/cyrus.conf    $(TMPPKG)/etc
+	install -m 644 debian/imapd.conf $(TMPPKG)/etc
+	install -m 644 debian/cyrus.conf $(TMPPKG)/etc
 	(cd debian ; for i in *.pam ;\
 		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
 	done)
+
 	# We rename some utils, so we need to sort out the manpages
 	for i in master deliver ; do \
 		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$$i.8 ; \
 	done
 
-	# Rename all other manpages to have cyrus- prefix, but keep compatibility symlinks
+	# Move all manpages under cyrus- namespace
+	install -m 644 debian/cyrus-makedirs.8 debian/cyrus-arbitronsort.8 debian/cyrus-dump.8 \
+		$(TMPPKG)/usr/share/man/man8/
 	for i in master reconstruct quota deliver \
 	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
 		 cyr_dbtool cyr_df ; do \
 		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
-                ln -s cyrus-$$i.8 $(TMPPKG)/usr/share/man/man8/$$i.8 ; \
 	done
-	# And add our own manpages
-	install -d -m 755 $(TMPPKG)/usr/share/man/man8
-	install -m 644 debian/cyrdump.8 $(TMPPKG)/usr/share/man/man8/cyrus-dump.8
-	install -m 644 debian/cyrus-makedirs.8 $(TMPPKG)/usr/share/man/man8/cyrus-makedirs.8
-	install -m 644 debian/arbitronsort.8 $(TMPPKG)/usr/share/man/man8/cyrus-arbitronsort.8
+
 	# SNMP files
 	install -d -m 755 $(TMPPKG)/usr/share/snmp/mibs
 	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
+
 	# Install cyradm icons
 	install -d -m 755 $(TMPPKG)/usr/share/icons/mini
 	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
 	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
+
 	# Install debian-provided scripts
 	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
 	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
+
 	# and logcheck files
 	install -d -m 755 $(TMPPKG)/etc/logcheck/ignore.d.server/ $(TMPPKG)/etc/logcheck/violations.ignore.d/
-	install -m 644 debian/logcheck.ignore \
-	  $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
-	install -m 644 debian/logcheck.violations.ignore \
-	  $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
+	install -m 644 debian/logcheck.ignore $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
+	install -m 644 debian/logcheck.violations.ignore $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
+
 	# Install the stuff needed for upgrades
 	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
-	for i in convert-sieve.pl dohash rehash undohash translatesieve \
-		 upgradesieve masssievec; do \
+	for i in convert-sieve.pl dohash rehash undohash translatesieve upgradesieve masssievec; do \
 		install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
 	done
-	install -m 644 debian/cyrus-db-types.upgrading_from_1.5.txt $(TMPPKG)/usr/lib/cyrus/upgrade
+
 	# And other upgrade helpers
 	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
-		   $(PKGDIR)/usr/lib/cyrus
+		   $(TMPPKG)/usr/lib/cyrus
+
 	# And other misc useful tools
 	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/lib/cyrus/bin/arbitronsort
+
 	# Install imtest and its symlinks
-	mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.4/usr/bin
+	# mv $(TMPPKG)/usr/bin/imtest $(CURDIR)/debian/cyrus-clients-2.4/usr/bin
 	for i in $(TMPPKG)/usr/bin/*test ; do \
-		rm -f "$$i" || true ;\
-		(cd $(CURDIR)/debian/cyrus-clients-2.4/usr/bin &&\
-		 ln -s imtest `basename $$i`) ;\
+	  if test "$$(basename $$i)" != "imtest"; then \
+	    rm -f "$$i" && \
+	    ln -s imtest $$i; \
+	  fi; \
 	done
+
 	# Install the html docs and examples
 	install -d -m 755 $(DOCDIR)/html
 	install -m 644 doc/*.html doc/murder.png $(DOCDIR)/html
@@ -258,11 +229,6 @@ override_dh_installdocs:
 	  dh_installdocs -p cyrus-$$i --link-doc=cyrus-$$i-2.4; \
 	done
 	dh_installdocs -p libcyrus-imap-perl --link=libcyrus-imap-perl24
-	# Install docs for transitional packages
-	for p in common doc imapd pop3d admin murder nntpd clients dev ; do \
-	  dh_installdocs -p cyrus-$$p-2.2 --link-doc=cyrus-common; \
-	done
-	dh_installdocs -p libcyrus-imap-perl22 --link=cyrus-common
 
 override_dh_installinit:
 	dh_installinit -p cyrus-common --noscripts --name=cyrus-imapd
@@ -280,3 +246,6 @@ override_dh_installchangelogs:
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
+
+override_dh_install:
+	dh_install --fail-missing

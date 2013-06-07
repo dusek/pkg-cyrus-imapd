@@ -1,4 +1,5 @@
-etc/*conf
+etc/imapd.conf
+etc/cyrus.conf
 usr/lib/cyrus/bin/cyr_dbtool
 usr/lib/cyrus/bin/cyr_df
 usr/lib/cyrus/bin/cyr_expire
@@ -24,22 +25,6 @@ usr/lib/cyrus/bin/smmapd
 usr/lib/cyrus/bin/notifyd
 usr/lib/cyrus/bin/fud
 usr/lib/cyrus/upgrade/
-usr/sbin/cyr_dbtool
-usr/sbin/cyr_df
-usr/sbin/cyr_expire
-usr/sbin/cyrdeliver
-usr/sbin/cyrdump
-usr/sbin/cyrmaster
-usr/sbin/cyrquota
-usr/sbin/cyrreconstruct
-usr/sbin/ctl_*
-usr/sbin/cvt_*
-usr/sbin/chk_*
-usr/sbin/ipurge
-usr/sbin/tls_prune
-usr/sbin/mbpath
-usr/sbin/arbitron*
-usr/sbin/unexpunge
 usr/share/man/man5/cyrus.conf.5
 usr/share/man/man5/imapd.conf.5
 usr/share/man/man8/mbpath.8
@@ -78,3 +63,4 @@ usr/share/man/man8/cyrus-cyr_df.8
 usr/share/man/man8/cyr_expire.8
 usr/share/man/man8/cyrus-cyr_expire.8
 usr/share/man/man8/cyrus-dump.8
+usr/lib/cyrus/cyrus-*.txt

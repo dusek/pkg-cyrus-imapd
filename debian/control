@@ -47,9 +47,7 @@ Section: mail
 Depends: cyrus-common (>= ${source:Version}~), ssmtp | mail-transport-agent, netbase (>= 4.07), gawk, libsasl2-modules, ${shlibs:Depends}, ${perl:Depends}, ${misc:Depends}
 Recommends: cyrus-imapd-2.4 | cyrus-pop3d-2.4 | cyrus-murder-2.4 | cyrus-nntpd-2.4 | cyrus-admin-2.4 | cyrus-caldav-2.4
 Suggests: cyrus-clients-2.4, cyrus-admin-2.4, cyrus-imapd-2.4, cyrus-pop3d-2.4, cyrus-murder-2.4, cyrus-replication-2.4, cyrus-nntpd-2.4, cyrus-caldav-2.4, cyrus-doc-2.4, sasl2-bin, apt-listchanges (>= 2.35)
-Provides: cyrus-common-2.2, cyrus-common-2.3
-Conflicts: cyrus-common (<< ${source:Version}), suidmanager (<< 0.50), cyrus-common-2.2 (<< 2.4), cyrus-common-2.3
-Replaces: cyrus-common-2.2 (<< 2.4), cyrus-common-2.3
+Conflicts: cyrus-common (<< ${source:Version}), suidmanager (<< 0.50)
 Description: Cyrus mail system - common files
  Cyrus is an IMAP server designed to handle massive quantities of mail,
  with a number of features not found in other IMAP implementations,
@@ -78,9 +76,9 @@ Package: cyrus-doc-2.4
 Architecture: all
 Section: doc
 Depends: ${misc:Depends}
-Provides: cyrus-doc, cyrus-doc-2.2, cyrus-doc-2.3
-Conflicts: cyrus-doc (<< ${source:Version}), cyrus-doc-2.2 (<< 2.4), cyrus-doc-2.3
-Replaces: cyrus-doc (<< ${source:Version}), cyrus-doc-2.2 (<< 2.4), cyrus-doc-2.3
+Provides: cyrus-doc
+Conflicts: cyrus-doc (<< ${source:Version})
+Replaces: cyrus-doc (<< ${source:Version})
 Description: Cyrus mail system - documentation files
  Cyrus is an IMAP server designed to handle massive quantities of mail,
  with a number of features not found in other IMAP implementations,
@@ -103,9 +101,9 @@ Package: cyrus-imapd-2.4
 Architecture: any
 Section: mail
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Provides: cyrus-imapd, imap-server, cyrus-imapd-2.2, cyrus-imapd-2.3
-Conflicts: cyrus-imapd (<< ${source:Version}), imap-server, cyrus-imapd-2.2 (<< 2.4), cyrus-imapd-2.3
-Replaces: cyrus-imapd (<< ${source:Version}), cyrus-imapd-2.2 (<< 2.4), cyrus-imapd-2.3, cyrus-common-2.4 (<< 2.4.8-6)
+Provides: cyrus-imapd, imap-server
+Conflicts: cyrus-imapd (<< ${source:Version}), imap-server
+Replaces: cyrus-imapd (<< ${source:Version}), cyrus-common-2.4 (<< 2.4.8-6)
 Breaks: cyrus-common (<< 2.4.8-6)
 Description: Cyrus mail system - IMAP support
  Cyrus is an IMAP server designed to handle massive quantities of mail,
@@ -130,9 +128,9 @@ Package: cyrus-pop3d-2.4
 Architecture: any
 Section: mail
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Provides: cyrus-pop3d, pop3-server, cyrus-pop3d-2.2, cyrus-pop3d-2.3
-Conflicts: cyrus-pop3d (<< ${source:Version}), pop3-server, cyrus-pop3d-2.2 (<< 2.4), cyrus-pop3d-2.3
-Replaces: cyrus-pop3d (<< ${source:Version}), cyrus-pop3d-2.2 (<< 2.4), cyrus-pop3d-2.3
+Provides: cyrus-pop3d, pop3-server
+Conflicts: cyrus-pop3d (<< ${source:Version}), pop3-server
+Replaces: cyrus-pop3d (<< ${source:Version})
 Description: Cyrus mail system - POP3 support
  Cyrus is an IMAP server designed to handle massive quantities of mail,
  with a number of features not found in other IMAP implementations,
@@ -157,9 +155,9 @@ Architecture: all
 Section: mail
 Depends: libcyrus-imap-perl24 (>= ${binary:Version}), ${misc:Depends}
 Suggests: sasl2-bin
-Provides: cyrus-admin, cyrus-admin-2.2, cyrus-admin-2.3
-Conflicts: cyrus-admin (<< ${source:Version}), cyrus-admin-2.2 (<< 2.4), cyrus-admin-2.3
-Replaces: cyrus-admin (<< ${source:Version}), cyrus-admin-2.2 (<< 2.4), cyrus-admin-2.3
+Provides: cyrus-admin
+Conflicts: cyrus-admin (<< ${source:Version})
+Replaces: cyrus-admin (<< ${source:Version})
 Description: Cyrus mail system - administration tools
  This package provides the administrative tools for the Cyrus IMAPd suite.
  It contains the cyradm tool which can be used to administer
@@ -174,9 +172,9 @@ Section: mail
 Architecture: any
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Recommends: cyrus-imapd-2.4 (= ${binary:Version}), cyrus-pop3d-2.4 (= ${binary:Version})
-Provides: cyrus-murder, cyrus21-murder, cyrus22-murder, cyrus-murder-2.2, cyrus-murder-2.3
-Conflicts: cyrus-murder (<< ${source:Version}), cyrus-murder-2.2 (<< 2.4), cyrus-murder-2.3
-Replaces: cyrus-murder (<< ${source:Version}), cyrus-murder-2.2 (<< 2.4), cyrus-murder-2.3
+Provides: cyrus-murder
+Conflicts: cyrus-murder (<< ${source:Version})
+Replaces: cyrus-murder (<< ${source:Version})
 Description: Cyrus mail system - proxies and aggregator
  This package contains the Cyrus IMAPd suite murder aggregator system,
  i.e. IMAP, POP3  and LMTP proxies, and the mupdate mailbox master daemon.
@@ -203,9 +201,9 @@ Package: cyrus-nntpd-2.4
 Architecture: any
 Section: mail
 Depends: cyrus-common-2.4 (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Provides: cyrus-nntpd, news-transport-system, cyrus-nntpd-2.2, cyrus-nntpd-2.3
-Conflicts: cyrus-nntpd (<< ${source:Version}), news-transport-system, cyrus-nntpd-2.2 (<< 2.4), cyrus-nntpd-2.3
-Replaces: cyrus-nntpd (<< ${source:Version}), cyrus-nntpd-2.2 (<< 2.4), cyrus-nntpd-2.3
+Provides: cyrus-nntpd, news-transport-system
+Conflicts: cyrus-nntpd (<< ${source:Version}), news-transport-system
+Replaces: cyrus-nntpd (<< ${source:Version})
 Description: Cyrus mail system - NNTP support
  This package contains the NNTP (Network News Transfer Protocol) portion of
  the Cyrus IMAPd suite.
@@ -229,9 +227,9 @@ Package: cyrus-clients-2.4
 Architecture: any
 Section: mail
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Provides: cyrus-clients, cyrus-clients-2.2, cyrus-clients-2.3
-Conflicts: cyrus-clients (<< ${source:Version}), cyrus-clients-2.2 (<< 2.4), cyrus-clients-2.3
-Replaces: cyrus-clients (<< ${source:Version}), cyrus-clients-2.2 (<< 2.4), cyrus-clients-2.3
+Provides: cyrus-clients
+Conflicts: cyrus-clients (<< ${source:Version})
+Replaces: cyrus-clients (<< ${source:Version})
 Description: Cyrus mail system - test clients
  This package contains client tools to test the Cyrus IMAPd suite.
  It contains the mupdatetest, sivtest, smtptest, lmtptest,
@@ -245,9 +243,9 @@ Package: cyrus-dev-2.4
 Architecture: any
 Section: devel
 Depends: libcyrus-imap-perl24 (>= ${binary:Version}), cyrus-common-2.4 (= ${binary:Version}), libsasl2-dev (>= 2.1.9), ${misc:Depends}
-Provides: cyrus-dev, cyrus-dev-2.2, cyrus-dev-2.3
-Conflicts: cyrus-dev (<< ${source:Version}), cyrus-dev-2.2 (<< 2.4), cyrus-dev-2.3, libdb3-dev (<< 3.2.9-15), libdb2-dev (<< 2.7.7.0-6), libdb4.2-dev (<<4.2.52)
-Replaces: cyrus-dev (<< ${source:Version}), cyrus-dev-2.2 (<< 2.4), cyrus-dev-2.3
+Provides: cyrus-dev
+Conflicts: cyrus-dev (<< ${source:Version})
+Replaces: cyrus-dev (<< ${source:Version})
 Description: Cyrus mail system - developer files
  This package contains header files and the static library needed
  to develop IMAP applications that interface with the Cyrus IMAPd suite.
@@ -256,9 +254,7 @@ Description: Cyrus mail system - developer files
 
 Package: cyrus-common
 Architecture: all
-Depends: ${misc:Depends}, adduser, db-util, db4.7-util, db4.8-util, db5.1-util
-Conflicts: cyrus-common-2.2 (<< 2.2.13p1-9~), cyrus-common-2.4 (<< 2.4.8-6~)
-Replaces: cyrus-common-2.2 (<< 2.2.13p1-9~), cyrus-common-2.4 (<< 2.4.8-6~)
+Depends: ${misc:Depends}, adduser, db-util, db-upgrade-util
 Description: Cyrus mail system - common files
  Cyrus is an IMAP server designed to handle massive quantities of mail,
  with a number of features not found in other IMAP implementations,
@@ -285,9 +281,9 @@ Description: Cyrus mail system - common files
 Package: libcyrus-imap-perl24
 Architecture: any
 Depends: ${perl:Depends}, ${shlibs:Depends}, ${misc:Depends}
-Provides: libcyrus-imap-perl, libcyrus-imap-perl22, libcyrus-imap-perl23
-Conflicts: libcyrus-imap-perl (<< ${source:Version}), libcyrus-imap-perl22 (<< 2.4), libcyrus-imap-perl23 (<< 2.4)
-Replaces: libcyrus-imap-perl (<< ${source:Version}), libcyrus-imap-perl22 (<< 2.4), libcyrus-imap-perl23 (<< 2.4)
+Provides: libcyrus-imap-perl
+Conflicts: libcyrus-imap-perl (<< ${source:Version})
+Replaces: libcyrus-imap-perl (<< ${source:Version})
 Section: perl
 Description: Interface to Cyrus imap client imclient library
  The Cyrus::IMAP module provides an interface to the Cyrus imclient
