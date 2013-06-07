@@ -4,7 +4,6 @@ usr/share/snmp
 usr/lib/cyrus/get-backtrace.gdb
 etc/logcheck
 usr/lib/cyrus/bin/upgrade-db
-usr/sbin/cyrus-makedirs
 usr/lib/cyrus/bin/makedirs
 usr/sbin/cyrus
 usr/share/man/man8/cyrus-makedirs.8
