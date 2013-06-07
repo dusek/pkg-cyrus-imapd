@@ -51,7 +51,10 @@ ifneq (,$(findstring strict,$(DEB_BUILD_OPTIONS)))
 endif
 
 %:
-	dh --with quilt $@
+	dh $@ --with quilt,autoreconf --parallel
+
+override_dh_autoreconf:
+	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
 
 override_dh_auto_clean:
 	dh_auto_clean
@@ -65,7 +68,6 @@ override_dh_auto_clean:
 
 override_dh_auto_configure:
 	# Rebuild the build system
-	autoreconf -I cmulocal -f -i
 	automake -f -a 2>/dev/null || true
 	dh_auto_configure CFLAGS="$(CFLAGS)" \
 	 LDFLAGS="$(LDFLAGS)" -- \

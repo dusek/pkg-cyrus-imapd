@@ -8,12 +8,10 @@ Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
 	   Ondřej Surý <ondrej@debian.org>,
 	   Anthony Prades <toony.debian@chezouam.net>
 Standards-Version: 3.9.2
-Build-Depends: autoconf,
-	       automake,
-	       autotools-dev,
+Build-Depends: dh-autoreconf,
 	       bison,
 	       comerr-dev,
-	       debhelper (>= 7.0.50~),
+	       debhelper (>= 9),
 	       flex,
 	       ghostscript,
 	       groff,
@@ -153,7 +151,7 @@ Description: Cyrus mail system - POP3 support
 Package: cyrus-admin-2.4
 Architecture: all
 Section: mail
-Depends: libcyrus-imap-perl24 (>= ${binary:Version}), ${misc:Depends}
+Depends: libcyrus-imap-perl24 (>= ${binary:Version}), ${misc:Depends}, ${perl:Depends}
 Suggests: sasl2-bin
 Provides: cyrus-admin
 Conflicts: cyrus-admin (<< ${source:Version})
