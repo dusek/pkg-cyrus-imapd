@@ -51,3 +51,6 @@ usr/share/man/man8/cyrus-cyr_df.8
 usr/share/man/man8/cyrus-cyr_expire.8
 usr/share/man/man8/cyrus-dump.8
 usr/lib/cyrus/cyrus-*.txt
+usr/share/man/man5/krb.equiv.5
+usr/lib/cyrus/bin/master
+usr/lib/cyrus/bin/deliver
