@@ -49,7 +49,7 @@ ifneq (,$(findstring strict,$(DEB_BUILD_OPTIONS)))
 endif
 
 %:
-	dh $@ --with quilt,autoreconf --parallel
+	dh $@ --with autoreconf --parallel
 
 override_dh_autoreconf:
 	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal

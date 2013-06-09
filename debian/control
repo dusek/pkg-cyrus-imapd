@@ -32,7 +32,6 @@ Build-Depends: dh-autoreconf,
 	       perl,
 	       pkg-config,
 	       po-debconf,
-	       quilt (>> 0.46-7~),
 	       transfig,
 	       xutils-dev
 Vcs-Git: git://git.debian.org/pkg-cyrus-imapd/cyrus-imapd-2.4.git
