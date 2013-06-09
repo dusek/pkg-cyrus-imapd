@@ -3,15 +3,20 @@ cyrus-imapd-2.4 (2.4.17+caldav~beta5-1) experimental; urgency=low
   * Imported Upstream version 2.4.17+caldav~beta5
     + Cyrus IMAPd now also support CalDAV, CardDAV and RSS.
   * debian/patches: Update patches for 2.4.17 release
-  * debian/rules: Build with generic libdb
-  * debian/control: Add libxml2-dev and libopendkim-dev to Build-Depends
-  * debian/rules: Enable CalDAV, CardDAV and RSS support in Cyrus IMAPd
-  * Disable ptclient/, it needs kerberos now
-  * Remove Cyrus IMAPd 2.2 transitional packages
-  * Add httpd to cyrus.conf running on 8008 and 8443 ports
-  * Enable CardDAV and CalDAV httpd modules by default
+  * debian/rules:
+    + Build with generic libdb
+    + Enable CalDAV, CardDAV and RSS support in Cyrus IMAPd
+    + Disable ptclient/, it needs kerberos now
+  * debian/control:
+    + Add libxml2-dev and libopendkim-dev to Build-Depends
+    + Remove useless quilt dependency
+    + Remove Cyrus IMAPd 2.2 transitional packages
+  * debian/cyrus.conf:
+    + Add httpd to cyrus.conf running on 8008 and 8443 ports
+  * debian/imapd.conf:
+    + Enable CardDAV and CalDAV httpd modules by default
 
- -- Ondřej Surý <ondrej@debian.org>  Fri, 07 Jun 2013 14:02:07 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 09 Jun 2013 12:09:20 +0200
 
 cyrus-imapd-2.4 (2.4.16-5) unstable; urgency=high
 
