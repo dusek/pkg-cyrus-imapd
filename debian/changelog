@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta5-2) experimental; urgency=low
+
+  * Remove the last usage of cyrus-makedirs from postinst
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 11 Jun 2013 13:49:27 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta5-1) experimental; urgency=low
 
   * Imported Upstream version 2.4.17+caldav~beta5
