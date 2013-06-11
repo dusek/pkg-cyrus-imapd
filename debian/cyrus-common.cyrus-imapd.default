@@ -15,7 +15,7 @@
 # this number if you have a very high connection rate
 #LISTENQUEUE=32
 
-# Wether cyrus-makedirs should optimize filesystems
+# Whether cyrus-makedirs should optimize filesystems
 # or not.  Switch it off if you are going to do your
 # own optimizations.  Set to 1 to enable, 0 to disable
 #CYRUSOPTFILESYS=1
