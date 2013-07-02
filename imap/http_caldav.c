@@ -119,8 +119,7 @@ static int caldav_parse_path(const char *path,
 			     struct request_target_t *tgt, const char **errstr);
 
 static int caldav_check_precond(struct transaction_t *txn, const void *data,
-				const char *etag, time_t lastmod,
-				unsigned long len);
+				const char *etag, time_t lastmod);
 
 static int caldav_acl(struct transaction_t *txn, xmlNodePtr priv, int *rights);
 static int caldav_copy(struct transaction_t *txn,
@@ -130,6 +129,7 @@ static int caldav_copy(struct transaction_t *txn,
 static int caldav_delete_sched(struct transaction_t *txn,
 			       struct mailbox *mailbox,
 			       struct index_record *record, void *data);
+static int meth_get(struct transaction_t *txn, void *params);
 static int caldav_post(struct transaction_t *txn);
 static int caldav_put(struct transaction_t *txn, struct mailbox *mailbox,
 		      unsigned flags);
@@ -189,8 +189,8 @@ struct namespace_t namespace_calendar = {
 	{ &meth_acl,		&caldav_params },	/* ACL		*/
 	{ &meth_copy,		&caldav_params },	/* COPY		*/
 	{ &meth_delete,		&caldav_params },	/* DELETE	*/
-	{ &meth_get_dav,	&caldav_params },	/* GET		*/
-	{ &meth_get_dav,	&caldav_params },	/* HEAD		*/
+	{ &meth_get,		&caldav_params },	/* GET		*/
+	{ &meth_get,		&caldav_params },	/* HEAD		*/
 	{ &meth_lock,		&caldav_params },	/* LOCK		*/
 	{ &meth_mkcol,		&caldav_params },	/* MKCALENDAR	*/
 	{ &meth_mkcol,		&caldav_params },	/* MKCOL	*/
@@ -238,6 +238,7 @@ static void my_caldav_auth(const char *userid)
     int r;
     struct mboxlist_entry mbentry;
     char mailboxname[MAX_MAILBOX_BUFFER], rights[100], *partition = NULL;
+    char ident[MAX_MAILBOX_NAME];
     struct buf acl = BUF_INITIALIZER;
 
     if (config_mupdate_server && !config_getstring(IMAPOPT_PROXYSERVERS)) {
@@ -252,6 +253,9 @@ static void my_caldav_auth(const char *userid)
 
     /* Auto-provision calendars for 'userid' */
 
+    strlcpy(ident, userid, sizeof(ident));
+    mboxname_hiersep_toexternal(&httpd_namespace, ident, 0);
+
     /* calendar-home-set */
     caldav_mboxname(NULL, userid, mailboxname);
     r = mboxlist_lookup(mailboxname, &mbentry, NULL);
@@ -262,7 +266,7 @@ static void my_caldav_auth(const char *userid)
 	if (!r) {
 	    buf_reset(&acl);
 	    cyrus_acl_masktostr(ACL_ALL | DACL_READFB, rights);
-	    buf_printf(&acl, "%s\t%s\t", userid, rights);
+	    buf_printf(&acl, "%s\t%s\t", ident, rights);
 	    cyrus_acl_masktostr(DACL_READFB, rights);
 	    buf_printf(&acl, "%s\t%s\t", "anyone", rights);
 	    r = mboxlist_createmailbox_full(mailboxname, MBTYPE_CALENDAR,
@@ -286,7 +290,7 @@ static void my_caldav_auth(const char *userid)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	buf_reset(&acl);
 	cyrus_acl_masktostr(ACL_ALL | DACL_READFB, rights);
-	buf_printf(&acl, "%s\t%s\t", userid, rights);
+	buf_printf(&acl, "%s\t%s\t", ident, rights);
 	cyrus_acl_masktostr(DACL_READFB, rights);
 	buf_printf(&acl, "%s\t%s\t", "anyone", rights);
 	r = mboxlist_createmailbox_full(mailboxname, MBTYPE_CALENDAR,
@@ -303,7 +307,7 @@ static void my_caldav_auth(const char *userid)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	buf_reset(&acl);
 	cyrus_acl_masktostr(ACL_ALL | DACL_SCHED, rights);
-	buf_printf(&acl, "%s\t%s\t", userid, rights);
+	buf_printf(&acl, "%s\t%s\t", ident, rights);
 	cyrus_acl_masktostr(DACL_SCHED, rights);
 	buf_printf(&acl, "%s\t%s\t", "anyone", rights);
 	r = mboxlist_createmailbox_full(mailboxname, MBTYPE_CALENDAR,
@@ -320,7 +324,7 @@ static void my_caldav_auth(const char *userid)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	buf_reset(&acl);
 	cyrus_acl_masktostr(ACL_ALL | DACL_SCHED, rights);
-	buf_printf(&acl, "%s\t%s\t", userid, rights);
+	buf_printf(&acl, "%s\t%s\t", ident, rights);
 	r = mboxlist_createmailbox_full(mailboxname, MBTYPE_CALENDAR,
 					mbentry.partition, 0,
 					userid, httpd_authstate,
@@ -455,6 +459,7 @@ static int caldav_parse_path(const char *path,
 
 	if (tgt->userlen) {
 	    len = snprintf(p, siz, ".%.*s", (int) tgt->userlen, tgt->user);
+	    mboxname_hiersep_tointernal(&httpd_namespace, p+1, tgt->userlen);
 	    p += len;
 	    siz -= len;
 	}
@@ -474,8 +479,7 @@ static int caldav_parse_path(const char *path,
 
 /* Check headers for any preconditions */
 static int caldav_check_precond(struct transaction_t *txn, const void *data,
-				const char *etag, time_t lastmod,
-				unsigned long len)
+				const char *etag, time_t lastmod)
 {
     const struct caldav_data *cdata = (const struct caldav_data *) data;
     const char *stag = cdata ? cdata->sched_tag : NULL;
@@ -483,7 +487,7 @@ static int caldav_check_precond(struct transaction_t *txn, const void *data,
     int precond;
 
     /* Do normal WebDAV/HTTP checks (primarily for lock-token via If header) */
-    precond = check_precond(txn, data, etag, lastmod, len);
+    precond = check_precond(txn, data, etag, lastmod);
     if (!(precond == HTTP_OK || precond == HTTP_PARTIAL)) return precond;
 
     /* Per RFC 6638, check Schedule-Tag */
@@ -708,17 +712,199 @@ static int caldav_delete_sched(struct transaction_t *txn,
 }
 
 
+/* Perform a GET/HEAD request on a CalDAV resource */
+static int meth_get(struct transaction_t *txn, void *params)
+{
+    struct meth_params *gparams = (struct meth_params *) params;
+    int ret = 0, r, precond, rights;
+    struct resp_body_t *resp_body = &txn->resp_body;
+    struct buf *buf = &resp_body->payload;
+    char *server, *acl;
+    struct mailbox *mailbox = NULL;
+    static char etag[33];
+    uint32_t recno;
+    struct index_record record;
+    struct hash_table tzid_table;
+
+    /* Parse the path */
+    if ((r = gparams->parse_path(txn->req_uri->path,
+				 &txn->req_tgt, &txn->error.desc))) return r;
+
+    /* GET an individual resource */
+    if (txn->req_tgt.resource) return meth_get_dav(txn, params);
+
+    /* We don't handle GET on a home-set */
+    if (!txn->req_tgt.collection) return HTTP_NO_CONTENT;
+
+    /* Locate the mailbox */
+    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+	syslog(LOG_ERR, "mlookup(%s) failed: %s",
+	       txn->req_tgt.mboxname, error_message(r));
+	txn->error.desc = error_message(r);
+
+	switch (r) {
+	case IMAP_PERMISSION_DENIED: return HTTP_FORBIDDEN;
+	case IMAP_MAILBOX_NONEXISTENT: return HTTP_NOT_FOUND;
+	default: return HTTP_SERVER_ERROR;
+	}
+    }
+
+    /* Check ACL for current user */
+    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    if ((rights & DACL_READ) != DACL_READ) {
+	/* DAV:need-privileges */
+	txn->error.precond = DAV_NEED_PRIVS;
+	txn->error.resource = txn->req_tgt.path;
+	txn->error.rights = DACL_READ;
+	return HTTP_FORBIDDEN;
+    }
+
+    if (server) {
+	/* Remote mailbox */
+	struct backend *be;
+
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
+			      &backend_cached, NULL, NULL, httpd_in);
+	if (!be) return HTTP_UNAVAILABLE;
+
+	return http_pipe_req_resp(be, txn);
+    }
+
+    /* Local Mailbox */
+
+    if (!*gparams->davdb.db) {
+	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
+	       "Check 'configdirectory' permissions or "
+	       "'proxyservers' option on backend server.", proxy_userid);
+	txn->error.desc = "DAV database is not opened";
+	return HTTP_SERVER_ERROR;
+    }
+
+    /* Open mailbox for reading */
+    if ((r = http_mailbox_open(txn->req_tgt.mboxname, &mailbox, LOCK_SHARED))) {
+	syslog(LOG_ERR, "http_mailbox_open(%s) failed: %s",
+	       txn->req_tgt.mboxname, error_message(r));
+	txn->error.desc = error_message(r);
+	ret = HTTP_SERVER_ERROR;
+	goto done;
+    }
+
+    /* Check any preconditions */
+    sprintf(etag, "%u-%u-%u",
+	    mailbox->i.uidvalidity, mailbox->i.last_uid, mailbox->i.exists);
+    precond = gparams->check_precond(txn, NULL, etag, 0);
+
+    switch (precond) {
+    case HTTP_OK:
+    case HTTP_NOT_MODIFIED:
+	/* Fill in ETag, Expires, and Cache-Control */
+	txn->resp_body.etag = etag;
+	txn->resp_body.maxage = 3600;  /* 1 hr */
+	txn->flags.cc |= CC_MAXAGE | CC_REVALIDATE;  /* don't use stale data */
+
+	if (precond != HTTP_NOT_MODIFIED) break;
+
+    default:
+	/* We failed a precondition - don't perform the request */
+	ret = precond;
+	goto done;
+    }
+
+    /* Setup for chunked response */
+    txn->flags.te |= TE_CHUNKED;
+    txn->resp_body.type = gparams->content_type;
+
+    /* Short-circuit for HEAD request */
+    if (txn->meth == METH_HEAD) {
+	response_header(HTTP_OK, txn);
+	return 0;
+    }
+
+    /* iCalendar data in response should not be transformed */
+    txn->flags.cc |= CC_NOTRANSFORM;
+
+    /* Create hash table for TZIDs */
+    construct_hash_table(&tzid_table, 10, 1);
+
+    /* Begin iCalendar */
+    buf_setcstr(buf, "BEGIN:VCALENDAR\r\n");
+    buf_printf(buf, "PRODID:-//CyrusIMAP.org/Cyrus %s//EN\r\n",
+	       cyrus_version());
+    buf_appendcstr(buf, "VERSION:2.0\r\n");
+    write_body(HTTP_OK, txn, buf_cstring(buf), buf_len(buf));
+
+    for (recno = 1; recno <= mailbox->i.num_records; recno++) {
+	const char *msg_base = NULL;
+	unsigned long msg_size = 0;
+	icalcomponent *ical;
+
+	if (mailbox_read_index_record(mailbox, recno, &record)) continue;
+
+	if (record.system_flags & (FLAG_EXPUNGED | FLAG_DELETED)) continue;
+
+	/* Map and parse existing iCalendar resource */
+	mailbox_map_message(mailbox, record.uid, &msg_base, &msg_size);
+	ical = icalparser_parse_string(msg_base + record.header_size);
+	mailbox_unmap_message(mailbox, record.uid, &msg_base, &msg_size);
+
+	if (ical) {
+	    icalcomponent *comp;
+	    const char *cal_str = NULL;
+
+	    for (comp = icalcomponent_get_first_component(ical,
+							  ICAL_ANY_COMPONENT);
+		 comp;
+		 comp = icalcomponent_get_next_component(ical,
+							 ICAL_ANY_COMPONENT)) {
+		icalcomponent_kind kind = icalcomponent_isa(comp);
+
+		/* Don't duplicate any TZIDs in our iCalendar */
+		if (kind == ICAL_VTIMEZONE_COMPONENT) {
+		    icalproperty *prop =
+			icalcomponent_get_first_property(comp,
+							 ICAL_TZID_PROPERTY);
+		    const char *tzid = icalproperty_get_tzid(prop);
+
+		    if (hash_lookup(tzid, &tzid_table)) continue;
+		    else hash_insert(tzid, (void *)0xDEADBEEF, &tzid_table);
+		}
+
+		/* Include this component in our iCalendar */
+		cal_str = icalcomponent_as_ical_string(comp);
+		write_body(0, txn, cal_str, strlen(cal_str));
+	    }
+
+	    icalcomponent_free(ical);
+	}
+    }
+
+    free_hash_table(&tzid_table, NULL);
+
+    /* End iCalendar */
+    buf_setcstr(buf, "END:VCALENDAR\r\n");
+    write_body(0, txn, buf_cstring(buf), buf_len(buf));
+
+    /* End of output */
+    write_body(0, txn, NULL, 0);
+
+  done:
+    if (mailbox) mailbox_unlock_index(mailbox, NULL);
+
+    return ret;
+}
+
+
 /* Perform a busy time request, if necessary */
 static int caldav_post(struct transaction_t *txn)
 {
     int ret = 0, r, rights;
-    char *acl;
+    char *acl, orgid[MAX_MAILBOX_NAME+1] = "";
     const char **hdr;
     icalcomponent *ical = NULL, *comp;
     icalcomponent_kind kind = 0;
     icalproperty_method meth = 0;
     icalproperty *prop = NULL;
-    const char *uid = NULL, *organizer = NULL, *orgid = NULL;
+    const char *uid = NULL, *organizer = NULL;
     struct sched_param sparam;
 
     if (!(namespace_calendar.allow & ALLOW_CAL_SCHED) || !txn->req_tgt.flags) {
@@ -796,11 +982,13 @@ static int caldav_post(struct transaction_t *txn)
     organizer = icalproperty_get_organizer(prop);
     if (organizer) {
 	if (!caladdress_lookup(organizer, &sparam) &&
-	    !(sparam.flags & SCHEDTYPE_REMOTE))
-	    orgid = sparam.userid;
+	    !(sparam.flags & SCHEDTYPE_REMOTE)) {
+	    strlcpy(orgid, sparam.userid, sizeof(orgid));
+	    mboxname_hiersep_toexternal(&httpd_namespace, orgid, 0);
+	}
     }
 
-    if (!orgid || strncmp(orgid, txn->req_tgt.user, txn->req_tgt.userlen)) {
+    if (strncmp(orgid, txn->req_tgt.user, txn->req_tgt.userlen)) {
 	txn->error.precond = CALDAV_VALID_ORGANIZER;
 	ret = HTTP_FORBIDDEN;
 	goto done;
@@ -939,12 +1127,16 @@ static int caldav_put(struct transaction_t *txn, struct mailbox *mailbox,
 	    (strcmp(cdata->dav.mailbox, txn->req_tgt.mboxname) ||
 	     strcmp(cdata->dav.resource, txn->req_tgt.resource))) {
 	    /* CALDAV:unique-scheduling-object-resource */
+	    char ext_userid[MAX_MAILBOX_NAME+1];
+
+	    strlcpy(ext_userid, userid, sizeof(ext_userid));
+	    mboxname_hiersep_toexternal(&httpd_namespace, ext_userid, 0);
 
 	    txn->error.precond = CALDAV_UNIQUE_OBJECT;
 	    assert(!buf_len(&txn->buf));
 	    buf_printf(&txn->buf, "%s/user/%s/%s/%s",
 		       namespace_calendar.prefix,
-		       userid, strrchr(cdata->dav.mailbox, '.')+1,
+		       ext_userid, strrchr(cdata->dav.mailbox, '.')+1,
 		       cdata->dav.resource);
 	    txn->error.resource = buf_cstring(&txn->buf);
 	    ret = HTTP_FORBIDDEN;
@@ -1176,6 +1368,15 @@ static int apply_calfilter(struct propfind_ctx *fctx, void *data)
 }
 
 
+static int is_valid_timerange(const struct icaltimetype start,
+			      const struct icaltimetype end)
+{
+    return (icaltime_is_valid_time(start) && icaltime_is_valid_time(end) &&
+	    !icaltime_is_date(start) && !icaltime_is_date(end) &&
+	    start.zone && end.zone);
+}
+
+
 static int parse_comp_filter(xmlNodePtr root, struct calquery_filter *filter,
 			     struct error_t *error)
 {
@@ -1188,21 +1389,43 @@ static int parse_comp_filter(xmlNodePtr root, struct calquery_filter *filter,
 	    if (!xmlStrcmp(node->name, BAD_CAST "comp-filter")) {
 		xmlChar *name = xmlGetProp(node, BAD_CAST "name");
 
-		if (filter->comp) {
-		    error->precond = CALDAV_VALID_FILTER;
-		    return HTTP_FORBIDDEN;
+		if (!filter->comp) {
+		    if (!xmlStrcmp(name, BAD_CAST "VCALENDAR"))
+			filter->comp = CAL_COMP_VCALENDAR;
+		    else {
+			error->precond = CALDAV_VALID_FILTER;
+			return HTTP_FORBIDDEN;
+		    }
 		}
-
-		if (!xmlStrcmp(name, BAD_CAST "VCALENDAR"))
-		    filter->comp = CAL_COMP_VCALENDAR;
-		else if (!xmlStrcmp(name, BAD_CAST "VEVENT"))
-		    filter->comp = CAL_COMP_VEVENT;
-		else if (!xmlStrcmp(name, BAD_CAST "VTODO"))
-		    filter->comp = CAL_COMP_VTODO;
-		else if (!xmlStrcmp(name, BAD_CAST "VJOURNAL"))
-		    filter->comp = CAL_COMP_VJOURNAL;
-		else if (!xmlStrcmp(name, BAD_CAST "VFREEBUSY"))
-		    filter->comp = CAL_COMP_VFREEBUSY;
+		else if (filter->comp == CAL_COMP_VCALENDAR) {
+		    if (!xmlStrcmp(name, BAD_CAST "VCALENDAR") ||
+			!xmlStrcmp(name, BAD_CAST "VALARM")) {
+			error->precond = CALDAV_VALID_FILTER;
+			return HTTP_FORBIDDEN;
+		    }
+		    else if (!xmlStrcmp(name, BAD_CAST "VEVENT"))
+			filter->comp |= CAL_COMP_VEVENT;
+		    else if (!xmlStrcmp(name, BAD_CAST "VTODO"))
+			filter->comp |= CAL_COMP_VTODO;
+		    else if (!xmlStrcmp(name, BAD_CAST "VJOURNAL"))
+			filter->comp |= CAL_COMP_VJOURNAL;
+		    else if (!xmlStrcmp(name, BAD_CAST "VFREEBUSY"))
+			filter->comp |= CAL_COMP_VFREEBUSY;
+		    else if (!xmlStrcmp(name, BAD_CAST "VTIMEZONE"))
+			filter->comp |= CAL_COMP_VTIMEZONE;
+		    else {
+			error->precond = CALDAV_SUPP_FILTER;
+			return HTTP_FORBIDDEN;
+		    }
+		}
+		else if (filter->comp & (CAL_COMP_VEVENT | CAL_COMP_VTODO)) {
+		    if (!xmlStrcmp(name, BAD_CAST "VALARM"))
+			filter->comp |= CAL_COMP_VALARM;
+		    else {
+			error->precond = CALDAV_VALID_FILTER;
+			return HTTP_FORBIDDEN;
+		    }
+		}
 		else {
 		    error->precond = CALDAV_SUPP_FILTER;
 		    return HTTP_FORBIDDEN;
@@ -1214,6 +1437,11 @@ static int parse_comp_filter(xmlNodePtr root, struct calquery_filter *filter,
 	    else if (!xmlStrcmp(node->name, BAD_CAST "time-range")) {
 		const char *start, *end;
 
+		if (!(filter->comp & (CAL_COMP_VEVENT | CAL_COMP_VTODO))) {
+		    error->precond = CALDAV_VALID_FILTER;
+		    return HTTP_FORBIDDEN;
+		}
+
 		start = (const char *) xmlGetProp(node, BAD_CAST "start");
 		filter->start = start ? icaltime_from_string(start) :
 		    icaltime_from_timet_with_zone(INT_MIN, 0, NULL);
@@ -1221,6 +1449,11 @@ static int parse_comp_filter(xmlNodePtr root, struct calquery_filter *filter,
 		end = (const char *) xmlGetProp(node, BAD_CAST "end");
 		filter->end = end ? icaltime_from_string(end) :
 		    icaltime_from_timet_with_zone(INT_MAX, 0, NULL);
+
+		if (!is_valid_timerange(filter->start, filter->end)) {
+		    error->precond = CALDAV_VALID_FILTER;
+		    return HTTP_FORBIDDEN;
+		}
 	    }
 	    else {
 		error->precond = CALDAV_SUPP_FILTER;
@@ -1251,13 +1484,27 @@ static int report_cal_query(struct transaction_t *txn,
 	    if (!xmlStrcmp(node->name, BAD_CAST "filter")) {
 		memset(&calfilter, 0, sizeof(struct calquery_filter));
 		ret = parse_comp_filter(node->children, &calfilter, &txn->error);
-		if (!ret) {
+		if (ret) return ret;
+		else {
 		    fctx->filter = apply_calfilter;
 		    fctx->filter_crit = &calfilter;
 		}
 	    }
 	    else if (!xmlStrcmp(node->name, BAD_CAST "timezone")) {
+		xmlChar *tz = NULL;
+		icalcomponent *ical = NULL;
+
 		syslog(LOG_WARNING, "REPORT calendar-query w/timezone");
+		tz = xmlNodeGetContent(node);
+		ical = icalparser_parse_string((const char *) tz);
+		if (!ical ||
+		    (icalcomponent_isa(ical) != ICAL_VCALENDAR_COMPONENT) ||
+		    !icalcomponent_get_first_component(ical,
+						       ICAL_VTIMEZONE_COMPONENT)
+		    || icalcomponent_get_first_real_component(ical)) {
+		    txn->error.precond = CALDAV_VALID_DATA;
+		    return HTTP_FORBIDDEN;
+		}
 	    }
 	}
     }
@@ -1308,7 +1555,7 @@ static int report_cal_multiget(struct transaction_t *txn,
 	    xmlFree(href);
 
 	    /* Parse the path */
-	    if ((r = caldav_parse_path(uri.s, &tgt, fctx->errstr))) {
+	    if ((r = caldav_parse_path(uri.s, &tgt, &fctx->err->desc))) {
 		ret = r;
 		goto done;
 	    }
@@ -1549,6 +1796,10 @@ static int report_fb_query(struct transaction_t *txn,
 
 		end = (const char *) xmlGetProp(node, BAD_CAST "end");
 		if (end) calfilter.end = icaltime_from_string(end);
+
+		if (!is_valid_timerange(calfilter.start, calfilter.end)) {
+		    return HTTP_BAD_REQUEST;
+		}
 	    }
 	}
     }
@@ -1625,17 +1876,28 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
 	}
     }
 
-    /* Check for existing iCalendar UID */
+    /* Find iCalendar UID for the current resource, if exists */
     uid = icalcomponent_get_uid(comp);
+    caldav_lookup_resource(caldavdb,
+			   mailbox->name, resource, 0, &cdata);
+    if (cdata->ical_uid && strcmp(cdata->ical_uid, uid)) {
+	/* CALDAV:no-uid-conflict */
+	txn->error.precond = CALDAV_UID_CONFLICT;
+	return HTTP_FORBIDDEN;
+    }
+
+    /* Check for existing iCalendar UID */
     caldav_lookup_uid(caldavdb, uid, 0, &cdata);
     if (cdata->dav.mailbox && !strcmp(cdata->dav.mailbox, mailbox->name) &&
 	strcmp(cdata->dav.resource, resource)) {
 	/* CALDAV:no-uid-conflict */
+	char *owner = mboxname_to_userid(cdata->dav.mailbox);
+	mboxname_hiersep_toexternal(&httpd_namespace, owner, 0);
+
 	txn->error.precond = CALDAV_UID_CONFLICT;
 	assert(!buf_len(&txn->buf));
 	buf_printf(&txn->buf, "%s/user/%s/%s/%s",
-		   namespace_calendar.prefix,
-		   mboxname_to_userid(cdata->dav.mailbox),
+		   namespace_calendar.prefix, owner,
 		   strrchr(cdata->dav.mailbox, '.')+1, cdata->dav.resource);
 	txn->error.resource = buf_cstring(&txn->buf);
 	return HTTP_FORBIDDEN;
@@ -1657,7 +1919,7 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
     }
     else {
 	/* XXX  This needs to be done via an LDAP/DB lookup */
-	fprintf(f, "From: %s@%s\r\n", httpd_userid, config_servername);
+	fprintf(f, "From: %s@%s\r\n", proxy_userid, config_servername);
     }
 
     fprintf(f, "Subject: %s\r\n", icalcomponent_get_summary(comp));
@@ -1751,7 +2013,7 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
 			const char *etag = message_guid_encode(&oldrecord.guid);
 			time_t lastmod = oldrecord.internaldate;
 			int precond = caldav_check_precond(txn, cdata,
-							   etag, lastmod, 0);
+							   etag, lastmod);
 
 			overwrite = (precond == HTTP_OK);
 		    }
@@ -1867,6 +2129,7 @@ int caladdress_lookup(const char *addr, struct sched_param *param)
 	    calendarprefix = config_getstring(IMAPOPT_CALENDARPREFIX);
 	}
 
+	mboxname_hiersep_tointernal(&httpd_namespace, userid, 0);
 	snprintf(mailboxname, sizeof(mailboxname),
 		 "user.%s.%s", param->userid, calendarprefix);
 
@@ -2164,13 +2427,14 @@ int sched_busytime_query(struct transaction_t *txn, icalcomponent *ical)
     memset(&fctx, 0, sizeof(struct propfind_ctx));
     fctx.req_tgt = &txn->req_tgt;
     fctx.depth = 2;
-    fctx.userid = httpd_userid;
+    fctx.userid = proxy_userid;
+    fctx.int_userid = httpd_userid;
     fctx.userisadmin = httpd_userisadmin;
     fctx.authstate = org_authstate;
     fctx.reqd_privs = 0;  /* handled by CALDAV:schedule-deliver on Inbox */
     fctx.filter = apply_calfilter;
     fctx.filter_crit = &calfilter;
-    fctx.errstr = &txn->error.desc;
+    fctx.err = &txn->error;
     fctx.ret = &ret;
     fctx.fetcheddata = 0;
 

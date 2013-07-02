@@ -83,10 +83,46 @@
 #include <libxml/uri.h>
 
 
+/* Bitmask of property flags */
+enum {
+    PROP_ALLPROP =	(1<<0),		/* Returned in <allprop> request */
+    PROP_ROOT =		(1<<1),		/* Returnd for root (/) */
+    PROP_PRINCIPAL =	(1<<2),		/* Returned for principal */
+    PROP_COLLECTION = 	(1<<3),		/* Returned for collection */
+    PROP_RESOURCE =	(1<<4),		/* Returned for resource */
+    PROP_CALENDAR = 	(1<<5),		/* Returned for calendar only */
+    PROP_ADDRESSBOOK =	(1<<6)		/* Returned for addressbook only */
+};
+
+static const struct dav_namespace_t {
+    const char *href;
+    const char *prefix;
+} known_namespaces[] = {
+    { XML_NS_DAV, "D" },
+    { XML_NS_CALDAV, "C" },
+    { XML_NS_CARDDAV, "C" },
+    { XML_NS_ISCHED, NULL },
+    { XML_NS_CS, "CS" },
+    { XML_NS_CYRUS, "CY" },
+};
+
+/* PROPFIND modes */
+enum {
+    PROPFIND_NONE = 0,			/* only used with REPORT */
+    PROPFIND_ALL,
+    PROPFIND_NAME,
+    PROPFIND_PROP
+};
+
 static void my_dav_init(struct buf *serverinfo);
 
 static int prin_parse_path(const char *path,
 			   struct request_target_t *tgt, const char **errstr);
+
+static int allprop_cb(const char *mailbox __attribute__((unused)),
+		      const char *entry,
+		      const char *userid, struct annotation_data *attrib,
+		      void *rock);
 
 static struct meth_params princ_params = {
     .parse_path = &prin_parse_path
@@ -162,9 +198,11 @@ enum {
 
 /* Linked-list of properties for fetching */
 struct propfind_entry_list {
-    xmlNodePtr prop;			/* Property */
-    int (*get)(xmlNodePtr node,		/* Callback to fetch property */
-	       struct propfind_ctx *fctx, xmlNodePtr resp,
+    const xmlChar *name;		/* Property name */
+    xmlNsPtr ns;			/* Property namespace */
+    unsigned char flags;		/* Flags for how/where prop apply */
+    int (*get)(const xmlChar *name,	/* Callback to fetch property */
+	       xmlNsPtr ns, struct propfind_ctx *fctx, xmlNodePtr resp,
 	       struct propstat propstat[], void *rock);
     void *rock;				/* Add'l data to pass to callback */
     struct propfind_entry_list *next;
@@ -179,7 +217,7 @@ struct proppatch_ctx {
     xmlNodePtr root;			/* root node to add to XML tree */
     xmlNsPtr *ns;			/* Array of our supported namespaces */
     struct txn *tid;			/* Transaction ID for annot writes */
-    const char **errstr;		/* Error string to pass up to caller */
+    struct error_t *err;		/* Error info to pass up to caller */
     int *ret;  				/* Return code to pass up to caller */
     struct buf buf;			/* Working buffer */
 };
@@ -193,8 +231,8 @@ static const struct cal_comp_t {
     { "VTODO",     CAL_COMP_VTODO },
     { "VJOURNAL",  CAL_COMP_VJOURNAL },
     { "VFREEBUSY", CAL_COMP_VFREEBUSY },
-    { "VTIMEZONE", CAL_COMP_VTIMEZONE },
-    { "VALARM",	   CAL_COMP_VALARM },
+//    { "VTIMEZONE", CAL_COMP_VTIMEZONE },
+//    { "VALARM",	   CAL_COMP_VALARM },
     { NULL, 0 }
 };
 
@@ -418,10 +456,6 @@ static int xml_add_ns(xmlNodePtr req, xmlNsPtr *respNs, xmlNodePtr root)
 		    ensure_ns(respNs, NS_CYRUS, root,
 			      (const char *) nsDef->href,
 			      (const char *) nsDef->prefix);
-		else if (!xmlStrcmp(nsDef->href, BAD_CAST XML_NS_ICAL))
-		    ensure_ns(respNs, NS_ICAL, root,
-			      (const char *) nsDef->href,
-			      (const char *) nsDef->prefix);
 		else
 		    xmlNewNs(root, nsDef->href, nsDef->prefix);
 	    }
@@ -455,17 +489,8 @@ xmlNodePtr init_xml_response(const char *resp, int ns,
     xml_add_ns(req, respNs, root);
 
     /* Set namespace of root node */
-    switch (ns) {
-    case NS_ISCHED:
-	ensure_ns(respNs, NS_ISCHED, root, XML_NS_ISCHED, NULL);
-	break;
-
-    case NS_CALDAV:
-	ensure_ns(respNs, NS_CALDAV, root, XML_NS_CALDAV, "C");
-
-    default:
-	ensure_ns(respNs, NS_DAV, root, XML_NS_DAV, "D");
-    }
+    ensure_ns(respNs, ns, root,
+	      known_namespaces[ns].href, known_namespaces[ns].prefix);
     xmlSetNs(root, respNs[ns]);
 
     return root;
@@ -501,15 +526,8 @@ xmlNodePtr xml_add_error(xmlNodePtr root, struct error_t *err,
     }
     else error = xmlNewChild(root, NULL, BAD_CAST "error", NULL);
 
-    switch (precond->ns) {
-    case NS_CALDAV:
-	ensure_ns(avail_ns, NS_CALDAV, root, XML_NS_CALDAV, "C");
-	break;
-
-    case NS_CARDDAV:
-	ensure_ns(avail_ns, NS_CARDDAV, root, XML_NS_CARDDAV, "C");
-	break;
-    }
+    ensure_ns(avail_ns, precond->ns, root, known_namespaces[precond->ns].href,
+	      known_namespaces[precond->ns].prefix);
     node = xmlNewChild(error, avail_ns[precond->ns],
 		       BAD_CAST precond->name, NULL);
 
@@ -592,7 +610,8 @@ void xml_add_lockdisc(xmlNodePtr node, const char *root, struct dav_data *data)
  */
 static xmlNodePtr xml_add_prop(long status, xmlNsPtr davns,
 			       struct propstat *propstat,
-			       xmlNodePtr prop, xmlChar *content,
+			       const xmlChar *name, xmlNsPtr ns,
+			       xmlChar *content,
 			       unsigned precond)
 {
     xmlNodePtr newprop = NULL;
@@ -602,14 +621,19 @@ static xmlNodePtr xml_add_prop(long status, xmlNsPtr davns,
 	xmlNewChild(propstat->root, NULL, BAD_CAST "prop", NULL);
     }
 
-    if (prop) newprop = xmlNewTextChild(propstat->root->children,
-					prop->ns, prop->name, content);
+    if (name) newprop = xmlNewTextChild(propstat->root->children,
+					ns, name, content);
     propstat->status = status;
     propstat->precond = precond;
 
     return newprop;
 }
 
+
+struct allprop_rock {
+    struct propfind_ctx *fctx;
+    struct propstat *propstat;
+};
 
 /* Add a response tree to 'root' for the specified href and 
    either error code or property list */
@@ -619,7 +643,7 @@ static int xml_add_response(struct propfind_ctx *fctx, long code)
 
     resp = xmlNewChild(fctx->root, NULL, BAD_CAST "response", NULL);
     if (!resp) {
-	*fctx->errstr = "Unable to add response XML element";
+	fctx->err->desc = "Unable to add response XML element";
 	*fctx->ret = HTTP_SERVER_ERROR;
 	return HTTP_SERVER_ERROR;
     }
@@ -638,20 +662,76 @@ static int xml_add_response(struct propfind_ctx *fctx, long code)
 
 	/* Process each property in the linked list */
 	for (e = fctx->elist; e; e = e->next) {
+	    int r = HTTP_NOT_FOUND;
+
 	    if (e->get) {
-		e->get(e->prop, fctx, resp, propstat, e->rock);
+		r = 0;
+
+		/* Pre-screen request based on prop flags */
+		switch (fctx->req_tgt->namespace) {
+		case URL_NS_CALENDAR:
+		case URL_NS_ADDRESSBOOK:
+		    if (fctx->req_tgt->resource) {
+			if (!(e->flags & PROP_RESOURCE)) r = HTTP_NOT_FOUND;
+		    }
+		    else if (!(e->flags & PROP_COLLECTION)) r = HTTP_NOT_FOUND;
+		    break;
+		}
+
+		if (!r) {
+		    if (fctx->mode == PROPFIND_NAME) {
+			xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				     &propstat[PROPSTAT_OK],
+				     e->name, e->ns, NULL, 0);
+		    }
+		    else {
+			r = e->get(e->name, e->ns,
+				   fctx, resp, propstat, e->rock);
+		    }
+		}
 	    }
-	    else if (!(fctx->prefer & PREFER_MIN)) {
-		xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-			     &propstat[PROPSTAT_NOTFOUND], e->prop, NULL, 0);
+
+	    switch (r) {
+	    case 0:
+	    case HTTP_OK:
+		/* Nothing to do - property handled in callback */
+		break;
+
+	    case HTTP_UNAUTHORIZED:
+		xml_add_prop(HTTP_UNAUTHORIZED, fctx->ns[NS_DAV],
+			     &propstat[PROPSTAT_UNAUTH],
+			     e->name, e->ns, NULL, 0);
+		break;
+
+	    case HTTP_FORBIDDEN:
+		xml_add_prop(HTTP_FORBIDDEN, fctx->ns[NS_DAV],
+			     &propstat[PROPSTAT_FORBID],
+			     e->name, e->ns, NULL, 0);
+		break;
+
+	    case HTTP_NOT_FOUND:
+		if (!(fctx->prefer & PREFER_MIN)) {
+		    xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
+				 &propstat[PROPSTAT_NOTFOUND],
+				 e->name, e->ns, NULL, 0);
+		}
+		break;
+
+	    default:
+		xml_add_prop(r, fctx->ns[NS_DAV], &propstat[PROPSTAT_ERROR],
+			     e->name, e->ns, NULL, 0);
+		break;
+
 	    }
 	}
 
-	/* Remove propstat 404 element if using return-minimal */
-	stat = &propstat[PROPSTAT_NOTFOUND];
-	if (stat->root && (fctx->prefer & PREFER_MIN)) {
-	    xmlFreeNode(stat->root);
-	    stat->root = NULL;
+	/* Process dead properties for allprop/propname */
+	if (fctx->mailbox && !fctx->req_tgt->resource &&
+	    (fctx->mode == PROPFIND_ALL || fctx->mode == PROPFIND_NAME)) {
+	    struct allprop_rock arock = { fctx, propstat };
+
+	    annotatemore_findall(fctx->mailbox->name, ANNOT_NS "*",
+				 allprop_cb, &arock, NULL);
 	}
 
 	/* Check if we have any propstat elements */
@@ -659,7 +739,7 @@ static int xml_add_response(struct propfind_ctx *fctx, long code)
 	if (i == NUM_PROPSTAT) {
 	    /* Add an empty propstat 200 */
 	    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
-			 &propstat[PROPSTAT_OK], NULL, NULL, 0);
+			 &propstat[PROPSTAT_OK], NULL, NULL, NULL, 0);
 	}
 
 	/* Add status and optional error to the propstat elements
@@ -687,13 +767,14 @@ static int xml_add_response(struct propfind_ctx *fctx, long code)
 
 
 /* Callback to fetch DAV:creationdate */
-static int propfind_creationdate(xmlNodePtr prop,
+static int propfind_creationdate(const xmlChar *name, xmlNsPtr ns,
 				 struct propfind_ctx *fctx,
 				 xmlNodePtr resp __attribute__((unused)),
 				 struct propstat propstat[],
 				 void *rock __attribute__((unused)))
 {
     time_t t = 0;
+    struct tm *tm;
 
     if (fctx->data) {
 	struct dav_data *ddata = (struct dav_data *) fctx->data;
@@ -708,29 +789,53 @@ static int propfind_creationdate(xmlNodePtr prop,
 	t = sbuf.st_ctime;
     }
 
-    if (t) {
-	struct tm *tm = gmtime(&t);
+    if (!t) return HTTP_NOT_FOUND;
 
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "%4d-%02d-%02dT%02d:%02d:%02dZ",
-		   tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		   tm->tm_hour, tm->tm_min, tm->tm_sec);
+    tm = gmtime(&t);
 
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST buf_cstring(&fctx->buf), 0);
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "%4d-%02d-%02dT%02d:%02d:%02dZ",
+	       tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+	       tm->tm_hour, tm->tm_min, tm->tm_sec);
 
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
+
+    return 0;
+}
+
+
+/* Callback to fetch DAV:getcontenttype */
+static int propfind_getcontenttype(const xmlChar *name, xmlNsPtr ns,
+				   struct propfind_ctx *fctx,
+				   xmlNodePtr resp __attribute__((unused)),
+				   struct propstat propstat[],
+				   void *rock __attribute__((unused)))
+{
+    buf_reset(&fctx->buf);
+
+    switch (fctx->req_tgt->namespace) {
+    case URL_NS_CALENDAR:
+	buf_setcstr(&fctx->buf, "text/calendar; charset=utf-8");
+	break;
+
+    case URL_NS_ADDRESSBOOK:
+	buf_setcstr(&fctx->buf, "text/vcard; charset=utf-8");
+	break;
+
+    default:
+	return HTTP_NOT_FOUND;
     }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:getcontentlength */
-static int propfind_getlength(xmlNodePtr prop,
+static int propfind_getlength(const xmlChar *name, xmlNsPtr ns,
 			      struct propfind_ctx *fctx,
 			      xmlNodePtr resp __attribute__((unused)),
 			      struct propstat propstat[],
@@ -738,75 +843,77 @@ static int propfind_getlength(xmlNodePtr prop,
 {
     uint32_t len = 0;
 
-    if (fctx->record) len = fctx->record->size - fctx->record->header_size;
+    if (!fctx->record) return HTTP_NOT_FOUND;
+
+    len = fctx->record->size - fctx->record->header_size;
 
     buf_reset(&fctx->buf);
     buf_printf(&fctx->buf, "%u", len);
     xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		 prop, BAD_CAST buf_cstring(&fctx->buf), 0);
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:getetag */
-static int propfind_getetag(xmlNodePtr prop,
+static int propfind_getetag(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp __attribute__((unused)),
 			    struct propstat propstat[],
 			    void *rock __attribute__((unused)))
 {
+    if (fctx->req_tgt->resource && !fctx->record) return HTTP_NOT_FOUND;
+    if (!fctx->mailbox) return HTTP_NOT_FOUND;
+
+    buf_reset(&fctx->buf);
+
     if (fctx->record) {
 	/* add DQUOTEs */
-	buf_reset(&fctx->buf);
 	buf_printf(&fctx->buf, "\"%s\"",
 		   message_guid_encode(&fctx->record->guid));
-
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST buf_cstring(&fctx->buf), 0);
     }
     else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
+	buf_printf(&fctx->buf, "\"%u-%u-%u\"", fctx->mailbox->i.uidvalidity,
+		   fctx->mailbox->i.last_uid, fctx->mailbox->i.exists);
     }
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:getlastmodified */
-static int propfind_getlastmod(xmlNodePtr prop,
+static int propfind_getlastmod(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp __attribute__((unused)),
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
-    if (fctx->record) {
-	buf_ensure(&fctx->buf, 30);
-	httpdate_gen(fctx->buf.s, fctx->buf.alloc,
-		     fctx->record->internaldate);
+    if (!fctx->record) return HTTP_NOT_FOUND;
 
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST fctx->buf.s, 0);
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    buf_ensure(&fctx->buf, 30);
+    httpdate_gen(fctx->buf.s, fctx->buf.alloc,
+		 fctx->record->internaldate);
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST fctx->buf.s, 0);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:lockdiscovery */
-static int propfind_lockdisc(xmlNodePtr prop,
+static int propfind_lockdisc(const xmlChar *name, xmlNsPtr ns,
 			     struct propfind_ctx *fctx,
 			     xmlNodePtr resp __attribute__((unused)),
 			     struct propstat propstat[],
 			     void *rock __attribute__((unused)))
 {
     xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
-				   &propstat[PROPSTAT_OK], prop, NULL, 0);
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if (fctx->mailbox && fctx->record) {
 	struct dav_data *ddata = (struct dav_data *) fctx->data;
@@ -819,14 +926,14 @@ static int propfind_lockdisc(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:resourcetype */
-static int propfind_restype(xmlNodePtr prop,
+static int propfind_restype(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp,
 			    struct propstat propstat[],
 			    void *rock __attribute__((unused)))
 {
     xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
-				   &propstat[PROPSTAT_OK], prop, NULL, 0);
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if ((fctx->req_tgt->namespace != URL_NS_DEFAULT) && !fctx->record) {
 	xmlNewChild(node, NULL, BAD_CAST "collection", NULL);
@@ -893,7 +1000,7 @@ static int proppatch_restype(xmlNodePtr prop, unsigned set,
 	if (!cur) {
 	    /* All resourcetypes are valid */
 	    xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			 prop, NULL, 0);
+			 prop->name, prop->ns, NULL, 0);
 
 	    return 0;
 	}
@@ -907,7 +1014,7 @@ static int proppatch_restype(xmlNodePtr prop, unsigned set,
     }
 
     xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV], &propstat[PROPSTAT_FORBID],
-		 prop, NULL, precond);
+		 prop->name, prop->ns, NULL, precond);
 	     
     *pctx->ret = HTTP_FORBIDDEN;
 
@@ -916,14 +1023,14 @@ static int proppatch_restype(xmlNodePtr prop, unsigned set,
 
 
 /* Callback to fetch DAV:supportedlock */
-static int propfind_suplock(xmlNodePtr prop,
+static int propfind_suplock(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp __attribute__((unused)),
 			    struct propstat propstat[],
 			    void *rock __attribute__((unused)))
 {
     xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
-				   &propstat[PROPSTAT_OK], prop, NULL, 0);
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if (fctx->mailbox && fctx->record) {
 	xmlNodePtr entry = xmlNewChild(node, NULL, BAD_CAST "lockentry", NULL);
@@ -939,7 +1046,7 @@ static int propfind_suplock(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:supported-report-set */
-static int propfind_reportset(xmlNodePtr prop,
+static int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
 			      struct propfind_ctx *fctx,
 			      xmlNodePtr resp,
 			      struct propstat propstat[],
@@ -948,43 +1055,41 @@ static int propfind_reportset(xmlNodePtr prop,
     xmlNodePtr s, r, top;
 
     top = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		       prop, NULL, 0);
+		       name, ns, NULL, 0);
 
     if ((fctx->req_tgt->namespace == URL_NS_CALENDAR ||
 	 fctx->req_tgt->namespace == URL_NS_ADDRESSBOOK) &&
 	fctx->req_tgt->collection && !fctx->req_tgt->resource) {
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_DAV, resp->parent, XML_NS_DAV, "D");
 	xmlNewChild(r, fctx->ns[NS_DAV], BAD_CAST "sync-collection", NULL);
     }
 
     if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
+	ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
+
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
 	xmlNewChild(r, fctx->ns[NS_CALDAV], BAD_CAST "calendar-query", NULL);
 
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
 	xmlNewChild(r, fctx->ns[NS_CALDAV], BAD_CAST "calendar-multiget", NULL);
 
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
 	xmlNewChild(r, fctx->ns[NS_CALDAV], BAD_CAST "free-busy-query", NULL);
     }
 
     else if (fctx->req_tgt->namespace == URL_NS_ADDRESSBOOK) {
+	ensure_ns(fctx->ns, NS_CARDDAV, resp->parent, XML_NS_CARDDAV, "C");
+
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_CARDDAV, resp->parent, XML_NS_CARDDAV, "C");
 	xmlNewChild(r, fctx->ns[NS_CARDDAV], BAD_CAST "addressbook-query", NULL);
 
 	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
 	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-	ensure_ns(fctx->ns, NS_CARDDAV, resp->parent, XML_NS_CARDDAV, "C");
 	xmlNewChild(r, fctx->ns[NS_CARDDAV], BAD_CAST "addressbook-multiget", NULL);
     }
 
@@ -993,51 +1098,39 @@ static int propfind_reportset(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:principalurl */
-static int propfind_principalurl(xmlNodePtr prop,
+static int propfind_principalurl(const xmlChar *name, xmlNsPtr ns,
 				 struct propfind_ctx *fctx,
 				 xmlNodePtr resp __attribute__((unused)),
 				 struct propstat propstat[],
 				 void *rock __attribute__((unused)))
 {
-    xmlNodePtr node;
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
-    if (fctx->req_tgt->namespace != URL_NS_PRINCIPAL) {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
+    buf_reset(&fctx->buf);
+    if (fctx->req_tgt->user) {
+	buf_printf(&fctx->buf, "%s/user/%.*s/",
+		   namespace_principal.prefix,
+		   (int) fctx->req_tgt->userlen, fctx->req_tgt->user);
     }
-    else {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
 
-	buf_reset(&fctx->buf);
-	if (fctx->req_tgt->user) {
-	    buf_printf(&fctx->buf, "%s/user/%.*s/",
-		       namespace_principal.prefix,
-		       (int) fctx->req_tgt->userlen, fctx->req_tgt->user);
-	}
-
-	xml_add_href(node, NULL, buf_cstring(&fctx->buf));
-    }
+    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:owner */
-static int propfind_owner(xmlNodePtr prop,
+static int propfind_owner(const xmlChar *name, xmlNsPtr ns,
 			  struct propfind_ctx *fctx,
 			  xmlNodePtr resp __attribute__((unused)),
 			  struct propstat propstat[],
 			  void *rock __attribute__((unused)))
 {
-    xmlNodePtr node;
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
-    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			prop, NULL, 0);
-
-    if ((fctx->req_tgt->namespace == URL_NS_CALENDAR ||
-	 fctx->req_tgt->namespace == URL_NS_ADDRESSBOOK) &&
-	fctx->req_tgt->user) {
+    if (fctx->req_tgt->user) {
 	buf_reset(&fctx->buf);
 	buf_printf(&fctx->buf, "%s/user/%.*s/",
 		   namespace_principal.prefix,
@@ -1071,16 +1164,17 @@ static xmlNodePtr add_suppriv(xmlNodePtr root, const char *priv_name,
 
 
 /* Callback to fetch DAV:supported-privilege-set */
-static int propfind_supprivset(xmlNodePtr prop,
+static int propfind_supprivset(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp,
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
     xmlNodePtr set, all, agg, write;
+    unsigned tgt_flags = 0;
 
     set = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		       prop, NULL, 0);
+		       name, ns, NULL, 0);
 
     all = add_suppriv(set, "all", NULL, 0, "Any operation");
 
@@ -1088,13 +1182,19 @@ static int propfind_supprivset(xmlNodePtr prop,
     add_suppriv(agg, "read-current-user-privilege-set", NULL, 1,
 		"Read current user privilege set");
 
-    if (fctx->req_tgt->namespace == URL_NS_CALENDAR &&
-	!(fctx->req_tgt->collection &&
-	  (!strcmp(fctx->req_tgt->collection, SCHED_INBOX) ||
-	   !strcmp(fctx->req_tgt->collection, SCHED_OUTBOX)))) {
-	ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-	add_suppriv(agg, "read-free-busy", fctx->ns[NS_CALDAV], 0,
-		    "Read free/busy time");
+    if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
+	if (fctx->req_tgt->collection) {
+	    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
+
+	    if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX))
+		tgt_flags = TGT_SCHED_INBOX;
+	    else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX))
+		tgt_flags = TGT_SCHED_OUTBOX;
+	    else {
+		add_suppriv(agg, "read-free-busy", fctx->ns[NS_CALDAV], 0,
+			    "Read free/busy time");
+	    }
+	}
     }
 
     write = add_suppriv(all, "write", NULL, 0, "Write any object");
@@ -1121,30 +1221,25 @@ static int propfind_supprivset(xmlNodePtr prop,
     add_suppriv(agg, "write-acl", NULL, 1, "Write ACL");
     add_suppriv(agg, "unlock", NULL, 1, "Unlock resource");
 
-    if (fctx->req_tgt->namespace == URL_NS_CALENDAR &&
-	fctx->req_tgt->collection) {
-	if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX)) {
-	    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-	    agg = add_suppriv(all, "schedule-deliver", fctx->ns[NS_CALDAV], 0,
-			      "Deliver scheduling messages");
-	    add_suppriv(agg, "schedule-deliver-invite", fctx->ns[NS_CALDAV], 0,
-			"Deliver scheduling messages from Organizers");
-	    add_suppriv(agg, "schedule-deliver-reply", fctx->ns[NS_CALDAV], 0,
-			"Deliver scheduling messages from Attendees");
-	    add_suppriv(agg, "schedule-query-freebusy", fctx->ns[NS_CALDAV], 0,
-			"Accept free/busy requests");
-	}
-	else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX)) {
-	    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-	    agg = add_suppriv(all, "schedule-send", fctx->ns[NS_CALDAV], 0,
-			      "Send scheduling messages");
-	    add_suppriv(agg, "schedule-send-invite", fctx->ns[NS_CALDAV], 0,
-			"Send scheduling messages by Organizers");
-	    add_suppriv(agg, "schedule-send-reply", fctx->ns[NS_CALDAV], 0,
-			"Send scheduling messages by Attendees");
-	    add_suppriv(agg, "schedule-send-freebusy", fctx->ns[NS_CALDAV], 0,
-			"Submit free/busy requests");
-	}
+    if (tgt_flags == TGT_SCHED_INBOX) {
+	agg = add_suppriv(all, "schedule-deliver", fctx->ns[NS_CALDAV], 0,
+			  "Deliver scheduling messages");
+	add_suppriv(agg, "schedule-deliver-invite", fctx->ns[NS_CALDAV], 0,
+		    "Deliver scheduling messages from Organizers");
+	add_suppriv(agg, "schedule-deliver-reply", fctx->ns[NS_CALDAV], 0,
+		    "Deliver scheduling messages from Attendees");
+	add_suppriv(agg, "schedule-query-freebusy", fctx->ns[NS_CALDAV], 0,
+		    "Accept free/busy requests");
+    }
+    else if (tgt_flags == TGT_SCHED_OUTBOX) {
+	agg = add_suppriv(all, "schedule-send", fctx->ns[NS_CALDAV], 0,
+			  "Send scheduling messages");
+	add_suppriv(agg, "schedule-send-invite", fctx->ns[NS_CALDAV], 0,
+		    "Send scheduling messages by Organizers");
+	add_suppriv(agg, "schedule-send-reply", fctx->ns[NS_CALDAV], 0,
+		    "Send scheduling messages by Attendees");
+	add_suppriv(agg, "schedule-send-freebusy", fctx->ns[NS_CALDAV], 0,
+		    "Submit free/busy requests");
     }
 
     return 0;
@@ -1264,7 +1359,7 @@ static int add_privs(int rights, unsigned flags,
 
 
 /* Callback to fetch DAV:current-user-privilege-set */
-static int propfind_curprivset(xmlNodePtr prop,
+static int propfind_curprivset(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp,
 			       struct propstat propstat[],
@@ -1272,44 +1367,37 @@ static int propfind_curprivset(xmlNodePtr prop,
 {
     int rights;
     unsigned flags = 0;
+    xmlNodePtr set;
 
-    if (!fctx->mailbox) {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
+    if (!fctx->mailbox) return HTTP_NOT_FOUND;
+    if (((rights = cyrus_acl_myrights(fctx->authstate, fctx->mailbox->acl))
+	 & DACL_READ) != DACL_READ) {
+	return HTTP_UNAUTHORIZED;
     }
-    else if (((rights =
-	       cyrus_acl_myrights(fctx->authstate, fctx->mailbox->acl))
-	      & DACL_READ) != DACL_READ) {
-	xml_add_prop(HTTP_UNAUTHORIZED, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_UNAUTH], prop, NULL, 0);
+
+    /* Add in implicit rights */
+    if (fctx->userisadmin) {
+	rights |= DACL_ADMIN;
     }
-    else {
-	xmlNodePtr set;
+    else if (mboxname_userownsmailbox(fctx->int_userid, fctx->mailbox->name)) {
+	rights |= config_implicitrights;
+    }
 
-	/* Add in implicit rights */
-	if (fctx->userisadmin) {
-	    rights |= DACL_ADMIN;
+    /* Build the rest of the XML response */
+    set = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		       name, ns, NULL, 0);
+
+    if (fctx->req_tgt->collection) {
+	if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
+	    flags = PRIV_IMPLICIT;
+
+	    if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX))
+		flags = PRIV_INBOX;
+	    else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX))
+		flags = PRIV_OUTBOX;
 	}
-	else if (mboxname_userownsmailbox(fctx->userid, fctx->mailbox->name)) {
-	    rights |= config_implicitrights;
-	}
 
-	/* Build the rest of the XML response */
-	set = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			   prop, NULL, 0);
-
-	if (fctx->req_tgt->collection) {
-	    if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
-		flags = PRIV_IMPLICIT;
-
-		if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX))
-		    flags = PRIV_INBOX;
-		else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX))
-		    flags = PRIV_OUTBOX;
-	    }
-
-	    add_privs(rights, flags, set, resp->parent, fctx->ns);
-	}
+	add_privs(rights, flags, set, resp->parent, fctx->ns);
     }
 
     return 0;
@@ -1317,126 +1405,117 @@ static int propfind_curprivset(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:acl */
-static int propfind_acl(xmlNodePtr prop,
+static int propfind_acl(const xmlChar *name, xmlNsPtr ns,
 			struct propfind_ctx *fctx,
 			xmlNodePtr resp,
 			struct propstat propstat[],
 			void *rock __attribute__((unused)))
 {
     int rights;
+    xmlNodePtr acl;
+    char *aclstr, *userid;
+    unsigned flags = 0;
 
-    if (!fctx->mailbox) {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
+    if (!fctx->mailbox) return HTTP_NOT_FOUND;
+    if (!((rights = cyrus_acl_myrights(fctx->authstate, fctx->mailbox->acl))
+	  & DACL_ADMIN)) {
+	return HTTP_UNAUTHORIZED;
     }
-    else if (!((rights =
-		cyrus_acl_myrights(fctx->authstate, fctx->mailbox->acl))
-	       & DACL_ADMIN)) {
-	xml_add_prop(HTTP_UNAUTHORIZED, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_UNAUTH], prop, NULL, 0);
-    }
-    else {
-	xmlNodePtr acl;
-	char *aclstr, *userid;
-	unsigned flags = 0;
 
-	if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
-	    flags = PRIV_IMPLICIT;
+    if (fctx->req_tgt->namespace == URL_NS_CALENDAR) {
+	flags = PRIV_IMPLICIT;
 
-	    if (fctx->req_tgt->collection) {
-		if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX))
-		    flags = PRIV_INBOX;
-		else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX))
-		    flags = PRIV_OUTBOX;
-	    }
+	if (fctx->req_tgt->collection) {
+	    if (!strcmp(fctx->req_tgt->collection, SCHED_INBOX))
+		flags = PRIV_INBOX;
+	    else if (!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX))
+		flags = PRIV_OUTBOX;
 	}
+    }
 
-	/* Start the acl XML response */
-	acl = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			   prop, NULL, 0);
+    /* Start the acl XML response */
+    acl = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		       name, ns, NULL, 0);
 
-	/* Parse the ACL string (userid/rights pairs) */
-	userid = aclstr = xstrdup(fctx->mailbox->acl);
+    /* Parse the ACL string (userid/rights pairs) */
+    userid = aclstr = xstrdup(fctx->mailbox->acl);
 
-	while (userid) {
-	    char *rightstr, *nextid;
-	    xmlNodePtr ace, node;
-	    int deny = 0;
+    while (userid) {
+	char *rightstr, *nextid;
+	xmlNodePtr ace, node;
+	int deny = 0;
 
-	    rightstr = strchr(userid, '\t');
-	    if (!rightstr) break;
-	    *rightstr++ = '\0';
+	rightstr = strchr(userid, '\t');
+	if (!rightstr) break;
+	*rightstr++ = '\0';
 	
-	    nextid = strchr(rightstr, '\t');
-	    if (!nextid) break;
-	    *nextid++ = '\0';
+	nextid = strchr(rightstr, '\t');
+	if (!nextid) break;
+	*nextid++ = '\0';
 
-	    /* Check for negative rights */
-	    /* XXX  Does this correspond to DAV:deny? */
-	    if (*userid == '-') {
-		deny = 1;
-		userid++;
-	    }
-
-	    rights = cyrus_acl_strtomask(rightstr);
-
-	    /* Add ace XML element for this userid/right pair */
-	    ace = xmlNewChild(acl, NULL, BAD_CAST "ace", NULL);
-
-	    /* XXX  Need to check for groups.
-	     * Is there any IMAP equivalent to "unauthenticated"?
-	     * Is there any DAV equivalent to "anonymous"?
-	     */
-
-	    node = xmlNewChild(ace, NULL, BAD_CAST "principal", NULL);
-	    if (!strcmp(userid, fctx->userid))
-		xmlNewChild(node, NULL, BAD_CAST "self", NULL);
-	    else if ((strlen(userid) == fctx->req_tgt->userlen) &&
-		     !strncmp(userid, fctx->req_tgt->user, fctx->req_tgt->userlen))
-		xmlNewChild(node, NULL, BAD_CAST "owner", NULL);
-	    else if (!strcmp(userid, "anyone"))
-		xmlNewChild(node, NULL, BAD_CAST "authenticated", NULL);
-	    else {
-		buf_reset(&fctx->buf);
-		buf_printf(&fctx->buf, "%s/user/%s/",
-			   namespace_principal.prefix, userid);
-		xml_add_href(node, NULL, buf_cstring(&fctx->buf));
-	    }
-
-	    node = xmlNewChild(ace, NULL,
-			       BAD_CAST (deny ? "deny" : "grant"), NULL);
-	    add_privs(rights, flags, node, resp->parent, fctx->ns);
-
-	    if (fctx->req_tgt->resource) {
-		node = xmlNewChild(ace, NULL, BAD_CAST "inherited", NULL);
-		buf_reset(&fctx->buf);
-		buf_printf(&fctx->buf, "%.*s",
-			   (int)(fctx->req_tgt->resource - fctx->req_tgt->path),
-			   fctx->req_tgt->path);
-		xml_add_href(node, NULL, buf_cstring(&fctx->buf));
-	    }
-
-	    userid = nextid;
+	/* Check for negative rights */
+	/* XXX  Does this correspond to DAV:deny? */
+	if (*userid == '-') {
+	    deny = 1;
+	    userid++;
 	}
 
-	if (aclstr) free(aclstr);
+	rights = cyrus_acl_strtomask(rightstr);
+
+	/* Add ace XML element for this userid/right pair */
+	ace = xmlNewChild(acl, NULL, BAD_CAST "ace", NULL);
+
+	/* XXX  Need to check for groups.
+	 * Is there any IMAP equivalent to "unauthenticated"?
+	 * Is there any DAV equivalent to "anonymous"?
+	 */
+
+	node = xmlNewChild(ace, NULL, BAD_CAST "principal", NULL);
+	if (!strcmp(userid, fctx->userid))
+	    xmlNewChild(node, NULL, BAD_CAST "self", NULL);
+	else if ((strlen(userid) == fctx->req_tgt->userlen) &&
+		 !strncmp(userid, fctx->req_tgt->user, fctx->req_tgt->userlen))
+	    xmlNewChild(node, NULL, BAD_CAST "owner", NULL);
+	else if (!strcmp(userid, "anyone"))
+	    xmlNewChild(node, NULL, BAD_CAST "authenticated", NULL);
+	else {
+	    buf_reset(&fctx->buf);
+	    buf_printf(&fctx->buf, "%s/user/%s/",
+		       namespace_principal.prefix, userid);
+	    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+	}
+
+	node = xmlNewChild(ace, NULL,
+			   BAD_CAST (deny ? "deny" : "grant"), NULL);
+	add_privs(rights, flags, node, resp->parent, fctx->ns);
+
+	if (fctx->req_tgt->resource) {
+	    node = xmlNewChild(ace, NULL, BAD_CAST "inherited", NULL);
+	    buf_reset(&fctx->buf);
+	    buf_printf(&fctx->buf, "%.*s",
+		       (int)(fctx->req_tgt->resource - fctx->req_tgt->path),
+		       fctx->req_tgt->path);
+	    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+	}
+
+	userid = nextid;
     }
+
+    if (aclstr) free(aclstr);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:acl-restrictions */
-static int propfind_aclrestrict(xmlNodePtr prop,
+static int propfind_aclrestrict(const xmlChar *name, xmlNsPtr ns,
 				struct propfind_ctx *fctx,
 				xmlNodePtr resp __attribute__((unused)),
 				struct propstat propstat[],
 				void *rock __attribute__((unused)))
 {
-    xmlNodePtr node;
-
-    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			prop, NULL, 0);
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     xmlNewChild(node, NULL, BAD_CAST "no-invert", NULL);
 
@@ -1445,16 +1524,14 @@ static int propfind_aclrestrict(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:principal-collection-set */
-static int propfind_princolset(xmlNodePtr prop,
+static int propfind_princolset(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp __attribute__((unused)),
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
-    xmlNodePtr node;
-
-    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			prop, NULL, 0);
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     buf_reset(&fctx->buf);
     buf_printf(&fctx->buf, "%s/", namespace_principal.prefix);
@@ -1465,7 +1542,7 @@ static int propfind_princolset(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:quota-available-bytes and DAV:quota-used-bytes */
-static int propfind_quota(xmlNodePtr prop,
+static int propfind_quota(const xmlChar *name, xmlNsPtr ns,
 			  struct propfind_ctx *fctx,
 			  xmlNodePtr resp __attribute__((unused)),
 			  struct propstat propstat[],
@@ -1485,62 +1562,56 @@ static int propfind_quota(xmlNodePtr prop,
 	}
     }
 
-    if (qr) {
-	if (!fctx->quota.root ||
-	    strcmp(fctx->quota.root, qr)) {
-	    /* Different quotaroot - read it */
+    if (!qr) return HTTP_NOT_FOUND;
 
-	    syslog(LOG_DEBUG, "reading quota for '%s'", qr);
+    if (!fctx->quota.root ||
+	strcmp(fctx->quota.root, qr)) {
+	/* Different quotaroot - read it */
 
-	    fctx->quota.root = strcpy(prevroot, qr);
+	syslog(LOG_DEBUG, "reading quota for '%s'", qr);
 
-	    quota_read(&fctx->quota, NULL, 0);
-	}
+	fctx->quota.root = strcpy(prevroot, qr);
 
-	buf_reset(&fctx->buf);
-	if (!xmlStrcmp(prop->name, BAD_CAST "quota-available-bytes")) {
-	    /* Calculate limit in bytes and subtract usage */
-	    uquota_t limit = fctx->quota.limit * QUOTA_UNITS;
+	quota_read(&fctx->quota, NULL, 0);
+    }
 
-	    buf_printf(&fctx->buf, UQUOTA_T_FMT, limit - fctx->quota.used);
-	}
-	else if (fctx->record) {
-	    /* Bytes used by resource */
-	    buf_printf(&fctx->buf, "%u", fctx->record->size);
-	}
-	else if (fctx->mailbox) {
-	    /* Bytes used by calendar collection */
-	    buf_printf(&fctx->buf, UQUOTA_T_FMT,
-		       fctx->mailbox->i.quota_mailbox_used);
-	}
-	else {
-	    /* Bytes used by entire hierarchy */
-	    buf_printf(&fctx->buf, UQUOTA_T_FMT, fctx->quota.used);
-	}
+    buf_reset(&fctx->buf);
+    if (!xmlStrcmp(name, BAD_CAST "quota-available-bytes")) {
+	/* Calculate limit in bytes and subtract usage */
+	uquota_t limit = fctx->quota.limit * QUOTA_UNITS;
 
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST buf_cstring(&fctx->buf), 0);
+	buf_printf(&fctx->buf, UQUOTA_T_FMT, limit - fctx->quota.used);
+    }
+    else if (fctx->record) {
+	/* Bytes used by resource */
+	buf_printf(&fctx->buf, "%u", fctx->record->size);
+    }
+    else if (fctx->mailbox) {
+	/* Bytes used by calendar collection */
+	buf_printf(&fctx->buf, UQUOTA_T_FMT,
+		   fctx->mailbox->i.quota_mailbox_used);
     }
     else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
+	/* Bytes used by entire hierarchy */
+	buf_printf(&fctx->buf, UQUOTA_T_FMT, fctx->quota.used);
     }
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:current-user-principal */
-static int propfind_curprin(xmlNodePtr prop,
+static int propfind_curprin(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp __attribute__((unused)),
 			    struct propstat propstat[],
 			    void *rock __attribute__((unused)))
 {
-    xmlNodePtr node;
-
-    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			prop, NULL, 0);
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if (fctx->userid) {
 	buf_reset(&fctx->buf);
@@ -1557,92 +1628,79 @@ static int propfind_curprin(xmlNodePtr prop,
 
 
 /* Callback to fetch DAV:add-member */
-static int propfind_addmember(xmlNodePtr prop,
+static int propfind_addmember(const xmlChar *name, xmlNsPtr ns,
 			      struct propfind_ctx *fctx,
 			      xmlNodePtr resp __attribute__((unused)),
 			      struct propstat propstat[],
 			      void *rock __attribute__((unused)))
 {
-    if (fctx->req_tgt->collection &&  /* Until Apple Contacts is fixed */
-	fctx->req_tgt->namespace == URL_NS_CALENDAR) {
-	xmlNodePtr node;
-	int len;
+    xmlNodePtr node;
+    int len;
 
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
-	len = fctx->req_tgt->resource ?
-	    (size_t) (fctx->req_tgt->resource - fctx->req_tgt->path) :
-	    strlen(fctx->req_tgt->path);
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "%.*s", len, fctx->req_tgt->path);
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
 
-	xml_add_href(node, NULL, buf_cstring(&fctx->buf));
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    len = fctx->req_tgt->resource ?
+	(size_t) (fctx->req_tgt->resource - fctx->req_tgt->path) :
+	strlen(fctx->req_tgt->path);
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "%.*s", len, fctx->req_tgt->path);
+
+    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
 
     return 0;
 }
 
 
 /* Callback to fetch DAV:sync-token and CS:getctag */
-static int propfind_sync_token(xmlNodePtr prop,
+static int propfind_sync_token(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp __attribute__((unused)),
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
-    if (fctx->mailbox && !fctx->record) {
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, XML_NS_CYRUS "sync/%u-" MODSEQ_FMT,
-		   fctx->mailbox->i.uidvalidity,
-		   fctx->mailbox->i.highestmodseq);
+    if (!fctx->mailbox || fctx->record) return HTTP_NOT_FOUND;
 
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST buf_cstring(&fctx->buf), 0);
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, XML_NS_CYRUS "sync/%u-" MODSEQ_FMT,
+	       fctx->mailbox->i.uidvalidity,
+	       fctx->mailbox->i.highestmodseq);
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch CALDAV:calendar-data and CARDDAV:address-data */
-static int propfind_getdata(xmlNodePtr prop,
+static int propfind_getdata(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp __attribute__((unused)),
 			    struct propstat propstat[],
 			    void *rock __attribute__((unused)))
 {
-    if (fctx->record) {
-	xmlNodePtr data;
+    xmlNodePtr data;
 
-	if (!fctx->msg_base) {
-	    mailbox_map_message(fctx->mailbox, fctx->record->uid,
-				&fctx->msg_base, &fctx->msg_size);
-	}
+    if (!fctx->record) return HTTP_NOT_FOUND;
 
-	data = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
-	xmlAddChild(data,
-		    xmlNewCDataBlock(fctx->root->doc,
-				     BAD_CAST fctx->msg_base +
-				     fctx->record->header_size,
-				     fctx->record->size -
-				     fctx->record->header_size));
-
-	fctx->fetcheddata = 1;
+    if (!fctx->msg_base) {
+	mailbox_map_message(fctx->mailbox, fctx->record->uid,
+			    &fctx->msg_base, &fctx->msg_size);
     }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+
+    data = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+    xmlAddChild(data,
+		xmlNewCDataBlock(fctx->root->doc,
+				 BAD_CAST fctx->msg_base +
+				 fctx->record->header_size,
+				 fctx->record->size -
+				 fctx->record->header_size));
+
+    fctx->fetcheddata = 1;
 
     return 0;
 }
@@ -1652,89 +1710,72 @@ static int propfind_getdata(xmlNodePtr prop,
  * CALDAV:schedule-inbox-URL, CALDAV:schedule-outbox-URL,
  * and CALDAV:schedule-default-calendar-URL
  */
-static int propfind_calurl(xmlNodePtr prop,
+static int propfind_calurl(const xmlChar *name, xmlNsPtr ns,
 			   struct propfind_ctx *fctx,
-			   xmlNodePtr resp,
+			   xmlNodePtr resp __attribute__((unused)),
 			   struct propstat propstat[],
 			   void *rock)
 {
     xmlNodePtr node;
     const char *cal = (const char *) rock;
 
-    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-    if (fctx->userid &&
-	/* sched-def-cal-URL only defined on sched-inbox-URL */
-	((fctx->req_tgt->namespace == URL_NS_CALENDAR &&
-	  fctx->req_tgt->collection && cal &&
-	  !strcmp(fctx->req_tgt->collection, SCHED_INBOX) &&
-	  !strcmp(cal, SCHED_DEFAULT))
-	 /* others only defined on principals */
-	 || (fctx->req_tgt->namespace == URL_NS_PRINCIPAL))) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->userid) return HTTP_NOT_FOUND;
 
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "%s/user/%s/%s",
-		   namespace_calendar.prefix, fctx->userid, cal ? cal : "");
+    /* sched-def-cal-URL only defined on sched-inbox-URL */
+    if (!xmlStrcmp(name, BAD_CAST "schedule-default-calendar-URL") &&
+	(!fctx->req_tgt->collection ||
+	 strcmp(fctx->req_tgt->collection, SCHED_INBOX)))
+	return HTTP_NOT_FOUND;
 
-	xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "%s/user/%s/%s",
+	       namespace_calendar.prefix, fctx->userid, cal ? cal : "");
+
+    xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
 
     return 0;
 }
 
 
 /* Callback to fetch CALDAV:supported-calendar-component-set */
-static int propfind_calcompset(xmlNodePtr prop,
+static int propfind_calcompset(const xmlChar *name, xmlNsPtr ns,
 			       struct propfind_ctx *fctx,
 			       xmlNodePtr resp __attribute__((unused)),
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
+    const char *prop_annot = ANNOT_NS "CALDAV:supported-calendar-component-set";
     struct annotation_data attrib;
     unsigned long types = 0;
+    xmlNodePtr set, node;
+    const struct cal_comp_t *comp;
     int r = 0;
 
-    if ((fctx->req_tgt->namespace == URL_NS_CALENDAR) &&
-	fctx->req_tgt->collection && !fctx->req_tgt->resource) {
-	const char *prop_annot =
-	    ANNOT_NS "CALDAV:supported-calendar-component-set";
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
-	if (!(r = annotatemore_lookup(fctx->mailbox->name, prop_annot,
-				      /* shared */ "", &attrib))) {
-	    if (attrib.value)
-		types = strtoul(attrib.value, NULL, 10);
-	    else
-		types = -1;  /* ALL components types */
+    if (!(r = annotatemore_lookup(fctx->mailbox->name, prop_annot,
+				  /* shared */ "", &attrib))) {
+	if (attrib.value)
+	    types = strtoul(attrib.value, NULL, 10);
+	else
+	    types = -1;  /* ALL components types */
+    }
+
+    if (r) return HTTP_SERVER_ERROR;
+    if (!types) return HTTP_NOT_FOUND;
+
+    set = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		       name, ns, NULL, 0);
+    /* Create "comp" elements from the stored bitmask */
+    for (comp = cal_comps; comp->name; comp++) {
+	if (types & comp->type) {
+	    node = xmlNewChild(set, fctx->ns[NS_CALDAV],
+			       BAD_CAST "comp", NULL);
+	    xmlNewProp(node, BAD_CAST "name", BAD_CAST comp->name);
 	}
-    }
-
-    if (r) {
-	xml_add_prop(HTTP_SERVER_ERROR, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_ERROR], prop, NULL, 0);
-    }
-    else if (types) {
-	xmlNodePtr set, node;
-	const struct cal_comp_t *comp;
-
-	set = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			   prop, NULL, 0);
-	/* Create "comp" elements from the stored bitmask */
-	for (comp = cal_comps; comp->name; comp++) {
-	    if (types & comp->type) {
-		node = xmlNewChild(set, fctx->ns[NS_CALDAV],
-				   BAD_CAST "comp", NULL);
-		xmlNewProp(node, BAD_CAST "name", BAD_CAST comp->name);
-	    }
-	}
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
     }
 
     return 0;
@@ -1785,12 +1826,13 @@ static int proppatch_calcompset(xmlNodePtr prop, unsigned set,
 					       buf_cstring(&pctx->buf), NULL,
 					       buf_len(&pctx->buf), 0,
 					       &pctx->tid))) {
-		xml_add_prop(HTTP_OK, pctx->ns[NS_DAV],
-			     &propstat[PROPSTAT_OK], prop, NULL, 0);
+		xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			     prop->name, prop->ns, NULL, 0);
 	    }
 	    else {
 		xml_add_prop(HTTP_SERVER_ERROR, pctx->ns[NS_DAV],
-			     &propstat[PROPSTAT_ERROR], prop, NULL, 0);
+			     &propstat[PROPSTAT_ERROR],
+			     prop->name, prop->ns, NULL, 0);
 	    }
 
 	    return 0;
@@ -1805,7 +1847,7 @@ static int proppatch_calcompset(xmlNodePtr prop, unsigned set,
     }
 
     xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV], &propstat[PROPSTAT_FORBID],
-		 prop, NULL, precond);
+		 prop->name, prop->ns, NULL, precond);
 	     
     *pctx->ret = HTTP_FORBIDDEN;
 
@@ -1813,7 +1855,7 @@ static int proppatch_calcompset(xmlNodePtr prop, unsigned set,
 }
 
 /* Callback to fetch CALDAV:supported-calendar-data */
-static int propfind_suppcaldata(xmlNodePtr prop,
+static int propfind_suppcaldata(const xmlChar *name, xmlNsPtr ns,
 				struct propfind_ctx *fctx,
 				xmlNodePtr resp __attribute__((unused)),
 				struct propstat propstat[],
@@ -1821,121 +1863,93 @@ static int propfind_suppcaldata(xmlNodePtr prop,
 {
     xmlNodePtr node;
 
-    if ((fctx->req_tgt->namespace == URL_NS_CALENDAR) &&
-	fctx->req_tgt->collection && !fctx->req_tgt->resource) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
-	node = xmlNewChild(node, fctx->ns[NS_CALDAV],
-			   BAD_CAST "calendar-data", NULL);
-	xmlNewProp(node, BAD_CAST "content-type", BAD_CAST "text/calendar");
-	xmlNewProp(node, BAD_CAST "version", BAD_CAST "2.0");
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+
+    node = xmlNewChild(node, fctx->ns[NS_CALDAV],
+		       BAD_CAST "calendar-data", NULL);
+    xmlNewProp(node, BAD_CAST "content-type", BAD_CAST "text/calendar");
+    xmlNewProp(node, BAD_CAST "version", BAD_CAST "2.0");
 
     return 0;
 }
 
 
 /* Callback to fetch CALDAV:schedule-tag */
-static int propfind_schedtag(xmlNodePtr prop,
+static int propfind_schedtag(const xmlChar *name, xmlNsPtr ns,
 			     struct propfind_ctx *fctx,
-			     xmlNodePtr resp,
+			     xmlNodePtr resp __attribute__((unused)),
 			     struct propstat propstat[],
 			     void *rock __attribute__((unused)))
 {
     struct caldav_data *cdata = (struct caldav_data *) fctx->data;
 
-    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-    if (cdata->sched_tag) {
-	/* add DQUOTEs */
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "\"%s\"", cdata->sched_tag);
+    if (!cdata->sched_tag) return HTTP_NOT_FOUND;
 
-	xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, BAD_CAST buf_cstring(&fctx->buf), 0);
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    /* add DQUOTEs */
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "\"%s\"", cdata->sched_tag);
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
     return 0;
 }
 
 
 /* Callback to fetch CALDAV:calendar-user-address-set */
-static int propfind_caluseraddr(xmlNodePtr prop,
+static int propfind_caluseraddr(const xmlChar *name, xmlNsPtr ns,
 				struct propfind_ctx *fctx,
-				xmlNodePtr resp,
+				xmlNodePtr resp __attribute__((unused)),
 				struct propstat propstat[],
 				void *rock __attribute__((unused)))
 {
     xmlNodePtr node;
 
-    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-    if (fctx->userid) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->userid) return HTTP_NOT_FOUND;
 
-	/* XXX  This needs to be done via an LDAP/DB lookup */
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "mailto:%s@%s", fctx->userid, config_servername);
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
 
-	xmlNewChild(node, fctx->ns[NS_DAV], BAD_CAST "href",
-		    BAD_CAST buf_cstring(&fctx->buf));
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    /* XXX  This needs to be done via an LDAP/DB lookup */
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "mailto:%s@%s", fctx->userid, config_servername);
+
+    xmlNewChild(node, fctx->ns[NS_DAV], BAD_CAST "href",
+		BAD_CAST buf_cstring(&fctx->buf));
 
     return 0;
 }
 
 
 /* Callback to fetch CALDAV:schedule-calendar-transp */
-static int propfind_caltransp(xmlNodePtr prop,
+static int propfind_caltransp(const xmlChar *name, xmlNsPtr ns,
 			      struct propfind_ctx *fctx,
-			      xmlNodePtr resp,
+			      xmlNodePtr resp __attribute__((unused)),
 			      struct propstat propstat[],
 			      void *rock __attribute__((unused)))
 {
+    const char *prop_annot = ANNOT_NS "CALDAV:schedule-calendar-transp";
     struct annotation_data attrib;
     const char *value = NULL;
+    xmlNodePtr node;
     int r = 0;
 
-    if ((fctx->req_tgt->namespace == URL_NS_CALENDAR) &&
-	fctx->req_tgt->collection && !fctx->req_tgt->resource) {
-	const char *prop_annot =
-	    ANNOT_NS "CALDAV:schedule-calendar-transp";
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
-	if (!(r = annotatemore_lookup(fctx->mailbox->name, prop_annot,
-				      /* shared */ "", &attrib))
-	    && attrib.value) {
-	    value = attrib.value;
-	}
+    if (!(r = annotatemore_lookup(fctx->mailbox->name, prop_annot,
+				  /* shared */ "", &attrib)) && attrib.value) {
+	value = attrib.value;
     }
 
-    ensure_ns(fctx->ns, NS_CALDAV, resp->parent, XML_NS_CALDAV, "C");
-    if (r) {
-	xml_add_prop(HTTP_SERVER_ERROR, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_ERROR], prop, NULL, 0);
-    }
-    else if (value) {
-	xmlNodePtr node;
+    if (r) return HTTP_SERVER_ERROR;
+    if (!value) return HTTP_NOT_FOUND;
 
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
-	xmlNewChild(node, fctx->ns[NS_CALDAV], BAD_CAST value, NULL);
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+    xmlNewChild(node, fctx->ns[NS_CALDAV], BAD_CAST value, NULL);
 
     return 0;
 }
@@ -1969,7 +1983,8 @@ static int proppatch_caltransp(xmlNodePtr prop, unsigned set,
 		else {
 		    /* Unknown value */
 		    xml_add_prop(HTTP_CONFLICT, pctx->ns[NS_DAV],
-				 &propstat[PROPSTAT_CONFLICT], prop, NULL, 0);
+				 &propstat[PROPSTAT_CONFLICT],
+				 prop->name, prop->ns, NULL, 0);
 
 		    *pctx->ret = HTTP_FORBIDDEN;
 
@@ -1984,16 +1999,92 @@ static int proppatch_caltransp(xmlNodePtr prop, unsigned set,
 				      strlen(transp), 0,
 				      &pctx->tid)) {
 	    xml_add_prop(HTTP_OK, pctx->ns[NS_DAV],
-			 &propstat[PROPSTAT_OK], prop, NULL, 0);
+			 &propstat[PROPSTAT_OK], prop->name, prop->ns, NULL, 0);
 	}
 	else {
 	    xml_add_prop(HTTP_SERVER_ERROR, pctx->ns[NS_DAV],
-			 &propstat[PROPSTAT_ERROR], prop, NULL, 0);
+			 &propstat[PROPSTAT_ERROR],
+			 prop->name, prop->ns, NULL, 0);
 	}
     }
     else {
 	xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_FORBID], prop, NULL, 0);
+		     &propstat[PROPSTAT_FORBID],
+		     prop->name, prop->ns, NULL, 0);
+
+	*pctx->ret = HTTP_FORBIDDEN;
+    }
+
+    return 0;
+}
+
+
+/* Callback to write calendar-timezone property */
+static int proppatch_timezone(xmlNodePtr prop, unsigned set,
+			      struct proppatch_ctx *pctx,
+			      struct propstat propstat[],
+			      void *rock __attribute__((unused)))
+{
+    if ((pctx->req_tgt->namespace == URL_NS_CALENDAR) &&
+	pctx->req_tgt->collection && !pctx->req_tgt->resource) {
+	xmlChar *freeme = NULL;
+	const char *value = NULL;
+	size_t len = 0;
+	unsigned valid = 1;
+
+	if (set) {
+	    icalcomponent *ical = NULL;
+
+	    freeme = xmlNodeGetContent(prop);
+	    value = (const char *) freeme;
+	    len = strlen(value);
+
+	    /* Parse and validate the iCal data */
+	    ical = icalparser_parse_string(value);
+	    if (!ical || (icalcomponent_isa(ical) != ICAL_VCALENDAR_COMPONENT)) {
+		xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV],
+			     &propstat[PROPSTAT_FORBID],
+			     prop->name, prop->ns, NULL,
+			     CALDAV_VALID_DATA);
+		*pctx->ret = HTTP_FORBIDDEN;
+		valid = 0;
+	    }
+	    else if (!icalcomponent_get_first_component(ical,
+							ICAL_VTIMEZONE_COMPONENT)
+		     || icalcomponent_get_first_real_component(ical)) {
+		xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV],
+			     &propstat[PROPSTAT_FORBID],
+			     prop->name, prop->ns, NULL,
+			     CALDAV_VALID_OBJECT);
+		*pctx->ret = HTTP_FORBIDDEN;
+		valid = 0;
+	    }
+	}
+
+	if (valid) {
+	    buf_reset(&pctx->buf);
+	    buf_printf(&pctx->buf, ANNOT_NS "<%s>%s",
+		       (const char *) prop->ns->href, prop->name);
+
+	    if (!annotatemore_write_entry(pctx->mailboxname,
+					  buf_cstring(&pctx->buf),
+					  /* shared */ "", value, NULL,
+					  len, 0, &pctx->tid)) {
+		xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			     prop->name, prop->ns, NULL, 0);
+	    }
+	    else {
+		xml_add_prop(HTTP_SERVER_ERROR, pctx->ns[NS_DAV],
+			     &propstat[PROPSTAT_ERROR],
+			     prop->name, prop->ns, NULL, 0);
+	    }
+	}
+
+	if (freeme) xmlFree(freeme);
+    }
+    else {
+	xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV],
+		     &propstat[PROPSTAT_FORBID], prop->name, prop->ns, NULL, 0);
 
 	*pctx->ret = HTTP_FORBIDDEN;
     }
@@ -2003,38 +2094,32 @@ static int proppatch_caltransp(xmlNodePtr prop, unsigned set,
 
 
 /* Callback to fetch CARDDAV:addressbook-home-set */
-static int propfind_abookurl(xmlNodePtr prop,
+static int propfind_abookurl(const xmlChar *name, xmlNsPtr ns,
 			     struct propfind_ctx *fctx,
-			     xmlNodePtr resp,
+			     xmlNodePtr resp __attribute__((unused)),
 			     struct propstat propstat[],
 			     void *rock)
 {
     xmlNodePtr node;
     const char *abook = (const char *) rock;
 
-    ensure_ns(fctx->ns, NS_CARDDAV, resp->parent, XML_NS_CARDDAV, "C");
-    if (fctx->userid &&
-	(fctx->req_tgt->namespace == URL_NS_PRINCIPAL)) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->userid) return HTTP_NOT_FOUND;
 
-	buf_reset(&fctx->buf);
-	buf_printf(&fctx->buf, "%s/user/%s/%s", namespace_addressbook.prefix,
-		   fctx->userid, abook ? abook : "");
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
 
-	xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "%s/user/%s/%s", namespace_addressbook.prefix,
+	       fctx->userid, abook ? abook : "");
+
+    xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
 
     return 0;
 }
 
 
 /* Callback to fetch CARDDAV:supported-address-data */
-static int propfind_suppaddrdata(xmlNodePtr prop,
+static int propfind_suppaddrdata(const xmlChar *name, xmlNsPtr ns,
 				 struct propfind_ctx *fctx,
 				 xmlNodePtr resp __attribute__((unused)),
 				 struct propstat propstat[],
@@ -2042,67 +2127,60 @@ static int propfind_suppaddrdata(xmlNodePtr prop,
 {
     xmlNodePtr node;
 
-    if ((fctx->req_tgt->namespace == URL_NS_ADDRESSBOOK) &&
-	fctx->req_tgt->collection && !fctx->req_tgt->resource) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
-	node = xmlNewChild(node, fctx->ns[NS_CARDDAV],
-			   BAD_CAST "address-data-type", NULL);
-	xmlNewProp(node, BAD_CAST "content-type", BAD_CAST "text/vcard");
-	xmlNewProp(node, BAD_CAST "version", BAD_CAST "3.0");
-    }
-    else {
-	xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+
+    node = xmlNewChild(node, fctx->ns[NS_CARDDAV],
+		       BAD_CAST "address-data-type", NULL);
+    xmlNewProp(node, BAD_CAST "content-type", BAD_CAST "text/vcard");
+    xmlNewProp(node, BAD_CAST "version", BAD_CAST "3.0");
 
     return 0;
 }
 
 
 /* Callback to fetch properties from resource header */
-static int propfind_fromhdr(xmlNodePtr prop,
+static int propfind_fromhdr(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx,
 			    xmlNodePtr resp __attribute__((unused)),
 			    struct propstat propstat[],
 			    void *hdrname)
 {
-    if (fctx->record) {
-	if (mailbox_cached_header((const char *) hdrname) != BIT32_MAX &&
-	    !mailbox_cacherecord(fctx->mailbox, fctx->record)) {
-	    unsigned size;
-	    struct protstream *stream;
-	    hdrcache_t hdrs = NULL; 
-	    const char **hdr;
+    int r = HTTP_NOT_FOUND;
 
-	    size = cacheitem_size(fctx->record, CACHE_HEADERS);
-	    stream = prot_readmap(cacheitem_base(fctx->record,
-						 CACHE_HEADERS), size);
-	    hdrs = spool_new_hdrcache();
-	    spool_fill_hdrcache(stream, NULL, hdrs, NULL);
-	    prot_free(stream);
+    if (!fctx->record) return HTTP_NOT_FOUND;
 
-	    if ((hdr = spool_getheader(hdrs, (const char *) hdrname))) {
-		xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			     prop, BAD_CAST hdr[0], 0);
-	    }
+    if (mailbox_cached_header((const char *) hdrname) != BIT32_MAX &&
+	!mailbox_cacherecord(fctx->mailbox, fctx->record)) {
+	unsigned size;
+	struct protstream *stream;
+	hdrcache_t hdrs = NULL; 
+	const char **hdr;
 
-	    spool_free_hdrcache(hdrs);
+	size = cacheitem_size(fctx->record, CACHE_HEADERS);
+	stream = prot_readmap(cacheitem_base(fctx->record,
+					     CACHE_HEADERS), size);
+	hdrs = spool_new_hdrcache();
+	spool_fill_hdrcache(stream, NULL, hdrs, NULL);
+	prot_free(stream);
 
-	    if (hdr) return 0;
+	if ((hdr = spool_getheader(hdrs, (const char *) hdrname))) {
+	    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			 name, ns, BAD_CAST hdr[0], 0);
+	    r = 0;
 	}
+
+	spool_free_hdrcache(hdrs);
     }
 
-    xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV], &propstat[PROPSTAT_NOTFOUND],
-		 prop, NULL, 0);
-
-    return 0;
+    return r;
 }
 
 
 /* Callback to read a property from annotation DB */
-static int propfind_fromdb(xmlNodePtr prop,
+static int propfind_fromdb(const xmlChar *name, xmlNsPtr ns,
 			   struct propfind_ctx *fctx,
 			   xmlNodePtr resp __attribute__((unused)),
 			   struct propstat propstat[],
@@ -2114,7 +2192,7 @@ static int propfind_fromdb(xmlNodePtr prop,
 
     buf_reset(&fctx->buf);
     buf_printf(&fctx->buf, ANNOT_NS "<%s>%s",
-	       (const char *) prop->ns->href, prop->name);
+	       (const char *) ns->href, name);
 
     memset(&attrib, 0, sizeof(struct annotation_data));
 
@@ -2122,27 +2200,20 @@ static int propfind_fromdb(xmlNodePtr prop,
 	!(r = annotatemore_lookup(fctx->mailbox->name, buf_cstring(&fctx->buf),
 				  /* shared */ "", &attrib))) {
 	if (!attrib.value && 
-	    !xmlStrcmp(prop->name, BAD_CAST "displayname")) {
+	    !xmlStrcmp(name, BAD_CAST "displayname")) {
 	    /* Special case empty displayname -- use last segment of path */
 	    attrib.value = strrchr(fctx->mailbox->name, '.') + 1;
 	    attrib.size = strlen(attrib.value);
 	}
     }
 
-    if (r) {
-	node = xml_add_prop(HTTP_SERVER_ERROR, fctx->ns[NS_DAV],
-			    &propstat[PROPSTAT_ERROR], prop, NULL, 0);
-    }
-    else if (attrib.value) {
-	node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-			    prop, NULL, 0);
-	xmlAddChild(node, xmlNewCDataBlock(fctx->root->doc,
-					   BAD_CAST attrib.value, attrib.size));
-    }
-    else {
-	node = xml_add_prop(HTTP_NOT_FOUND, fctx->ns[NS_DAV],
-			    &propstat[PROPSTAT_NOTFOUND], prop, NULL, 0);
-    }
+    if (r) return HTTP_SERVER_ERROR;
+    if (!attrib.value) return HTTP_NOT_FOUND;
+
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+    xmlAddChild(node, xmlNewCDataBlock(fctx->root->doc,
+				       BAD_CAST attrib.value, attrib.size));
 
     return 0;
 }
@@ -2174,11 +2245,11 @@ static int proppatch_todb(xmlNodePtr prop, unsigned set,
 				       value, NULL, len, 0,
 				       &pctx->tid))) {
 	xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
-		     prop, NULL, 0);
+		     prop->name, prop->ns, NULL, 0);
     }
     else {
 	xml_add_prop(HTTP_SERVER_ERROR, pctx->ns[NS_DAV],
-		     &propstat[PROPSTAT_ERROR], prop, NULL, 0);
+		     &propstat[PROPSTAT_ERROR], prop->name, prop->ns, NULL, 0);
     }
 
     if (freeme) xmlFree(freeme);
@@ -2190,10 +2261,10 @@ static int proppatch_todb(xmlNodePtr prop, unsigned set,
 /* Array of known "live" properties */
 static const struct prop_entry {
     const char *name;			/* Property name */
-    const char *ns;			/* Property namespace */
-    unsigned allprop;			/* Should we fetch for allprop? */
-    int (*get)(xmlNodePtr node,		/* Callback to fetch property */
-	       struct propfind_ctx *fctx, xmlNodePtr resp,
+    unsigned ns;			/* Property namespace */
+    unsigned char flags;		/* Flags for how/where props apply */
+    int (*get)(const xmlChar *name,	/* Callback to fetch property */
+	       xmlNsPtr ns, struct propfind_ctx *fctx, xmlNodePtr resp,
 	       struct propstat propstat[], void *rock);
     int (*put)(xmlNodePtr prop,		/* Callback to write property */
 	       unsigned set, struct proppatch_ctx *pctx,
@@ -2202,104 +2273,251 @@ static const struct prop_entry {
 } prop_entries[] = {
 
     /* WebDAV (RFC 4918) properties */
-    { "creationdate", XML_NS_DAV, 1, propfind_creationdate, NULL, NULL },
-    { "displayname", XML_NS_DAV, 1, propfind_fromdb, proppatch_todb, NULL },
-    { "getcontentlanguage", XML_NS_DAV, 1,
+    { "creationdate", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_creationdate, NULL, NULL },
+    { "displayname", NS_DAV,
+      PROP_ALLPROP | PROP_PRINCIPAL | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_fromdb, proppatch_todb, NULL },
+    { "getcontentlanguage", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
       propfind_fromhdr, NULL, "Content-Language" },
-    { "getcontentlength", XML_NS_DAV, 1, propfind_getlength, NULL, NULL },
-    { "getcontenttype", XML_NS_DAV, 1, propfind_fromhdr, NULL, "Content-Type" },
-    { "getetag", XML_NS_DAV, 1, propfind_getetag, NULL, NULL },
-    { "getlastmodified", XML_NS_DAV, 1, propfind_getlastmod, NULL, NULL },
-    { "lockdiscovery", XML_NS_DAV, 1, propfind_lockdisc, NULL, NULL },
-    { "resourcetype", XML_NS_DAV, 1,
+    { "getcontentlength", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_getlength, NULL, NULL },
+    { "getcontenttype", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getcontenttype, NULL, "Content-Type" },
+    { "getetag", NS_DAV, PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getetag, NULL, NULL },
+    { "getlastmodified", NS_DAV,
+      PROP_ALLPROP | /*PROP_COLLECTION |*/ PROP_RESOURCE,
+      propfind_getlastmod, NULL, NULL },
+    { "lockdiscovery", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_lockdisc, NULL, NULL },
+    { "resourcetype", NS_DAV,
+      PROP_ALLPROP | PROP_PRINCIPAL | PROP_COLLECTION | PROP_RESOURCE,
       propfind_restype, proppatch_restype, NULL },
-    { "supportedlock", XML_NS_DAV, 1, propfind_suplock, NULL, NULL },
+    { "supportedlock", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_suplock, NULL, NULL },
 
     /* WebDAV Versioning (RFC 3253) properties */
-    { "supported-report-set", XML_NS_DAV, 0, propfind_reportset, NULL, NULL },
+    { "supported-report-set", NS_DAV, PROP_PRINCIPAL | PROP_COLLECTION,
+      propfind_reportset, NULL, NULL },
 
     /* WebDAV ACL (RFC 3744) properties */
-    { "alternate-URI-set", XML_NS_DAV, 0, NULL, NULL, NULL },
-    { "principal-URL", XML_NS_DAV, 0, propfind_principalurl, NULL, NULL },
-    { "group-member-set", XML_NS_DAV, 0, NULL, NULL, NULL },
-    { "group-membership", XML_NS_DAV, 0, NULL, NULL, NULL },
-    { "owner", XML_NS_DAV, 0, propfind_owner, NULL, NULL },
-    { "group", XML_NS_DAV, 0, NULL, NULL, NULL },
-    { "supported-privilege-set", XML_NS_DAV, 0,
+    { "alternate-URI-set", NS_DAV, 0, NULL, NULL, NULL },
+    { "principal-URL", NS_DAV, PROP_PRINCIPAL,
+      propfind_principalurl, NULL, NULL },
+    { "group-member-set", NS_DAV, 0, NULL, NULL, NULL },
+    { "group-membership", NS_DAV, 0, NULL, NULL, NULL },
+    { "owner", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_owner, NULL, NULL },
+    { "group", NS_DAV, 0, NULL, NULL, NULL },
+    { "supported-privilege-set", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
       propfind_supprivset, NULL, NULL },
-    { "current-user-privilege-set", XML_NS_DAV, 0,
+    { "current-user-privilege-set", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
       propfind_curprivset, NULL, NULL },
-    { "acl", XML_NS_DAV, 0, propfind_acl, NULL, NULL },
-    { "acl-restrictions", XML_NS_DAV, 0, propfind_aclrestrict, NULL, NULL },
-    { "inherited-acl-set", XML_NS_DAV, 0, NULL, NULL, NULL },
-    { "principal-collection-set", XML_NS_DAV, 0,
+    { "acl", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_acl, NULL, NULL },
+    { "acl-restrictions", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_aclrestrict, NULL, NULL },
+    { "inherited-acl-set", NS_DAV, 0, NULL, NULL, NULL },
+    { "principal-collection-set", NS_DAV,
+      PROP_ROOT | PROP_PRINCIPAL | PROP_COLLECTION | PROP_RESOURCE,
       propfind_princolset, NULL, NULL },
 
     /* WebDAV Quota (RFC 4331) properties */
-    { "quota-available-bytes", XML_NS_DAV, 0, propfind_quota, NULL, NULL },
-    { "quota-used-bytes", XML_NS_DAV, 0, propfind_quota, NULL, NULL },
+    { "quota-available-bytes", NS_DAV, PROP_COLLECTION,
+      propfind_quota, NULL, NULL },
+    { "quota-used-bytes", NS_DAV, PROP_COLLECTION,
+      propfind_quota, NULL, NULL },
 
     /* WebDAV Current Principal (RFC 5397) properties */
-    { "current-user-principal", XML_NS_DAV, 0, propfind_curprin, NULL, NULL },
+    { "current-user-principal", NS_DAV,
+      PROP_ROOT | PROP_PRINCIPAL | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_curprin, NULL, NULL },
 
     /* WebDAV POST (RFC 5995) properties */
-    { "add-member", XML_NS_DAV, 0, propfind_addmember, NULL, NULL },
+    { "add-member", NS_DAV, PROP_COLLECTION
+      | PROP_CALENDAR,  /* Until Apple Contacts is fixed */
+      propfind_addmember, NULL, NULL },
 
     /* WebDAV Sync (RFC 6578) properties */
-    { "sync-token", XML_NS_DAV, 1, propfind_sync_token, NULL, NULL },
+    { "sync-token", NS_DAV, PROP_COLLECTION,
+      propfind_sync_token, NULL, NULL },
 
     /* CalDAV (RFC 4791) properties */
-    { "calendar-data", XML_NS_CALDAV, 0, propfind_getdata, NULL, NULL },
-    { "calendar-description", XML_NS_CALDAV, 0,
+    { "calendar-data", NS_CALDAV, PROP_RESOURCE | PROP_CALENDAR,
+      propfind_getdata, NULL, NULL },
+    { "calendar-description", NS_CALDAV, PROP_COLLECTION | PROP_CALENDAR,
       propfind_fromdb, proppatch_todb, NULL },
-    { "calendar-home-set", XML_NS_CALDAV, 0, propfind_calurl, NULL, NULL },
-    { "calendar-timezone", XML_NS_CALDAV, 0,
-      propfind_fromdb, proppatch_todb, NULL },
-    { "supported-calendar-component-set", XML_NS_CALDAV, 0,
+    { "calendar-home-set", NS_CALDAV, PROP_PRINCIPAL,
+      propfind_calurl, NULL, NULL },
+    { "calendar-timezone", NS_CALDAV, PROP_COLLECTION | PROP_CALENDAR,
+      propfind_fromdb, proppatch_timezone, NULL },
+    { "supported-calendar-component-set", NS_CALDAV,
+      PROP_COLLECTION | PROP_CALENDAR,
       propfind_calcompset, proppatch_calcompset, NULL },
-    { "supported-calendar-data", XML_NS_CALDAV, 0,
+    { "supported-calendar-data", NS_CALDAV, PROP_COLLECTION | PROP_CALENDAR,
       propfind_suppcaldata, NULL, NULL },
-    { "max-resource-size", XML_NS_CALDAV, 0, NULL, NULL, NULL },
-    { "min-date-time", XML_NS_CALDAV, 0, NULL, NULL, NULL },
-    { "max-date-time", XML_NS_CALDAV, 0, NULL, NULL, NULL },
-    { "max-instances", XML_NS_CALDAV, 0, NULL, NULL, NULL },
-    { "max-attendees-per-instance", XML_NS_CALDAV, 0, NULL, NULL, NULL },
+    { "max-resource-size", NS_CALDAV, 0, NULL, NULL, NULL },
+    { "min-date-time", NS_CALDAV, 0, NULL, NULL, NULL },
+    { "max-date-time", NS_CALDAV, 0, NULL, NULL, NULL },
+    { "max-instances", NS_CALDAV, 0, NULL, NULL, NULL },
+    { "max-attendees-per-instance", NS_CALDAV, 0, NULL, NULL, NULL },
 
     /* CalDAV Scheduling (RFC 6638) properties */
-    { "schedule-tag", XML_NS_CALDAV, 0, propfind_schedtag, NULL, NULL },
-    { "schedule-inbox-URL", XML_NS_CALDAV, 0,
+    { "schedule-tag", NS_CALDAV, PROP_RESOURCE | PROP_CALENDAR,
+      propfind_schedtag, NULL, NULL },
+    { "schedule-inbox-URL", NS_CALDAV, PROP_PRINCIPAL,
       propfind_calurl, NULL, SCHED_INBOX },
-    { "schedule-outbox-URL", XML_NS_CALDAV, 0,
+    { "schedule-outbox-URL", NS_CALDAV, PROP_PRINCIPAL,
       propfind_calurl, NULL, SCHED_OUTBOX },
-    { "schedule-default-calendar-URL", XML_NS_CALDAV, 0,
+    { "schedule-default-calendar-URL", NS_CALDAV, PROP_COLLECTION,
       propfind_calurl, NULL, SCHED_DEFAULT },
-    { "schedule-calendar-transp", XML_NS_CALDAV, 0,
+    { "schedule-calendar-transp", NS_CALDAV,
+      PROP_COLLECTION | PROP_CALENDAR,
       propfind_caltransp, proppatch_caltransp, NULL },
-    { "calendar-user-address-set", XML_NS_CALDAV, 0,
+    { "calendar-user-address-set", NS_CALDAV, PROP_PRINCIPAL,
       propfind_caluseraddr, NULL, NULL },
-    { "calendar-user-type", XML_NS_CALDAV, 0, NULL, NULL, NULL },
+    { "calendar-user-type", NS_CALDAV, 0, NULL, NULL, NULL },
 
     /* CardDAV (RFC 6352) properties */
-    { "address-data", XML_NS_CARDDAV, 0, propfind_getdata, NULL, NULL },
-    { "addressbook-description", XML_NS_CARDDAV, 0,
+    { "address-data", NS_CARDDAV, PROP_RESOURCE | PROP_ADDRESSBOOK,
+      propfind_getdata, NULL, NULL },
+    { "addressbook-description", NS_CARDDAV,
+      PROP_COLLECTION | PROP_ADDRESSBOOK,
       propfind_fromdb, proppatch_todb, NULL },
-    { "addressbook-home-set", XML_NS_CARDDAV, 0,
+    { "addressbook-home-set", NS_CARDDAV, PROP_PRINCIPAL,
       propfind_abookurl, NULL, NULL },
-    { "supported-address-data", XML_NS_CARDDAV, 0,
+    { "supported-address-data", NS_CARDDAV,
+      PROP_COLLECTION | PROP_ADDRESSBOOK,
       propfind_suppaddrdata, NULL, NULL },
-    { "max-resource-size", XML_NS_CARDDAV, 0, NULL, NULL, NULL },
+    { "max-resource-size", NS_CARDDAV, 0, NULL, NULL, NULL },
 
     /* Apple Calendar Server properties */
-    { "getctag", XML_NS_CS, 1, propfind_sync_token, NULL, NULL },
+    { "getctag", NS_CS, PROP_ALLPROP | PROP_COLLECTION,
+      propfind_sync_token, NULL, NULL },
 
-    /* Apple iCal properties */
-    { "calendar-color", XML_NS_ICAL, 0,
-      propfind_fromdb, proppatch_todb, NULL },
-    { "calendar-order", XML_NS_ICAL, 0,
-      propfind_fromdb, proppatch_todb, NULL },
-
-    { NULL, NULL, 0, NULL, NULL, NULL }
+    { NULL, 0, 0, NULL, NULL, NULL }
 };
+
+
+/* annotemore_findall callback for adding dead properties (allprop/propname) */
+static int allprop_cb(const char *mailbox __attribute__((unused)),
+		      const char *entry,
+		      const char *userid, struct annotation_data *attrib,
+		      void *rock)
+{
+    struct allprop_rock *arock = (struct allprop_rock *) rock;
+    const struct prop_entry *pentry;
+    char *href, *name;
+    xmlNsPtr ns;
+    xmlNodePtr node;
+
+    /* Make sure its a shared entry or the user's private one */
+    if (*userid && strcmp(userid, arock->fctx->userid)) return 0;
+
+    /* Split entry into namespace href and name ( <href>name ) */
+    buf_setcstr(&arock->fctx->buf, entry + strlen(ANNOT_NS) + 1);
+    href = (char *) buf_cstring(&arock->fctx->buf);
+    if ((name = strchr(href, '>'))) *name++ = '\0';
+
+    /* Look for a match against live properties */
+    for (pentry = prop_entries;
+	 pentry->name &&
+	     (strcmp(name, pentry->name) ||
+	      strcmp(href, known_namespaces[pentry->ns].href));
+	 pentry++);
+
+    if (pentry->name &&
+	(arock->fctx->mode == PROPFIND_ALL    /* Skip all live properties */
+	 || (pentry->flags & PROP_ALLPROP)))  /* Skip those already included */
+	return 0;
+
+    /* Look for an instance of this namespace in our response */
+    ns = hash_lookup(href, arock->fctx->ns_table);
+    if (!ns) {
+	char prefix[5];
+	snprintf(prefix, sizeof(prefix), "X%u", arock->fctx->prefix_count++);
+	ns = xmlNewNs(arock->fctx->root, BAD_CAST href, BAD_CAST prefix);
+	hash_insert(href, ns, arock->fctx->ns_table);
+    }
+
+    /* Add the dead property to the response */
+    node = xml_add_prop(HTTP_OK, arock->fctx->ns[NS_DAV],
+			&arock->propstat[PROPSTAT_OK],
+			BAD_CAST name, ns, NULL, 0);
+
+    if (arock->fctx->mode == PROPFIND_ALL) {
+	xmlAddChild(node, xmlNewCDataBlock(arock->fctx->root->doc,
+					   BAD_CAST attrib->value,
+					   attrib->size));
+    }
+
+    return 0;
+}
+
+
+static int prescreen_prop(const struct prop_entry *entry,
+			  xmlNodePtr prop,
+			  struct propfind_ctx *fctx)
+{
+    xmlChar *type =  NULL, *ver = NULL;
+    unsigned allowed = 1;
+
+    switch (fctx->req_tgt->namespace) {
+    case URL_NS_PRINCIPAL:
+	if (!(entry->flags & PROP_PRINCIPAL)) allowed = 0;
+	break;
+
+    case URL_NS_CALENDAR:
+	if ((entry->flags & PROP_ADDRESSBOOK) ||
+	    (fctx->req_tgt->resource &&
+	     !(entry->flags & PROP_RESOURCE))) {
+	    allowed = 0;
+	}
+
+	/* Sanity check any calendar-data "property" request */
+	else if (prop && !xmlStrcmp(prop->name, BAD_CAST "calendar-data") &&
+		 (((type = xmlGetProp(prop, BAD_CAST "content-type"))
+		   && xmlStrcmp(type, BAD_CAST "text/calendar")) ||
+		  ((ver = xmlGetProp(prop, BAD_CAST "version")) &&
+		   xmlStrcmp(ver, BAD_CAST "2.0")))) {
+	    allowed = 0;
+	    fctx->err->precond = CALDAV_SUPP_DATA;
+	    *fctx->ret = HTTP_FORBIDDEN;
+	}
+	break;
+
+    case URL_NS_ADDRESSBOOK:
+	if ((entry->flags & PROP_CALENDAR) ||
+	    (fctx->req_tgt->resource &&
+	     !(entry->flags & PROP_RESOURCE))) {
+	    allowed = 0;
+	}
+
+	/* Sanity check any address-data "property" request */
+	else if (prop && !xmlStrcmp(prop->name, BAD_CAST "address-data") &&
+		 (((type = xmlGetProp(prop, BAD_CAST "content-type"))
+		   && xmlStrcmp(type, BAD_CAST "text/vcard")) ||
+		  ((ver = xmlGetProp(prop, BAD_CAST "version")) &&
+		   xmlStrcmp(ver, BAD_CAST "3.0")))) {
+	    allowed = 0;
+	    fctx->err->precond = CALDAV_SUPP_DATA;
+	    *fctx->ret = HTTP_FORBIDDEN;
+	}
+	break;
+
+    default:
+	if (!(entry->flags & PROP_ROOT)) allowed = 0;
+	break;
+    }
+
+    if (type) xmlFree(type);
+    if (ver) xmlFree(ver);
+
+    return allowed;
+}
 
 
 /* Parse the requested properties and create a linked list of fetch callbacks.
@@ -2307,30 +2525,79 @@ static const struct prop_entry {
  */
 static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 {
+    int ret = 0;
     xmlNodePtr prop;
     const struct prop_entry *entry;
 
+    if (fctx->mode == PROPFIND_ALL || fctx->mode == PROPFIND_NAME) {
+	xmlNsPtr nsDef;
+
+	/* Add live properties for allprop/propname */
+	for (entry = prop_entries; entry->name; entry++) {
+	    if (entry->flags & PROP_ALLPROP) {
+		/* Pre-screen request based on prop flags */
+		int allowed = prescreen_prop(entry, NULL, fctx);
+
+		if (allowed || fctx->mode == PROP_ALLPROP) {
+		    struct propfind_entry_list *nentry =
+			xzmalloc(sizeof(struct propfind_entry_list));
+
+		    ensure_ns(fctx->ns, entry->ns, fctx->root,
+			      known_namespaces[entry->ns].href,
+			      known_namespaces[entry->ns].prefix);
+
+		    nentry->name = BAD_CAST entry->name;
+		    nentry->ns = fctx->ns[entry->ns];
+		    if (allowed) {
+			nentry->flags = entry->flags;
+			nentry->get = entry->get;
+			nentry->rock = entry->rock;
+		    }
+		    nentry->next = fctx->elist;
+		    fctx->elist = nentry;
+		}
+	    }
+	}
+
+	/* Add all namespaces attached to the response to our hash table */
+	construct_hash_table(fctx->ns_table, 10, 1);
+
+	for (nsDef = fctx->root->nsDef; nsDef; nsDef = nsDef->next) {
+	    hash_insert((const char *) nsDef->href, nsDef, fctx->ns_table);
+	}
+    }
+
     /* Iterate through requested properties */
-    for (prop = proplist; prop; prop = prop->next) {
+    for (prop = proplist; !*fctx->ret && prop; prop = prop->next) {
 	if (prop->type == XML_ELEMENT_NODE) {
-	    struct propfind_entry_list *nentry =
-		xzmalloc(sizeof(struct propfind_entry_list));
+	    struct propfind_entry_list *nentry;
 
 	    /* Look for a match against our known properties */
 	    for (entry = prop_entries;
 		 entry->name && 
 		     (strcmp((const char *) prop->name, entry->name) ||
-		      strcmp((const char *) prop->ns->href, entry->ns));
+		      strcmp((const char *) prop->ns->href,
+			     known_namespaces[entry->ns].href));
 		 entry++);
 
-	    nentry->prop = prop;
+	    /* Skip properties already included by allprop */
+	    if (fctx->mode == PROPFIND_ALL && (entry->flags & PROP_ALLPROP))
+		continue;		
+
+	    nentry = xzmalloc(sizeof(struct propfind_entry_list));
+	    nentry->name = prop->name;
+	    nentry->ns = prop->ns;
 	    if (entry->name) {
-		/* Found a match */
-		nentry->get = entry->get;
-		nentry->rock = entry->rock;
+		/* Found a match - Pre-screen request based on prop flags */
+		if (prescreen_prop(entry, prop, fctx)) {
+		    nentry->flags = entry->flags;
+		    nentry->get = entry->get;
+		    nentry->rock = entry->rock;
+		}
 	    }
 	    else {
 		/* No match, treat as a dead property */
+		nentry->flags = PROP_COLLECTION;
 		nentry->get = propfind_fromdb;
 		nentry->rock = NULL;
 	    }
@@ -2339,7 +2606,7 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 	}
     }
 
-    return 0;
+    return ret;
 }
 
 
@@ -2362,7 +2629,7 @@ static int do_proppatch(struct proppatch_ctx *pctx, xmlNodePtr instr)
 		     !xmlStrcmp(instr->name, BAD_CAST "remove")) set = 0;
 	    else {
 		syslog(LOG_INFO, "Unknown PROPPATCH instruction");
-		*pctx->errstr = "Unknown PROPPATCH instruction";
+		pctx->err->desc = "Unknown PROPPATCH instruction";
 		return HTTP_BAD_REQUEST;
 	    }
 
@@ -2370,7 +2637,7 @@ static int do_proppatch(struct proppatch_ctx *pctx, xmlNodePtr instr)
 	    for (prop = instr->children;
 		 prop && prop->type != XML_ELEMENT_NODE; prop = prop->next);
 	    if (!prop || xmlStrcmp(prop->name, BAD_CAST "prop")) {
-		*pctx->errstr = "Missing prop element";
+		pctx->err->desc = "Missing prop element";
 		return HTTP_BAD_REQUEST;
 	    }
 
@@ -2383,7 +2650,8 @@ static int do_proppatch(struct proppatch_ctx *pctx, xmlNodePtr instr)
 		    for (entry = prop_entries;
 			 entry->name &&
 			     (strcmp((const char *) prop->name, entry->name) ||
-			      strcmp((const char *) prop->ns->href, entry->ns));
+			      strcmp((const char *) prop->ns->href,
+				     known_namespaces[entry->ns].href));
 			 entry++);
 
 		    if (entry->name) {
@@ -2391,7 +2659,7 @@ static int do_proppatch(struct proppatch_ctx *pctx, xmlNodePtr instr)
 			    /* Protected property */
 			    xml_add_prop(HTTP_FORBIDDEN, pctx->ns[NS_DAV],
 					 &propstat[PROPSTAT_FORBID],
-					 prop, NULL,
+					 prop->name, prop->ns, NULL,
 					 DAV_PROT_PROP);
 			    *pctx->ret = HTTP_FORBIDDEN;
 			}
@@ -2557,7 +2825,7 @@ int meth_acl(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -2649,7 +2917,7 @@ int meth_acl(struct transaction_t *txn, void *params)
 	    }
 
 	    if (!xmlStrcmp(prin->name, BAD_CAST "self")) {
-		userid = httpd_userid;
+		userid = proxy_userid;
 	    }
 #if 0  /* XXX  Do we need to support this? */
 	    else if (!xmlStrcmp(prin->name, BAD_CAST "owner")) {
@@ -2889,7 +3157,7 @@ int meth_copy(struct transaction_t *txn, void *params)
 
     if (server) {
 	/* Remote source mailbox */
-	src_be = proxy_findserver(server, &http_protocol, httpd_userid,
+	src_be = proxy_findserver(server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
 	if (!src_be) return HTTP_UNAVAILABLE;
     }
@@ -2920,7 +3188,7 @@ int meth_copy(struct transaction_t *txn, void *params)
 
     if (server) {
 	/* Remote destination mailbox */
-	dest_be = proxy_findserver(server, &http_protocol, httpd_userid,
+	dest_be = proxy_findserver(server, &http_protocol, proxy_userid,
 				   &backend_cached, NULL, NULL, httpd_in);
 	if (!dest_be) return HTTP_UNAVAILABLE;
     }
@@ -2949,7 +3217,7 @@ int meth_copy(struct transaction_t *txn, void *params)
     if (!*cparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -3019,7 +3287,7 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
 
     /* Check any preconditions on source */
-    precond = check_precond(txn, (void **) ddata, etag, lastmod, 0);
+    precond = check_precond(txn, (void **) ddata, etag, lastmod);
 
     switch (precond) {
     case HTTP_OK:
@@ -3138,7 +3406,7 @@ int meth_delete(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -3150,7 +3418,7 @@ int meth_delete(struct transaction_t *txn, void *params)
     if (!*dparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -3214,7 +3482,7 @@ int meth_delete(struct transaction_t *txn, void *params)
     }
 
     /* Check any preconditions */
-    precond = dparams->check_precond(txn, (void *) ddata, etag, lastmod, 0);
+    precond = dparams->check_precond(txn, (void *) ddata, etag, lastmod);
 
     switch (precond) {
     case HTTP_OK:
@@ -3305,7 +3573,7 @@ int meth_get_dav(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -3317,7 +3585,7 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     if (!*gparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -3353,7 +3621,7 @@ int meth_get_dav(struct transaction_t *txn, void *params)
 	offset = record.header_size;
 	datalen = record.size - offset;
 
-	txn->flags.ranges = !txn->flags.ce;
+	txn->flags.ranges = 1;
 	etag = message_guid_encode(&record.guid);
 	lastmod = record.internaldate;
     }
@@ -3366,32 +3634,25 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     }
 
     /* Check any preconditions, including range request */
-    precond = gparams->check_precond(txn, (void *) ddata, etag, lastmod,
-				     datalen);
+    precond = gparams->check_precond(txn, (void *) ddata, etag, lastmod);
 
     switch (precond) {
     case HTTP_OK:
-	break;
-
     case HTTP_PARTIAL:
-	/* Set data parameters for range */
-	offset += resp_body->range->first;
-	datalen = resp_body->range->last - resp_body->range->first + 1;
-	break;
-
     case HTTP_NOT_MODIFIED:
-	/* Fill in ETag for 304 response */
+	/* Fill in ETag, Last-Modified, Expires, and Cache-Control */
 	resp_body->etag = etag;
+	resp_body->lastmod = lastmod;
+	resp_body->maxage = 3600;	/* 1 hr */
+	txn->flags.cc |= CC_MAXAGE | CC_REVALIDATE;  /* don't use stale data */
+
+	if (precond != HTTP_NOT_MODIFIED) break;
 
     default:
 	/* We failed a precondition - don't perform the request */
 	ret = precond;
 	goto done;
     }
-
-    /* Fill in Last-Modified, ETag, and Content-Type */
-    resp_body->lastmod = lastmod;
-    resp_body->etag = etag;
 
     if (record.uid) {
 	resp_body->type = gparams->content_type;
@@ -3407,11 +3668,7 @@ int meth_get_dav(struct transaction_t *txn, void *params)
 	}
     }
 
-    if (resp_body->range && resp_body->range->next) {
-	/* multiple ranges */
-	multipart_byteranges(txn, msg_base + record.header_size);
-    }
-    else write_body(precond, txn, data, datalen);
+    write_body(precond, txn, data, datalen);
 
     if (msg_base)
 	mailbox_unmap_message(mailbox, record.uid, &msg_base, &msg_size);
@@ -3486,7 +3743,7 @@ int meth_lock(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -3498,7 +3755,7 @@ int meth_lock(struct transaction_t *txn, void *params)
     if (!*lparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -3546,7 +3803,7 @@ int meth_lock(struct transaction_t *txn, void *params)
     }
 
     /* Check any preconditions */
-    precond = lparams->check_precond(txn, ddata, etag, lastmod, 0);
+    precond = lparams->check_precond(txn, ddata, etag, lastmod);
 
     switch (precond) {
     case HTTP_OK:
@@ -3743,7 +4000,7 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	p = strchr(server, '!');
 	if (p) *p++ = '\0';
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -3794,7 +4051,7 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	pctx.root = root;
 	pctx.ns = ns;
 	pctx.tid = NULL;
-	pctx.errstr = &txn->error.desc;
+	pctx.err = &txn->error;
 	pctx.ret = &r;
 
 	/* Execute the property patch instructions */
@@ -3939,7 +4196,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
     if ((r = mboxlist_lookup(mboxname, &mbentry, NULL))) {
 	syslog(LOG_INFO, "mboxlist_lookup(%s) failed: %s",
 	       mboxname, error_message(r));
-	*fctx->errstr = error_message(r);
+	fctx->err->desc = error_message(r);
 	*fctx->ret = HTTP_SERVER_ERROR;
 	goto done;
     }
@@ -3951,7 +4208,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
     if ((r = mailbox_open_irl(mboxname, &mailbox))) {
 	syslog(LOG_INFO, "mailbox_open_irl(%s) failed: %s",
 	       mboxname, error_message(r));
-	*fctx->errstr = error_message(r);
+	fctx->err->desc = error_message(r);
 	*fctx->ret = HTTP_SERVER_ERROR;
 	goto done;
     }
@@ -4026,8 +4283,9 @@ int meth_propfind(struct transaction_t *txn, void *params)
     const char **hdr;
     unsigned depth;
     xmlDocPtr indoc = NULL, outdoc = NULL;
-    xmlNodePtr root, cur = NULL;
+    xmlNodePtr root, cur = NULL, props = NULL;
     xmlNsPtr ns[NUM_NAMESPACE];
+    struct hash_table ns_table = { 0, NULL, NULL };
     struct propfind_ctx fctx;
     struct propfind_entry_list *elist = NULL;
 
@@ -4083,7 +4341,7 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	    /* Remote mailbox */
 	    struct backend *be;
 
-	    be = proxy_findserver(server, &http_protocol, httpd_userid,
+	    be = proxy_findserver(server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
 	    if (!be) return HTTP_UNAVAILABLE;
 
@@ -4094,7 +4352,7 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	if (!*fparams->davdb.db) {
 	    syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 		   "Check 'configdirectory' permissions or "
-		   "'proxyservers' option on backend server.", httpd_userid);
+		   "'proxyservers' option on backend server.", proxy_userid);
 	    txn->error.desc = "DAV database is not opened";
 	    return HTTP_SERVER_ERROR;
 	}
@@ -4113,12 +4371,11 @@ int meth_propfind(struct transaction_t *txn, void *params)
     if (ret) goto done;
 
     if (!root) {
-	/* XXX allprop request */
+	/* Empty request */
+	fctx.mode = PROPFIND_ALL;
     }
     else {
 	indoc = root->doc;
-
-	/* XXX  Need to support propname request too! */
 
 	/* Make sure its a propfind element */
 	if (xmlStrcmp(root->name, BAD_CAST "propfind")) {
@@ -4135,9 +4392,31 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	spool_cache_header(xstrdup(":type"), xstrdup((const char *) cur->name),
 			   txn->req_hdrs);
 
-	/* Make sure its a prop element */
-	/* XXX  TODO: Check for allprop and propname too */
-	if (!cur || xmlStrcmp(cur->name, BAD_CAST "prop")) {
+	/* Make sure its a known element */
+	if (!cur) {
+	    ret = HTTP_BAD_REQUEST;
+	    goto done;
+	}
+	else if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
+	    fctx.mode = PROPFIND_ALL;
+
+	    /* Check for 'include' element */
+	    for (cur = cur->next;
+		 cur && cur->type != XML_ELEMENT_NODE; cur = cur->next);
+
+	    if (cur && !xmlStrcmp(cur->name, BAD_CAST "include")) {
+		props = cur->children;
+	    }
+	}
+	else if (!xmlStrcmp(cur->name, BAD_CAST "propname")) {
+	    fctx.mode = PROPFIND_NAME;
+	    fctx.prefer = PREFER_MIN;  /* Don't want 404 (Not Found) */
+	}
+	else if (!xmlStrcmp(cur->name, BAD_CAST "prop")) {
+	    fctx.mode = PROPFIND_PROP;
+	    props = cur->children;
+	}
+	else {
 	    ret = HTTP_BAD_REQUEST;
 	    goto done;
 	}
@@ -4155,8 +4434,9 @@ int meth_propfind(struct transaction_t *txn, void *params)
     /* Populate our propfind context */
     fctx.req_tgt = &txn->req_tgt;
     fctx.depth = depth;
-    fctx.prefer = get_preferences(txn);
-    fctx.userid = httpd_userid;
+    fctx.prefer |= get_preferences(txn);
+    fctx.userid = proxy_userid;
+    fctx.int_userid = httpd_userid;
     fctx.userisadmin = httpd_userisadmin;
     fctx.authstate = httpd_authstate;
     fctx.mailbox = NULL;
@@ -4173,12 +4453,13 @@ int meth_propfind(struct transaction_t *txn, void *params)
     fctx.elist = NULL;
     fctx.root = root;
     fctx.ns = ns;
-    fctx.errstr = &txn->error.desc;
+    fctx.ns_table = &ns_table;
+    fctx.err = &txn->error;
     fctx.ret = &ret;
     fctx.fetcheddata = 0;
 
     /* Parse the list of properties and build a list of callbacks */
-    preload_proplist(cur->children, &fctx);
+    preload_proplist(props, &fctx);
 
     if (!txn->req_tgt.collection &&
 	(!depth || !(fctx.prefer & PREFER_NOROOT))) {
@@ -4238,6 +4519,8 @@ int meth_propfind(struct transaction_t *txn, void *params)
     }
 
     buf_free(&fctx.buf);
+
+    free_hash_table(&ns_table, NULL);
 
     if (outdoc) xmlFreeDoc(outdoc);
     if (indoc) xmlFreeDoc(indoc);
@@ -4305,7 +4588,7 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -4353,7 +4636,7 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     pctx.root = resp;
     pctx.ns = ns;
     pctx.tid = NULL;
-    pctx.errstr = &txn->error.desc;
+    pctx.err = &txn->error;
     pctx.ret = &r;
 
     /* Execute the property patch instructions */
@@ -4393,7 +4676,6 @@ int meth_post(struct transaction_t *txn, void *params)
     static unsigned post_count = 0;
     int r, ret;
     size_t len;
-    char *p;
 
     /* Response should not be cached */
     txn->flags.cc |= CC_NOCACHE;
@@ -4415,10 +4697,11 @@ int meth_post(struct transaction_t *txn, void *params)
 
     /* Append a unique resource name to URL path and perform a PUT */
     len = strlen(txn->req_tgt.path);
-    p = txn->req_tgt.path + len;
-
-    snprintf(p, MAX_MAILBOX_PATH - len, "%x-%d-%ld-%u.ics",
-	     strhash(txn->req_tgt.path), getpid(), time(0), post_count++);
+    txn->req_tgt.resource = txn->req_tgt.path + len;
+    txn->req_tgt.reslen =
+	snprintf(txn->req_tgt.resource, MAX_MAILBOX_PATH - len,
+		 "%x-%d-%ld-%u.ics",
+		 strhash(txn->req_tgt.path), getpid(), time(0), post_count++);
 
     /* Tell client where to find the new resource */
     txn->location = txn->req_tgt.path;
@@ -4449,15 +4732,19 @@ int meth_put(struct transaction_t *txn, void *params)
     uquota_t size = 0;
     unsigned flags = 0;
 
-    /* Response should not be cached */
-    txn->flags.cc |= CC_NOCACHE;
+    if (txn->meth == METH_PUT) {
+	/* Response should not be cached */
+	txn->flags.cc |= CC_NOCACHE;
 
-    /* Parse the path */
-    if ((r = pparams->parse_path(txn->req_uri->path,
-				 &txn->req_tgt, &txn->error.desc))) return r;
+	/* Parse the path */
+	if ((r = pparams->parse_path(txn->req_uri->path,
+				     &txn->req_tgt, &txn->error.desc))) {
+	    return r;
+	}
 
-    /* Make sure method is allowed (only allowed on resources) */
-    if (!(txn->req_tgt.allow & ALLOW_WRITE)) return HTTP_NOT_ALLOWED; 
+	/* Make sure method is allowed (only allowed on resources) */
+	if (!(txn->req_tgt.allow & ALLOW_WRITE)) return HTTP_NOT_ALLOWED;
+    }
 
     /* Make sure Content-Range isn't specified */
     if (spool_getheader(txn->req_hdrs, "Content-Range"))
@@ -4498,7 +4785,7 @@ int meth_put(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -4510,7 +4797,7 @@ int meth_put(struct transaction_t *txn, void *params)
     if (!*pparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -4558,7 +4845,7 @@ int meth_put(struct transaction_t *txn, void *params)
     mailbox_unlock_index(mailbox, NULL);
 
     /* Check any preconditions */
-    precond = pparams->check_precond(txn, ddata, etag, lastmod, 0);
+    precond = pparams->check_precond(txn, ddata, etag, lastmod);
 
     switch (precond) {
     case HTTP_OK:
@@ -4675,13 +4962,13 @@ int report_sync_col(struct transaction_t *txn,
 	    else if (!xmlStrcmp(node->name, BAD_CAST "sync-level") &&
 		(str = xmlNodeListGetString(inroot->doc, node->children, 1))) {
 		if (!strcmp((char *) str, "infinity")) {
-		    *fctx->errstr =
+		    fctx->err->desc =
 			"This server DOES NOT support infinite depth requests";
 		    ret = HTTP_SERVER_ERROR;
 		}
 		else if ((sscanf((char *) str, "%u", &fctx->depth) != 1) ||
 			 (fctx->depth != 1)) {
-		    *fctx->errstr = "Illegal sync-level";
+		    fctx->err->desc = "Illegal sync-level";
 		    ret = HTTP_BAD_REQUEST;
 		}
 	    }
@@ -4705,7 +4992,7 @@ int report_sync_col(struct transaction_t *txn,
 
     /* Check Depth */
     if (!fctx->depth) {
-	*fctx->errstr = "Illegal sync-level";
+	fctx->err->desc = "Illegal sync-level";
 	ret = HTTP_BAD_REQUEST;
 	goto done;
     }
@@ -4759,7 +5046,7 @@ int report_sync_col(struct transaction_t *txn,
 
 	if (!nresp) {
 	    /* DAV:number-of-matches-within-limits */
-	    *fctx->errstr = "Unable to truncate results";
+	    fctx->err->desc = "Unable to truncate results";
 	    ret = HTTP_FORBIDDEN;  /* HTTP_NO_STORAGE ? */
 	    goto done;
 	}
@@ -4827,9 +5114,10 @@ int meth_report(struct transaction_t *txn, void *params)
     int ret = 0, r;
     const char **hdr;
     unsigned depth = 0;
-    xmlNodePtr inroot = NULL, outroot = NULL, cur, prop = NULL;
+    xmlNodePtr inroot = NULL, outroot = NULL, cur, props = NULL;
     const struct report_type_t *report = NULL;
     xmlNsPtr ns[NUM_NAMESPACE];
+    struct hash_table ns_table = { 0, NULL, NULL };
     struct propfind_ctx fctx;
     struct propfind_entry_list *elist = NULL;
 
@@ -4919,7 +5207,7 @@ int meth_report(struct transaction_t *txn, void *params)
 	    /* Remote mailbox */
 	    struct backend *be;
 
-	    be = proxy_findserver(server, &http_protocol, httpd_userid,
+	    be = proxy_findserver(server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
 	    if (!be) ret = HTTP_UNAVAILABLE;
 	    else ret = http_pipe_req_resp(be, txn);
@@ -4930,7 +5218,7 @@ int meth_report(struct transaction_t *txn, void *params)
 	if (!*rparams->davdb.db) {
 	    syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 		   "Check 'configdirectory' permissions or "
-		   "'proxyservers' option on backend server.", httpd_userid);
+		   "'proxyservers' option on backend server.", proxy_userid);
 	    txn->error.desc = "DAV database is not opened";
 	    return HTTP_SERVER_ERROR;
 	}
@@ -4942,25 +5230,23 @@ int meth_report(struct transaction_t *txn, void *params)
     for (cur = inroot->children; cur; cur = cur->next) {
 	if (cur->type == XML_ELEMENT_NODE) {
 	    if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
-		syslog(LOG_WARNING, "REPORT %s w/allprop", report->name);
-		txn->error.desc = "Unsupported REPORT option <allprop>\r\n";
-		ret = HTTP_NOT_IMPLEMENTED;
-		goto done;
+		fctx.mode = PROPFIND_ALL;
+		break;
 	    }
 	    else if (!xmlStrcmp(cur->name, BAD_CAST "propname")) {
-		syslog(LOG_WARNING, "REPORT %s w/propname", report->name);
-		txn->error.desc = "Unsupported REPORT option <propname>\r\n";
-		ret = HTTP_NOT_IMPLEMENTED;
-		goto done;
+		fctx.mode = PROPFIND_NAME;
+		fctx.prefer = PREFER_MIN;  /* Don't want 404 (Not Found) */
+		break;
 	    }
 	    else if (!xmlStrcmp(cur->name, BAD_CAST "prop")) {
-		prop = cur;
+		fctx.mode = PROPFIND_PROP;
+		props = cur->children;
 		break;
 	    }
 	}
     }
 
-    if (!prop && (report->flags & REPORT_NEED_PROPS)) {
+    if (!props && (report->flags & REPORT_NEED_PROPS)) {
 	txn->error.desc = "Missing <prop> element in REPORT\r\n";
 	ret = HTTP_BAD_REQUEST;
 	goto done;
@@ -4977,8 +5263,9 @@ int meth_report(struct transaction_t *txn, void *params)
     /* Populate our propfind context */
     fctx.req_tgt = &txn->req_tgt;
     fctx.depth = depth;
-    fctx.prefer = get_preferences(txn);
-    fctx.userid = httpd_userid;
+    fctx.prefer |= get_preferences(txn);
+    fctx.userid = proxy_userid;
+    fctx.int_userid = httpd_userid;
     fctx.userisadmin = httpd_userisadmin;
     fctx.authstate = httpd_authstate;
     fctx.mailbox = NULL;
@@ -4987,15 +5274,16 @@ int meth_report(struct transaction_t *txn, void *params)
     fctx.elist = NULL;
     fctx.root = outroot;
     fctx.ns = ns;
-    fctx.errstr = &txn->error.desc;
+    fctx.ns_table = &ns_table;
+    fctx.err = &txn->error;
     fctx.ret = &ret;
     fctx.fetcheddata = 0;
 
     /* Parse the list of properties and build a list of callbacks */
-    if (prop) preload_proplist(prop->children, &fctx);
+    if (fctx.mode) ret = preload_proplist(props, &fctx);
 
     /* Process the requested report */
-    ret = (*report->proc)(txn, inroot, &fctx);
+    if (!ret) ret = (*report->proc)(txn, inroot, &fctx);
 
     /* Output the XML response */
     if (!ret && outroot) {
@@ -5015,6 +5303,8 @@ int meth_report(struct transaction_t *txn, void *params)
     }
 
     buf_free(&fctx.buf);
+
+    free_hash_table(&ns_table, NULL);
 
     if (inroot) xmlFreeDoc(inroot->doc);
     if (outroot) xmlFreeDoc(outroot->doc);
@@ -5076,7 +5366,7 @@ int meth_unlock(struct transaction_t *txn, void *params)
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, httpd_userid,
+	be = proxy_findserver(server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
 	if (!be) return HTTP_UNAVAILABLE;
 
@@ -5088,7 +5378,7 @@ int meth_unlock(struct transaction_t *txn, void *params)
     if (!*lparams->davdb.db) {
 	syslog(LOG_ERR, "DAV database for user '%s' is not opened.  "
 	       "Check 'configdirectory' permissions or "
-	       "'proxyservers' option on backend server.", httpd_userid);
+	       "'proxyservers' option on backend server.", proxy_userid);
 	txn->error.desc = "DAV database is not opened";
 	return HTTP_SERVER_ERROR;
     }
@@ -5161,7 +5451,7 @@ int meth_unlock(struct transaction_t *txn, void *params)
     }
 
     /* Check any preconditions */
-    precond = lparams->check_precond(txn, ddata, etag, lastmod, 0);
+    precond = lparams->check_precond(txn, ddata, etag, lastmod);
 
     if (precond != HTTP_OK) {
 	/* We failed a precondition - don't perform the request */
