@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta6-1) experimental; urgency=low
+
+  * New upstream version 2.4.17+caldav~beta6
+  * Update patches for 2.4.17+caldav~beta6 release
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 02 Jul 2013 08:41:36 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta5-2) experimental; urgency=low
 
   * Remove the last usage of cyrus-makedirs from postinst
