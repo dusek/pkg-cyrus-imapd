@@ -57,6 +57,7 @@
 
 #define MAX_REQ_LINE	8000  /* minimum size per HTTPbis */
 #define MARKUP_INDENT	2     /* # spaces to indent each line of markup */
+#define GZIP_MIN_LEN	300   /* minimum length of data to gzip */
 
 /* Supported HTTP version */
 #define HTTP_VERSION	 "HTTP/1.1"
@@ -93,6 +94,11 @@ struct known_meth_t {
     unsigned flags;
 };
 extern const struct known_meth_t http_methods[];
+
+/* Flags for known methods*/
+enum {
+    METH_NOBODY =	(1<<0),	/* Method does not expect a body */
+};
 
 /* Index into known HTTP methods - needs to stay in sync with array */
 enum {
@@ -229,7 +235,6 @@ struct error_t {
 struct range {
     unsigned long first;
     unsigned long last;
-    unsigned long len;
     struct range *next;
 };
 
@@ -237,7 +242,7 @@ struct range {
 struct resp_body_t {
     ulong len; 		/* Content-Length   */
     struct range *range;/* Content-Range    */
-    const char *enc;	/* Content-Encoding */
+    unsigned char enc;	/* Content-Encoding */
     const char *lang;	/* Content-Language */
     const char *loc;	/* Content-Location */
     const char *type;	/* Content-Type     */
@@ -245,6 +250,7 @@ struct resp_body_t {
     const char *lock;	/* Lock-Token       */
     const char *etag;	/* ETag             */
     time_t lastmod;	/* Last-Modified    */
+    time_t maxage;	/* Expires	    */
     const char *stag;	/* Schedule-Tag     */
     time_t iserial;	/* iSched serial#   */
     struct buf payload;	/* Payload	    */
@@ -257,7 +263,6 @@ struct txn_flags_t {
     unsigned char cors;			/* Cross-Origin Resource Sharing */
     unsigned char body;			/* read_body() flags on req */
     unsigned char te;			/* Transfer-Encoding for resp */
-    unsigned char ce;			/* Content-Encoding for resp */
     unsigned char cc;			/* Cache-Control directives for resp */
     unsigned char ranges;		/* Accept range requests for resource */
     unsigned char vary;			/* Headers on which response varied */
@@ -278,6 +283,7 @@ struct transaction_t {
     struct resp_body_t resp_body;	/* Response body meta-data */
 #ifdef HAVE_ZLIB
     z_stream zstrm;			/* Compression context */
+    struct buf zbuf;			/* Compression buffer */
 #endif
     struct buf buf;	    		/* Working buffer - currently used for:
 					   httpd:
@@ -321,23 +327,27 @@ enum {
 /* Transfer-Encoding flags (coding of response payload) */
 enum {
     TE_NONE =		0,
-    TE_CHUNKED =	(1<<0),
+    TE_DEFLATE =	(1<<0),	/* Implies TE_CHUNKED as final coding */
     TE_GZIP =		(1<<1),	/* Implies TE_CHUNKED as final coding */
-    TE_DEFLATE =	(1<<2)	/* Implies TE_CHUNKED as final coding */
+    TE_CHUNKED =	(1<<2)  /* MUST be last */
 };
 
 /* Content-Encoding flags (coding of representation) */
 enum {
     CE_IDENTITY =	0,
-    CE_GZIP =		1,
-    CE_DEFLATE =	2
+    CE_DEFLATE =	(1<<0),
+    CE_GZIP =		(1<<1)
 };
 
 /* Cache-Control directive flags */
 enum {
-    CC_NOCACHE =	(1<<0),
-    CC_NOTRANSFORM =	(1<<1),
-    CC_PRIVATE =	(1<<2)
+    CC_REVALIDATE =	(1<<0),
+    CC_NOCACHE =	(1<<1),
+    CC_NOSTORE =	(1<<2),
+    CC_NOTRANSFORM =	(1<<3),
+    CC_PUBLIC =	   	(1<<4),
+    CC_PRIVATE =	(1<<5),
+    CC_MAXAGE =	   	(1<<6)
 };
 
 /* Vary header flags (headers used in selecting/producing representation) */
@@ -395,7 +405,7 @@ extern int httpd_tls_done;
 extern int httpd_timeout;
 extern int httpd_userisadmin;
 extern int httpd_userisproxyadmin;
-extern char *httpd_userid;
+extern char *httpd_userid, *proxy_userid;
 extern struct auth_state *httpd_authstate;
 extern struct namespace httpd_namespace;
 extern struct sockaddr_storage httpd_localaddr, httpd_remoteaddr;
@@ -409,7 +419,8 @@ extern int http_mailbox_open(const char *name, struct mailbox **mailbox,
 			     int locktype);
 extern const char *http_statusline(long code);
 extern void httpdate_gen(char *buf, size_t len, time_t t);
-extern void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags);
+extern void comma_list_hdr(const char *hdr, const char *vals[],
+			   unsigned flags, ...);
 extern void response_header(long code, struct transaction_t *txn);
 extern void buf_printf_markup(struct buf *buf, unsigned level,
 			      const char *fmt, ...);
@@ -425,7 +436,7 @@ extern int meth_options(struct transaction_t *txn, void *params);
 extern int meth_trace(struct transaction_t *txn, void *params);
 extern int etagcmp(const char *hdr, const char *etag);
 extern int check_precond(struct transaction_t *txn, const void *data,
-			 const char *etag, time_t lastmod, unsigned long len);
+			 const char *etag, time_t lastmod);
 extern int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 		     unsigned char *flags, const char **errstr);
 

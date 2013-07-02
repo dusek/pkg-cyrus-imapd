@@ -127,7 +127,7 @@ sasl_conn_t *httpd_saslconn; /* the sasl connection context */
 static struct mailbox *httpd_mailbox = NULL;
 static struct wildmat *allow_cors = NULL;
 int httpd_timeout, httpd_keepalive;
-char *httpd_userid = 0;
+char *httpd_userid = NULL, *proxy_userid = NULL;
 struct auth_state *httpd_authstate = 0;
 int httpd_userisadmin = 0;
 int httpd_userisproxyadmin = 0;
@@ -205,6 +205,8 @@ static void cmdloop(void);
 static int parse_expect(struct transaction_t *txn);
 static void parse_connection(struct transaction_t *txn);
 static struct accept *parse_accept(const char **hdr);
+static int parse_ranges(const char *hdr, unsigned long len,
+			struct range **ranges);
 static int http_auth(const char *creds, struct transaction_t *txn);
 static void keep_alive(int sig);
 
@@ -229,11 +231,6 @@ struct accept {
     char *token;
     float qual;
     struct accept *next;
-};
-
-/* Flags for known methods*/
-enum {
-    METH_NOBODY =	(1<<0),	/* Method does not expect a body */
 };
 
 /* Array of HTTP methods known by our server. */
@@ -369,6 +366,10 @@ static void httpd_reset(void)
     if (httpd_userid != NULL) {
 	free(httpd_userid);
 	httpd_userid = NULL;
+    }
+    if (proxy_userid != NULL) {
+	free(proxy_userid);
+	proxy_userid = NULL;
     }
     if (httpd_authstate) {
 	auth_freestate(httpd_authstate);
@@ -928,7 +929,7 @@ static void cmdloop(void)
 	txn.meth = METH_UNKNOWN;
 	memset(&txn.flags, 0, sizeof(struct txn_flags_t));
 	txn.flags.conn = 0;
-	txn.flags.vary = gzip_enabled ? VARY_AE : 0;
+	txn.flags.vary = VARY_AE;
 	memset(req_line, 0, sizeof(struct request_line_t));
 	memset(&txn.req_tgt, 0, sizeof(struct request_target_t));
 	txn.req_uri = NULL;
@@ -1332,7 +1333,7 @@ static void cmdloop(void)
 		for (e = enc; e && e->token; e++) {
 		    if (!strcasecmp(e->token, "gzip") ||
 			!strcasecmp(e->token, "x-gzip")) {
-			txn.flags.ce = CE_GZIP;
+			txn.resp_body.enc = CE_GZIP;
 		    }
 		    free(e->token);
 		}
@@ -1361,6 +1362,7 @@ static void cmdloop(void)
 	    buf_free(&txn.resp_body.payload);
 #ifdef HAVE_ZLIB
 	    deflateEnd(&txn.zstrm);
+	    buf_free(&txn.zbuf);
 #endif
 	    return;
 	}
@@ -1854,19 +1856,27 @@ const char *http_statusline(long code)
 #define Access_Control_Expose(hdr)				\
     prot_puts(httpd_out, "Access-Control-Expose-Headers: " hdr "\r\n")
 
-void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags)
+void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags, ...)
 {
-    const char *sep = "";
+    const char *sep = " ";
+    va_list args;
     int i;
 
+    va_start(args, flags);
     prot_printf(httpd_out, "%s:", hdr);
     for (i = 0; vals[i]; i++) {
 	if (flags & (1 << i)) {
-	    prot_printf(httpd_out, "%s %s", sep, vals[i]);
-	    sep = ",";
+	    prot_puts(httpd_out, sep);
+	    prot_vprintf(httpd_out, vals[i], args);
+	    sep = ", ";
+	}
+	else {
+	    /* discard any unused args */
+	    vsnprintf(NULL, 0, vals[i], args);
 	}
     }
     prot_puts(httpd_out, "\r\n");
+    va_end(args);
 }
 
 void allow_hdr(const char *hdr, unsigned allow)
@@ -1983,9 +1993,16 @@ void response_header(long code, struct transaction_t *txn)
     if (txn->flags.cc) {
 	/* Construct Cache-Control header */
 	const char *cc_dirs[] =
-	    { "no-cache", "no-transform", "private", NULL };
+	    { "must-revalidate", "no-cache", "no-store", "no-transform",
+	      "public", "private", "max-age=%d", NULL };
 
-	comma_list_hdr("Cache-Control", cc_dirs, txn->flags.cc);
+	comma_list_hdr("Cache-Control", cc_dirs, txn->flags.cc,
+		       resp_body->maxage);
+
+	if (txn->flags.cc & CC_MAXAGE) {
+	    httpdate_gen(datestr, sizeof(datestr), now + resp_body->maxage);
+	    prot_printf(httpd_out, "Expires: %s\r\n", datestr);
+	}
     }
     if (txn->flags.cors) {
 	/* Construct Cross-Origin Resource Sharing headers */
@@ -2133,7 +2150,8 @@ void response_header(long code, struct transaction_t *txn)
 	if (txn->flags.cors) Access_Control_Expose("Schedule-Tag");
     }
     if (resp_body->etag) {
-	prot_printf(httpd_out, "ETag: \"%s\"\r\n", resp_body->etag);
+	prot_printf(httpd_out, "ETag: %s\"%s\"\r\n",
+		    resp_body->enc ? "W/" : "", resp_body->etag);
 	if (txn->flags.cors) Access_Control_Expose("ETag");
     }
     if (resp_body->lastmod) {
@@ -2148,8 +2166,12 @@ void response_header(long code, struct transaction_t *txn)
     if (resp_body->type) {
 	prot_printf(httpd_out, "Content-Type: %s\r\n", resp_body->type);
 
-	if (resp_body->enc) {
-	    prot_printf(httpd_out, "Content-Encoding: %s\r\n", resp_body->enc);
+	if (txn->resp_body.enc) {
+	    /* Construct Content-Encoding header */
+	    const char *ce[] =
+		{ "deflate", "gzip", NULL };
+
+	    comma_list_hdr("Content-Encoding", ce, txn->resp_body.enc);
 	}
 	if (resp_body->lang) {
 	    prot_printf(httpd_out, "Content-Language: %s\r\n", resp_body->lang);
@@ -2168,16 +2190,22 @@ void response_header(long code, struct transaction_t *txn)
 	/* MUST NOT include a body */
 	break;
 
-    case HTTP_PARTIAL:
     case HTTP_UNSAT_RANGE:
+	prot_printf(httpd_out, "Content-Range: bytes */%lu\r\n",
+		    resp_body->len);
+	resp_body->len = 0;  /* No content */
+
+	/* Fall through and specify framing */
+
+    case HTTP_PARTIAL:
 	if (resp_body->range) {
-	    prot_puts(httpd_out, "Content-Range: bytes ");
-	    if (code == HTTP_PARTIAL) {
-		prot_printf(httpd_out, "%lu-%lu",
-			    resp_body->range->first, resp_body->range->last);
-	    }
-	    else prot_printf(httpd_out, "*");
-	    prot_printf(httpd_out, "/%lu\r\n", resp_body->range->len);
+	    prot_printf(httpd_out, "Content-Range: bytes %lu-%lu/%lu\r\n",
+			resp_body->range->first, resp_body->range->last,
+			resp_body->len);
+
+	    /* Set actual content length of range */
+	    resp_body->len = resp_body->range->last -
+		resp_body->range->first + 1;
 
 	    free(resp_body->range);
 	}
@@ -2188,14 +2216,11 @@ void response_header(long code, struct transaction_t *txn)
 	if (txn->flags.te) {
 	    /* HTTP/1.1+ only - we use close-delimiting for HTTP/1.0 */
 	    if (!txn->flags.ver1_0) {
-		prot_puts(httpd_out, "Transfer-Encoding:");
-		if (txn->flags.te & TE_GZIP)
-		    prot_puts(httpd_out, " gzip,");
-		else if (txn->flags.te & TE_DEFLATE)
-		    prot_puts(httpd_out, " deflate,");
+		/* Construct Transfer-Encoding header */
+		const char *te[] =
+		    { "deflate", "gzip", "chunked", NULL };
 
-		/* Any TE implies "chunked", which is always last */
-		prot_puts(httpd_out, " chunked\r\n");
+		comma_list_hdr("Transfer-Encoding", te, txn->flags.te);
 	    }
 	}
 	else prot_printf(httpd_out, "Content-Length: %lu\r\n", resp_body->len);
@@ -2210,7 +2235,7 @@ void response_header(long code, struct transaction_t *txn)
     buf_reset(&log);
     /* Add client data */
     buf_printf(&log, "%s", httpd_clienthost);
-    if (httpd_userid) buf_printf(&log, " as \"%s\"", httpd_userid);
+    if (proxy_userid) buf_printf(&log, " as \"%s\"", proxy_userid);
     if (txn->req_hdrs &&
 	(hdr = spool_getheader(txn->req_hdrs, "User-Agent"))) {
 	buf_printf(&log, " with \"%s\"", hdr[0]);
@@ -2282,25 +2307,6 @@ static void keep_alive(int sig)
 }
 
 
-/* List of incompressible MIME types */
-static const char *comp_mime[] = {
-    "image/gif",
-    "image/jpeg",
-    "image/png",
-    NULL
-};
-
-
-/* Determine if a MIME type is incompressible */
-static int is_incompressible(const char *type)
-{
-    const char **m;
-
-    for (m = comp_mime; *m && strcasecmp(*m, type); m++);
-    return (*m != NULL);
-}
-
-
 /*
  * Output an HTTP response with body data, compressed as necessary.
  *
@@ -2315,42 +2321,105 @@ static int is_incompressible(const char *type)
 void write_body(long code, struct transaction_t *txn,
 		const char *buf, unsigned len)
 {
-#define GZIP_MIN_LEN 300
+    unsigned is_dynamic = code ? (txn->flags.te & TE_CHUNKED) : 1;
+    unsigned outlen = len, offset = 0;
 
-    static unsigned is_dynamic;
+    if (!is_dynamic && len < GZIP_MIN_LEN) {
+	/* Don't compress small static content */
+	txn->resp_body.enc = CE_IDENTITY;
+	txn->flags.te = TE_NONE;
+    }
+
+    /* Compress data */
+    if (txn->resp_body.enc || txn->flags.te & ~TE_CHUNKED) {
+#ifdef HAVE_ZLIB
+	/* Only flush for static content or on last (zero-length) chunk */
+	unsigned flush = (is_dynamic && len) ? Z_NO_FLUSH : Z_FINISH;
+
+	if (code) deflateReset(&txn->zstrm);
+
+	txn->zstrm.next_in = (Bytef *) buf;
+	txn->zstrm.avail_in = len;
+	buf_reset(&txn->zbuf);
+
+	do {
+	    buf_ensure(&txn->zbuf,
+		       deflateBound(&txn->zstrm, txn->zstrm.avail_in));
+
+	    txn->zstrm.next_out = (Bytef *) txn->zbuf.s + txn->zbuf.len;
+	    txn->zstrm.avail_out = txn->zbuf.alloc - txn->zbuf.len;
+
+	    deflate(&txn->zstrm, flush);
+	    txn->zbuf.len = txn->zbuf.alloc - txn->zstrm.avail_out;
+
+	} while (!txn->zstrm.avail_out);
+
+	buf = txn->zbuf.s;
+	outlen = txn->zbuf.len;
+#else
+	/* XXX should never get here */
+	fatal("Compression requested, but no zlib", EC_SOFTWARE);
+#endif /* HAVE_ZLIB */
+    }
 
     if (code) {
 	/* Initial call - prepare response header based on CE, TE and version */
-	is_dynamic = (txn->flags.te & TE_CHUNKED);
-
-	if ((!is_dynamic && len < GZIP_MIN_LEN) ||
-	    is_incompressible(txn->resp_body.type)) {
-	    /* Don't compress small or imcompressible bodies */
-	    txn->flags.ce = CE_IDENTITY;
-	    txn->flags.te &= TE_CHUNKED;
-	}
 
 	if (txn->flags.te & ~TE_CHUNKED) {
-	    /* compressed output will be always chunked (streamed) */
+	    /* Transfer-Encoded content MUST be chunked */
 	    txn->flags.te |= TE_CHUNKED;
-	}
-	else if (txn->flags.ce) {
-	    /* set content-encoding */
-	    if (txn->flags.ce == CE_GZIP)
-		txn->resp_body.enc = "gzip";
-	    else if (txn->flags.ce == CE_DEFLATE)
-		txn->resp_body.enc = "deflate";
 
-	    /* compressed output will be always chunked (streamed) */
-	    txn->flags.te |= TE_CHUNKED;
-	}
-	else if (!is_dynamic) {
-	    /* full body (no encoding) */
-	    txn->resp_body.len = len;
+	    if (!is_dynamic) {
+		/* Handle static content as last chunk */
+		len = 0;
+	    }
 	}
 
-	if (txn->flags.ver1_0 && (txn->flags.te & TE_CHUNKED)) {
-	    /* HTTP/1.0 close-delimited data */
+	if (!(txn->flags.te & TE_CHUNKED)) {
+	    /* Full/partial body (no encoding).
+	     *
+	     * In all cases, 'resp_body.len' is used to specify complete-length
+	     * In the case of a 206 or 416 response, Content-Length will be
+	     * set accordingly in response_header().
+	     */
+	    txn->resp_body.len = outlen;
+
+	    if (code == HTTP_PARTIAL) {
+		/* check_precond() tells us that this is a range request */
+		code = parse_ranges(*spool_getheader(txn->req_hdrs, "Range"),
+				    outlen, &txn->resp_body.range);
+
+		switch (code) {
+		case HTTP_OK:
+		    /* Full body (unknown range-unit) */
+		    break;
+
+		case HTTP_PARTIAL:
+		    /* One or more range request(s) */
+		    txn->resp_body.len = outlen;
+
+		    if (txn->resp_body.range->next) {
+			/* Multiple ranges */
+			multipart_byteranges(txn, buf);
+			return;
+		    }
+		    else {
+			/* Single range - set data parameters accordingly */
+			offset += txn->resp_body.range->first;
+			outlen = txn->resp_body.range->last -
+			    txn->resp_body.range->first + 1;
+		    }
+		    break;
+
+		case HTTP_UNSAT_RANGE:
+		    /* No valid ranges */
+		    outlen = 0;
+		    break;
+		}
+	    }
+	}
+	else if (txn->flags.ver1_0) {
+	    /* HTTP/1.0 doesn't support chunked - close-delimit the body */
 	    txn->flags.conn = CONN_CLOSE;
 	}
 
@@ -2370,63 +2439,25 @@ void write_body(long code, struct transaction_t *txn,
 	}
     }
 
-    /* Send [partial] body based on CE and TE */
-    if (txn->flags.ce || txn->flags.te & ~TE_CHUNKED) {
-#ifdef HAVE_ZLIB
-	char zbuf[PROT_BUFSIZE];
-	unsigned flush, out;
-
-	if (code) deflateReset(&txn->zstrm);
-
-	/* don't flush until last (zero-length) or only chunk */
-	flush = (is_dynamic && len) ? Z_NO_FLUSH : Z_FINISH;
-
-	txn->zstrm.next_in = (Bytef *) buf;
-	txn->zstrm.avail_in = len;
-
-	do {
-	    txn->zstrm.next_out = (Bytef *) zbuf;
-	    txn->zstrm.avail_out = PROT_BUFSIZE;
-
-	    deflate(&txn->zstrm, flush);
-	    out = PROT_BUFSIZE - txn->zstrm.avail_out;
-
-	    if (out && !txn->flags.ver1_0) {
-		/* HTTP/1.1 chunk of compressed output */
-		prot_printf(httpd_out, "%x\r\n", out);
-		prot_write(httpd_out, zbuf, out);
-		prot_puts(httpd_out, "\r\n");
-	    }
-	    else {
-		/* HTTP/1.0 close-delimited data */
-		prot_write(httpd_out, zbuf, out);
-	    }
-
-	} while (!txn->zstrm.avail_out);
-
-	if (flush == Z_FINISH && !txn->flags.ver1_0) {
-	    /* terminate the HTTP/1.1 body with a zero-length chunk */
-	    prot_puts(httpd_out, "0\r\n");
-	    /* empty trailer */
+    /* Output data */
+    if ((txn->flags.te & TE_CHUNKED) && !txn->flags.ver1_0) {
+	/* HTTP/1.1 chunk */
+	if (outlen) {
+	    prot_printf(httpd_out, "%x\r\n", outlen);
+	    prot_write(httpd_out, buf, outlen);
 	    prot_puts(httpd_out, "\r\n");
 	}
-#else
-	/* XXX should never get here */
-	fatal("Content-Encoding requested, but no zlib", EC_SOFTWARE);
-#endif /* HAVE_ZLIB */
-    }
-    else if (is_dynamic && !txn->flags.ver1_0) {
-	/* HTTP/1.1 chunk */
-	prot_printf(httpd_out, "%x\r\n", len);
-	if (len) prot_write(httpd_out, buf, len);
-	else {
-	    /* empty trailer */
+	if (!len) {
+	    /* Terminate the HTTP/1.1 body with a zero-length chunk */
+	    prot_puts(httpd_out, "0\r\n");
+
+	    /* Empty trailer */
+	    prot_puts(httpd_out, "\r\n");
 	}
-	prot_puts(httpd_out, "\r\n");
     }
     else {
-	/* full body or HTTP/1.0 close-delimited data */
-	prot_write(httpd_out, buf, len);
+	/* Full body or HTTP/1.0 close-delimited body */
+	prot_write(httpd_out, buf + offset, outlen);
     }
 }
 
@@ -2881,23 +2912,39 @@ static int http_auth(const char *creds, struct transaction_t *txn)
     buf_appendmap(&txn->buf,				/* buffered input */
 		  (const char *) httpd_in->ptr, httpd_in->cnt);
 
-    /* Close IP-based telemetry log */
     if (httpd_logfd != -1) {
-	/* Rewind log to current request and overwrite with redacted version */
-	ftruncate(httpd_logfd,
-		  lseek(httpd_logfd, -buf_len(&txn->buf), SEEK_END));
-	write(httpd_logfd, buf_cstring(&txn->buf), buf_len(&txn->buf));
-	close(httpd_logfd);
+	/* Rewind log to current request and truncate it */
+	off_t end = lseek(httpd_logfd, 0, SEEK_END);
+
+	ftruncate(httpd_logfd, end - buf_len(&txn->buf));
     }
 
-    /* Create new telemetry log based on userid */
-    httpd_logfd = telemetry_log(httpd_userid, httpd_in, httpd_out, 0);
+    if (!proxy_userid || strcmp(proxy_userid, httpd_userid)) {
+	/* Close existing telemetry log */
+	close(httpd_logfd);
+
+	prot_setlog(httpd_in, PROT_NO_FD);
+	prot_setlog(httpd_out, PROT_NO_FD);
+
+	/* Create telemetry log based on new userid */
+	httpd_logfd = telemetry_log(httpd_userid, httpd_in, httpd_out, 0);
+    }
+
     if (httpd_logfd != -1) {
 	/* Log credential-redacted request */
 	write(httpd_logfd, buf_cstring(&txn->buf), buf_len(&txn->buf));
     }
 
     buf_reset(&txn->buf);
+
+    /* Make a copy of the external userid for use in proxying */
+    if (proxy_userid) free(proxy_userid);
+    proxy_userid = xstrdup(httpd_userid);
+
+    /* Translate any separators in userid */
+    mboxname_hiersep_tointernal(&httpd_namespace, httpd_userid,
+				config_virtdomains ?
+				strcspn(httpd_userid, "@") : 0);
 
     /* Do any namespace specific post-auth processing */
     for (i = 0; namespaces[i]; i++) {
@@ -3098,7 +3145,6 @@ static int parse_ranges(const char *hdr, unsigned long len,
 	new = xzmalloc(sizeof(struct range));
 	new->first = first;
 	new->last = last;
-	new->len = len;
 
 	if (tail) tail->next = new;
 	else *ranges = new;
@@ -3106,11 +3152,6 @@ static int parse_ranges(const char *hdr, unsigned long len,
     }
 
     tok_fini(&tok);
-
-    if (ret == HTTP_UNSAT_RANGE) {
-	*ranges = new = xzmalloc(sizeof(struct range));
-	new->len = len;
-    }
 
     return ret;
 }
@@ -3122,7 +3163,7 @@ static int parse_ranges(const char *hdr, unsigned long len,
  * Section 5 of HTTPbis, Part 4.
  */
 int check_precond(struct transaction_t *txn, const void *data,
-		  const char *etag, time_t lastmod, unsigned long len)
+		  const char *etag, time_t lastmod)
 {
     const char *lock_token = NULL;
     unsigned locked = 0;
@@ -3230,7 +3271,6 @@ int check_precond(struct transaction_t *txn, const void *data,
     /* Step 5 */
     if (txn->flags.ranges &&  /* Only if we support Range requests */
 	txn->meth == METH_GET && (hdr = spool_getheader(hdrcache, "Range"))) {
-	const char *ranges = hdr[0];
 
 	if ((hdr = spool_getheader(hdrcache, "If-Range"))) {
 	    since = message_parse_date((char *) hdr[0],
@@ -3240,7 +3280,7 @@ int check_precond(struct transaction_t *txn, const void *data,
 
 	/* Only process Range if If-Range isn't present or validator matches */
 	if (!hdr || (since && (lastmod <= since)) || !etagcmp(hdr[0], etag))
-	    return parse_ranges(ranges, len, &txn->resp_body.range);
+	    return HTTP_PARTIAL;
     }
 
     /* Step 6 */
@@ -3283,7 +3323,8 @@ void multipart_byteranges(struct transaction_t *txn, const char *msg_base)
 	buf_printf(body, "\r\n--%s\r\n"
 		   "Content-Type: %s\r\n"
 		   "Content-Range: bytes %lu-%lu/%lu\r\n\r\n",
-		   boundary, type, range->first, range->last, range->len);
+		   boundary, type, range->first, range->last,
+		   txn->resp_body.len);
 	write_body(0, txn, buf_cstring(body), buf_len(body));
 
 	/* Output range data */
@@ -3303,6 +3344,45 @@ void multipart_byteranges(struct transaction_t *txn, const char *msg_base)
     write_body(0, txn, NULL, 0);
 }
 
+const struct mimetype {
+    const char *ext;
+    const char *type;
+    unsigned int compressible;
+} mimetypes[] = {
+    { ".css", "text/css", 1 },
+    { ".htm", "text/html", 1 },
+    { ".html", "text/html", 1 },
+    { ".text", "text/plain", 1 },
+    { ".txt", "text/plain", 1 },
+
+    { ".gif", "image/gif", 0 },
+    { ".jpg", "image/jpeg", 0 },
+    { ".jpeg", "image/jpeg", 0 },
+    { ".png", "image/png", 0 },
+
+    { ".svg", "image/svg+xml", 1 },
+    { ".tif", "image/tiff", 1 },
+    { ".tiff", "image/tiff", 1 },
+
+    { ".bz", "application/x-bzip", 0 },
+    { ".bz2", "application/x-bzip2", 0 },
+    { ".gz", "application/gzip", 0 },
+    { ".gzip", "application/gzip", 0 },
+    { ".tgz", "application/gzip", 0 },
+    { ".zip", "application/zip", 0 },
+
+    { ".doc", "application/msword", 1 },
+    { ".js", "application/javascript", 1 },
+    { ".pdf", "application/pdf", 1 },
+    { ".ppt", "application/vnd.ms-powerpoint", 1 },
+    { ".sh", "application/x-sh", 1 },
+    { ".tar", "application/x-tar", 1 },
+    { ".xls", "application/vnd.ms-excel", 1 },
+    { ".xml", "application/xml", 1 },
+
+    { NULL, NULL, 0 }
+};
+
 
 /* Perform a GET/HEAD request */
 int meth_get_doc(struct transaction_t *txn,
@@ -3313,7 +3393,7 @@ int meth_get_doc(struct transaction_t *txn,
     static struct buf pathbuf = BUF_INITIALIZER;
     struct stat sbuf;
     const char *msg_base = NULL;
-    unsigned long msg_size = 0, offset = 0, datalen;
+    unsigned long msg_size = 0;
     struct resp_body_t *resp_body = &txn->resp_body;
 
     /* Serve up static pages */
@@ -3344,33 +3424,53 @@ int meth_get_doc(struct transaction_t *txn,
     /* See if file exists and get Content-Length & Last-Modified time */
     if (r || !S_ISREG(sbuf.st_mode)) return HTTP_NOT_FOUND;
 
-    datalen = sbuf.st_size;
+    if (!resp_body->type) {
+	/* Caller hasn't specified the Content-Type */
+	resp_body->type = "application/octet-stream";
+	
+	if ((ext = strrchr(path, '.'))) {
+	    /* Try to use filename extension to identity Content-Type */
+	    const struct mimetype *mtype;
+
+	    for (mtype = mimetypes; mtype->ext; mtype++) {
+		if (!strcasecmp(ext, mtype->ext)) {
+		    resp_body->type = mtype->type;
+		    if (!mtype->compressible) {
+			/* Never compress non-compressible resources */
+			txn->resp_body.enc = CE_IDENTITY;
+			txn->flags.te = TE_NONE;
+			txn->flags.vary &= ~VARY_AE;
+		    }
+		    break;
+		}
+	    }
+	}
+    }
 
     /* Generate Etag */
     assert(!buf_len(&txn->buf));
     buf_printf(&txn->buf, "%ld-%ld", (long) sbuf.st_mtime, (long) sbuf.st_size);
 
     /* Check any preconditions, including range request */
-    txn->flags.ranges = !txn->flags.ce;
-    precond = check_precond(txn, NULL, buf_cstring(&txn->buf), sbuf.st_mtime,
-			    datalen);
+    txn->flags.ranges = 1;
+    precond = check_precond(txn, NULL, buf_cstring(&txn->buf), sbuf.st_mtime);
 
     switch (precond) {
     case HTTP_OK:
-	break;
-
     case HTTP_PARTIAL:
-	/* Set data parameters for range */
-	offset += resp_body->range->first;
-	datalen = resp_body->range->last - resp_body->range->first + 1;
-	break;
-
     case HTTP_NOT_MODIFIED:
-	/* Fill in ETag for 304 response */
+	/* Fill in ETag, Last-Modified, and Expires */
 	resp_body->etag = buf_cstring(&txn->buf);
+	resp_body->lastmod = sbuf.st_mtime;
+	resp_body->maxage = 86400;  /* 24 hrs */
+	txn->flags.cc |= CC_MAXAGE;
+	if (httpd_userid) txn->flags.cc |= CC_PUBLIC;
+
+	if (precond != HTTP_NOT_MODIFIED) break;
 
     default:
 	/* We failed a precondition - don't perform the request */
+	resp_body->type = NULL;
 	return precond;
     }
 
@@ -3380,42 +3480,7 @@ int meth_get_doc(struct transaction_t *txn,
 	map_refresh(fd, 1, &msg_base, &msg_size, sbuf.st_size, path, NULL);
     }
 
-    /* Fill in ETag and Last-Modified */
-    resp_body->etag = buf_cstring(&txn->buf);
-    resp_body->lastmod = sbuf.st_mtime;
-
-    if (!resp_body->type) {
-	/* Caller hasn't specified the Content-Type */
-	resp_body->type = "application/octet-stream";
-	
-	if ((ext = strrchr(path, '.'))) {
-	    /* Try to use filename extension to identity Content-Type */
-	    if (!strcasecmp(ext, ".text") || !strcmp(ext, ".txt"))
-		resp_body->type = "text/plain";
-	    else if (!strcasecmp(ext, ".html") || !strcmp(ext, ".htm"))
-		resp_body->type = "text/html";
-	    else if (!strcasecmp(ext, ".css"))
-		resp_body->type = "text/css";
-	    else if (!strcasecmp(ext, ".js"))
-		resp_body->type = "text/javascript";
-	    else if (!strcasecmp(ext, ".jpeg") || !strcmp(ext, ".jpg"))
-		resp_body->type = "image/jpeg";
-	    else if (!strcasecmp(ext, ".gif"))
-		resp_body->type = "image/gif";
-	    else if (!strcasecmp(ext, ".png"))
-		resp_body->type = "image/png";
-	    else if (!strcasecmp(ext, ".svg"))
-		resp_body->type = "image/svg+xml";
-	    else if (!strcasecmp(ext, ".tiff") || !strcmp(ext, ".tif"))
-		resp_body->type = "image/tiff";
-	}
-    }
-
-    if (resp_body->range && resp_body->range->next) {
-	/* multiple ranges */
-	multipart_byteranges(txn, msg_base);
-    }
-    else write_body(precond, txn, msg_base + offset, datalen);
+    write_body(precond, txn, msg_base, sbuf.st_size);
 
     if (fd != -1) {
 	map_free(&msg_base, &msg_size);
@@ -3565,7 +3630,7 @@ int meth_trace(struct transaction_t *txn, void *params)
 		/* Remote mailbox */
 		struct backend *be;
 
-		be = proxy_findserver(server, &http_protocol, httpd_userid,
+		be = proxy_findserver(server, &http_protocol, proxy_userid,
 				      &backend_cached, NULL, NULL, httpd_in);
 		if (!be) return HTTP_UNAVAILABLE;
 

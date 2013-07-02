@@ -71,7 +71,6 @@
 #define XML_NS_ISCHED	"urn:ietf:params:xml:ns:ischedule"
 #define XML_NS_CS	"http://calendarserver.org/ns/"
 #define XML_NS_CYRUS	"http://cyrusimap.org/ns/"
-#define XML_NS_ICAL	"http://apple.com/ns/ical/"
 
 /* Index into known namespace array */
 enum {
@@ -81,9 +80,8 @@ enum {
     NS_ISCHED,
     NS_CS,
     NS_CYRUS,
-    NS_ICAL
 };
-#define NUM_NAMESPACE 7
+#define NUM_NAMESPACE 6
 
 /* Cyrus-specific privileges */
 #define DACL_MKCOL	ACL_CREATE	/* CY:make-collection */
@@ -154,7 +152,7 @@ enum {
 
 /* Bitmask of calendar components */
 enum {
-    CAL_COMP_VCALENDAR =	(0<<0),
+    CAL_COMP_VCALENDAR =	0xf000,
     CAL_COMP_VEVENT =		(1<<0),
     CAL_COMP_VTODO =		(1<<1),
     CAL_COMP_VJOURNAL =		(1<<2),
@@ -251,12 +249,15 @@ typedef int (*db_foreach_proc_t)(void *davdb, const char *mailbox,
 
 /* Context for fetching properties */
 struct propfind_entry_list;
+struct error_t;
 
 struct propfind_ctx {
     struct request_target_t *req_tgt;	/* parsed request target URL */
+    unsigned mode;	    		/* none, allprop, propname, prop */
     unsigned depth;	    		/* 0 = root, 1 = calendar, 2 = resrc */
     unsigned prefer;			/* bitmask of client preferences */
     const char *userid;			/* userid client has logged in as */
+    const char *int_userid;		/* internal userid */
     int userisadmin;			/* is userid an admin */
     struct auth_state *authstate;	/* authorization state for userid */
     void *davdb;			/* DAV DB corresponding to userid */
@@ -276,8 +277,10 @@ struct propfind_ctx {
 			    void *data);
     struct propfind_entry_list *elist;	/* List of props to fetch w/callbacks */
     xmlNodePtr root;			/* root node to add to XML tree */
-    xmlNsPtr *ns;			/* Array of our supported namespaces */
-    const char **errstr;		/* Error string to pass up to caller */
+    xmlNsPtr *ns;			/* Array of our known namespaces */
+    struct hash_table *ns_table;	/* Table of all ns attached to resp */
+    unsigned prefix_count;		/* Count of new ns added to resp */
+    struct error_t *err;		/* Error info to pass up to caller */
     int *ret;  				/* Return code to pass up to caller */
     int fetcheddata;			/* Did we fetch iCalendar/vCard data? */
     struct buf buf;			/* Working buffer */
@@ -285,8 +288,7 @@ struct propfind_ctx {
 
 /* Function to check headers for preconditions */
 typedef int (*check_precond_t)(struct transaction_t *txn, const void *data,
-			       const char *etag, time_t lastmod,
-			       unsigned long len);
+			       const char *etag, time_t lastmod);
 
 /* Function to insert/update DAV resource in 'data', optionally commiting txn */
 typedef int (*db_write_proc_t)(void *davdb, void *data, int commit);
@@ -401,7 +403,6 @@ int parse_xml_body(struct transaction_t *txn, xmlNodePtr *root);
 xmlNodePtr init_xml_response(const char *resp, int ns,
 			     xmlNodePtr req, xmlNsPtr *respNs);
 
-struct error_t;
 xmlNodePtr xml_add_error(xmlNodePtr root, struct error_t *err,
 			 xmlNsPtr *avail_ns);
 void xml_add_lockdisc(xmlNodePtr node, const char *path, struct dav_data *data);

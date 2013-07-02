@@ -260,13 +260,15 @@ HTTP
 
 Other
 
+    RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+
     RFC 5322 Internet Message Format
 
     RFC 5536 Netnews Article Format
 
     RFC 5537 Netnews Architecture and Protocols
 
-    RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+    RFC 4287 The Atom Syndication Format
 
     RFC 5545 Internet Calendaring and Scheduling Core Object Specification
     (iCalendar) 
