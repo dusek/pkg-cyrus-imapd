@@ -16,16 +16,6 @@ remote).
 Also, it is possible that new daemons and utils in Cyrus 2.2 and 2.3 may
 need similar patches.
 
---- cyrus-imapd-2.4.orig/imap/backend.c
-+++ cyrus-imapd-2.4/imap/backend.c
-@@ -700,6 +700,7 @@ struct backend *backend_connect(struct b
- 
-     if (r) {
- 	if (!ret_backend) free(ret);
-+	shutdown(sock, SHUT_RDWR);
- 	close(sock);
- 	ret = NULL;
-     }
 --- cyrus-imapd-2.4.orig/imap/fud.c
 +++ cyrus-imapd-2.4/imap/fud.c
 @@ -163,6 +163,15 @@ void shut_down(int code)

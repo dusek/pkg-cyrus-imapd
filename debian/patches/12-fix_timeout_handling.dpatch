@@ -14,7 +14,7 @@ in Cyrus code?
 
 --- cyrus-imapd-2.4.orig/configure.in
 +++ cyrus-imapd-2.4/configure.in
-@@ -1554,7 +1554,11 @@ enum {
+@@ -1561,7 +1561,11 @@ enum {
      SQUAT_ENGINE = 1,
  
      /* should we have long LMTP error messages? */

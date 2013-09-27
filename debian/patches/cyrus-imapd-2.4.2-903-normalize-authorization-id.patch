@@ -66,7 +66,7 @@ By normalize, it is intended that;
  
 --- cyrus-imapd-2.4.orig/lib/imapoptions
 +++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1565,6 +1565,11 @@ product version in the capabilities */
+@@ -1572,6 +1572,11 @@ product version in the capabilities */
     the special use flag "\Drafts" added.  Later versions of Cyrus
     have a much more flexible RFC 6154 compatible system.  */
  
