@@ -1,5 +1,11 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.4.17-caldav-beta6 or earlier
+
+      * The time span calculations for various VCALENDAR components,
+        especially VTODO (tasks), have been fixed. We recommend ALL sites
+        run the dav_reconstruct utility for each of their CalDAV users. 
+
 Upgrading from 2.4.15
 
       * The tools/rehash utility has been fixed, we recommend ALL sites

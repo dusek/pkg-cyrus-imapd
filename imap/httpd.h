@@ -238,13 +238,34 @@ struct range {
     struct range *next;
 };
 
+/* Context for reading request/response body */
+struct body_t {
+    unsigned char flags;		/* Disposition flags */
+    unsigned char framing;		/* Message framing   */
+    unsigned char te;			/* Transfer-Encoding */
+    unsigned max;			/* Max allowed len   */
+    ulong len; 				/* Content-Length    */
+    struct buf payload;			/* Payload	     */
+};
+
+/* Message Framing flags */
+enum {
+    FRAMING_UNKNOWN = 0,
+    FRAMING_LENGTH,
+    FRAMING_CHUNKED,
+    FRAMING_CLOSE
+};
+
+
 /* Meta-data for response body (payload & representation headers) */
 struct resp_body_t {
     ulong len; 		/* Content-Length   */
     struct range *range;/* Content-Range    */
+    const char *fname;	/* Content-Dispo    */
     unsigned char enc;	/* Content-Encoding */
     const char *lang;	/* Content-Language */
     const char *loc;	/* Content-Location */
+    const u_char *md5;	/* Content-MD5      */
     const char *type;	/* Content-Type     */
     unsigned prefs;	/* Prefer	    */
     const char *lock;	/* Lock-Token       */
@@ -261,11 +282,11 @@ struct txn_flags_t {
     unsigned char ver1_0;		/* Request from HTTP/1.0 client */
     unsigned char conn;			/* Connection opts on req/resp */
     unsigned char cors;			/* Cross-Origin Resource Sharing */
-    unsigned char body;			/* read_body() flags on req */
     unsigned char te;			/* Transfer-Encoding for resp */
     unsigned char cc;			/* Cache-Control directives for resp */
     unsigned char ranges;		/* Accept range requests for resource */
     unsigned char vary;			/* Headers on which response varied */
+    unsigned char trailer;		/* Headers which will be in trailer */
 };
 
 /* Transaction context */
@@ -276,7 +297,7 @@ struct transaction_t {
     xmlURIPtr req_uri;	  		/* Parsed request-target URI */
     struct request_target_t req_tgt;	/* Parsed request-target path */
     hdrcache_t req_hdrs;    		/* Cached HTTP headers */
-    struct buf req_body;		/* Buffered request body */
+    struct body_t req_body;		/* Buffered request body */
     struct auth_challenge_t auth_chal;	/* Authentication challenge */
     const char *location;   		/* Location of resource */
     struct error_t error;		/* Error response meta-data */
@@ -321,7 +342,8 @@ enum {
     BODY_CONTINUE =	(1<<1),	/* Expect:100-continue request */
     BODY_CLOSE =	(1<<1),	/* Close-delimited response body */
     BODY_DECODE = 	(1<<2),	/* Decode any Content-Encoding */
-    BODY_DONE =		(1<<3)	/* Body has been read */
+    BODY_DISCARD =	(1<<3),	/* Discard body (don't buffer or decode) */
+    BODY_DONE =		(1<<4)	/* Body has been read */
 };
 
 /* Transfer-Encoding flags (coding of response payload) */
@@ -355,6 +377,11 @@ enum {
     VARY_AE =		(1<<0),	/* Accept-Encoding */
     VARY_BRIEF =	(1<<1),
     VARY_PREFER =	(1<<2)
+};
+
+/* Trailer header flags */
+enum {
+    TRAILER_CMD5 =	(1<<0)  /* Content-MD5 */
 };
 
 typedef int (*method_proc_t)(struct transaction_t *txn, void *params);
@@ -415,6 +442,7 @@ extern int config_httpprettytelemetry;
 extern xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
 			   const char **errstr);
 extern int is_mediatype(const char *hdr, const char *type);
+extern time_t calc_compile_time(const char *time, const char *date);
 extern int http_mailbox_open(const char *name, struct mailbox **mailbox,
 			     int locktype);
 extern const char *http_statusline(long code);
@@ -437,7 +465,7 @@ extern int meth_trace(struct transaction_t *txn, void *params);
 extern int etagcmp(const char *hdr, const char *etag);
 extern int check_precond(struct transaction_t *txn, const void *data,
 			 const char *etag, time_t lastmod);
-extern int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
-		     unsigned char *flags, const char **errstr);
+extern int read_body(struct protstream *pin, hdrcache_t hdrs,
+		     struct body_t *body, const char **errstr);
 
 #endif /* HTTPD_H */

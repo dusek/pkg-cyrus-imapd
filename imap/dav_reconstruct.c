@@ -205,7 +205,7 @@ int do_reconstruct(char *mboxname,
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {
 	struct body *body;
 	struct param *param;
-	const char *msg_base = NULL, *resource = NULL;
+	const char *msg_base = NULL;
 	unsigned long msg_size = 0;
 	icalcomponent *ical = NULL;
 
@@ -230,17 +230,14 @@ int do_reconstruct(char *mboxname,
 	message_read_bodystructure(&record, &body);
 	for (param = body->disposition_params; param; param = param->next) {
 	    if (!strcmp(param->attribute, "FILENAME")) {
-		resource = param->value;
-		break;
+		cdata.dav.resource = param->value;
+	    }
+	    else if (!strcmp(param->attribute, "SCHEDULE-TAG")) {
+		cdata.sched_tag = param->value;
 	    }
 	}
-	cdata.dav.resource = resource;
 
 	caldav_make_entry(ical, &cdata);
-
-	/* XXX  Do we need to do something with Schedule-Tag?
-	   Perhaps we need to keep it in resource.
-	*/
 
 	caldav_write(caldavdb, &cdata, 0);
 

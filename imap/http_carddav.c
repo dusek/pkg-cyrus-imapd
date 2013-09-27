@@ -213,14 +213,19 @@ static void my_carddav_auth(const char *userid)
     char ident[MAX_MAILBOX_NAME];
     struct buf acl = BUF_INITIALIZER;
 
-    if (config_mupdate_server && !config_getstring(IMAPOPT_PROXYSERVERS)) {
-	/* proxy-only server - won't have DAV databases */
-	return;
-    }
-    else if (httpd_userisadmin ||
-	     global_authisa(httpd_authstate, IMAPOPT_PROXYSERVERS)) {
+    if (httpd_userisadmin ||
+	global_authisa(httpd_authstate, IMAPOPT_PROXYSERVERS)) {
 	/* admin or proxy from frontend - won't have DAV database */
 	return;
+    }
+    else if (config_mupdate_server && !config_getstring(IMAPOPT_PROXYSERVERS)) {
+	/* proxy-only server - won't have DAV databases */
+    }
+    else {
+	/* Open CardDAV DB for 'userid' */
+	my_carddav_reset();
+	auth_carddavdb = carddav_open(userid, CARDDAV_CREATE);
+	if (!auth_carddavdb) fatal("Unable to open CardDAV DB", EC_IOERR);
     }
 
     /* Auto-provision an addressbook for 'userid' */
@@ -237,9 +242,30 @@ static void my_carddav_auth(const char *userid)
 		    config_getstring(IMAPOPT_ADDRESSBOOKPREFIX));
     r = mboxlist_lookup(mailboxname, &mbentry, NULL);
     if (r == IMAP_MAILBOX_NONEXISTENT) {
-	r = mboxlist_createmailboxcheck(mailboxname, 0, NULL, 0,
-					userid, httpd_authstate, NULL,
-					&partition, 0);
+	if (config_mupdate_server) {
+	    /* Find location of INBOX */
+	    char inboxname[MAX_MAILBOX_BUFFER];
+
+	    r = (*httpd_namespace.mboxname_tointernal)(&httpd_namespace,
+						       "INBOX",
+						       userid, inboxname);
+	    if (!r) {
+		char *server;
+
+		r = http_mlookup(inboxname, &server, NULL, NULL);
+		if (!r && server) {
+		    proxy_findserver(server, &http_protocol, proxy_userid,
+				     &backend_cached, NULL, NULL, httpd_in);
+
+		    return;
+		}
+	    }
+	}
+
+	/* Create locally */
+	if (!r) r = mboxlist_createmailboxcheck(mailboxname, 0, NULL, 0,
+						userid, httpd_authstate, NULL,
+						&partition, 0);
 	if (!r) {
 	    buf_reset(&acl);
 	    cyrus_acl_masktostr(ACL_ALL, rights);
@@ -277,11 +303,6 @@ static void my_carddav_auth(const char *userid)
 
     if (partition) free(partition);
     buf_free(&acl);
-
-    /* Open CardDAV DB for 'userid' */
-    my_carddav_reset();
-    auth_carddavdb = carddav_open(userid, CARDDAV_CREATE);
-    if (!auth_carddavdb) fatal("Unable to open CardDAV DB", EC_IOERR);
 }
 
 
@@ -364,8 +385,8 @@ static int carddav_parse_path(const char *path,
     p += len;
 
     if (*p) {
-	*errstr = "Too many segments in request target path";
-	return HTTP_FORBIDDEN;
+//	*errstr = "Too many segments in request target path";
+	return HTTP_NOT_FOUND;
     }
 
   done:
@@ -472,7 +493,8 @@ static int carddav_put(struct transaction_t *txn, struct mailbox *mailbox,
     VObject *vcard = NULL;
 
     /* Parse and validate the vCard data */
-    vcard = Parse_MIME(buf_cstring(&txn->req_body), buf_len(&txn->req_body));
+    vcard = Parse_MIME(buf_cstring(&txn->req_body.payload),
+		       buf_len(&txn->req_body.payload));
     if (!vcard || strcmp(vObjectName(vcard), "VCARD")) {
 	txn->error.precond = CARDDAV_VALID_DATA;
 	ret = HTTP_FORBIDDEN;
@@ -651,7 +673,8 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 
     /* Check for existing vCard UID */
     carddav_lookup_uid(carddavdb, uid, 0, &cdata);
-    if (cdata->dav.mailbox && !strcmp(cdata->dav.mailbox, mailbox->name) &&
+    if (!(flags & NO_DUP_CHECK) &&
+	cdata->dav.mailbox && !strcmp(cdata->dav.mailbox, mailbox->name) &&
 	strcmp(cdata->dav.resource, resource)) {
 	/* CARDDAV:no-uid-conflict */
 	char *owner = mboxname_to_userid(cdata->dav.mailbox);
@@ -688,7 +711,7 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 
     fprintf(f, "Content-Type: text/vcard; charset=utf-8\r\n");
 
-    fprintf(f, "Content-Length: %u\r\n", buf_len(&txn->req_body));
+    fprintf(f, "Content-Length: %u\r\n", buf_len(&txn->req_body.payload));
     fprintf(f, "Content-Disposition: inline; filename=\"%s\"\r\n", resource);
 
     /* XXX  Check domain of data and use appropriate CTE */
@@ -697,7 +720,7 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
     fprintf(f, "\r\n");
 
     /* Write the vCard data to the file */
-    fprintf(f, "%s", buf_cstring(&txn->req_body));
+    fprintf(f, "%s", buf_cstring(&txn->req_body.payload));
     size = ftell(f);
 
     fclose(f);
@@ -794,6 +817,8 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 		}
 
 		if (!r) {
+		    struct resp_body_t *resp_body = &txn->resp_body;
+
 		    /* Create mapping entry from resource name to UID */
 		    cdata->dav.mailbox = mailbox->name;
 		    cdata->dav.resource = resource;
@@ -808,20 +833,23 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 		    /* XXX  check for errors, if this fails, backout changes */
 
 		    /* Tell client about the new resource */
-		    txn->resp_body.etag = message_guid_encode(&newrecord.guid);
+		    resp_body->lastmod = newrecord.internaldate;
+		    resp_body->etag = message_guid_encode(&newrecord.guid);
 
 		    if (flags & PREFER_REP) {
-			struct resp_body_t *resp_body = &txn->resp_body;
-
-			resp_body->loc = txn->req_tgt.path;
 			resp_body->type = "text/vcard; charset=utf-8";
-			resp_body->len = buf_len(&txn->req_body);
+			resp_body->loc = txn->req_tgt.path;
+			resp_body->len = buf_len(&txn->req_body.payload);
 
-			/* vCard data in response should not be transformed */
-			txn->flags.cc |= CC_NOTRANSFORM;
+			/* Fill in Expires and Cache-Control */
+			resp_body->maxage = 3600;  /* 1 hr */
+			txn->flags.cc = CC_MAXAGE
+			    | CC_REVALIDATE	   /* don't use stale data */
+			    | CC_NOTRANSFORM;	   /* don't alter vCard data */
 
 			write_body(ret, txn,
-				   buf_cstring(&txn->req_body), resp_body->len);
+				   buf_cstring(&txn->req_body.payload),
+				   buf_len(&txn->req_body.payload));
 			ret = 0;
 		    }
 		}

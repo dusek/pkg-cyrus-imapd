@@ -139,29 +139,6 @@ struct namespace_t namespace_domainkey = {
 };
 
 
-/* Calculate compile time of this file for use as Etag for capabilities */
-static void calc_compile_time()
-{
-    struct tm tm;
-    char month[4];
-    const char *monthname[] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
-
-    memset(&tm, 0, sizeof(struct tm));
-    tm.tm_isdst = -1;
-    sscanf(__TIME__, "%02d:%02d:%02d", &tm.tm_hour, &tm.tm_min, &tm.tm_sec);
-    sscanf(__DATE__, "%s %2d %4d", month, &tm.tm_mday, &tm.tm_year);
-    tm.tm_year -= 1900;
-    for (tm.tm_mon = 0; tm.tm_mon < 12; tm.tm_mon++) {
-	if (!strcmp(month, monthname[tm.tm_mon])) break;
-    }
-
-    compile_time = mktime(&tm);
-}
-
-
 /* iSchedule Receiver Capabilities */
 static int meth_get_isched(struct transaction_t *txn,
 			   void *params __attribute__((unused)))
@@ -327,16 +304,15 @@ static int meth_post_isched(struct transaction_t *txn,
     }
 
     /* Read body */
-    txn->flags.body |= BODY_DECODE;
-    r = read_body(httpd_in, txn->req_hdrs, &txn->req_body,
-		  &txn->flags.body, &txn->error.desc);
+    txn->req_body.flags |= BODY_DECODE;
+    r = read_body(httpd_in, txn->req_hdrs, &txn->req_body, &txn->error.desc);
     if (r) {
 	txn->flags.conn = CONN_CLOSE;
 	return r;
     }
 
     /* Make sure we have a body */
-    if (!buf_len(&txn->req_body)) {
+    if (!buf_len(&txn->req_body.payload)) {
 	txn->error.desc = "Missing request body\r\n";
 	return HTTP_BAD_REQUEST;
     }
@@ -361,7 +337,7 @@ static int meth_post_isched(struct transaction_t *txn,
     }
 
     /* Parse the iCal data for important properties */
-    ical = icalparser_parse_string(buf_cstring(&txn->req_body));
+    ical = icalparser_parse_string(buf_cstring(&txn->req_body.payload));
     if (!ical || !icalrestriction_check(ical)) {
 	txn->error.precond = ISCHED_INVALID_DATA;
 	return HTTP_BAD_REQUEST;
@@ -481,7 +457,7 @@ int isched_send(struct sched_param *sparam, const char *recipient,
     icalcomponent *comp;
     icalcomponent_kind kind;
     icalproperty *prop;
-    unsigned code, close;
+    unsigned code;
     struct transaction_t txn;
 
     *xml = NULL;
@@ -611,7 +587,8 @@ int isched_send(struct sched_param *sparam, const char *recipient,
     prot_write(be->out, body, bodylen);
 
     /* Read response (req_hdr and req_body are actually the response) */
-    r = http_read_response(be, METH_POST, BODY_DECODE, &code, &close, NULL,
+    txn.req_body.flags = BODY_DECODE;
+    r = http_read_response(be, METH_POST, &code, NULL,
 			   &txn.req_hdrs, &txn.req_body, &txn.error.desc);
     if (!r) {
 	switch (code) {
@@ -632,7 +609,7 @@ int isched_send(struct sched_param *sparam, const char *recipient,
     }
 
     if (txn.req_hdrs) spool_free_hdrcache(txn.req_hdrs);
-    buf_free(&txn.req_body);
+    buf_free(&txn.req_body.payload);
 
     return r;
 }
@@ -772,8 +749,8 @@ static int dkim_auth(struct transaction_t *txn)
     dkim_cachehdr(NULL, NULL, dkim);  /* Force canon of last header */
     stat = dkim_eoh(dkim);
     if (stat == DKIM_STAT_OK) {
-	stat = dkim_body(dkim, (u_char *) buf_cstring(&txn->req_body),
-			 buf_len(&txn->req_body));
+	stat = dkim_body(dkim, (u_char *) buf_cstring(&txn->req_body.payload),
+			 buf_len(&txn->req_body.payload));
 	stat = dkim_eom(dkim, NULL);
     }
 
@@ -837,7 +814,7 @@ static void isched_init(struct buf *serverinfo)
 	return;
     }
 
-    calc_compile_time();
+    compile_time = calc_compile_time(__TIME__, __DATE__);
 
     if (config_mupdate_server && config_getstring(IMAPOPT_PROXYSERVERS)) {
 	/* If backend server, we require ISCHEDULE (w/o DKIM) */
