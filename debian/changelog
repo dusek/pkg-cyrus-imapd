@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta7-1) experimental; urgency=low
+
+  * New upstream version 2.4.17+caldav~beta7
+  * Update patches for 2.4.17+caldav~beta7 release
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 27 Sep 2013 08:57:24 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta6-1) experimental; urgency=low
 
   * New upstream version 2.4.17+caldav~beta6
