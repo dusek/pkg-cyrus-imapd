@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.1 -->
-<!-- CreationDate: Mon Jul  1 13:58:06 2013 -->
+<!-- CreationDate: Wed Sep 18 15:19:54 2013 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -711,7 +711,17 @@ found in &quot;httpdocroot&quot;.</p>
 <p style="margin-left:11%; margin-top: 1em">Note that any
 path specified by &quot;rss_feedlist_template&quot; is an
 exception to this rule. <b><br>
-httpdocroot:</b> &lt;none&gt;</p>
+httpcontentmd5:</b> 0</p>
+
+<p style="margin-left:18%;">If enabled, HTTP responses will
+include a Content-MD5 header for the purpose of providing an
+end-to-end message integrity check (MIC) of the payload
+body. Note that enabling this option will use additional CPU
+to generate the MD5 digest, which may be ignored by clients
+anyways.</p>
+
+<p style="margin-left:11%;"><b>httpdocroot:</b>
+&lt;none&gt;</p>
 
 <p style="margin-left:18%;">If set, http will serve the
 static content (html/text/jpeg/gif files, etc) rooted at
