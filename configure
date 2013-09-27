@@ -8111,7 +8111,12 @@ $as_echo "#define AFSPTS_USE_KRB5 /**/" >>confdefs.h
 fi
 
     CFLAGS="${CFLAGS} -I${with_afs_incdir}/include"
-    AFS_LIBS="${with_afs_libdir}/afs/libkauth.a ${with_afs_libdir}/afs/libprot.a  ${with_afs_libdir}/afs/libauth.a ${with_afs_libdir}/afs/libsys.a ${with_afs_libdir}/librxkad.a ${with_afs_libdir}/librx.a ${with_afs_libdir}/afs/libsys.a ${with_afs_libdir}/libubik.a  ${with_afs_libdir}/liblwp.a ${with_afs_libdir}/afs/util.a ${with_afs_libdir}/afs/libcom_err.a"
+    AFS_LIBS="${with_afs_libdir}/afs/libkauth.a ${with_afs_libdir}/afs/libprot.a  ${with_afs_libdir}/afs/libauth.a ${with_afs_libdir}/afs/libsys.a ${with_afs_libdir}/librxkad.a ${with_afs_libdir}/librx.a ${with_afs_libdir}/afs/libsys.a ${with_afs_libdir}/libubik.a  ${with_afs_libdir}/liblwp.a ${with_afs_libdir}/afs/util.a"
+    if test -f ${with_afs_libdir}/afs/libafscom_err.a; then
+      AFS_LIBS="$AFS_LIBS ${with_afs_libdir}/afs/libafscom_err.a"
+    else
+      AFS_LIBS="$AFS_LIBS ${with_afs_libdir}/afs/libcom_err.a"
+    fi
     if test -f ${with_afs_libdir}/afs/libaudit.a; then
       AFS_LIBS="$AFS_LIBS ${with_afs_libdir}/afs/libaudit.a"
     fi
@@ -11260,8 +11265,10 @@ $as_echo "$as_me: WARNING: skipping check for perl cccdlflags on \"${target_os}\
 fi
 
 if test "$sievedir" != "no"; then
+   if test "$enable_server" != "no"; then
 	EXTRA_SUBDIRS="${EXTRA_SUBDIRS} timsieved notifyd"
 	EXTRA_OUTPUT="${EXTRA_OUTPUT} timsieved/Makefile notifyd/Makefile"
+   fi
 
 	PERL_SUBDIRS="${PERL_SUBDIRS} sieve"
 	PERL_DEPSUBDIRS="sieve"

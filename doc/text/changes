@@ -1,3 +1,16 @@
+Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta6
+
+      * Plugged several memory leaks found by Valgrind 
+      * Less verbose reconnect communication between frontend and backend 
+      * GET on calendar-home-set now returns a list of subscribe-able
+        calendars 
+      * Auto-provisioning of calendars/addressbooks now works via a
+        frontend proxy 
+      * Fixed several conformance bugs detected by CalDAVTester 
+      * Added support for optionally adding Content-MD5 header to responses
+        (see httpcontentmd5 option) 
+      * Fixed time-based queries for components other than VEVENT 
+
 Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta5
 
       * RSS module now produces Atom 1.0 output rather than RSS 2.0 (we
@@ -24,10 +37,8 @@ Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta4
       * Don't show addressbook mailboxes in IMAP LIST output 
       * Plugged leaked memory found by Valgrind 
       * Better handling of request/response bodies 
-      * Added httpprettytelemetry option
-      * 
-      * Added httpallowcors option (Cross-Origin Resource Sharing)
-      * 
+      * Added httpprettytelemetry option 
+      * Added httpallowcors option (Cross-Origin Resource Sharing) 
 
 Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta3
 
@@ -35,8 +46,7 @@ Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta3
       * Rewrote list_feeds() to not use memmem() 
       * OPTIONS method can be used without authentication 
       * Better handling of Connection:keep-alive 
-      * Added httpallowedurls option
-      * 
+      * Added httpallowedurls option 
 
 Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta2
 

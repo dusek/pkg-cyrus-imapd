@@ -92,6 +92,7 @@
 #include "rfc822date.h"
 #include "tok.h"
 #include "wildmat.h"
+#include "md5.h"
 
 #ifdef WITH_DAV
 #include "http_dav.h"
@@ -207,6 +208,10 @@ static void parse_connection(struct transaction_t *txn);
 static struct accept *parse_accept(const char **hdr);
 static int parse_ranges(const char *hdr, unsigned long len,
 			struct range **ranges);
+static int parse_framing(hdrcache_t hdrs, struct body_t *body,
+			 const char **errstr);
+static int proxy_authz(const char **authzid, struct transaction_t *txn);
+static void auth_success(struct transaction_t *txn);
 static int http_auth(const char *creds, struct transaction_t *txn);
 static void keep_alive(int sig);
 
@@ -935,6 +940,7 @@ static void cmdloop(void)
 	txn.req_uri = NULL;
 	txn.auth_chal.param = NULL;
 	txn.req_hdrs = NULL;
+	txn.req_body.flags = 0;
 	txn.location = NULL;
 	memset(&txn.error, 0, sizeof(struct error_t));
 	memset(&txn.resp_body, 0,  /* Don't zero the response payload buffer */
@@ -1088,13 +1094,21 @@ static void cmdloop(void)
 
 	if (txn.meth == METH_UNKNOWN) ret = HTTP_NOT_IMPLEMENTED;
 
-	/* Check for Expectations (HTTP/1.1+ only) */
-	else if (!txn.flags.ver1_0 && (r = parse_expect(&txn))) ret = r;
-
 	/* Parse request-target URI */
 	else if (!(txn.req_uri = parse_uri(txn.meth, req_line->uri, 1,
 					   &txn.error.desc))) {
 	    ret = HTTP_BAD_REQUEST;
+	}
+
+	/* Check message framing */
+	else if ((r = parse_framing(txn.req_hdrs, &txn.req_body,
+				    &txn.error.desc))) {
+	    ret = r;
+	}
+
+	/* Check for Expectations */
+	else if ((r = parse_expect(&txn))) {
+	    ret = r;
 	}
 
 	/* Check for mandatory Host header (HTTP/1.1+ only) */
@@ -1165,13 +1179,13 @@ static void cmdloop(void)
 	    meth_t = &namespace->methods[txn.meth];
 	    if (!meth_t->proc) ret = HTTP_NOT_ALLOWED;
 
-	    /* Check if method doesn't expect a body */
+	    /* Check if method expects a body */
 	    else if ((http_methods[txn.meth].flags & METH_NOBODY) &&
-		     (spool_getheader(txn.req_hdrs, "Transfer-Encoding") ||
+		     (txn.req_body.framing != FRAMING_LENGTH ||
 		      /* XXX  Will break if client sends just a last-chunk */
-		      ((hdr = spool_getheader(txn.req_hdrs, "Content-Length"))
-		       && strtoul(hdr[0], NULL, 10))))
+		      txn.req_body.len)) {
 		ret = HTTP_BAD_MEDIATYPE;
+	    }
 	} else {
 	    /* XXX  Should never get here */
 	    ret = HTTP_SERVER_ERROR;
@@ -1184,14 +1198,6 @@ static void cmdloop(void)
 	    if (httpd_userid) {
 		/* Reauth - reinitialize */
 		syslog(LOG_DEBUG, "reauth - reinit");
-		if (httpd_userid) {
-		    free(httpd_userid);
-		    httpd_userid = NULL;
-		}
-		if (httpd_authstate) {
-		    auth_freestate(httpd_authstate);
-		    httpd_authstate = NULL;
-		}
 		reset_saslconn(&httpd_saslconn);
 		txn.auth_chal.scheme = NULL;
 	    }
@@ -1211,6 +1217,25 @@ static void cmdloop(void)
 	    syslog(LOG_DEBUG, "client didn't complete auth - reinit");
 	    reset_saslconn(&httpd_saslconn);
 	    txn.auth_chal.scheme = NULL;
+	}
+
+	/* Perform proxy authorization, if necessary */
+	else if (saslprops.authid &&
+		 (hdr = spool_getheader(txn.req_hdrs, "Authorize-As")) &&
+		 *hdr[0]) {
+	    const char *authzid = hdr[0];
+
+	    r = proxy_authz(&authzid, &txn);
+	    if (r) {
+		/* Proxy authz failed - reinitialize */
+		syslog(LOG_DEBUG, "proxy authz failed - reinit");
+		reset_saslconn(&httpd_saslconn);
+		txn.auth_chal.scheme = NULL;
+	    }
+	    else {
+		httpd_userid = xstrdup(authzid);
+		auth_success(&txn);
+	    }
 	}
 
 	/* Request authentication, if necessary */
@@ -1352,13 +1377,22 @@ static void cmdloop(void)
 	/* Handle errors (success responses handled by method functions) */
 	if (ret) error_response(ret, &txn);
 
+	/* Read and discard any unread request body */
+	if (!(txn.flags.conn & CONN_CLOSE)) {
+	    txn.req_body.flags |= BODY_DISCARD;
+	    if (read_body(httpd_in, txn.req_hdrs, &txn.req_body,
+			  &txn.error.desc)) {
+		txn.flags.conn = CONN_CLOSE;
+	    }
+	}
+
 	/* Memory cleanup */
 	if (txn.req_uri) xmlFreeURI(txn.req_uri);
 	if (txn.req_hdrs) spool_free_hdrcache(txn.req_hdrs);
 
 	if (txn.flags.conn & CONN_CLOSE) {
 	    buf_free(&txn.buf);
-	    buf_free(&txn.req_body);
+	    buf_free(&txn.req_body.payload);
 	    buf_free(&txn.resp_body.payload);
 #ifdef HAVE_ZLIB
 	    deflateEnd(&txn.zstrm);
@@ -1436,36 +1470,51 @@ int is_mediatype(const char *hdr, const char *type)
 }
 
 
-/*
- * Read the body of a request or response.
- * Handles chunked, gzip, deflate TE only.
- * Handles close-delimited response bodies (no Content-Length specified) 
- * Handles gzip and deflate CE only.
- */
-int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
-	      unsigned char *flags, const char **errstr)
+/* Calculate compile time of a file for use as Last-Modified and/or ETag */
+time_t calc_compile_time(const char *time, const char *date)
 {
-    const char **hdr;
-    unsigned long len = 0;
-    enum { LEN_DELIM_LENGTH, LEN_DELIM_CHUNKED, LEN_DELIM_CLOSE };
-    unsigned len_delim = LEN_DELIM_LENGTH, te = TE_NONE, max_msgsize, n;
-    char buf[PROT_BUFSIZE];
+    struct tm tm;
+    char month[4];
+    const char *monthname[] = {
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    };
 
-    syslog(LOG_DEBUG, "read_body(%#x%s)", *flags, !body ? ", discard" : "");
-
-    if (*flags & BODY_DONE) return 0;
-    *flags |= BODY_DONE;
-
-    if (body) buf_reset(body);
-    else if (*flags & BODY_CONTINUE) {
-	/* Don't care about the body and client hasn't sent it, we're done */
-	return 0;
+    memset(&tm, 0, sizeof(struct tm));
+    tm.tm_isdst = -1;
+    sscanf(time, "%02d:%02d:%02d", &tm.tm_hour, &tm.tm_min, &tm.tm_sec);
+    sscanf(date, "%s %2d %4d", month, &tm.tm_mday, &tm.tm_year);
+    tm.tm_year -= 1900;
+    for (tm.tm_mon = 0; tm.tm_mon < 12; tm.tm_mon++) {
+	if (!strcmp(month, monthname[tm.tm_mon])) break;
     }
 
-    max_msgsize = config_getint(IMAPOPT_MAXMESSAGESIZE);
+    return mktime(&tm);
+}
 
-    /* If max_msgsize is 0, allow any size */
-    if (!max_msgsize) max_msgsize = INT_MAX;
+
+/*
+ * Parse the framing of a request or response message.
+ * Handles chunked, gzip, deflate TE only.
+ * Handles close-delimited response bodies (no Content-Length specified) 
+ */
+static int parse_framing(hdrcache_t hdrs, struct body_t *body,
+			 const char **errstr)
+{
+    static unsigned max_msgsize = 0;
+    const char **hdr;
+
+    if (!max_msgsize) {
+	max_msgsize = config_getint(IMAPOPT_MAXMESSAGESIZE);
+
+	/* If max_msgsize is 0, allow any size */
+	if (!max_msgsize) max_msgsize = INT_MAX;
+    }
+
+    body->framing = FRAMING_LENGTH;
+    body->te = TE_NONE;
+    body->len = 0;
+    body->max = max_msgsize;
 
     /* Check for Transfer-Encoding */
     if ((hdr = spool_getheader(hdrs, "Transfer-Encoding"))) {
@@ -1474,26 +1523,26 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 	    char *token;
 
 	    while ((token = tok_next(&tok))) {
-		if (te & TE_CHUNKED) {
+		if (body->te & TE_CHUNKED) {
 		    /* "chunked" MUST only appear once and MUST be last */
 		    break;
 		}
 		else if (!strcasecmp(token, "chunked")) {
-		    te |= TE_CHUNKED;
-		    len_delim = LEN_DELIM_CHUNKED;
+		    body->te |= TE_CHUNKED;
+		    body->framing = FRAMING_CHUNKED;
 		}
-		else if (te & ~TE_CHUNKED) {
+		else if (body->te & ~TE_CHUNKED) {
 		    /* can't combine compression codings */
 		    break;
 		}
 #ifdef HAVE_ZLIB
 		else if (!strcasecmp(token, "deflate"))
-		    te = TE_DEFLATE;
+		    body->te = TE_DEFLATE;
 		else if (!strcasecmp(token, "gzip") ||
 			 !strcasecmp(token, "x-gzip"))
-		    te = TE_GZIP;
+		    body->te = TE_GZIP;
 #endif
-		else if (body) {
+		else if (!(body->flags & BODY_DISCARD)) {
 		    /* unknown/unsupported TE */
 		    break;
 		}
@@ -1508,9 +1557,9 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 	}
 
 	/* Check if this is a non-chunked response */
-	else if (!(te & TE_CHUNKED)) {
-	    if ((*flags & BODY_RESPONSE) && (*flags & BODY_CLOSE)) {
-		len_delim = LEN_DELIM_CLOSE;
+	else if (!(body->te & TE_CHUNKED)) {
+	    if ((body->flags & BODY_RESPONSE) && (body->flags & BODY_CLOSE)) {
+		body->framing = FRAMING_CLOSE;
 	    }
 	    else {
 		*errstr = "Final Transfer-Encoding MUST be \"chunked\"";
@@ -1526,26 +1575,78 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 	    return HTTP_BAD_REQUEST;
 	}
 
-	len = strtoul(hdr[0], NULL, 10);
-	if (len > max_msgsize) return HTTP_TOO_LARGE;
+	body->len = strtoul(hdr[0], NULL, 10);
+	if (body->len > max_msgsize) return HTTP_TOO_LARGE;
 
-	len_delim = LEN_DELIM_LENGTH;
+	body->framing = FRAMING_LENGTH;
     }
 	
     /* Check if this is a close-delimited response */
-    else if (*flags & BODY_RESPONSE) {
-	if (*flags & BODY_CLOSE) len_delim = LEN_DELIM_CLOSE;
+    else if (body->flags & BODY_RESPONSE) {
+	if (body->flags & BODY_CLOSE) body->framing = FRAMING_CLOSE;
 	else return HTTP_LENGTH_REQUIRED;
     }
 
+    return 0;
+}
 
-    if (*flags & BODY_CONTINUE) {
+
+/*
+ * Read the body of a request or response.
+ * Handles chunked, gzip, deflate TE only.
+ * Handles close-delimited response bodies (no Content-Length specified) 
+ * Handles gzip and deflate CE only.
+ */
+int read_body(struct protstream *pin, hdrcache_t hdrs, struct body_t *body,
+	      const char **errstr)
+{
+    char buf[PROT_BUFSIZE];
+    unsigned n;
+    int r = 0;
+
+    syslog(LOG_DEBUG, "read_body(%#x)", body->flags);
+
+    if (body->flags & BODY_DONE) return 0;
+    body->flags |= BODY_DONE;
+
+    if (!(body->flags & BODY_DISCARD)) buf_reset(&body->payload);
+    else if (body->flags & BODY_CONTINUE) {
+	/* Don't care about the body and client hasn't sent it, we're done */
+	return 0;
+    }
+
+    if (body->framing == FRAMING_UNKNOWN) {
+	/* Get message framing */
+	r = parse_framing(hdrs, body, errstr);
+	if (r) return r;
+    }
+
+    if (body->flags & BODY_CONTINUE) {
 	/* Tell client to send the body */
 	response_header(HTTP_CONTINUE, NULL);
     }
 
     /* Read and buffer the body */
-    if (len_delim == LEN_DELIM_CHUNKED) {
+    switch (body->framing) {
+    case FRAMING_LENGTH:
+	/* Read 'len' octets */
+	for (; body->len; body->len -= n) {
+	    if (body->flags & BODY_DISCARD)
+		n = prot_read(pin, buf, MIN(body->len, PROT_BUFSIZE));
+	    else
+		n = prot_readbuf(pin, &body->payload, body->len);
+
+	    if (!n) {
+		syslog(LOG_ERR, "prot_read() error");
+		*errstr = "Unable to read body data";
+		goto read_failure;
+	    }
+	}
+
+	break;
+
+    case FRAMING_CHUNKED:
+    {
 	unsigned last = 0;
 
 	/* Read chunks until last-chunk (zero chunk-size) */
@@ -1557,8 +1658,10 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 		sscanf(buf, "%x", &chunk) != 1) {
 		*errstr = "Unable to read chunk size";
 		goto read_failure;
+
+		/* XXX  Do we need to parse chunk-ext? */
 	    }
-	    if ((len += chunk) > max_msgsize) return HTTP_TOO_LARGE;
+	    else if (chunk > body->max - body->len) return HTTP_TOO_LARGE;
 
 	    if (!chunk) {
 		/* last-chunk */
@@ -1570,14 +1673,17 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 	    
 	    /* Read 'chunk' octets */ 
 	    for (; chunk; chunk -= n) {
-		if (body) n = prot_readbuf(pin, body, chunk);
-		else n = prot_read(pin, buf, MIN(chunk, PROT_BUFSIZE));
+		if (body->flags & BODY_DISCARD)
+		    n = prot_read(pin, buf, MIN(chunk, PROT_BUFSIZE));
+		else
+		    n = prot_readbuf(pin, &body->payload, chunk);
 		
 		if (!n) {
 		    syslog(LOG_ERR, "prot_read() error");
 		    *errstr = "Unable to read chunk data";
 		    goto read_failure;
 		}
+		body->len += n;
 	    }
 
 	    /* Read CRLF terminating the chunk/trailer */
@@ -1588,44 +1694,42 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 
 	} while (!last);
 
-	te &= ~TE_CHUNKED;
+	body->te &= ~TE_CHUNKED;
+
+	break;
     }
-    else if (len_delim == LEN_DELIM_CLOSE) {
+
+    case FRAMING_CLOSE:
 	/* Read until EOF */
 	do {
-	    if (body) n = prot_readbuf(pin, body, PROT_BUFSIZE);
-	    else n = prot_read(pin, buf, PROT_BUFSIZE);
+	    if (body->flags & BODY_DISCARD)
+		n = prot_read(pin, buf, PROT_BUFSIZE);
+	    else
+		n = prot_readbuf(pin, &body->payload, PROT_BUFSIZE);
 
-	    if ((len += n) > max_msgsize) return HTTP_TOO_LARGE;
+	    if (n > body->max - body->len) return HTTP_TOO_LARGE;
+	    body->len += n;
 
 	} while (n);
 
 	if (!pin->eof) goto read_failure;
-    }
-    else if (len) {
-	/* Read 'len' octets */
-	for (; len; len -= n) {
-	    if (body) n = prot_readbuf(pin, body, len);
-	    else n = prot_read(pin, buf, MIN(len, PROT_BUFSIZE));
 
-	    if (!n) {
-		syslog(LOG_ERR, "prot_read() error");
-		*errstr = "Unable to read body data";
-		goto read_failure;
-	    }
-	}
+	break;
+
+    default:
+	/* XXX  Should never get here */
+	*errstr = "Unknown length of read body data";
+	goto read_failure;
     }
 
 
-    if (body && buf_len(body)) {
-	int r = 0;
-
+    if (!(body->flags & BODY_DISCARD) && buf_len(&body->payload)) {
 #ifdef HAVE_ZLIB
 	/* Decode the payload, if necessary */
-	if (te == TE_DEFLATE)
-	    r = buf_inflate(body, DEFLATE_ZLIB);
-	else if (te == TE_GZIP)
-	    r = buf_inflate(body, DEFLATE_GZIP);
+	if (body->te == TE_DEFLATE)
+	    r = buf_inflate(&body->payload, DEFLATE_ZLIB);
+	else if (body->te == TE_GZIP)
+	    r = buf_inflate(&body->payload, DEFLATE_GZIP);
 
 	if (r) {
 	    *errstr = "Error decoding payload";
@@ -1634,7 +1738,9 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 #endif
 
 	/* Decode the representation, if necessary */
-	if (*flags & BODY_DECODE) {
+	if (body->flags & BODY_DECODE) {
+	    const char **hdr;
+
 	    if (!(hdr = spool_getheader(hdrs, "Content-Encoding"))) {
 		/* nothing to see here */
 	    }
@@ -1645,13 +1751,13 @@ int read_body(struct protstream *pin, hdrcache_t hdrs, struct buf *body,
 
 		/* Try to detect Microsoft's broken deflate */
 		if (ua && strstr(ua[0], "; MSIE "))
-		    r = buf_inflate(body, DEFLATE_RAW);
+		    r = buf_inflate(&body->payload, DEFLATE_RAW);
 		else
-		    r = buf_inflate(body, DEFLATE_ZLIB);
+		    r = buf_inflate(&body->payload, DEFLATE_ZLIB);
 	    }
 	    else if (!strcasecmp(hdr[0], "gzip") ||
 		     !strcasecmp(hdr[0], "x-gzip"))
-		r = buf_inflate(body, DEFLATE_GZIP);
+		r = buf_inflate(&body->payload, DEFLATE_GZIP);
 #endif
 	    else {
 		*errstr = "Specified Content-Encoding not accepted";
@@ -1684,6 +1790,9 @@ static int parse_expect(struct transaction_t *txn)
     const char **exp = spool_getheader(txn->req_hdrs, "Expect");
     int i, ret = 0;
 
+    /* Expect not supported by HTTP/1.0 clients */
+    if (exp && txn->flags.ver1_0) return HTTP_EXPECT_FAILED;
+
     /* Look for interesting expectations.  Unknown == error */
     for (i = 0; !ret && exp && exp[i]; i++) {
 	tok_t tok = TOK_INITIALIZER(exp[i], ",", TOK_TRIMLEFT|TOK_TRIMRIGHT);
@@ -1693,7 +1802,7 @@ static int parse_expect(struct transaction_t *txn)
 	    /* Check if this is a non-persistent connection */
 	    if (!strcasecmp(token, "100-continue")) {
 		syslog(LOG_DEBUG, "Expect: 100-continue");
-		txn->flags.body |= BODY_CONTINUE;
+		txn->req_body.flags |= BODY_CONTINUE;
 	    }
 	    else {
 		txn->error.desc = "Unsupported Expectation";
@@ -1902,6 +2011,18 @@ void allow_hdr(const char *hdr, unsigned allow)
     }
 }
 
+#define MD5_BASE64_LEN 25   /* ((MD5_DIGEST_LENGTH / 3) + 1) * 4 */
+
+void Content_MD5(const unsigned char *md5)
+{
+    char base64[MD5_BASE64_LEN+1];
+
+    sasl_encode64((char *) md5, MD5_DIGEST_LENGTH,
+		  base64, MD5_BASE64_LEN, NULL);
+    prot_printf(httpd_out, "Content-MD5: %s\r\n", base64);
+}
+
+
 void response_header(long code, struct transaction_t *txn)
 {
     time_t now;
@@ -1911,14 +2032,6 @@ void response_header(long code, struct transaction_t *txn)
     struct auth_challenge_t *auth_chal;
     struct resp_body_t *resp_body;
     static struct buf log = BUF_INITIALIZER;
-
-    /* Read and discard any unread body */
-    if (txn && txn->req_hdrs &&
-	read_body(httpd_in, txn->req_hdrs, NULL,
-		  &txn->flags.body, &txn->error.desc)) {
-	txn->flags.conn = CONN_CLOSE;
-    }
-
 
     /* Stop method processing alarm */
     alarm(0);
@@ -2166,6 +2279,11 @@ void response_header(long code, struct transaction_t *txn)
     if (resp_body->type) {
 	prot_printf(httpd_out, "Content-Type: %s\r\n", resp_body->type);
 
+	if (resp_body->fname) {
+	    prot_printf(httpd_out,
+			"Content-Disposition: inline; filename=\"%s\"\r\n",
+			resp_body->fname);
+	}
 	if (txn->resp_body.enc) {
 	    /* Construct Content-Encoding header */
 	    const char *ce[] =
@@ -2179,6 +2297,9 @@ void response_header(long code, struct transaction_t *txn)
 	if (resp_body->loc) {
 	    prot_printf(httpd_out, "Content-Location: %s\r\n", resp_body->loc);
 	    if (txn->flags.cors) Access_Control_Expose("Content-Location");
+	}
+	if (resp_body->md5) {
+	    Content_MD5(resp_body->md5);
 	}
     }
 
@@ -2221,6 +2342,14 @@ void response_header(long code, struct transaction_t *txn)
 		    { "deflate", "gzip", "chunked", NULL };
 
 		comma_list_hdr("Transfer-Encoding", te, txn->flags.te);
+
+		if (txn->flags.trailer) {
+		    /* Construct Trailer header */
+		    const char *trailer_hdrs[] =
+			{ "Content-MD5", NULL };
+
+		    comma_list_hdr("Trailer", trailer_hdrs, txn->flags.trailer);
+		}
 	    }
 	}
 	else prot_printf(httpd_out, "Content-Length: %lu\r\n", resp_body->len);
@@ -2323,6 +2452,9 @@ void write_body(long code, struct transaction_t *txn,
 {
     unsigned is_dynamic = code ? (txn->flags.te & TE_CHUNKED) : 1;
     unsigned outlen = len, offset = 0;
+    int do_md5 = config_getswitch(IMAPOPT_HTTPCONTENTMD5);
+    static MD5_CTX ctx;
+    static unsigned char md5[MD5_DIGEST_LENGTH];
 
     if (!is_dynamic && len < GZIP_MIN_LEN) {
 	/* Don't compress small static content */
@@ -2364,6 +2496,7 @@ void write_body(long code, struct transaction_t *txn,
 
     if (code) {
 	/* Initial call - prepare response header based on CE, TE and version */
+	if (do_md5) MD5_Init(&ctx);
 
 	if (txn->flags.te & ~TE_CHUNKED) {
 	    /* Transfer-Encoded content MUST be chunked */
@@ -2417,11 +2550,18 @@ void write_body(long code, struct transaction_t *txn,
 		    break;
 		}
 	    }
+
+	    if (outlen && do_md5) {
+		MD5_Update(&ctx, buf+offset, outlen);
+		MD5_Final(md5, &ctx);
+		txn->resp_body.md5 = md5;
+	    }
 	}
 	else if (txn->flags.ver1_0) {
 	    /* HTTP/1.0 doesn't support chunked - close-delimit the body */
 	    txn->flags.conn = CONN_CLOSE;
 	}
+	else if (do_md5) txn->flags.trailer = TRAILER_CMD5;
 
 	response_header(code, txn);
 
@@ -2446,12 +2586,19 @@ void write_body(long code, struct transaction_t *txn,
 	    prot_printf(httpd_out, "%x\r\n", outlen);
 	    prot_write(httpd_out, buf, outlen);
 	    prot_puts(httpd_out, "\r\n");
+
+	    if (do_md5) MD5_Update(&ctx, buf, outlen);	    
 	}
 	if (!len) {
 	    /* Terminate the HTTP/1.1 body with a zero-length chunk */
 	    prot_puts(httpd_out, "0\r\n");
 
-	    /* Empty trailer */
+	    /* Trailer */
+	    if (do_md5) {
+		MD5_Final(md5, &ctx);
+		Content_MD5(md5);
+	    }
+
 	    prot_puts(httpd_out, "\r\n");
 	}
     }
@@ -2623,6 +2770,63 @@ void error_response(long code, struct transaction_t *txn)
 }
 
 
+static int proxy_authz(const char **authzid, struct transaction_t *txn)
+{
+    static char authzbuf[MAX_MAILBOX_BUFFER];
+    unsigned authzlen;
+    int status;
+
+    syslog(LOG_DEBUG, "proxy_auth: authzid='%s'", *authzid);
+
+    /* Free userid & authstate previously allocated for auth'd user */
+    if (httpd_userid) {
+	free(httpd_userid);
+	httpd_userid = NULL;
+    }
+    if (httpd_authstate) {
+	auth_freestate(httpd_authstate);
+	httpd_authstate = NULL;
+    }
+
+    if (!(config_mupdate_server && config_getstring(IMAPOPT_PROXYSERVERS))) {
+	/* Not a backend in a Murder - proxy authz is not allowed */
+	syslog(LOG_NOTICE, "badlogin: %s %s %s %s",
+	       httpd_clienthost, txn->auth_chal.scheme->name, saslprops.authid,
+	       "proxy authz attempted on non-Murder backend");
+	return SASL_NOAUTHZ;
+    }
+
+    /* Canonify the authzid */
+    status = mysasl_canon_user(httpd_saslconn, NULL,
+			       *authzid, strlen(*authzid),
+			       SASL_CU_AUTHZID, NULL,
+			       authzbuf, sizeof(authzbuf), &authzlen);
+    if (status) {
+	syslog(LOG_NOTICE, "badlogin: %s %s %s invalid user",
+	       httpd_clienthost, txn->auth_chal.scheme->name,
+	       beautify_string(*authzid));
+	return status;
+    }
+
+    /* See if auth'd user is allowed to proxy */
+    status = mysasl_proxy_policy(httpd_saslconn, &httpd_proxyctx,
+				 authzbuf, authzlen,
+				 saslprops.authid, strlen(saslprops.authid),
+				 NULL, 0, NULL);
+
+    if (status) {
+	syslog(LOG_NOTICE, "badlogin: %s %s %s %s",
+	       httpd_clienthost, txn->auth_chal.scheme->name, saslprops.authid,
+	       sasl_errdetail(httpd_saslconn));
+	return status;
+    }
+
+    *authzid = authzbuf;
+
+    return status;
+}
+
+
 /* Write cached header (redacting authorization credentials) to buffer. */
 static void log_cachehdr(const char *name, const char *contents, void *rock)
 {
@@ -2642,6 +2846,72 @@ static void log_cachehdr(const char *name, const char *contents, void *rock)
 }
 
 
+static void auth_success(struct transaction_t *txn)
+{
+    struct auth_scheme_t *scheme = txn->auth_chal.scheme;
+    int i;
+
+    proc_register("httpd", httpd_clienthost, httpd_userid, (char *)0);
+
+    syslog(LOG_NOTICE, "login: %s %s %s%s %s",
+	   httpd_clienthost, httpd_userid, scheme->name,
+	   httpd_tls_done ? "+TLS" : "", "User logged in");
+
+
+    /* Recreate telemetry log entry for request (w/ credentials redacted) */
+    assert(!buf_len(&txn->buf));
+    buf_printf(&txn->buf, "<%ld<", time(NULL));		/* timestamp */
+    buf_printf(&txn->buf, "%s %s %s\r\n",		/* request-line*/
+	       txn->req_line.meth, txn->req_line.uri, txn->req_line.ver);
+    spool_enum_hdrcache(txn->req_hdrs,			/* header fields */
+			&log_cachehdr, &txn->buf);
+    buf_appendcstr(&txn->buf, "\r\n");			/* CRLF */
+    buf_append(&txn->buf, &txn->req_body.payload);	/* message body */
+    buf_appendmap(&txn->buf,				/* buffered input */
+		  (const char *) httpd_in->ptr, httpd_in->cnt);
+
+    if (httpd_logfd != -1) {
+	/* Rewind log to current request and truncate it */
+	off_t end = lseek(httpd_logfd, 0, SEEK_END);
+
+	ftruncate(httpd_logfd, end - buf_len(&txn->buf));
+    }
+
+    if (!proxy_userid || strcmp(proxy_userid, httpd_userid)) {
+	/* Close existing telemetry log */
+	close(httpd_logfd);
+
+	prot_setlog(httpd_in, PROT_NO_FD);
+	prot_setlog(httpd_out, PROT_NO_FD);
+
+	/* Create telemetry log based on new userid */
+	httpd_logfd = telemetry_log(httpd_userid, httpd_in, httpd_out, 0);
+    }
+
+    if (httpd_logfd != -1) {
+	/* Log credential-redacted request */
+	write(httpd_logfd, buf_cstring(&txn->buf), buf_len(&txn->buf));
+    }
+
+    buf_reset(&txn->buf);
+
+    /* Make a copy of the external userid for use in proxying */
+    if (proxy_userid) free(proxy_userid);
+    proxy_userid = xstrdup(httpd_userid);
+
+    /* Translate any separators in userid */
+    mboxname_hiersep_tointernal(&httpd_namespace, httpd_userid,
+				config_virtdomains ?
+				strcspn(httpd_userid, "@") : 0);
+
+    /* Do any namespace specific post-auth processing */
+    for (i = 0; namespaces[i]; i++) {
+	if (namespaces[i]->enabled && namespaces[i]->auth)
+	    namespaces[i]->auth(httpd_userid);
+    }
+}
+
+
 /* Perform HTTP Authentication based on the given credentials ('creds').
  * Returns the selected auth scheme and any server challenge in 'chal'.
  * May be called multiple times if auth scheme requires multiple steps.
@@ -2654,25 +2924,31 @@ static int http_auth(const char *creds, struct transaction_t *txn)
     struct auth_challenge_t *chal = &txn->auth_chal;
     static int status = SASL_OK;
     int slen;
-    const char *clientin = NULL, *realm = NULL, *user;
+    const char *clientin = NULL, *realm = NULL, *user, **authzid;
     unsigned int clientinlen = 0;
     struct auth_scheme_t *scheme;
     static char base64[BASE64_BUF_SIZE+1];
     const void *canon_user;
-    const char **authzid = spool_getheader(txn->req_hdrs, "Authorize-As");
-    int i;
-
-    chal->param = NULL;
 
     /* Split credentials into auth scheme and response */
     slen = strcspn(creds, " \0");
     if ((clientin = strchr(creds, ' '))) clientinlen = strlen(++clientin);
 
     syslog(LOG_DEBUG,
-	   "http_auth: status=%d   scheme='%s'   creds='%.*s%s'   authzid='%s'",
+	   "http_auth: status=%d   scheme='%s'   creds='%.*s%s'",
 	   status, chal->scheme ? chal->scheme->name : "",
-	   slen, creds, clientin ? " <response>" : "",
-	   authzid ? authzid[0] : "");
+	   slen, creds, clientin ? " <response>" : "");
+
+    /* Free userid & authstate previously allocated for auth'd user */
+    if (httpd_userid) {
+	free(httpd_userid);
+	httpd_userid = NULL;
+    }
+    if (httpd_authstate) {
+	auth_freestate(httpd_authstate);
+	httpd_authstate = NULL;
+    }
+    chal->param = NULL;
 
     if (chal->scheme) {
 	/* Use current scheme, if possible */
@@ -2852,105 +3128,23 @@ static int http_auth(const char *creds, struct transaction_t *txn)
 	syslog(LOG_ERR, "weird SASL error %d getting SASL_USERNAME", status);
 	return status;
     }
+    user = (const char *) canon_user;
 
+    if (saslprops.authid) free(saslprops.authid);
+    saslprops.authid = xstrdup(user);
+
+    authzid = spool_getheader(txn->req_hdrs, "Authorize-As");
     if (authzid && *authzid[0]) {
 	/* Trying to proxy as another user */
-	char authzbuf[MAX_MAILBOX_BUFFER];
-	unsigned authzlen;
+	user = authzid[0];
 
-	/* Free authstate previously allocated for auth'd user */
-	if (httpd_authstate) {
-	    auth_freestate(httpd_authstate);
-	    httpd_authstate = NULL;
-	}
-
-	/* Canonify the authzid */
-	status = mysasl_canon_user(httpd_saslconn, NULL,
-				   authzid[0], strlen(authzid[0]),
-				   SASL_CU_AUTHZID, NULL,
-				   authzbuf, sizeof(authzbuf), &authzlen);
-	if (status) {
-	    syslog(LOG_NOTICE, "badlogin: %s %s %s invalid user",
-		   httpd_clienthost, scheme->name, beautify_string(authzid[0]));
-	    return status;
-	}
-	user = (const char *) canon_user;
-
-	/* See if user is allowed to proxy */
-	status = mysasl_proxy_policy(httpd_saslconn, &httpd_proxyctx,
-				     authzbuf, authzlen, user, strlen(user),
-				     NULL, 0, NULL);
-
-	if (status) {
-	    syslog(LOG_NOTICE, "badlogin: %s %s %s %s",
-		   httpd_clienthost, scheme->name, user,
-		   sasl_errdetail(httpd_saslconn));
-	    return status;
-	}
-
-	canon_user = authzbuf;
+	status = proxy_authz(&user, txn);
+	if (status) return status;
     }
 
-    httpd_userid = xstrdup((const char *) canon_user);
+    httpd_userid = xstrdup(user);
 
-    proc_register("httpd", httpd_clienthost, httpd_userid, (char *)0);
-
-    syslog(LOG_NOTICE, "login: %s %s %s%s %s",
-	   httpd_clienthost, httpd_userid, scheme->name,
-	   httpd_tls_done ? "+TLS" : "", "User logged in");
-
-
-    /* Recreate telemetry log entry for request (w/ credentials redacted) */
-    assert(!buf_len(&txn->buf));
-    buf_printf(&txn->buf, "<%ld<", time(NULL));		/* timestamp */
-    buf_printf(&txn->buf, "%s %s %s\r\n",		/* request-line*/
-	       txn->req_line.meth, txn->req_line.uri, txn->req_line.ver);
-    spool_enum_hdrcache(txn->req_hdrs,			/* header fields */
-			&log_cachehdr, &txn->buf);
-    buf_appendcstr(&txn->buf, "\r\n");			/* CRLF */
-    buf_append(&txn->buf, &txn->req_body);		/* message body */
-    buf_appendmap(&txn->buf,				/* buffered input */
-		  (const char *) httpd_in->ptr, httpd_in->cnt);
-
-    if (httpd_logfd != -1) {
-	/* Rewind log to current request and truncate it */
-	off_t end = lseek(httpd_logfd, 0, SEEK_END);
-
-	ftruncate(httpd_logfd, end - buf_len(&txn->buf));
-    }
-
-    if (!proxy_userid || strcmp(proxy_userid, httpd_userid)) {
-	/* Close existing telemetry log */
-	close(httpd_logfd);
-
-	prot_setlog(httpd_in, PROT_NO_FD);
-	prot_setlog(httpd_out, PROT_NO_FD);
-
-	/* Create telemetry log based on new userid */
-	httpd_logfd = telemetry_log(httpd_userid, httpd_in, httpd_out, 0);
-    }
-
-    if (httpd_logfd != -1) {
-	/* Log credential-redacted request */
-	write(httpd_logfd, buf_cstring(&txn->buf), buf_len(&txn->buf));
-    }
-
-    buf_reset(&txn->buf);
-
-    /* Make a copy of the external userid for use in proxying */
-    if (proxy_userid) free(proxy_userid);
-    proxy_userid = xstrdup(httpd_userid);
-
-    /* Translate any separators in userid */
-    mboxname_hiersep_tointernal(&httpd_namespace, httpd_userid,
-				config_virtdomains ?
-				strcspn(httpd_userid, "@") : 0);
-
-    /* Do any namespace specific post-auth processing */
-    for (i = 0; namespaces[i]; i++) {
-	if (namespaces[i]->enabled && namespaces[i]->auth)
-	    namespaces[i]->auth(httpd_userid);
-    }
+    auth_success(txn);
 
     return status;
 }
@@ -3556,8 +3750,14 @@ int meth_propfind_root(struct transaction_t *txn,
 
 #ifdef WITH_DAV
     /* Apple iCal and Evolution both check "/" */
-    if (!strcmp(txn->req_uri->path, "/")) {
+    if (!strcmp(txn->req_uri->path, "/") ||
+	!strcmp(txn->req_uri->path, "/dav/")) {
 	if (!httpd_userid) return HTTP_UNAUTHORIZED;
+
+	/* Make a working copy of target path */
+	strlcpy(txn->req_tgt.path, txn->req_uri->path,
+		sizeof(txn->req_tgt.path));
+	txn->req_tgt.tail = txn->req_tgt.path + strlen(txn->req_tgt.path);
 
 	txn->req_tgt.allow |= ALLOW_DAV;
 	return meth_propfind(txn, NULL);

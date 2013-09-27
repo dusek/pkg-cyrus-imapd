@@ -363,8 +363,8 @@ static int prin_parse_path(const char *path,
     else return HTTP_NOT_FOUND;  /* need to specify a userid */
 
     if (*p) {
-	*errstr = "Too many segments in request target path";
-	return HTTP_FORBIDDEN;
+//	*errstr = "Too many segments in request target path";
+	return HTTP_NOT_FOUND;
     }
 
     return 0;
@@ -841,14 +841,13 @@ static int propfind_getlength(const xmlChar *name, xmlNsPtr ns,
 			      struct propstat propstat[],
 			      void *rock __attribute__((unused)))
 {
-    uint32_t len = 0;
-
-    if (!fctx->record) return HTTP_NOT_FOUND;
-
-    len = fctx->record->size - fctx->record->header_size;
-
     buf_reset(&fctx->buf);
-    buf_printf(&fctx->buf, "%u", len);
+
+    if (fctx->record) {
+	buf_printf(&fctx->buf, "%u",
+		   fctx->record->size - fctx->record->header_size);
+    }
+
     xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
 
@@ -892,11 +891,13 @@ static int propfind_getlastmod(const xmlChar *name, xmlNsPtr ns,
 			       struct propstat propstat[],
 			       void *rock __attribute__((unused)))
 {
-    if (!fctx->record) return HTTP_NOT_FOUND;
+    if (!fctx->mailbox ||
+	(fctx->req_tgt->resource && !fctx->record)) return HTTP_NOT_FOUND;
 
     buf_ensure(&fctx->buf, 30);
     httpdate_gen(fctx->buf.s, fctx->buf.alloc,
-		 fctx->record->internaldate);
+		 fctx->record ? fctx->record->internaldate :
+		 fctx->mailbox->index_mtime);
 
     xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 		 name, ns, BAD_CAST fctx->buf.s, 0);
@@ -1810,6 +1811,8 @@ static int proppatch_calcompset(xmlNodePtr prop, unsigned set,
 	    /* Make sure we have a valid component type */
 	    for (comp = cal_comps;
 		 comp->name && xmlStrcmp(name, BAD_CAST comp->name); comp++);
+	    xmlFree(name);
+
 	    if (comp->name) types |= comp->type;   /* found match in our list */
 	    else break;	    	     		   /* no match - invalid type */
 	}
@@ -2281,7 +2284,8 @@ static const struct prop_entry {
       propfind_fromdb, proppatch_todb, NULL },
     { "getcontentlanguage", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
       propfind_fromhdr, NULL, "Content-Language" },
-    { "getcontentlength", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+    { "getcontentlength", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
       propfind_getlength, NULL, NULL },
     { "getcontenttype", NS_DAV,
       PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
@@ -2289,7 +2293,7 @@ static const struct prop_entry {
     { "getetag", NS_DAV, PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
       propfind_getetag, NULL, NULL },
     { "getlastmodified", NS_DAV,
-      PROP_ALLPROP | /*PROP_COLLECTION |*/ PROP_RESOURCE,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
       propfind_getlastmod, NULL, NULL },
     { "lockdiscovery", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
       propfind_lockdisc, NULL, NULL },
@@ -2717,15 +2721,14 @@ int parse_xml_body(struct transaction_t *txn, xmlNodePtr *root)
     *root = NULL;
 
     /* Read body */
-    txn->flags.body |= BODY_DECODE;
-    r = read_body(httpd_in, txn->req_hdrs, &txn->req_body,
-		  &txn->flags.body, &txn->error.desc);
+    txn->req_body.flags |= BODY_DECODE;
+    r = read_body(httpd_in, txn->req_hdrs, &txn->req_body, &txn->error.desc);
     if (r) {
 	txn->flags.conn = CONN_CLOSE;
 	return r;
     }
 
-    if (!buf_len(&txn->req_body)) return 0;
+    if (!buf_len(&txn->req_body.payload)) return 0;
 
     /* Check Content-Type */
     if (!(hdr = spool_getheader(txn->req_hdrs, "Content-Type")) ||
@@ -2738,8 +2741,8 @@ int parse_xml_body(struct transaction_t *txn, xmlNodePtr *root)
     /* Parse the XML request */
     ctxt = xmlNewParserCtxt();
     if (ctxt) {
-	doc = xmlCtxtReadMemory(ctxt, buf_cstring(&txn->req_body),
-				buf_len(&txn->req_body), NULL, NULL,
+	doc = xmlCtxtReadMemory(ctxt, buf_cstring(&txn->req_body.payload),
+				buf_len(&txn->req_body.payload), NULL, NULL,
 				XML_PARSE_NOWARNING);
 	xmlFreeParserCtxt(ctxt);
     }
@@ -2939,7 +2942,7 @@ int meth_acl(struct transaction_t *txn, void *params)
 		    uri->path[plen] == '/') {
 		    memset(&tgt, 0, sizeof(struct request_target_t));
 		    tgt.namespace = URL_NS_PRINCIPAL;
-		    r = aparams->parse_path(uri->path, &tgt, &errstr);
+		    r = prin_parse_path(uri->path, &tgt, &errstr);
 		    if (!r && tgt.user) userid = tgt.user;
 		}
 		if (uri) xmlFreeURI(uri);
@@ -3125,7 +3128,7 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
     xmlFreeURI(dest_uri);
 
-    if (r) return r;
+    if (r) return HTTP_FORBIDDEN;
 
     /* We don't yet handle COPY/MOVE on collections */
     if (!dest_tgt.resource) return HTTP_NOT_ALLOWED;
@@ -3304,6 +3307,8 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
 
     if (get_preferences(txn) & PREFER_REP) flags |= PREFER_REP;
+    if ((txn->meth == METH_MOVE) && (dest_mbox == src_mbox))
+	flags |= NO_DUP_CHECK;
 
     /* Parse, validate, and store the resource */
     ret = cparams->copy(txn, src_mbox, &src_rec, dest_mbox, dest_tgt.resource,
@@ -4399,14 +4404,6 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	}
 	else if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
 	    fctx.mode = PROPFIND_ALL;
-
-	    /* Check for 'include' element */
-	    for (cur = cur->next;
-		 cur && cur->type != XML_ELEMENT_NODE; cur = cur->next);
-
-	    if (cur && !xmlStrcmp(cur->name, BAD_CAST "include")) {
-		props = cur->children;
-	    }
 	}
 	else if (!xmlStrcmp(cur->name, BAD_CAST "propname")) {
 	    fctx.mode = PROPFIND_NAME;
@@ -4419,6 +4416,21 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	else {
 	    ret = HTTP_BAD_REQUEST;
 	    goto done;
+	}
+
+	/* Check for extra elements */
+	for (cur = cur->next; cur; cur = cur->next) {
+	    if (cur->type == XML_ELEMENT_NODE) {
+		if ((fctx.mode == PROPFIND_ALL) && !props &&
+		    /* Check for 'include' element */
+		    !xmlStrcmp(cur->name, BAD_CAST "include")) {
+		    props = cur->children;
+		}
+		else {
+		    ret = HTTP_BAD_REQUEST;
+		    goto done;
+		}
+	    }
 	}
     }
 
@@ -4739,7 +4751,7 @@ int meth_put(struct transaction_t *txn, void *params)
 	/* Parse the path */
 	if ((r = pparams->parse_path(txn->req_uri->path,
 				     &txn->req_tgt, &txn->error.desc))) {
-	    return r;
+	    return HTTP_FORBIDDEN;
 	}
 
 	/* Make sure method is allowed (only allowed on resources) */
@@ -4862,16 +4874,15 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     /* Read body */
-    txn->flags.body |= BODY_DECODE;
-    ret = read_body(httpd_in, txn->req_hdrs, &txn->req_body,
-		    &txn->flags.body, &txn->error.desc);
+    txn->req_body.flags |= BODY_DECODE;
+    ret = read_body(httpd_in, txn->req_hdrs, &txn->req_body, &txn->error.desc);
     if (ret) {
 	txn->flags.conn = CONN_CLOSE;
 	goto done;
     }
 
     /* Make sure we have a body */
-    size = buf_len(&txn->req_body);
+    size = buf_len(&txn->req_body.payload);
     if (!size) {
 	txn->error.desc = "Missing request body\r\n";
 	ret = HTTP_BAD_REQUEST;
@@ -4879,7 +4890,8 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     /* Check if we can append a new message to mailbox */
-    if ((r = append_check(txn->req_tgt.mboxname, httpd_authstate, ACL_INSERT, size))) {
+    if ((r = append_check(txn->req_tgt.mboxname,
+			  httpd_authstate, ACL_INSERT, size))) {
 	txn->error.desc = error_message(r);
 	ret = HTTP_SERVER_ERROR;
 	goto done;
@@ -5114,7 +5126,7 @@ int meth_report(struct transaction_t *txn, void *params)
     int ret = 0, r;
     const char **hdr;
     unsigned depth = 0;
-    xmlNodePtr inroot = NULL, outroot = NULL, cur, props = NULL;
+    xmlNodePtr inroot = NULL, outroot = NULL, cur, prop = NULL, props = NULL;
     const struct report_type_t *report = NULL;
     xmlNsPtr ns[NUM_NAMESPACE];
     struct hash_table ns_table = { 0, NULL, NULL };
@@ -5231,22 +5243,25 @@ int meth_report(struct transaction_t *txn, void *params)
 	if (cur->type == XML_ELEMENT_NODE) {
 	    if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
 		fctx.mode = PROPFIND_ALL;
+		prop = cur;
 		break;
 	    }
 	    else if (!xmlStrcmp(cur->name, BAD_CAST "propname")) {
 		fctx.mode = PROPFIND_NAME;
 		fctx.prefer = PREFER_MIN;  /* Don't want 404 (Not Found) */
+		prop = cur;
 		break;
 	    }
 	    else if (!xmlStrcmp(cur->name, BAD_CAST "prop")) {
 		fctx.mode = PROPFIND_PROP;
+		prop = cur;
 		props = cur->children;
 		break;
 	    }
 	}
     }
 
-    if (!props && (report->flags & REPORT_NEED_PROPS)) {
+    if (!prop && (report->flags & REPORT_NEED_PROPS)) {
 	txn->error.desc = "Missing <prop> element in REPORT\r\n";
 	ret = HTTP_BAD_REQUEST;
 	goto done;
