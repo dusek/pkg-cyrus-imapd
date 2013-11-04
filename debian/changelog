@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta7-2) unstable; urgency=low
+
+  * Upload to unstable
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 04 Nov 2013 11:16:59 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta7-1) experimental; urgency=low
 
   * New upstream version 2.4.17+caldav~beta7
