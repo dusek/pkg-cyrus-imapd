@@ -165,7 +165,7 @@ override_dh_auto_install:
 	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
 		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-		 cyr_dbtool cyr_df ; do \
+		 cyr_dbtool cyr_df ctl_zoneinfo; do \
 		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
 	done
 
