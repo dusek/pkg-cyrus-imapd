@@ -441,6 +441,9 @@
 /* Build DKIM support into iSchedule? */
 #undef WITH_DKIM
 
+/* Build jCal/jCard/TZ-service support into httpd? */
+#undef WITH_JSON
+
 /* Build in PTS support? */
 #undef WITH_PTS
 

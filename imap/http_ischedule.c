@@ -57,11 +57,13 @@
 #include "http_dav.h"
 #include "http_err.h"
 #include "http_proxy.h"
+#include "jcal.h"
 #include "map.h"
 #include "proxy.h"
 #include "tok.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "xcal.h"
 #include "xstrlcpy.h"
 #include <sasl/saslutil.h>
 
@@ -88,6 +90,28 @@ static int meth_post_isched(struct transaction_t *txn, void *params);
 static int dkim_auth(struct transaction_t *txn);
 static int meth_get_domainkey(struct transaction_t *txn, void *params);
 static time_t compile_time;
+
+static struct mime_type_t isched_mime_types[] = {
+    /* First item MUST be the default type and storage format */
+    { "text/calendar; charset=utf-8", "2.0", "ics", "ifb",
+      (char* (*)(void *)) &icalcomponent_as_ical_string_r,
+      (void * (*)(const char*)) &icalparser_parse_string,
+      (void (*)(void *)) &icalcomponent_free, NULL, NULL
+    },
+    { "application/calendar+xml; charset=utf-8", NULL, "xcs", "xfb",
+      (char* (*)(void *)) &icalcomponent_as_xcal_string,
+      (void * (*)(const char*)) &xcal_string_as_icalcomponent,
+      NULL, NULL, NULL
+    },
+#ifdef WITH_JSON
+    { "application/calendar+json; charset=utf-8", NULL, "jcs", "jfb",
+      (char* (*)(void *)) &icalcomponent_as_jcal_string,
+      (void * (*)(const char*)) &jcal_string_as_icalcomponent,
+      NULL, NULL, NULL,
+    },
+#endif
+    { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+};
 
 struct namespace_t namespace_ischedule = {
     URL_NS_ISCHEDULE, 0, "/ischedule", ISCHED_WELLKNOWN_URI, 0 /* auth */,
@@ -153,7 +177,8 @@ static int meth_get_isched(struct transaction_t *txn,
     /* We don't handle GET on a anything other than ?action=capabilities */
     if (!URI_QUERY(txn->req_uri) ||
 	strcmp(URI_QUERY(txn->req_uri), "action=capabilities")) {
-	return HTTP_NOT_FOUND;
+	txn->error.desc = "Invalid action";
+	return HTTP_BAD_REQUEST;
     }
 
     /* Generate ETag based on compile date/time of this source file.
@@ -189,6 +214,7 @@ static int meth_get_isched(struct transaction_t *txn,
     if (txn->resp_body.lastmod > lastmod) {
 	xmlNodePtr root, capa, node, comp, meth;
 	xmlNsPtr ns[NUM_NAMESPACE];
+	struct mime_type_t *mime;
 
 	/* Start construction of our query-result */
 	if (!(root = init_xml_response("query-result", NS_ISCHED, NULL, ns))) {
@@ -229,9 +255,22 @@ static int meth_get_isched(struct transaction_t *txn,
 
 	node = xmlNewChild(capa, NULL,
 			   BAD_CAST "calendar-data-types", NULL);
-	node = xmlNewChild(node, NULL, BAD_CAST "calendar-data-type", NULL);
-	xmlNewProp(node, BAD_CAST "content-type", BAD_CAST "text/calendar");
-	xmlNewProp(node, BAD_CAST "version", BAD_CAST "2.0");
+	for (mime = isched_mime_types; mime->content_type; mime++) {
+	    xmlNodePtr type = xmlNewChild(node, NULL,
+					  BAD_CAST "calendar-data-type", NULL);
+
+	    /* Trim any charset from content-type */
+	    buf_reset(&txn->buf);
+	    buf_printf(&txn->buf, "%.*s",
+		       (int) strcspn(mime->content_type, ";"),
+		       mime->content_type);
+
+	    xmlNewProp(type, BAD_CAST "content-type",
+		       BAD_CAST buf_cstring(&txn->buf));
+
+	    if (mime->version)
+		xmlNewProp(type, BAD_CAST "version", BAD_CAST mime->version);
+	}
 
 	node = xmlNewChild(capa, NULL, BAD_CAST "attachments", NULL);
 	node = xmlNewChild(node, NULL, BAD_CAST "inline", NULL);
@@ -263,6 +302,7 @@ static int meth_post_isched(struct transaction_t *txn,
 {
     int ret = 0, r, authd = 0;
     const char **hdr;
+    struct mime_type_t *mime = NULL;
     icalcomponent *ical = NULL, *comp;
     icalcomponent_kind kind = 0;
     icalproperty_method meth = 0;
@@ -280,8 +320,12 @@ static int meth_post_isched(struct transaction_t *txn,
     }
 
     /* Check Content-Type */
-    if (!(hdr = spool_getheader(txn->req_hdrs, "Content-Type")) ||
-	!is_mediatype(hdr[0], "text/calendar")) {
+    if ((hdr = spool_getheader(txn->req_hdrs, "Content-Type"))) {
+	for (mime = isched_mime_types; mime->content_type; mime++) {
+	    if (is_mediatype(mime->content_type, hdr[0])) break;
+	}
+    }
+    if (!mime || !mime->content_type) {
 	txn->error.precond = ISCHED_UNSUPP_DATA;
 	return HTTP_BAD_REQUEST;
     }
@@ -337,7 +381,7 @@ static int meth_post_isched(struct transaction_t *txn,
     }
 
     /* Parse the iCal data for important properties */
-    ical = icalparser_parse_string(buf_cstring(&txn->req_body.payload));
+    ical = mime->from_string(buf_cstring(&txn->req_body.payload));
     if (!ical || !icalrestriction_check(ical)) {
 	txn->error.precond = ISCHED_INVALID_DATA;
 	return HTTP_BAD_REQUEST;
@@ -361,7 +405,7 @@ static int meth_post_isched(struct transaction_t *txn,
     switch (kind) {
     case ICAL_VFREEBUSY_COMPONENT:
 	if (meth == ICAL_METHOD_REQUEST)
-	    ret = sched_busytime_query(txn, ical);
+	    ret = sched_busytime_query(txn, mime, ical);
 	else {
 	    txn->error.precond = ISCHED_INVALID_SCHED;
 	    ret = HTTP_BAD_REQUEST;
@@ -799,10 +843,63 @@ static int dkim_auth(struct transaction_t *txn __attribute__((unused)))
 static int meth_get_domainkey(struct transaction_t *txn,
 			      void *params __attribute__((unused)))
 {
-    txn->flags.cc |= CC_REVALIDATE;
-    txn->resp_body.type = "text/plain";
+    int ret = 0, r, fd = -1, precond;
+    const char *path;
+    static struct buf pathbuf = BUF_INITIALIZER;
+    struct stat sbuf;
+    const char *msg_base = NULL;
+    unsigned long msg_size = 0;
+    struct resp_body_t *resp_body = &txn->resp_body;
 
-    return meth_get_doc(txn, NULL);
+    /* See if file exists and get Content-Length & Last-Modified time */
+    buf_setcstr(&pathbuf, config_dir);
+    buf_appendcstr(&pathbuf, txn->req_uri->path);
+    path = buf_cstring(&pathbuf);
+    r = stat(path, &sbuf);
+    if (r || !S_ISREG(sbuf.st_mode)) return HTTP_NOT_FOUND;
+
+    /* Generate Etag */
+    assert(!buf_len(&txn->buf));
+    buf_printf(&txn->buf, "%ld-%ld", (long) sbuf.st_mtime, (long) sbuf.st_size);
+
+    /* Check any preconditions, including range request */
+    txn->flags.ranges = 1;
+    precond = check_precond(txn, NULL, buf_cstring(&txn->buf), sbuf.st_mtime);
+
+    switch (precond) {
+    case HTTP_OK:
+    case HTTP_PARTIAL:
+    case HTTP_NOT_MODIFIED:
+	/* Fill in Content-Type, ETag, Last-Modified, and Expires */
+	resp_body->type = "text/plain";
+	resp_body->etag = buf_cstring(&txn->buf);
+	resp_body->lastmod = sbuf.st_mtime;
+	resp_body->maxage = 86400;  /* 24 hrs */
+	txn->flags.cc |= CC_MAXAGE | CC_REVALIDATE;
+	if (httpd_userid) txn->flags.cc |= CC_PUBLIC;
+
+	if (precond != HTTP_NOT_MODIFIED) break;
+
+    default:
+	/* We failed a precondition - don't perform the request */
+	resp_body->type = NULL;
+	return precond;
+    }
+
+    if (txn->meth == METH_GET) {
+	/* Open and mmap the file */
+	if ((fd = open(path, O_RDONLY)) == -1) return HTTP_SERVER_ERROR;
+	map_refresh(fd, 1, &msg_base, &msg_size, sbuf.st_size, path, NULL);
+    }
+
+    write_body(precond, txn, msg_base, sbuf.st_size);
+
+    if (fd != -1) {
+	map_free(&msg_base, &msg_size);
+	close(fd);
+    }
+
+    return ret;
 }
 
 

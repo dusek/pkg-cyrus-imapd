@@ -1,4 +1,4 @@
-Cyrus HTTP (RSS, CalDAV, CardDAV, iSchedule, DomainKey)
+Cyrus HTTP (RSS, CalDAV, CardDAV, iSchedule, Timezone Service)
 
     Note that the HTTP service and associated modules in Cyrus are still
     under development. This release should be considered beta quality. 
@@ -16,6 +16,10 @@ Introduction
       * Allow scheduling transactions between separate calendaring and
         scheduling systems via the iSchedule protocol (currently only used
         within a Cyrus Murder). 
+      * Act as a Timezone Service by serving iCalendar (VTIMEZONE) data to
+        client systems. 
+      * Serve static content (such as the RSS feed list template and/or the
+        CalDAV/CardDAV JavaScript clients mentioned below). 
 
     Unlike the Apache HTTP Server, Cyrus HTTP is NOT a general purpose HTTP
     server. Its feature set is limited to what is required to support the
@@ -40,12 +44,13 @@ Installation
 General Requirements
 
       * Must have libxml2 installed. 
-      * Must have a recent SASL build (v2.1.26 or later) in order to
+      * Must have a recent SASL release (v2.1.26 or later) in order to
         support HTTP Digest, Negotiate, and NTLM authentication. Otherwise,
-        only HTTP Basic authentication will be available 
+        only HTTP Basic authentication will be available. 
 
-CalDAV / CardDAV Requirements
+Additional CalDAV / CardDAV Requirements
 
       * Must have libical installed. 
       * Must have SQLite v3.x (or later) installed. 
+      * Optionally install Jansson for jCal/jCard support. 
 

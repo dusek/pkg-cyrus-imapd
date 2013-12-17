@@ -238,6 +238,7 @@ struct imapopt_s imapopts[] =
       { "domainkey" , IMAP_ENUM_HTTPMODULES_DOMAINKEY },
       { "ischedule" , IMAP_ENUM_HTTPMODULES_ISCHEDULE },
       { "rss" , IMAP_ENUM_HTTPMODULES_RSS },
+      { "timezone" , IMAP_ENUM_HTTPMODULES_TIMEZONE },
       { NULL, IMAP_ENUM_ZERO } } },
   { IMAPOPT_HTTPPRETTYTELEMETRY, "httpprettytelemetry", 0, OPT_SWITCH,
     {(void*)0},
@@ -984,6 +985,16 @@ struct imapopt_s imapopts[] =
       { "userid" , IMAP_ENUM_VIRTDOMAINS_USERID },
       { "on" , IMAP_ENUM_VIRTDOMAINS_ON },
       { NULL, IMAP_ENUM_ZERO } } },
+  { IMAPOPT_ZONEINFO_DB, "zoneinfo_db", 0, OPT_STRINGLIST,
+    {(void*)("skiplist")},
+    { { "flat" , IMAP_ENUM_ZERO },
+      { "berkeley" , IMAP_ENUM_ZERO },
+      { "berkeley-hash" , IMAP_ENUM_ZERO },
+      { "skiplist" , IMAP_ENUM_ZERO },
+      { NULL, IMAP_ENUM_ZERO } } },
+  { IMAPOPT_ZONEINFO_DB_PATH, "zoneinfo_db_path", 0, OPT_STRING,
+    {(void *)(NULL)},
+    { { NULL, IMAP_ENUM_ZERO } } },
 
   { IMAPOPT_LAST, NULL, 0, OPT_NOTOPT, { NULL }, { { NULL, IMAP_ENUM_ZERO } } }
 

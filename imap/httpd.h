@@ -130,9 +130,10 @@ enum {
     URL_NS_PRINCIPAL,
     URL_NS_CALENDAR,
     URL_NS_ADDRESSBOOK,
-    URL_NS_RSS,
     URL_NS_ISCHEDULE,
-    URL_NS_DOMAINKEY
+    URL_NS_DOMAINKEY,
+    URL_NS_TIMEZONE,
+    URL_NS_RSS
 };
 
 /* Bitmask of features/methods to allow, based on URL */
@@ -281,7 +282,9 @@ struct resp_body_t {
 struct txn_flags_t {
     unsigned char ver1_0;		/* Request from HTTP/1.0 client */
     unsigned char conn;			/* Connection opts on req/resp */
+    unsigned char override;		/* HTTP method override */
     unsigned char cors;			/* Cross-Origin Resource Sharing */
+    unsigned char mime;			/* MIME-conformant response */
     unsigned char te;			/* Transfer-Encoding for resp */
     unsigned char cc;			/* Cache-Control directives for resp */
     unsigned char ranges;		/* Accept range requests for resource */
@@ -374,9 +377,10 @@ enum {
 
 /* Vary header flags (headers used in selecting/producing representation) */
 enum {
-    VARY_AE =		(1<<0),	/* Accept-Encoding */
-    VARY_BRIEF =	(1<<1),
-    VARY_PREFER =	(1<<2)
+    VARY_ACCEPT =	(1<<0),
+    VARY_AE =		(1<<1),	/* Accept-Encoding */
+    VARY_BRIEF =	(1<<2),
+    VARY_PREFER =	(1<<3)
 };
 
 /* Trailer header flags */
@@ -413,13 +417,20 @@ struct namespace_t {
 				 */
 };
 
+struct accept {
+    char *token;
+    float qual;
+    struct accept *next;
+};
+
+extern struct namespace_t namespace_default;
 extern struct namespace_t namespace_principal;
 extern struct namespace_t namespace_calendar;
 extern struct namespace_t namespace_addressbook;
 extern struct namespace_t namespace_ischedule;
 extern struct namespace_t namespace_domainkey;
+extern struct namespace_t namespace_timezone;
 extern struct namespace_t namespace_rss;
-extern struct namespace_t namespace_default;
 
 
 /* XXX  These should be included in struct transaction_t */
@@ -441,12 +452,14 @@ extern int config_httpprettytelemetry;
 
 extern xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
 			   const char **errstr);
-extern int is_mediatype(const char *hdr, const char *type);
+extern struct accept *parse_accept(const char **hdr);
+extern int is_mediatype(const char *pat, const char *type);
 extern time_t calc_compile_time(const char *time, const char *date);
 extern int http_mailbox_open(const char *name, struct mailbox **mailbox,
 			     int locktype);
 extern const char *http_statusline(long code);
-extern void httpdate_gen(char *buf, size_t len, time_t t);
+extern char *rfc3339date_gen(char *buf, size_t len, time_t t);
+extern char *httpdate_gen(char *buf, size_t len, time_t t);
 extern void comma_list_hdr(const char *hdr, const char *vals[],
 			   unsigned flags, ...);
 extern void response_header(long code, struct transaction_t *txn);
@@ -457,14 +470,15 @@ extern void html_response(long code, struct transaction_t *txn, xmlDocPtr html);
 extern void xml_response(long code, struct transaction_t *txn, xmlDocPtr xml);
 extern void write_body(long code, struct transaction_t *txn,
 		       const char *buf, unsigned len);
-extern void multipart_byteranges(struct transaction_t *txn,
-				 const char *msg_base);
-extern int meth_get_doc(struct transaction_t *txn, void *params);
+extern void write_multipart_body(long code, struct transaction_t *txn,
+				 const char *buf, unsigned len);
 extern int meth_options(struct transaction_t *txn, void *params);
 extern int meth_trace(struct transaction_t *txn, void *params);
 extern int etagcmp(const char *hdr, const char *etag);
 extern int check_precond(struct transaction_t *txn, const void *data,
 			 const char *etag, time_t lastmod);
+extern int parse_framing(hdrcache_t hdrs, struct body_t *body,
+			 const char **errstr);
 extern int read_body(struct protstream *pin, hdrcache_t hdrs,
 		     struct body_t *body, const char **errstr);
 
