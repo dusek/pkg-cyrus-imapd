@@ -18,7 +18,7 @@
  srcdir = @srcdir@
 --- cyrus-imapd-2.4.orig/imap/Makefile.in
 +++ cyrus-imapd-2.4/imap/Makefile.in
-@@ -77,8 +77,8 @@ LIB_WRAP = @LIB_WRAP@
+@@ -78,8 +78,8 @@ LIB_WRAP = @LIB_WRAP@
  LIBS = $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
  DEPLIBS = ../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
  

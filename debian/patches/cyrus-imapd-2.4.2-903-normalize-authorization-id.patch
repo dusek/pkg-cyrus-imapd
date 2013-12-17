@@ -17,7 +17,7 @@ By normalize, it is intended that;
 
 --- cyrus-imapd-2.4.orig/imap/global.c
 +++ cyrus-imapd-2.4/imap/global.c
-@@ -224,6 +224,8 @@ int cyrus_init(const char *alt_config, c
+@@ -227,6 +227,8 @@ int cyrus_init(const char *alt_config, c
  				  config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
  	libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
  				  config_getswitch(IMAPOPT_USERNAME_TOLOWER));
@@ -66,9 +66,9 @@ By normalize, it is intended that;
  
 --- cyrus-imapd-2.4.orig/lib/imapoptions
 +++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1572,6 +1572,11 @@ product version in the capabilities */
-    the special use flag "\Drafts" added.  Later versions of Cyrus
-    have a much more flexible RFC 6154 compatible system.  */
+@@ -1579,6 +1579,11 @@ product version in the capabilities */
+ /* The absolute path to the zoneinfo db file.  If not specified,
+    will be confdir/zoneinfo.db */
  
 +{ "normalizeuid", 0, SWITCH }
 +/* Lowercase uid and strip leading and trailing blanks. It is recommended
