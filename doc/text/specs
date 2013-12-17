@@ -244,6 +244,8 @@ HTTP
     draft-desruisseaux-ischedule Internet Calendar Scheduling Protocol
     (iSchedule)
 
+    draft-douglass-timezone-service Timezone Service Protocol
+
     draft-thomson-hybi-http-timeout Hypertext Transfer Protocol (HTTP)
     Keep-Alive Header
 

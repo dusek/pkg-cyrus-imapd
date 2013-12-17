@@ -148,6 +148,7 @@ unsigned avail_auth_schemes = 0; /* bitmask of available auth schemes */
 unsigned long config_httpmodules;
 int config_httpprettytelemetry;
 
+static time_t compile_time;
 struct buf serverinfo = BUF_INITIALIZER;
 
 static void digest_send_success(const char *name __attribute__((unused)),
@@ -205,16 +206,14 @@ static int reset_saslconn(sasl_conn_t **conn);
 static void cmdloop(void);
 static int parse_expect(struct transaction_t *txn);
 static void parse_connection(struct transaction_t *txn);
-static struct accept *parse_accept(const char **hdr);
 static int parse_ranges(const char *hdr, unsigned long len,
 			struct range **ranges);
-static int parse_framing(hdrcache_t hdrs, struct body_t *body,
-			 const char **errstr);
 static int proxy_authz(const char **authzid, struct transaction_t *txn);
 static void auth_success(struct transaction_t *txn);
 static int http_auth(const char *creds, struct transaction_t *txn);
 static void keep_alive(int sig);
 
+static int meth_get(struct transaction_t *txn, void *params);
 static int meth_propfind_root(struct transaction_t *txn, void *params);
 
 
@@ -230,12 +229,6 @@ static struct sasl_callback mysasl_cb[] = {
     { SASL_CB_PROXY_POLICY, (mysasl_cb_ft *) &mysasl_proxy_policy, (void*) &httpd_proxyctx },
     { SASL_CB_CANON_USER, (mysasl_cb_ft *) &mysasl_canon_user, NULL },
     { SASL_CB_LIST_END, NULL, NULL }
-};
-
-struct accept {
-    char *token;
-    float qual;
-    struct accept *next;
 };
 
 /* Array of HTTP methods known by our server. */
@@ -268,8 +261,8 @@ struct namespace_t namespace_default = {
 	{ NULL,			NULL },			/* ACL		*/
 	{ NULL,			NULL },			/* COPY		*/
 	{ NULL,			NULL },			/* DELETE	*/
-	{ &meth_get_doc,	NULL },			/* GET		*/
-	{ &meth_get_doc,	NULL },			/* HEAD		*/
+	{ &meth_get,		NULL },			/* GET		*/
+	{ &meth_get,		NULL },			/* HEAD		*/
 	{ NULL,			NULL },			/* LOCK		*/
 	{ NULL,			NULL },			/* MKCALENDAR	*/
 	{ NULL,			NULL },			/* MKCOL	*/
@@ -290,9 +283,12 @@ struct namespace_t *namespaces[] = {
 #ifdef WITH_DAV
     &namespace_principal,
     &namespace_calendar,
+    &namespace_addressbook,
     &namespace_ischedule,
     &namespace_domainkey,
-    &namespace_addressbook,
+#ifdef WITH_JSON
+    &namespace_timezone,
+#endif
 #endif
 #ifdef WITH_RSS
     &namespace_rss,
@@ -494,7 +490,7 @@ int service_init(int argc __attribute__((unused)),
 #ifdef HAVE_ZLIB
 	buf_printf(&serverinfo, " zlib/%s", ZLIB_VERSION);
 #endif
-	buf_printf(&serverinfo, " libxml/%s", LIBXML_DOTTED_VERSION);
+	buf_printf(&serverinfo, " libxml2/%s", LIBXML_DOTTED_VERSION);
     }
 
     /* Do any namespace specific initialization */
@@ -503,6 +499,8 @@ int service_init(int argc __attribute__((unused)),
 	if (allow_trace) namespaces[i]->allow |= ALLOW_TRACE;
 	if (namespaces[i]->init) namespaces[i]->init(&serverinfo);
     }
+
+    compile_time = calc_compile_time(__TIME__, __DATE__);
 
     return 0;
 }
@@ -941,10 +939,12 @@ static void cmdloop(void)
 	txn.auth_chal.param = NULL;
 	txn.req_hdrs = NULL;
 	txn.req_body.flags = 0;
+	buf_reset(&txn.req_body.payload);
 	txn.location = NULL;
 	memset(&txn.error, 0, sizeof(struct error_t));
 	memset(&txn.resp_body, 0,  /* Don't zero the response payload buffer */
 	       sizeof(struct resp_body_t) - sizeof(struct buf));
+	buf_reset(&txn.resp_body.payload);
 	buf_reset(&txn.buf);
 	ret = empty = 0;
 
@@ -1085,6 +1085,13 @@ static void cmdloop(void)
 	if (txn.flags.conn & CONN_UPGRADE) {
 	    starttls(0);
 	    txn.flags.conn &= ~CONN_UPGRADE;
+	}
+
+	/* Check for HTTP method override */
+	if (!strcmp(req_line->meth, "POST") &&
+	    (hdr = spool_getheader(txn.req_hdrs, "X-HTTP-Method-Override"))) {
+	    txn.flags.override = 1;
+	    req_line->meth = (char *) hdr[0];
 	}
 
 	/* Check Method against our list of known methods */
@@ -1344,8 +1351,9 @@ static void cmdloop(void)
 		struct accept *e, *enc = parse_accept(hdr);
 
 		for (e = enc; e && e->token; e++) {
-		    if (!strcasecmp(e->token, "gzip") ||
-			!strcasecmp(e->token, "x-gzip")) {
+		    if (e->qual > 0.0 &&
+			(!strcasecmp(e->token, "gzip") ||
+			 !strcasecmp(e->token, "x-gzip"))) {
 			txn.flags.te = TE_GZIP;
 		    }
 		    free(e->token);
@@ -1356,8 +1364,9 @@ static void cmdloop(void)
 		struct accept *e, *enc = parse_accept(hdr);
 
 		for (e = enc; e && e->token; e++) {
-		    if (!strcasecmp(e->token, "gzip") ||
-			!strcasecmp(e->token, "x-gzip")) {
+		    if (e->qual > 0.0 &&
+			(!strcasecmp(e->token, "gzip") ||
+			 !strcasecmp(e->token, "x-gzip"))) {
 			txn.resp_body.enc = CE_GZIP;
 		    }
 		    free(e->token);
@@ -1461,12 +1470,31 @@ xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
 
 
 /* Compare Content-Types */
-int is_mediatype(const char *hdr, const char *type)
+int is_mediatype(const char *pat, const char *type)
 {
-    size_t tlen = strcspn(type, "; \r\n\0");
-    size_t hlen = strcspn(hdr, "; \r\n\0");
+    const char *psep = strchr(pat, '/');
+    const char *tsep = strchr(type, '/');
+    size_t plen;
+    size_t tlen;
+    int alltypes;
 
-    return ((tlen == hlen) && !strncasecmp(hdr, type, tlen));
+    /* Check type */
+    if (!psep || !tsep) return 0;
+    plen = psep - pat;
+    tlen = tsep - type;
+
+    alltypes = !strncmp(pat, "*", plen);
+
+    if (!alltypes && ((tlen != plen) || strncasecmp(pat, type, tlen))) return 0;
+
+    /* Check subtype */
+    pat = ++psep;
+    plen = strcspn(pat, "; \r\n\0");
+    type = ++tsep;
+    tlen = strcspn(type, "; \r\n\0");
+
+    return (!strncmp(pat, "*", plen) ||
+	    (!alltypes && (tlen == plen) && !strncasecmp(pat, type, tlen)));
 }
 
 
@@ -1498,8 +1526,7 @@ time_t calc_compile_time(const char *time, const char *date)
  * Handles chunked, gzip, deflate TE only.
  * Handles close-delimited response bodies (no Content-Length specified) 
  */
-static int parse_framing(hdrcache_t hdrs, struct body_t *body,
-			 const char **errstr)
+int parse_framing(hdrcache_t hdrs, struct body_t *body, const char **errstr)
 {
     static unsigned max_msgsize = 0;
     const char **hdr;
@@ -1879,7 +1906,7 @@ static int compare_accept(const struct accept *a1, const struct accept *a2)
     return 0;
 }
 
-static struct accept *parse_accept(const char **hdr)
+struct accept *parse_accept(const char **hdr)
 {
     int i, n = 0, alloc = 0;
     struct accept *ret = NULL;
@@ -1917,20 +1944,34 @@ static struct accept *parse_accept(const char **hdr)
 /****************************  Response Routines  *****************************/
 
 
-/* Create HTTP-date ('buf' must be at least 30 characters) */
-void httpdate_gen(char *buf, size_t len, time_t t)
+/* Create RFC3339 date ('buf' must be at least 21 characters) */
+char *rfc3339date_gen(char *buf, size_t len, time_t t)
 {
-    struct tm *tm;
+    struct tm *tm = gmtime(&t);
+
+    snprintf(buf, len, "%4d-%02d-%02dT%02d:%02d:%02dZ",
+	     tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, 
+	     tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+    return buf;
+}
+
+
+/* Create HTTP-date ('buf' must be at least 30 characters) */
+char *httpdate_gen(char *buf, size_t len, time_t t)
+{
     static char *month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 			     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
     static char *wday[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 
-    tm = gmtime(&t);
+    struct tm *tm = gmtime(&t);
 
     snprintf(buf, len, "%3s, %02d %3s %4d %02d:%02d:%02d GMT",
 	     wday[tm->tm_wday], 
 	     tm->tm_mday, month[tm->tm_mon], tm->tm_year + 1900,
 	     tm->tm_hour, tm->tm_min, tm->tm_sec);
+
+    return buf;
 }
 
 
@@ -2027,14 +2068,14 @@ void response_header(long code, struct transaction_t *txn)
 {
     time_t now;
     char datestr[30];
-    unsigned keepalive = httpd_keepalive;
+    unsigned keepalive;
     const char **hdr;
     struct auth_challenge_t *auth_chal;
     struct resp_body_t *resp_body;
     static struct buf log = BUF_INITIALIZER;
 
     /* Stop method processing alarm */
-    alarm(0);
+    keepalive = alarm(0);
 
 
     /* Status-Line */
@@ -2138,7 +2179,7 @@ void response_header(long code, struct transaction_t *txn)
     if (txn->flags.vary) {
 	/* Construct Vary header */
 	const char *vary_hdrs[] =
-	    { "Accept-Encoding", "Brief", "Prefer", NULL };
+	    { "Accept", "Accept-Encoding", "Brief", "Prefer", NULL };
 
 	comma_list_hdr("Vary", vary_hdrs, txn->flags.vary);
     }
@@ -2147,6 +2188,9 @@ void response_header(long code, struct transaction_t *txn)
     /* Response Context */
     if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON) {
 	prot_printf(httpd_out, "Server: %s\r\n", buf_cstring(&serverinfo));
+    }
+    if (txn->flags.mime) {
+	prot_puts(httpd_out, "MIME-Version: 1.0\r\n");
     }
     if (txn->req_tgt.allow & ALLOW_ISCHEDULE) {
 	prot_puts(httpd_out, "iSchedule-Version: 1.0\r\n");
@@ -2352,7 +2396,9 @@ void response_header(long code, struct transaction_t *txn)
 		}
 	    }
 	}
-	else prot_printf(httpd_out, "Content-Length: %lu\r\n", resp_body->len);
+	else if (resp_body->len || txn->meth != METH_HEAD) {
+	    prot_printf(httpd_out, "Content-Length: %lu\r\n", resp_body->len);
+	}
     }
 
 
@@ -2376,7 +2422,8 @@ void response_header(long code, struct transaction_t *txn)
     /* Add request-line */
     buf_appendcstr(&log, "; \"");
     if (txn->req_line.meth) {
-	buf_printf(&log, "%s", txn->req_line.meth);
+	buf_printf(&log, "%s",
+		   txn->flags.override ? "POST" : txn->req_line.meth);
 	if (txn->req_line.uri) {
 	    buf_printf(&log, " %s", txn->req_line.uri);
 	    if (txn->req_line.ver) {
@@ -2393,6 +2440,10 @@ void response_header(long code, struct transaction_t *txn)
 	/* Add any request modifying headers */
 	const char *sep = " (";
 
+	if (txn->flags.override) {
+	    buf_printf(&log, "%smethod-override=%s", sep, txn->req_line.meth);
+	    sep = "; ";
+	}
 	if ((hdr = spool_getheader(txn->req_hdrs, "Origin"))) {
 	    buf_printf(&log, "%sorigin=%s", sep, hdr[0]);
 	    sep = "; ";
@@ -2432,7 +2483,113 @@ void response_header(long code, struct transaction_t *txn)
 
 static void keep_alive(int sig)
 {
-    if (sig == SIGALRM) response_header(HTTP_PROCESSING, NULL);
+    if (sig == SIGALRM) {
+	response_header(HTTP_CONTINUE, NULL);
+	alarm(httpd_keepalive);
+    }
+}
+
+
+/*
+ * Output an HTTP response with multipart body data.
+ *
+ * An initial call with 'code' != 0 will output a response header
+ * and the preamble.
+ * All subsequent calls should have 'code' = 0 to output just a body part.
+ * A final call with 'len' = 0 ends the multipart body.
+ */
+void write_multipart_body(long code, struct transaction_t *txn,
+			  const char *buf, unsigned len)
+{
+    static char boundary[100];
+    struct buf *body = &txn->resp_body.payload;
+
+    if (code) {
+	const char *preamble =
+	    "This is a message with multiple parts in MIME format.\r\n";
+
+	txn->flags.mime = 1;
+
+	/* Create multipart boundary */
+	snprintf(boundary, sizeof(boundary), "%s-%ld-%ld-%ld",
+		 *spool_getheader(txn->req_hdrs, "Host"),
+		 (long) getpid(), (long) time(0), (long) rand());
+
+	/* Create Content-Type w/ boundary */
+	assert(!buf_len(&txn->buf));
+	buf_printf(&txn->buf, "%s; boundary=\"%s\"",
+		   txn->resp_body.type, boundary);
+	txn->resp_body.type = buf_cstring(&txn->buf);
+
+	/* Setup for chunked response and begin multipart */
+	txn->flags.te |= TE_CHUNKED;
+	if (!buf) {
+	    buf = preamble;
+	    len = strlen(preamble);
+	}
+	write_body(code, txn, buf, len);
+    }
+    else if (len) {
+	/* Output delimiter and MIME part-headers */
+	buf_reset(body);
+	buf_printf(body, "\r\n--%s\r\n", boundary);
+	buf_printf(body, "Content-Type: %s\r\n", txn->resp_body.type);
+	if (txn->resp_body.range) {
+	    buf_printf(body, "Content-Range: bytes %lu-%lu/%lu\r\n",
+		       txn->resp_body.range->first,
+		       txn->resp_body.range->last,
+		       txn->resp_body.len);
+	}
+	buf_printf(body, "Content-Length: %d\r\n\r\n", len);
+	write_body(0, txn, buf_cstring(body), buf_len(body));
+
+	/* Output body-part data */
+	write_body(0, txn, buf, len);
+    }
+    else {
+	const char *epilogue = "\r\nEnd of MIME multipart body.\r\n";
+
+	/* Output close-delimiter and epilogue */
+	buf_reset(body);
+	buf_printf(body, "\r\n--%s--\r\n%s", boundary, epilogue);
+	write_body(0, txn, buf_cstring(body), buf_len(body));
+
+	/* End of output */
+	write_body(0, txn, NULL, 0);
+    }
+}
+
+
+/* Output multipart/byteranges */
+static void multipart_byteranges(struct transaction_t *txn,
+				 const char *msg_base)
+{
+    /* Save Content-Range and Content-Type pointers */
+    struct range *range = txn->resp_body.range;
+    const char *type = txn->resp_body.type;
+
+    /* Start multipart response */
+    txn->resp_body.range = NULL;
+    txn->resp_body.type = "multipart/byteranges";
+    write_multipart_body(HTTP_PARTIAL, txn, NULL, 0);
+
+    txn->resp_body.type = type;
+    while (range) {
+	unsigned long offset = range->first;
+	unsigned long datalen = range->last - range->first + 1;
+	struct range *next = range->next;
+
+	/* Output range as body part */
+	txn->resp_body.range = range;
+	write_multipart_body(0, txn, msg_base + offset, datalen);
+
+	/* Cleanup */
+	free(range);
+	range = next;
+    }
+
+    /* End of multipart body */
+    write_multipart_body(0, txn, NULL, 0);
 }
 
 
@@ -3482,62 +3639,6 @@ int check_precond(struct transaction_t *txn, const void *data,
 }
 
 
-/* Output multipart/byteranges */
-void multipart_byteranges(struct transaction_t *txn, const char *msg_base)
-{
-    struct range *range = txn->resp_body.range;
-    struct buf *body = &txn->resp_body.payload;
-    const char *type = txn->resp_body.type;
-    const char *preamble =
-	"This is a message with multiple parts in MIME format.\r\n";
-    char boundary[100];
-
-    /* Create multipart boundary */
-    snprintf(boundary, sizeof(boundary), "%s-%ld-%ld-%ld",
-	     *spool_getheader(txn->req_hdrs, "Host"),
-	     (long) getpid(), (long) time(NULL), (long) rand());
-
-    /* Create Content-Type w/ boundary */
-    assert(!buf_len(&txn->buf));
-    buf_printf(&txn->buf, "multipart/byteranges; boundary=\"%s\"", boundary);
-    txn->resp_body.type = buf_cstring(&txn->buf);
-
-    /* Setup for chunked response and begin output */
-    txn->flags.te |= TE_CHUNKED;
-    txn->resp_body.range = NULL;
-    write_body(HTTP_PARTIAL, txn, preamble, strlen(preamble));
-
-    while (range) {
-	unsigned long offset = range->first;
-	unsigned long datalen = range->last - range->first + 1;
-	struct range *next = range->next;
-
-	/* Output header for next range */
-	buf_reset(body);
-	buf_printf(body, "\r\n--%s\r\n"
-		   "Content-Type: %s\r\n"
-		   "Content-Range: bytes %lu-%lu/%lu\r\n\r\n",
-		   boundary, type, range->first, range->last,
-		   txn->resp_body.len);
-	write_body(0, txn, buf_cstring(body), buf_len(body));
-
-	/* Output range data */
-	write_body(0, txn, msg_base + offset, datalen);
-
-	/* Cleanup */
-	free(range);
-	range = next;
-    }
-
-    /* Output final boundary */
-    buf_reset(body);
-    buf_printf(body, "\r\n--%s--\r\n", boundary);
-    write_body(0, txn, buf_cstring(body), buf_len(body));
-
-    /* End of output */
-    write_body(0, txn, NULL, 0);
-}
-
 const struct mimetype {
     const char *ext;
     const char *type;
@@ -3578,17 +3679,106 @@ const struct mimetype {
 };
 
 
-/* Perform a GET/HEAD request */
-int meth_get_doc(struct transaction_t *txn,
-		 void *params __attribute__((unused)))
+static int list_well_known(struct transaction_t *txn)
 {
-    int ret = 0, r, fd = -1, precond;
+    static struct buf body = BUF_INITIALIZER;
+    static time_t lastmod = 0;
+    struct stat sbuf;
+    int precond;    
+
+    /* stat() imapd.conf for Last-Modified and ETag */
+    stat(config_filename, &sbuf);
+    assert(!buf_len(&txn->buf));
+    buf_printf(&txn->buf, "%ld-%ld-%ld",
+	       compile_time, sbuf.st_mtime, sbuf.st_size);
+    sbuf.st_mtime = MAX(compile_time, sbuf.st_mtime);
+
+    /* Check any preconditions, including range request */
+    txn->flags.ranges = 1;
+    precond = check_precond(txn, NULL, buf_cstring(&txn->buf), sbuf.st_mtime);
+
+    switch (precond) {
+    case HTTP_OK:
+    case HTTP_NOT_MODIFIED:
+	/* Fill in ETag, Last-Modified, and Expires */
+	txn->resp_body.etag = buf_cstring(&txn->buf);
+	txn->resp_body.lastmod = sbuf.st_mtime;
+	txn->resp_body.maxage = 86400;  /* 24 hrs */
+	txn->flags.cc |= CC_MAXAGE;
+
+	if (precond != HTTP_NOT_MODIFIED) break;
+
+    default:
+	/* We failed a precondition - don't perform the request */
+	return precond;
+    }
+
+    if (txn->resp_body.lastmod > lastmod) {
+	const char *proto = NULL, *host = NULL;
+	unsigned i, level = 0;
+
+	/* Start HTML */
+	buf_reset(&body);
+	buf_printf_markup(&body, level, HTML_DOCTYPE);
+	buf_printf_markup(&body, level++, "<html>");
+	buf_printf_markup(&body, level++, "<head>");
+	buf_printf_markup(&body, level,
+			  "<title>%s</title>", "Well-Known Locations");
+	buf_printf_markup(&body, --level, "</head>");
+	buf_printf_markup(&body, level++, "<body>");
+	buf_printf_markup(&body, level,
+			  "<h2>%s</h2>", "Well-Known Locations");
+	buf_printf_markup(&body, level++, "<ul>");
+
+	/* Add the list of enabled /.well-known/ URLs */
+	http_proto_host(txn->req_hdrs, &proto, &host);
+	for (i = 0; namespaces[i]; i++) {
+
+	    if (namespaces[i]->enabled && namespaces[i]->well_known) {
+		buf_printf_markup(&body, level,
+				  "<li><a href=\"%s://%s%s\">%s</a></li>",
+				  proto, host, namespaces[i]->prefix,
+				  namespaces[i]->well_known);
+	    }
+	}
+
+	/* Finish HTML */
+	buf_printf_markup(&body, --level, "</ul>");
+	buf_printf_markup(&body, --level, "</body>");
+	buf_printf_markup(&body, --level, "</html>");
+
+	lastmod = txn->resp_body.lastmod;
+    }
+
+    /* Output the HTML response */
+    txn->resp_body.type = "text/html; charset=utf-8";
+    write_body(precond, txn, buf_cstring(&body), buf_len(&body));
+
+    return 0;
+}
+
+
+#define WELL_KNOWN_PREFIX "/.well-known"
+
+/* Perform a GET/HEAD request */
+static int meth_get(struct transaction_t *txn,
+		    void *params __attribute__((unused)))
+{
+    int ret = 0, r, fd = -1, precond, len;
     const char *prefix, *urls, *path, *ext;
     static struct buf pathbuf = BUF_INITIALIZER;
     struct stat sbuf;
     const char *msg_base = NULL;
     unsigned long msg_size = 0;
     struct resp_body_t *resp_body = &txn->resp_body;
+
+    /* Check if this is a request for /.well-known/ listing */
+    len = strlen(WELL_KNOWN_PREFIX);
+    if (!strncmp(txn->req_uri->path, WELL_KNOWN_PREFIX, len)) {
+	if (txn->req_uri->path[len] == '/') len++;
+	if (txn->req_uri->path[len] == '\0') return list_well_known(txn);
+	else return HTTP_NOT_FOUND;
+    }
 
     /* Serve up static pages */
     prefix = config_getstring(IMAPOPT_HTTPDOCROOT);
@@ -3743,8 +3933,8 @@ int meth_options(struct transaction_t *txn, void *params)
 
 
 /* Perform an PROPFIND request on "/" iff we support CalDAV */
-int meth_propfind_root(struct transaction_t *txn,
-		       void *params __attribute__((unused)))
+static int meth_propfind_root(struct transaction_t *txn,
+			      void *params __attribute__((unused)))
 {
     assert(txn);
 
@@ -3752,6 +3942,24 @@ int meth_propfind_root(struct transaction_t *txn,
     /* Apple iCal and Evolution both check "/" */
     if (!strcmp(txn->req_uri->path, "/") ||
 	!strcmp(txn->req_uri->path, "/dav/")) {
+	/* Array of known "live" properties */
+	const struct prop_entry root_props[] = {
+
+	    /* WebDAV ACL (RFC 3744) properties */
+	    { "principal-collection-set", NS_DAV, PROP_COLLECTION,
+	      propfind_princolset, NULL, NULL },
+
+	    /* WebDAV Current Principal (RFC 5397) properties */
+	    { "current-user-principal", NS_DAV, PROP_COLLECTION,
+	      propfind_curprin, NULL, NULL },
+
+	    { NULL, 0, 0, NULL, NULL, NULL }
+	};
+
+	struct meth_params root_params = {
+	    .lprops = root_props
+	};
+
 	if (!httpd_userid) return HTTP_UNAUTHORIZED;
 
 	/* Make a working copy of target path */
@@ -3760,7 +3968,7 @@ int meth_propfind_root(struct transaction_t *txn,
 	txn->req_tgt.tail = txn->req_tgt.path + strlen(txn->req_tgt.path);
 
 	txn->req_tgt.allow |= ALLOW_DAV;
-	return meth_propfind(txn, NULL);
+	return meth_propfind(txn, &root_params);
     }
 #endif
 

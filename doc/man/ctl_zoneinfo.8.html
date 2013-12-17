@@ -1,0 +1,130 @@
+<!-- Creator     : groff version 1.22.1 -->
+<!-- CreationDate: Mon Dec 16 16:30:54 2013 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CTL_ZONEINFO</title>
+
+</head>
+<body>
+
+<h1 align="center">CTL_ZONEINFO</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<p>*</p>
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">ctl_zoneinfo
+&minus; perform operations on the zoneinfo database</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>ctl_zoneinfo</b>
+[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;v</b> ]
+<b>&minus;r</b> <i>version-string</i></p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Ctl_zoneinfo</i>
+is used to perform various administrative operations on the
+zoneinfo database.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Ctl_zoneinfo</i>
+reads its configuration options out of the
+<i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<i>config-file</i></p>
+
+<p style="margin-left:22%;">Read configuration options from
+<i>config-file</i>.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;v</b></p></td>
+<td width="8%"></td>
+<td width="33%">
+
+
+<p>Enable verbose output.</p></td>
+<td width="45%">
+</td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>&minus;r</b>
+<i>version-string</i></p>
+
+<p style="margin-left:22%;">Rebuild the zoneinfo database
+based on the directory structure of
+<i>configdirectory</i><b>/zoneinfo</b>. The database to be
+rebuilt will be in the default location of
+<i>configdirectory</i><b>/zoneinfo.db</b> unless otherwise
+specified by the <i>zoneinfo_db_path</i> option in
+<b>imapd.conf</b>. The <i>version-string</i> should describe
+the source of the timezone data (e.g. &quot;Olson
+2013h&quot;) and will be used by the <i>timezone</i> module
+of <b>httpd</b>.</p>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>/etc/imapd.conf</b></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>imapd.conf(5)</b>,
+<b>master(8)</b>, <b>httpd(8)</b></p>
+<hr>
+</body>
+</html>

@@ -96,8 +96,29 @@ static int carddav_copy(struct transaction_t *txn,
 			struct mailbox *src_mbox, struct index_record *src_rec,
 			struct mailbox *dest_mbox, const char *dest_rsrc,
 			unsigned overwrite, unsigned flags);
-static int carddav_put(struct transaction_t *txn, struct mailbox *mailbox,
-		       unsigned flags);
+static int carddav_put(struct transaction_t *txn, 
+		       struct mime_type_t *mime,
+		       struct mailbox *mailbox, unsigned flags);
+static VObject *vcard_string_as_vobject(const char *str)
+{
+    return Parse_MIME(str, strlen(str));
+}
+
+static int propfind_getcontenttype(const xmlChar *name, xmlNsPtr ns,
+				   struct propfind_ctx *fctx, xmlNodePtr resp,
+				   struct propstat propstat[], void *rock);
+static int propfind_restype(const xmlChar *name, xmlNsPtr ns,
+			    struct propfind_ctx *fctx, xmlNodePtr resp,
+			    struct propstat propstat[], void *rock);
+static int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
+			      struct propfind_ctx *fctx, xmlNodePtr resp,
+			      struct propstat propstat[], void *rock);
+static int propfind_addrdata(const xmlChar *name, xmlNsPtr ns,
+			     struct propfind_ctx *fctx, xmlNodePtr resp,
+			     struct propstat propstat[], void *rock);
+static int propfind_suppaddrdata(const xmlChar *name, xmlNsPtr ns,
+				 struct propfind_ctx *fctx, xmlNodePtr resp,
+				 struct propstat propstat[], void *rock);
 
 static int report_card_query(struct transaction_t *txn, xmlNodePtr inroot,
 			     struct propfind_ctx *fctx);
@@ -108,8 +129,104 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 			  struct mailbox *mailbox, const char *resource,
 			  struct carddav_db *carddavdb, int overwrite,
 			  unsigned flags);
+
+static struct mime_type_t carddav_mime_types[] = {
+    /* First item MUST be the default type and storage format */
+    { "text/vcard; charset=utf-8", "3.0", NULL, "vcf", NULL,
+      (void * (*)(const char*)) &vcard_string_as_vobject,
+      (void (*)(void *)) &cleanVObject, NULL, NULL
+    },
+    { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+/* Array of known "live" properties */
+static const struct prop_entry carddav_props[] = {
+
+    /* WebDAV (RFC 4918) properties */
+    { "creationdate", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_creationdate, NULL, NULL },
+    { "displayname", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_fromdb, proppatch_todb, NULL },
+    { "getcontentlanguage", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_fromhdr, NULL, "Content-Language" },
+    { "getcontentlength", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getlength, NULL, NULL },
+    { "getcontenttype", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getcontenttype, NULL, "Content-Type" },
+    { "getetag", NS_DAV, PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getetag, NULL, NULL },
+    { "getlastmodified", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_getlastmod, NULL, NULL },
+    { "lockdiscovery", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_lockdisc, NULL, NULL },
+    { "resourcetype", NS_DAV,
+      PROP_ALLPROP | PROP_COLLECTION | PROP_RESOURCE,
+      propfind_restype, proppatch_restype, "addressbook" },
+    { "supportedlock", NS_DAV, PROP_ALLPROP | PROP_RESOURCE,
+      propfind_suplock, NULL, NULL },
+
+    /* WebDAV Versioning (RFC 3253) properties */
+    { "supported-report-set", NS_DAV, PROP_COLLECTION,
+      propfind_reportset, NULL, NULL },
+
+    /* WebDAV ACL (RFC 3744) properties */
+    { "owner", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_owner, NULL, NULL },
+    { "group", NS_DAV, 0, NULL, NULL, NULL },
+    { "supported-privilege-set", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_supprivset, NULL, NULL },
+    { "current-user-privilege-set", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_curprivset, NULL, NULL },
+    { "acl", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_acl, NULL, NULL },
+    { "acl-restrictions", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_aclrestrict, NULL, NULL },
+    { "inherited-acl-set", NS_DAV, 0, NULL, NULL, NULL },
+    { "principal-collection-set", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_princolset, NULL, NULL },
+
+    /* WebDAV Quota (RFC 4331) properties */
+    { "quota-available-bytes", NS_DAV, PROP_COLLECTION,
+      propfind_quota, NULL, NULL },
+    { "quota-used-bytes", NS_DAV, PROP_COLLECTION,
+      propfind_quota, NULL, NULL },
+
+    /* WebDAV Current Principal (RFC 5397) properties */
+    { "current-user-principal", NS_DAV, PROP_COLLECTION | PROP_RESOURCE,
+      propfind_curprin, NULL, NULL },
+
+    /* WebDAV POST (RFC 5995) properties */
+    { "add-member", NS_DAV, PROP_COLLECTION,
+      NULL,  /* Until Apple Contacts is fixed */ NULL, NULL },
+
+    /* WebDAV Sync (RFC 6578) properties */
+    { "sync-token", NS_DAV, PROP_COLLECTION,
+      propfind_sync_token, NULL, NULL },
+
+    /* CardDAV (RFC 6352) properties */
+    { "address-data", NS_CARDDAV,
+      PROP_RESOURCE | PROP_PRESCREEN | PROP_NEEDPROP,
+      propfind_addrdata, NULL, NULL },
+    { "addressbook-description", NS_CARDDAV, PROP_COLLECTION,
+      propfind_fromdb, proppatch_todb, NULL },
+    { "supported-address-data", NS_CARDDAV, PROP_COLLECTION,
+      propfind_suppaddrdata, NULL, NULL },
+    { "max-resource-size", NS_CARDDAV, 0, NULL, NULL, NULL },
+
+    /* Apple Calendar Server properties */
+    { "getctag", NS_CS, PROP_ALLPROP | PROP_COLLECTION,
+      propfind_sync_token, NULL, NULL },
+
+    { NULL, 0, 0, NULL, NULL, NULL }
+};
+
 static struct meth_params carddav_params = {
-    "text/vcard; charset=utf-8",
+    carddav_mime_types,
     &carddav_parse_path,
     &check_precond,
     { (void **) &auth_carddavdb,
@@ -124,6 +241,7 @@ static struct meth_params carddav_params = {
     { MBTYPE_ADDRESSBOOK, NULL, NULL, 0 },	/* No special MK* method */
     NULL,		  	      		/* No special POST handling */
     { CARDDAV_SUPP_DATA, &carddav_put },
+    carddav_props,
     { { "addressbook-query", &report_card_query, DACL_READ,
 	REPORT_NEED_MBOX | REPORT_MULTISTATUS },
       { "addressbook-multiget", &report_card_multiget, DACL_READ,
@@ -486,15 +604,15 @@ static int carddav_copy(struct transaction_t *txn,
  *   CARDDAV:no-uid-conflict (DAV:href)
  *   CARDDAV:max-resource-size
  */
-static int carddav_put(struct transaction_t *txn, struct mailbox *mailbox,
-		       unsigned flags)
+static int carddav_put(struct transaction_t *txn, 
+		       struct mime_type_t *mime,
+		       struct mailbox *mailbox, unsigned flags)
 {
     int ret;
     VObject *vcard = NULL;
 
     /* Parse and validate the vCard data */
-    vcard = Parse_MIME(buf_cstring(&txn->req_body.payload),
-		       buf_len(&txn->req_body.payload));
+    vcard = mime->from_string(buf_cstring(&txn->req_body.payload));
     if (!vcard || strcmp(vObjectName(vcard), "VCARD")) {
 	txn->error.precond = CARDDAV_VALID_DATA;
 	ret = HTTP_FORBIDDEN;
@@ -505,6 +623,42 @@ static int carddav_put(struct transaction_t *txn, struct mailbox *mailbox,
     ret = store_resource(txn, vcard, mailbox, txn->req_tgt.resource,
 			 auth_carddavdb, OVERWRITE_CHECK, flags);
 
+    if (flags & PREFER_REP) {
+	struct resp_body_t *resp_body = &txn->resp_body;
+	const char *data;
+
+	switch (ret) {
+	case HTTP_NO_CONTENT:
+	    ret = HTTP_OK;
+
+	case HTTP_CREATED:
+	    /* Use the request data */
+	    data = buf_cstring(&txn->req_body.payload);
+
+	    /* Fill in Content-Type, Content-Length */
+	    resp_body->type = mime->content_type;
+	    resp_body->len = strlen(data);
+
+	    /* Fill in Content-Location */
+	    resp_body->loc = txn->req_tgt.path;
+
+	    /* Fill in Expires and Cache-Control */
+	    resp_body->maxage = 3600;	/* 1 hr */
+	    txn->flags.cc = CC_MAXAGE
+		| CC_REVALIDATE		/* don't use stale data */
+		| CC_NOTRANSFORM;	/* don't alter vCard data */
+
+	    /* Output current representation */
+	    write_body(ret, txn, data, resp_body->len);
+	    ret = 0;
+	    break;
+
+	default:
+	    /* failure - do nothing */
+	    break;
+	}
+    }
+
   done:
     if (vcard) {
 	cleanVObject(vcard);
@@ -512,6 +666,170 @@ static int carddav_put(struct transaction_t *txn, struct mailbox *mailbox,
     }
 
     return ret;
+}
+
+
+/* Callback to fetch DAV:getcontenttype */
+static int propfind_getcontenttype(const xmlChar *name, xmlNsPtr ns,
+				   struct propfind_ctx *fctx,
+				   xmlNodePtr resp __attribute__((unused)),
+				   struct propstat propstat[],
+				   void *rock __attribute__((unused)))
+{
+    buf_setcstr(&fctx->buf, "text/vcard; charset=utf-8");
+
+    xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		 name, ns, BAD_CAST buf_cstring(&fctx->buf), 0);
+
+    return 0;
+}
+
+
+/* Callback to fetch DAV:resourcetype */
+static int propfind_restype(const xmlChar *name, xmlNsPtr ns,
+			    struct propfind_ctx *fctx,
+			    xmlNodePtr resp,
+			    struct propstat propstat[],
+			    void *rock __attribute__((unused)))
+{
+    xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
+				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
+
+    if (!fctx->record) {
+	xmlNewChild(node, NULL, BAD_CAST "collection", NULL);
+
+	if (fctx->req_tgt->collection) {
+	    ensure_ns(fctx->ns, NS_CARDDAV, resp->parent,
+		      XML_NS_CARDDAV, "C");
+	    xmlNewChild(node, fctx->ns[NS_CARDDAV],
+			BAD_CAST "addressbook", NULL);
+	}
+    }
+
+    return 0;
+}
+
+
+/* Callback to fetch DAV:supported-report-set */
+static int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
+			      struct propfind_ctx *fctx,
+			      xmlNodePtr resp,
+			      struct propstat propstat[],
+			      void *rock __attribute__((unused)))
+{
+    xmlNodePtr s, r, top;
+
+    top = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		       name, ns, NULL, 0);
+
+    if (fctx->req_tgt->collection && !fctx->req_tgt->resource) {
+	s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
+	r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
+	xmlNewChild(r, fctx->ns[NS_DAV], BAD_CAST "sync-collection", NULL);
+    }
+
+    ensure_ns(fctx->ns, NS_CARDDAV, resp->parent, XML_NS_CARDDAV, "C");
+
+    s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
+    r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
+    xmlNewChild(r, fctx->ns[NS_CARDDAV], BAD_CAST "addressbook-query", NULL);
+
+    s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
+    r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
+    xmlNewChild(r, fctx->ns[NS_CARDDAV], BAD_CAST "addressbook-multiget", NULL);
+
+    return 0;
+}
+
+
+/* Callback to prescreen/fetch CARDDAV:address-data */
+static int propfind_addrdata(const xmlChar *name, xmlNsPtr ns,
+			     struct propfind_ctx *fctx,
+			     xmlNodePtr resp __attribute__((unused)),
+			     struct propstat propstat[],
+			     void *rock)
+{
+    xmlNodePtr prop = (xmlNodePtr) rock;
+    const char *data = NULL;
+    unsigned long datalen = 0;
+
+    if (propstat) {
+	if (!fctx->record) return HTTP_NOT_FOUND;
+
+	if (!fctx->msg_base) {
+	    mailbox_map_message(fctx->mailbox, fctx->record->uid,
+				&fctx->msg_base, &fctx->msg_size);
+	}
+	if (!fctx->msg_base) return HTTP_SERVER_ERROR;
+
+	data = fctx->msg_base + fctx->record->header_size;
+	datalen = fctx->record->size - fctx->record->header_size;
+    }
+
+    return propfind_getdata(name, ns, fctx, propstat, prop, carddav_mime_types,
+			    CARDDAV_SUPP_DATA, data, datalen);
+}
+
+
+/* Callback to fetch CARDDAV:addressbook-home-set */
+int propfind_abookurl(const xmlChar *name, xmlNsPtr ns,
+		      struct propfind_ctx *fctx,
+		      xmlNodePtr resp __attribute__((unused)),
+		      struct propstat propstat[],
+		      void *rock)
+{
+    xmlNodePtr node;
+    const char *abook = (const char *) rock;
+
+    if (!fctx->userid) return HTTP_NOT_FOUND;
+
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, "%s/user/%s/%s", namespace_addressbook.prefix,
+	       fctx->userid, abook ? abook : "");
+
+    xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
+
+    return 0;
+}
+
+
+/* Callback to fetch CARDDAV:supported-address-data */
+static int propfind_suppaddrdata(const xmlChar *name, xmlNsPtr ns,
+				 struct propfind_ctx *fctx,
+				 xmlNodePtr resp __attribute__((unused)),
+				 struct propstat propstat[],
+				 void *rock __attribute__((unused)))
+{
+    xmlNodePtr node;
+    struct mime_type_t *mime;
+
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
+
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+
+    for (mime = carddav_mime_types; mime->content_type; mime++) {
+	xmlNodePtr type = xmlNewChild(node, fctx->ns[NS_CARDDAV],
+				      BAD_CAST "address-data-type", NULL);
+
+	/* Trim any charset from content-type */
+	buf_reset(&fctx->buf);
+	buf_printf(&fctx->buf, "%.*s",
+		   (int) strcspn(mime->content_type, ";"), mime->content_type);
+
+	xmlNewProp(type, BAD_CAST "content-type",
+		   BAD_CAST buf_cstring(&fctx->buf));
+
+	if (mime->version)
+	    xmlNewProp(type, BAD_CAST "version", BAD_CAST mime->version);
+    }
+
+    buf_reset(&fctx->buf);
+
+    return 0;
 }
 
 
@@ -776,7 +1094,7 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 		    */
 		    int userflag;
 
-		    ret = (flags & PREFER_REP) ? HTTP_OK : HTTP_NO_CONTENT;
+		    ret = HTTP_NO_CONTENT;
 
 		    /* Fetch index record for the resource */
 		    r = mailbox_find_index_record(mailbox, cdata->dav.imap_uid,
@@ -835,23 +1153,6 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 		    /* Tell client about the new resource */
 		    resp_body->lastmod = newrecord.internaldate;
 		    resp_body->etag = message_guid_encode(&newrecord.guid);
-
-		    if (flags & PREFER_REP) {
-			resp_body->type = "text/vcard; charset=utf-8";
-			resp_body->loc = txn->req_tgt.path;
-			resp_body->len = buf_len(&txn->req_body.payload);
-
-			/* Fill in Expires and Cache-Control */
-			resp_body->maxage = 3600;  /* 1 hr */
-			txn->flags.cc = CC_MAXAGE
-			    | CC_REVALIDATE	   /* don't use stale data */
-			    | CC_NOTRANSFORM;	   /* don't alter vCard data */
-
-			write_body(ret, txn,
-				   buf_cstring(&txn->req_body.payload),
-				   buf_len(&txn->req_body.payload));
-			ret = 0;
-		    }
 		}
 
 		/* need to close mailbox returned to us by append_commit */

@@ -644,6 +644,8 @@ COM_ERR_LIBS
 COMPILE_ET
 IMAP_PROGS
 HTTP_OBJS
+JSON_LIBS
+JSON_CFLAGS
 DKIM_LIBS
 DKIM_CFLAGS
 SQLITE3_LIBS
@@ -842,7 +844,9 @@ XML2_LIBS
 ICAL_CFLAGS
 ICAL_LIBS
 SQLITE3_CFLAGS
-SQLITE3_LIBS'
+SQLITE3_LIBS
+JSON_CFLAGS
+JSON_LIBS'
 
 
 # Initialize some variables set by options.
@@ -1548,6 +1552,8 @@ Some influential environment variables:
               C compiler flags for SQLITE3, overriding pkg-config
   SQLITE3_LIBS
               linker flags for SQLITE3, overriding pkg-config
+  JSON_CFLAGS C compiler flags for JSON, overriding pkg-config
+  JSON_LIBS   linker flags for JSON, overriding pkg-config
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -9522,6 +9528,88 @@ fi
 
 
 $as_echo "#define WITH_DKIM /**/" >>confdefs.h
+
+      fi
+
+      ENABLE_JSON=yes
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for JSON" >&5
+$as_echo_n "checking for JSON... " >&6; }
+
+if test -n "$JSON_CFLAGS"; then
+    pkg_cv_JSON_CFLAGS="$JSON_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"jansson\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "jansson") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_JSON_CFLAGS=`$PKG_CONFIG --cflags "jansson" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$JSON_LIBS"; then
+    pkg_cv_JSON_LIBS="$JSON_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"jansson\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "jansson") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_JSON_LIBS=`$PKG_CONFIG --libs "jansson" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        JSON_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "jansson" 2>&1`
+        else
+	        JSON_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "jansson" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$JSON_PKG_ERRORS" >&5
+
+	ENABLE_JSON=no
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	ENABLE_JSON=no
+else
+	JSON_CFLAGS=$pkg_cv_JSON_CFLAGS
+	JSON_LIBS=$pkg_cv_JSON_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+fi
+      if test "$ENABLE_JSON" != no; then
+         IMAP_PROGS="$IMAP_PROGS ctl_zoneinfo"
+         HTTP_OBJS="$HTTP_OBJS \$(TIMEZONE_OBJS)"
+
+
+
+$as_echo "#define WITH_JSON /**/" >>confdefs.h
 
       fi
    fi

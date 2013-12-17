@@ -59,6 +59,7 @@
 #include "idle.h"
 #include "idled.h"
 #include "global.h"
+#include "util.h"
 
 const char *idle_method_desc = "no";
 
@@ -67,12 +68,15 @@ static idle_updateproc_t *idle_update = NULL;
 
 /* how often to poll the mailbox */
 static time_t idle_period = -1;
-static int idle_started = 0;
+static time_t idle_started = 0;
+static unsigned int idle_timeout;
 
 /* UNIX socket variables */
 static int notify_sock = -1;
 static struct sockaddr_un idle_remote;
 static int idle_remote_len = 0;
+
+static struct sigaction oldusr1, oldusr2, oldalrm;
 
 
 /*
@@ -195,7 +199,8 @@ static void idle_handler(int sig)
 	break;
     case SIGALRM:
 	idle_update(IDLE_MAILBOX|IDLE_ALERT);
-	alarm(idle_period);
+	idle_timeout -= time(0) - idle_started;
+	alarm(MIN(idle_period, idle_timeout));
 	break;
     }
 }
@@ -217,9 +222,9 @@ int idle_init(idle_updateproc_t *proc)
     action.sa_handler = idle_handler;
 
     /* Setup the signal handlers */
-    if ((sigaction(SIGUSR1, &action, NULL) < 0) ||
-	(sigaction(SIGUSR2, &action, NULL) < 0) ||
-	(sigaction(SIGALRM, &action, NULL) < 0)) {
+    if ((sigaction(SIGUSR1, &action, &oldusr1) < 0) ||
+	(sigaction(SIGUSR2, &action, &oldusr2) < 0) ||
+	(sigaction(SIGALRM, &action, &oldalrm) < 0)) {
 	syslog(LOG_ERR, "sigaction: %m");
 
 	/* Cancel receiving signals */
@@ -230,14 +235,20 @@ int idle_init(idle_updateproc_t *proc)
     return 1;
 }
 
-void idle_start(const char *mboxname)
+void idle_start(const char *mboxname, unsigned int timeout)
 {
-    idle_started = 1;
+    idle_timeout = timeout;
+    idle_started = time(0);
 
     /* Tell idled that we're idling */
-    if (notify_sock == -1 || !idle_send_msg(IDLE_INIT, mboxname)) {
+    if (notify_sock != -1 && idle_send_msg(IDLE_INIT, mboxname)) {
+	/* set any timeout */
+	alarm(idle_timeout);
+    }
+    else {
 	/* otherwise, we'll poll with SIGALRM */
-	alarm(idle_period);
+	if (!idle_timeout) idle_timeout = UINT_MAX;
+	alarm(MIN(idle_period, idle_timeout));
     }
 }
 
@@ -250,9 +261,9 @@ void idle_done(const char *mboxname)
     alarm(0);
 
     /* Remove the signal handlers */
-    signal(SIGUSR1, SIG_IGN);
-    signal(SIGUSR2, SIG_IGN);
-    signal(SIGALRM, SIG_IGN);
+    sigaction(SIGUSR1, &oldusr1, NULL);
+    sigaction(SIGUSR2, &oldusr2, NULL);
+    sigaction(SIGALRM, &oldalrm, NULL);
 
     idle_update = NULL;
     idle_started = 0;

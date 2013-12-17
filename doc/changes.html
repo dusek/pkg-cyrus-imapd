@@ -8,6 +8,36 @@
 </head>
 <body>
 
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta8</h1>
+<ul>
+<li>Fixed bug in parsing of Accept header (now accepts <tt>*/*</tt>
+  and <tt>type/*</tt>).</li>
+<li>Fixed telemetry logging bug (old garbage appearing in log).</li>
+<li>Added a workaround for the DELETE bug in MacOS X 10.9.0 Calendar
+  client.</li>
+</ul>
+
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta7</h1>
+<ul>
+<li>Added Timzone Service module along with associated admin tools
+  (ctl_zoneinfo, vzic).</li>
+<li>Added support for accepting/returning jCal (requires Jansson) and
+  xCal data wherever iCalendar data is allowed.</li>
+<li>Proxied responses (including chunked) are now piped to client
+  rather than being buffered and forwarded.</li>
+<li>Better handling of COPY/MOVE between backends (including
+  LOCKs).</li>
+<li>Fixed "annotation truncation" bug where the largest allowed
+  annotation value was slightly less than 4k (solves problem reading
+  CalDavZAP settings).</li>
+<li>GET on ./well-known now returns a list of /.well-known/ URLs on
+  the server.</li>
+<li>Added support for X-HTTP-Method-Override header in POST requests.</li>
+<li>Added replacement functions for those not present in libxml2 &lt;
+  v2.8.0</li>
+<li>Plugged a few more memory leaks found by Valgrind.</li>
+</ul>
+
 <h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta6</h1>
 <ul>
 <li>Plugged several memory leaks found by Valgrind</li>
