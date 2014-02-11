@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-2) unstable; urgency=medium
+
+  * Add support for systemd
+  * Silence spurious warning when lock and proc dirs doesn't exist
+  * Enable TLSv1.2 support in imclient, and disable SSLv2 in the same patch (Closes: #732582)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 11 Feb 2014 17:28:29 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-1) unstable; urgency=low
 
   * New upstream version 2.4.17+caldav~beta9
