@@ -99,8 +99,8 @@ case "$1" in
 	[ -z "$LOCK_DIR" ] && LOCK_DIR="$CONFIGDIR/lock"
 	[ -z "$PROC_DIR" ] && PROC_DIR="$CONFIGDIR/proc"
 
-	find "$LOCK_DIR" -mindepth 1 -depth -size 0 -delete
-	find "$PROC_DIR" -mindepth 1 -depth -name '[0-9]*' -delete
+	[ -d "$LOCK_DIR" ] && find "$LOCK_DIR" -mindepth 1 -depth -size 0 -delete
+	[ -d "$PROC_DIR" ] && find "$PROC_DIR" -mindepth 1 -depth -name '[0-9]*' -delete
 	;;
     *)
 	;;
