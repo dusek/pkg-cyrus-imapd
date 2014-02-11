@@ -29,3 +29,4 @@
 cyrus-imapd-2.4.2-902-accept-invalid-from-header.patch
 cyrus-imapd-2.4.2-903-normalize-authorization-id.patch
 86-fix_PATH_MAX_on_hurd.patch
+cyrus-tls-1.2.patch
