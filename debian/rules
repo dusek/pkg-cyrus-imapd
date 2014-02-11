@@ -49,7 +49,7 @@ ifneq (,$(findstring strict,$(DEB_BUILD_OPTIONS)))
 endif
 
 %:
-	dh $@ --with autoreconf --parallel
+	dh $@ --with autoreconf --with=systemd --parallel
 
 override_dh_autoreconf:
 	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
@@ -180,6 +180,7 @@ override_dh_auto_install:
 
 	# Install debian-provided scripts
 	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
+	install debian/cyrus-init-helper $(TMPPKG)/usr/lib/cyrus/bin/init-helper
 	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 

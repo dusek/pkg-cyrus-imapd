@@ -7,11 +7,12 @@ Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
 	   Benjamin Seidenberg <benjamin@debian.org>,
 	   Ondřej Surý <ondrej@debian.org>,
 	   Anthony Prades <toony.debian@chezouam.net>
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Build-Depends: dh-autoreconf,
 	       bison,
 	       comerr-dev,
 	       debhelper (>= 9),
+	       dh-systemd,
 	       flex,
 	       ghostscript,
 	       groff,
