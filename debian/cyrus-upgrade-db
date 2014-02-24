@@ -130,7 +130,7 @@ upgradealldb() {
 		    return 1
 		fi
 		;;
-	    PTS|STATUSCACHE|TLS)
+	    PTS|STATUSCACHE|TLS|ZONEINFO)
 		;;
 	    USERDENY)
 		DBFILE=user_deny.db
