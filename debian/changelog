@@ -1,3 +1,17 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-4) unstable; urgency=medium
+
+  [ Ondřej Surý ]
+  * Update the PIDFILE name in init script (Closes: #743013)
+  * Fix typo in cyrus-common systemd service file (Closes: #744912)
+
+  [ Tom Yu ]
+  * Fix imtest hanging when receiving long responses over SSL (Closes: #747561)
+
+  [ Ondřej Surý ]
+  * Remove extra -lpci from net-snmp-config --agent-libs output (Closes: #747806)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 15 May 2014 09:48:16 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-3) unstable; urgency=medium
 
   * Add explicit 'exit 0' at the end of init-helper (Closes: #739318)
