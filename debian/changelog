@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-5) unstable; urgency=high
+
+  * Fix missing GUID for binary appends (Closes: #709799)
+  * Apply upstream fix to unbroke nntpd (Closes: #734648)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 27 May 2014 12:41:47 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-4) unstable; urgency=medium
 
   [ Ondřej Surý ]
