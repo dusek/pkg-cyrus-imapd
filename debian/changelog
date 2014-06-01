@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-7) unstable; urgency=medium
+
+  * Use default-mta instead of postfix
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 01 Jun 2014 23:27:11 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-6) unstable; urgency=medium
 
   * Switch from ssmtp to postfix as default MTA
