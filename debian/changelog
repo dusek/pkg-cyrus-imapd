@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-6) unstable; urgency=medium
+
+  * Switch from ssmtp to postfix as default MTA
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 01 Jun 2014 23:04:02 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-5) unstable; urgency=high
 
   * Fix missing GUID for binary appends (Closes: #709799)
