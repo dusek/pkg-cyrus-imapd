@@ -42,7 +42,7 @@ Homepage: http://www.cyrusimap.org/
 Package: cyrus-common-2.4
 Architecture: any
 Section: mail
-Depends: cyrus-common (>= ${source:Version}~), ssmtp | mail-transport-agent, netbase (>= 4.07), gawk, libsasl2-modules, ${shlibs:Depends}, ${perl:Depends}, ${misc:Depends}
+Depends: cyrus-common (>= ${source:Version}~), postfix | mail-transport-agent, netbase (>= 4.07), gawk, libsasl2-modules, ${shlibs:Depends}, ${perl:Depends}, ${misc:Depends}
 Recommends: cyrus-imapd-2.4 | cyrus-pop3d-2.4 | cyrus-murder-2.4 | cyrus-nntpd-2.4 | cyrus-admin-2.4 | cyrus-caldav-2.4
 Suggests: cyrus-clients-2.4, cyrus-admin-2.4, cyrus-imapd-2.4, cyrus-pop3d-2.4, cyrus-murder-2.4, cyrus-replication-2.4, cyrus-nntpd-2.4, cyrus-caldav-2.4, cyrus-doc-2.4, sasl2-bin, apt-listchanges (>= 2.35)
 Conflicts: cyrus-common (<< ${source:Version}), suidmanager (<< 0.50)
