@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-8) unstable; urgency=medium
+
+  * Use system provided UnicodeData.txt to seamlessly support new
+    Unicode versions
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 19 Jun 2014 09:03:54 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-7) unstable; urgency=medium
 
   * Use default-mta instead of postfix
