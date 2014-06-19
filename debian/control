@@ -34,6 +34,7 @@ Build-Depends: dh-autoreconf,
 	       pkg-config,
 	       po-debconf,
 	       transfig,
+	       unicode-data,
 	       xutils-dev
 Vcs-Git: git://git.debian.org/pkg-cyrus-imapd/cyrus-imapd-2.4.git
 Vcs-Browser: http://git.debian.org/?p=pkg-cyrus-imapd/cyrus-imapd-2.4.git
