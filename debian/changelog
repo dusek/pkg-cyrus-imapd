@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-9) unstable; urgency=medium
+
+  * Use debhelper 9 instead of hardening-wrapper
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 30 Jun 2014 09:51:18 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-8) unstable; urgency=medium
 
   * Use system provided UnicodeData.txt to seamlessly support new
