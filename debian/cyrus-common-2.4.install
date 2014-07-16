@@ -18,6 +18,9 @@ usr/lib/cyrus/bin/arbitron*
 usr/lib/cyrus/bin/unexpunge
 usr/lib/cyrus/bin/lmtpd
 usr/lib/cyrus/bin/timsieved
+usr/lib/cyrus/bin/ptdump
+usr/lib/cyrus/bin/ptexpire
+usr/lib/cyrus/bin/ptloader
 usr/lib/cyrus/bin/sievec
 usr/lib/cyrus/bin/sieved
 usr/lib/cyrus/bin/mbexamine

@@ -80,6 +80,9 @@ override_dh_auto_configure:
 	 --localstatedir=/var/lib/cyrus \
 	 --mandir=/usr/share/man \
 	 --with-cyrus-prefix=/usr/lib/cyrus \
+	 --enable-gssapi \
+	 --with-gss_impl=mit \
+	 --with-ldap=/usr \
 	 --with-lock=fcntl \
 	 --with-perl=/usr/bin/perl \
 	 --with-openssl=/usr \

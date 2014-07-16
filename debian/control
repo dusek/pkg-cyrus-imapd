@@ -34,7 +34,9 @@ Build-Depends: dh-autoreconf,
 	       po-debconf,
 	       transfig,
 	       unicode-data,
-	       xutils-dev
+	       xutils-dev,
+	       libldap2-dev,
+	       libkrb5-dev
 Vcs-Git: git://git.debian.org/pkg-cyrus-imapd/cyrus-imapd-2.4.git
 Vcs-Browser: http://git.debian.org/?p=pkg-cyrus-imapd/cyrus-imapd-2.4.git
 Homepage: http://www.cyrusimap.org/
