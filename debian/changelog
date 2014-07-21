@@ -1,3 +1,12 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-11) unstable; urgency=medium
+
+  [ gregor herrmann ]
+  * Make debian/libcyrus-imap-perl24.install executable, and use
+    $Config{vendorarch} to get correct perl library path.
+    (Closes: #755108)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 21 Jul 2014 11:57:08 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-10) unstable; urgency=medium
 
   * Re-enable ptloader server and ptclient utilities again
