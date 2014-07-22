@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta9-12) unstable; urgency=medium
+
+  * Fix binNMUability by linking docs to cyrus-common-2.4 (Closes: #755705)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 22 Jul 2014 18:13:36 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-11) unstable; urgency=medium
 
   [ gregor herrmann ]
