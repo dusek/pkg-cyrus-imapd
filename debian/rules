@@ -227,9 +227,9 @@ override_dh_auto_install:
 	xargs < debian/cyrus-common-2.4.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
-	dh_installdocs -p cyrus-common -p cyrus-doc-2.4
+	dh_installdocs -p cyrus-common -p cyrus-doc-2.4 -p cyrus-common-2.4
 	dh_installdocs -p cyrus-doc --link-doc cyrus-doc-2.4
-	dh_installdocs --remaining-packages --link-doc=cyrus-common
+	dh_installdocs --remaining-packages --link-doc=cyrus-common-2.4
 
 override_dh_installinit:
 	dh_installinit -p cyrus-common --noscripts --name=cyrus-imapd
