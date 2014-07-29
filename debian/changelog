@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-2) experimental; urgency=medium
+
+  * Drop versioning from the cyrus-imapd package
+  * Reduce the duplication of files by symlinking the murder binaries to
+    their counterparts in cyrus-{common,imapd,pop3d}
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 29 Jul 2014 17:08:47 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-1) unstable; urgency=medium
 
   * New upstream version 2.4.17+caldav~beta10
