@@ -75,7 +75,7 @@
 #include "xstrlcpy.h"
 
 #define XML_NS_ATOM	"http://www.w3.org/2005/Atom"
-#define XML_NS_CYRUS	"http://cyrusimap.org/ns/"
+#define GUID_URL_SCHEME	"data:,"
 #define MAX_SECTION_LEN	128
 #define FEEDLIST_VAR	"%RSS_FEEDLIST%"
 
@@ -145,8 +145,9 @@ static void rss_init(struct buf *serverinfo __attribute__((unused)))
 static int meth_get(struct transaction_t *txn,
 		    void *params __attribute__((unused)))
 {
-    int ret = 0, r;
-    char *server, section[MAX_SECTION_LEN+1] = "";
+    int ret = 0, r, rights;
+    struct strlist *param;
+    char *server, *acl, *section = NULL;
     uint32_t uid = 0;
     struct mailbox *mailbox = NULL;
 
@@ -164,7 +165,7 @@ static int meth_get(struct transaction_t *txn,
     if (!is_feed(txn->req_tgt.mboxname)) return HTTP_NOT_FOUND;
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, NULL, NULL))) {
+    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -175,6 +176,10 @@ static int meth_get(struct transaction_t *txn,
 	default: return HTTP_SERVER_ERROR;
 	}
     }
+
+    /* Check ACL for current user */
+    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    if (!(rights & ACL_READ)) return HTTP_NO_PRIVS;
 
     if (server) {
 	/* Remote mailbox */
@@ -190,7 +195,8 @@ static int meth_get(struct transaction_t *txn,
     /* Local Mailbox */
 
     /* Open mailbox for reading */
-    if ((r = http_mailbox_open(txn->req_tgt.mboxname, &mailbox, LOCK_SHARED))) {
+    r = mailbox_open_irl(txn->req_tgt.mboxname, &mailbox);
+    if (r) {
 	syslog(LOG_ERR, "http_mailbox_open(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -202,19 +208,14 @@ static int meth_get(struct transaction_t *txn,
 	}
     }
 
-    /* Parse query params, if any */
-    if (URI_QUERY(txn->req_uri) &&
-	!strncasecmp(URI_QUERY(txn->req_uri), "uid=", 4)) {
-	/* UID */
-	char *end;
-
-	uid = strtoul(URI_QUERY(txn->req_uri)+4, &end, 10);
+    /* Check query params, if any */    
+    param = hash_lookup("uid", &txn->req_qparams);
+    if (param) {
+	uid = strtoul(param->s, NULL, 10);
 	if (!uid) uid = -1;
 
-	if (!strncasecmp(end, ";section=", 9)) {
-	    /* SECTION */
-	    strlcpy(section, end+9, MAX_SECTION_LEN);
-	}
+	param = hash_lookup("section", &txn->req_qparams);
+	if (param) section = param->s;
     }
 
     /* If no UID specified, list messages as an RSS feed */
@@ -238,7 +239,7 @@ static int meth_get(struct transaction_t *txn,
 	    struct resp_body_t *resp_body = &txn->resp_body;
 
 	    /* Check any preconditions */
-	    if (!strcmp(section, "0")) {
+	    if (section && !strcmp(section, "0")) {
 		/* Entire raw message */
 		txn->flags.ranges = 1;
 	    }
@@ -265,7 +266,7 @@ static int meth_get(struct transaction_t *txn,
 		goto done;
 	    }
 
-	    if (!*section) {
+	    if (!section) {
 		/* Return entire message formatted as text/html */
 		display_message(txn, mailbox->name, record.uid, body, msg_base);
 	    }
@@ -289,7 +290,7 @@ static int meth_get(struct transaction_t *txn,
 	}
     }
 
-    if (mailbox) mailbox_unlock_index(mailbox, NULL);
+    mailbox_close(&mailbox);
 
     return ret;
 
@@ -814,8 +815,8 @@ static int list_messages(struct transaction_t *txn, struct mailbox *mailbox)
     buf_printf_markup(buf, level, "<title>%s</title>", mboxname);
 
     /* <id> - required */
-    buf_printf_markup(buf, level, "<id>%sguid/%s</id>",
-		      XML_NS_CYRUS, mailbox->uniqueid);
+    buf_printf_markup(buf, level, "<id>%s%s</id>",
+		      GUID_URL_SCHEME, mailbox->uniqueid);
 
     /* <updated> - required */
     rfc3339date_gen(datestr, sizeof(datestr), lastmod);
@@ -904,8 +905,8 @@ static int list_messages(struct transaction_t *txn, struct mailbox *mailbox)
 	free(subj);
 
 	/* <id> - required */
-	buf_printf_markup(buf, level, "<id>%sguid/%s</id>",
-			  XML_NS_CYRUS, message_guid_encode(&record.guid));
+	buf_printf_markup(buf, level, "<id>%s%s</id>",
+			  GUID_URL_SCHEME, message_guid_encode(&record.guid));
 
 	/* <updated> - required */
 	rfc3339date_gen(datestr, sizeof(datestr), record.gmtime);

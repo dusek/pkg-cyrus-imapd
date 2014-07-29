@@ -76,13 +76,15 @@
 #define FNAME_CACHE "/cyrus.cache"
 #define FNAME_SQUAT "/cyrus.squat"
 #define FNAME_EXPUNGE "/cyrus.expunge"
+#define FNAME_DAV "/cyrus.dav"
 
 enum meta_filename {
   META_HEADER = 1,
   META_INDEX,
   META_CACHE,
   META_SQUAT,
-  META_EXPUNGE
+  META_EXPUNGE,
+  META_DAV
 };
 
 #define MAILBOX_FNAME_LEN 256
@@ -482,9 +484,9 @@ extern int mailbox_cleanup(struct mailbox *mailbox, int iscurrentdir,
 			   mailbox_decideproc_t *decideproc, void *deciderock);
 extern void mailbox_unlock_index(struct mailbox *mailbox, struct statusdata *sd);
 
-extern int mailbox_create(const char *name, const char *part, const char *acl,
-			  const char *uniqueid, int options, unsigned uidvalidity,
-			  struct mailbox **mailboxptr);
+extern int mailbox_create(const char *name, uint32_t mbtype, const char *part,
+			  const char *acl, const char *uniqueid, int options,
+			  unsigned uidvalidity, struct mailbox **mailboxptr);
 
 extern int mailbox_copy_files(struct mailbox *mailbox, const char *newpart,
 			      const char *newname);

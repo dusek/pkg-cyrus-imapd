@@ -43,6 +43,8 @@
 
 #include <config.h>
 
+#ifdef WITH_DAV
+
 #include <syslog.h>
 #include <string.h>
 
@@ -137,8 +139,8 @@ int caldav_done(void)
     " UNIQUE( mailbox, resource ) );"					\
     "CREATE INDEX IF NOT EXISTS idx_ical_uid ON ical_objs ( ical_uid );"
 
-/* Open DAV DB corresponding to userid */
-struct caldav_db *caldav_open(const char *userid, int flags)
+/* Open DAV DB corresponding to mailbox */
+struct caldav_db *caldav_open(struct mailbox *mailbox, int flags)
 {
     sqlite3 *db;
     struct caldav_db *caldavdb = NULL;
@@ -146,14 +148,19 @@ struct caldav_db *caldav_open(const char *userid, int flags)
 
     if (flags & CALDAV_TRUNC) cmds = CMD_DROP CMD_CREATE;
 
-    db = dav_open(userid, cmds);
+    db = dav_open(mailbox, cmds);
 
     if (db) {
+	const char *userid;
+
 	caldavdb = xzmalloc(sizeof(struct caldav_db));
 	caldavdb->db = db;
 
-	/* Construct mailbox name corresponding to userid's scheduling Inbox */
-	caldav_mboxname(SCHED_INBOX, userid, caldavdb->sched_inbox);
+	userid = mboxname_to_userid(mailbox->name);
+	if (userid) {
+	    /* Construct mbox name corresponding to userid's scheduling Inbox */
+	    caldav_mboxname(SCHED_INBOX, userid, caldavdb->sched_inbox);
+	}
     }
 
     return caldavdb;
@@ -562,8 +569,12 @@ static void get_period(icalcomponent *comp, icalcomponent_kind kind,
 	}
 	break;
 
+#ifdef HAVE_VPOLL
+    case ICAL_VPOLL_COMPONENT:
+#endif
     case ICAL_VTODO_COMPONENT: {
-	struct icaltimetype due = icalcomponent_get_due(comp);
+	struct icaltimetype due = (kind == ICAL_VPOLL_COMPONENT) ?
+	    icalcomponent_get_dtend(comp) : icalcomponent_get_due(comp);
 
 	if (!icaltime_is_null_time(period->start)) {
 	    /* Has DTSTART */
@@ -573,7 +584,7 @@ static void get_period(icalcomponent *comp, icalcomponent_kind kind,
 		       sizeof(struct icaltimetype));
 
 		if (!icaltime_is_null_time(due)) {
-		    /* Has DUE */
+		    /* Has DUE (DTEND for VPOLL) */
 		    if (icaltime_compare(due, period->start) < 0)
 			memcpy(&period->start, &due, sizeof(struct icaltimetype));
 		    if (icaltime_compare(due, period->end) > 0)
@@ -586,7 +597,7 @@ static void get_period(icalcomponent *comp, icalcomponent_kind kind,
 
 	    /* No DTSTART */
 	    if (!icaltime_is_null_time(due)) {
-		/* Has DUE */
+		/* Has DUE (DTEND for VPOLL) */
 		memcpy(&period->start, &due, sizeof(struct icaltimetype));
 		memcpy(&period->end, &due, sizeof(struct icaltimetype));
 	    }
@@ -655,6 +666,8 @@ static void get_period(icalcomponent *comp, icalcomponent_kind kind,
 	}
 	break;
 
+    case ICAL_VAVAILABILITY_COMPONENT:
+	/* XXX  Probably need to do something different here */
     case ICAL_VFREEBUSY_COMPONENT:
 	if (icaltime_is_null_time(period->start) ||
 	    icaltime_is_null_time(period->end)) {
@@ -722,6 +735,10 @@ void caldav_make_entry(icalcomponent *ical, struct caldav_data *cdata)
     case ICAL_VTODO_COMPONENT: mykind = CAL_COMP_VTODO; break;
     case ICAL_VJOURNAL_COMPONENT: mykind = CAL_COMP_VJOURNAL; break;
     case ICAL_VFREEBUSY_COMPONENT: mykind = CAL_COMP_VFREEBUSY; break;
+    case ICAL_VAVAILABILITY_COMPONENT: mykind = CAL_COMP_VAVAILABILITY; break;
+#ifdef HAVE_VPOLL
+    case ICAL_VPOLL_COMPONENT: mykind = CAL_COMP_VPOLL; break;
+#endif
     default: break;
     }
     cdata->comp_type = mykind;
@@ -729,6 +746,7 @@ void caldav_make_entry(icalcomponent *ical, struct caldav_data *cdata)
     /* Get organizer */
     prop = icalcomponent_get_first_property(comp, ICAL_ORGANIZER_PROPERTY);
     if (prop) cdata->organizer = icalproperty_get_organizer(prop)+7;
+    else cdata->organizer = NULL;
 
     /* Get transparency */
     prop = icalcomponent_get_first_property(comp, ICAL_TRANSP_PROPERTY);
@@ -804,3 +822,19 @@ int caldav_mboxname(const char *name, const char *userid, char *result)
 
     return 0;
 }
+
+#else
+
+int caldav_init(void)
+{
+    return 0;
+}
+
+
+int caldav_done(void)
+{
+    return 0;
+}
+
+
+#endif /* WITH_DAV */

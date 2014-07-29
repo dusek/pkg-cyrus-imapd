@@ -8,6 +8,21 @@
 </head>
 <body>
 
+<h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta9</h1>
+<ul>
+<li>DAV DB changes now occur in the mailbox API which means
+  that replication works for calendars and addressbooks.</li>
+<li>IMAP XFER is now based on replication.</li>
+<li>Added support for free/busy query URL to CalDAV.</li>
+<li>Authentication for GET/HEAD requests is now done on-demand so that
+  free/busy queries and/or calendar subscriptions can be done
+  anonymously (subject to ACL).</li>
+<li>Added support for VAVAILABILITY, VPOLL, RSCALE to CalDAV based on
+  current drafts (requires libical from git).</li>
+<li>Updated http_timezone.c to be compliant with current draft.</li>
+<li>Numerous other CalDAV fixes/enhancements.</li>
+</ul>
+
 <h1>Changes to the Cyrus IMAP Server since 2.4.17-caldav-beta8</h1>
 <ul>
 <li>Fixed bug in parsing of Accept header (now accepts <tt>*/*</tt>

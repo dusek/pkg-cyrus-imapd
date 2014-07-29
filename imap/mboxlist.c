@@ -110,6 +110,30 @@ char *mboxlist_makeentry(int mbtype, const char *part, const char *acl)
     return mboxent;
 }
 
+const char *mboxlist_mbtype_to_string(uint32_t mbtype)
+{
+    static struct buf buf = BUF_INITIALIZER;
+
+    buf_reset(&buf);
+
+    if (mbtype & MBTYPE_DELETED)
+	buf_putc(&buf, 'd');
+    if (mbtype & MBTYPE_MOVING)
+	buf_putc(&buf, 'm');
+    if (mbtype & MBTYPE_NETNEWS)
+	buf_putc(&buf, 'n');
+    if (mbtype & MBTYPE_REMOTE)
+	buf_putc(&buf, 'r');
+    if (mbtype & MBTYPE_RESERVE)
+	buf_putc(&buf, 'z');
+    if (mbtype & MBTYPE_CALENDAR)
+	buf_putc(&buf, 'c');
+    if (mbtype & MBTYPE_ADDRESSBOOK)
+	buf_putc(&buf, 'a');
+
+    return buf_cstring(&buf);
+}
+
 /*
  * Lookup 'name' in the mailbox list.
  * The capitalization of 'name' is canonicalized to the way it appears
@@ -155,6 +179,41 @@ static int mboxlist_read(const char *name, const char **dataptr, int *datalenptr
     }
 
     /* never get here */
+}
+
+uint32_t mboxlist_string_to_mbtype(const char *string)
+{
+    uint32_t mbtype = 0;
+
+    if (!string) return 0; /* null just means default */
+
+    for (; *string; string++) {
+	switch (*string) {
+	case 'a':
+	    mbtype |= MBTYPE_ADDRESSBOOK;
+	    break;
+	case 'c':
+	    mbtype |= MBTYPE_CALENDAR;
+	    break;
+	case 'd':
+	    mbtype |= MBTYPE_DELETED;
+	    break;
+	case 'm':
+	    mbtype |= MBTYPE_MOVING;
+	    break;
+	case 'n':
+	    mbtype |= MBTYPE_NETNEWS;
+	    break;
+	case 'r':
+	    mbtype |= MBTYPE_REMOTE;
+	    break;
+	case 'z':
+	    mbtype |= MBTYPE_RESERVE;
+	    break;
+	}
+    }
+
+    return mbtype;
 }
 
 static int mboxlist_mylookup(const char *name, struct mboxlist_entry *entry,
@@ -307,7 +366,7 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 			      int RMW, int localonly, int force_user_create,
 			      struct txn **tid)
 {
-    int r;
+    int r = 0;
     struct mboxlist_entry mbentry;
     char *name = xstrdup(mboxname);
     char *mbox = name;
@@ -324,7 +383,8 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
     
     /* Check for invalid name/partition */
     if (partition && strlen(partition) > MAX_PARTITION_LEN) {
-	return IMAP_PARTITION_UNKNOWN;
+	r = IMAP_PARTITION_UNKNOWN;
+	goto done;
     }
     if (config_virtdomains && (p = strchr(name, '!'))) {
 	/* pointer to mailbox w/o domain prefix */
@@ -333,11 +393,13 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
     r = mboxname_policycheck(mbox);
     /* filthy hack to support rename pre-check semantics, which
        will go away when we refactor this code */
-    if (r && force_user_create != 1) return r;
+    if (r && force_user_create != 1) goto done;
 
     /* you must be a real admin to create a local-only mailbox */
-    if(!isadmin && localonly) return IMAP_PERMISSION_DENIED;
-    if(!isadmin && force_user_create) return IMAP_PERMISSION_DENIED;
+    if (!isadmin && (localonly || force_user_create)) {
+	r = IMAP_PERMISSION_DENIED;
+	goto done;
+    }
 
     /* User has admin rights over their own mailbox namespace */
     if (mboxname_userownsmailbox(userid, name) && strchr(mbox+5, '.') &&
@@ -357,14 +419,13 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 	    r = IMAP_PERMISSION_DENIED;
 	}
 
-	return r;       
-	break;
+	goto done;
+
     case IMAP_MAILBOX_NONEXISTENT:
 	break;
 
     default:
-	return r;
-	break;
+	goto done;
     }
 
     /* Search for a parent - stop if we hit the domain separator */
@@ -388,8 +449,7 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 	    break;
 
 	default:
-	    return r;
-	    break;
+	    goto done;
 	}
     }
 
@@ -404,7 +464,8 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 					 >= user_folder_limit) {
 		syslog(LOG_ERR, "LIMIT: refused to create %s for %s because of limit %d",
 			        mbox, userid, user_folder_limit);
-		return IMAP_PERMISSION_DENIED;
+		r = IMAP_PERMISSION_DENIED;
+		goto done;
 	    }
 	}
     }
@@ -413,7 +474,8 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 	/* check acl */
 	if (!isadmin &&
 	    !(cyrus_acl_myrights(auth_state, mbentry.acl) & ACL_CREATE)) {
-	    return IMAP_PERMISSION_DENIED;
+	    r = IMAP_PERMISSION_DENIED;
+	    goto done;
 	}
 
       	/* Copy partition, if not specified */
@@ -434,7 +496,8 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 	strncpy(name, parent, strlen(parent));
     } else { /* parentlen == 0, no parent mailbox */
 	if (!isadmin) {
-	    return IMAP_PERMISSION_DENIED;
+	    r = IMAP_PERMISSION_DENIED;
+	    goto done;
 	}
 	
 	ouracl = xstrdup("");
@@ -442,9 +505,9 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
 	    char *firstdot = strchr(mbox+5, '.');
 	    if (!force_user_create && firstdot) {
 		/* Disallow creating user.X.* when no user.X */
-		free(name);
 		free(ouracl);
-		return IMAP_PERMISSION_DENIED;
+		r = IMAP_PERMISSION_DENIED;
+		goto done;
 	    }
 
 	    /*
@@ -526,7 +589,12 @@ mboxlist_mycreatemailboxcheck(const char *mboxname,
     if (newacl) *newacl = ouracl;
     else free(ouracl);
 
-    return 0;
+    r = 0;
+
+ done:
+    free(name);
+
+    return r;
 }
 
 int
@@ -594,7 +662,7 @@ int mboxlist_createmailbox_full(const char *name, int mbtype,
 
     if (!dbonly && !isremote) {
 	/* Filesystem Operations */
-	r = mailbox_create(name, newpartition, acl, uniqueid,
+	r = mailbox_create(name, mbtype, newpartition, acl, uniqueid,
 			   options, uidvalidity, &newmailbox);
     }
 
@@ -654,17 +722,16 @@ int mboxlist_createmailbox(const char *name, int mbtype,
 				       localonly, forceuser, dbonly, NULL);
 }
 
-int mboxlist_createsync(const char *name, int mbtype,
-			const char *partition,
+int mboxlist_createsync(const char *name, int mbtype, const char *partition,
 			const char *userid, struct auth_state *auth_state,
 			int options, unsigned uidvalidity,
 			const char *acl, const char *uniqueid,
-			struct mailbox **mboxptr)
+			int local_only, struct mailbox **mboxptr)
 {
     return mboxlist_createmailbox_full(name, mbtype, partition,
 				       1, userid, auth_state,
 				       options, uidvalidity, acl, uniqueid,
-				       0, 1, 0, mboxptr);
+				       local_only, 1, 0, mboxptr);
 }
 
 /* insert an entry for the proxy */
@@ -849,7 +916,7 @@ mboxlist_delayed_deletemailbox(const char *name, int isadmin,
     /* Get mboxlist_renamemailbox to do the hard work. No ACL checks needed */
     r = mboxlist_renamemailbox((char *)name, newname, mbentry.partition,
                                1 /* isadmin */, userid,
-                               auth_state, force, 1);
+                               auth_state, 0, force, 1);
     if (r) goto out;
 
     /* Rename mailbox annotations */
@@ -989,7 +1056,7 @@ int mboxlist_deletemailbox(const char *name, int isadmin,
 int mboxlist_renamemailbox(const char *oldname, const char *newname, 
 			   const char *partition, int isadmin, 
 			   const char *userid, struct auth_state *auth_state,
-			   int forceuser, int ignorequota)
+			   int local_only, int forceuser, int ignorequota)
 {
     int r;
     long myrights;
@@ -1152,7 +1219,7 @@ int mboxlist_renamemailbox(const char *oldname, const char *newname,
 	goto done;
     }
 
-    if (config_mupdate_server) {
+    if (!local_only && config_mupdate_server) {
 	/* commit the mailbox in MUPDATE */
 	char buf[MAX_PARTITION_LEN + HOSTNAME_SIZE + 2];
 	const char *acl = newmailbox ? newmailbox->acl : oldmailbox->acl;

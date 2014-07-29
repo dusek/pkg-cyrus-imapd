@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.1 -->
-<!-- CreationDate: Mon Dec 16 16:30:57 2013 -->
+<!-- CreationDate: Tue Jul 22 16:36:21 2014 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -49,16 +49,17 @@ engine</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>sync_client</b>
-[ <b>&minus;v</b> ] [ <b>&minus;l</b> ] [ <b>&minus;z</b> ]
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;S</b>
-<i>servername</i> ] <br>
+[ <b>&minus;v</b> ] [ <b>&minus;l</b> ] [ <b>&minus;L</b> ]
+[ <b>&minus;z</b> ] [ <b>&minus;C</b> <i>config-file</i> ] [
+<b>&minus;S</b> <i>servername</i> ] <br>
 [ <b>&minus;f</b> <i>input-file</i> ] [ <b>&minus;F</b>
 <i>shutdown_file</i> ] [ <b>&minus;w</b>
 <i>wait_interval</i> ] <br>
 [ <b>&minus;t</b> <i>timeout</i> ] [ <b>&minus;d</b>
 <i>delay</i> ] [ <b>&minus;r</b> ] [ <b>&minus;u</b> ] [
 <b>&minus;m</b> ] <br>
-[ <b>&minus;s</b> ] <i>objects</i>...</p>
+[ <b>&minus;s</b> ] [ <b>&minus;p</b> <i>partition</i> ]
+<i>objects</i>...</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -102,6 +103,18 @@ system.</p>
 
 
 <p>Verbose logging mode.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;L</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Perform only local mailbox operations (do not do mupdate
+operations).</p> </td></tr>
 <tr valign="top" align="left">
 <td width="11%"></td>
 <td width="3%">
@@ -258,6 +271,13 @@ Sieve files should be replicated. Principally used for
 debugging purposes: not exposed to
 <b>sync_client(8).</b></p> </td></tr>
 </table>
+
+<p style="margin-left:11%;"><b>&minus;p</b>
+<i>partition</i></p>
+
+<p style="margin-left:22%;">In mailbox or user replication
+mode: provides the name of the partition on the replica to
+which the mailboxes/users should be replicated.</p>
 
 <h2>FILES
 <a name="FILES"></a>

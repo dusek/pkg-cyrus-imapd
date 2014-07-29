@@ -59,6 +59,7 @@
 #include "acl.h"
 #include "append.h"
 #include "carddav_db.h"
+#include "charset.h"
 #include "global.h"
 #include "hash.h"
 #include "httpd.h"
@@ -84,6 +85,8 @@
 
 static struct carddav_db *auth_carddavdb = NULL;
 
+static struct carddav_db *my_carddav_open(struct mailbox *mailbox);
+static void my_carddav_close(struct carddav_db *carddavdb);
 static void my_carddav_init(struct buf *serverinfo);
 static void my_carddav_auth(const char *userid);
 static void my_carddav_reset(void);
@@ -95,10 +98,13 @@ static int carddav_parse_path(const char *path,
 static int carddav_copy(struct transaction_t *txn,
 			struct mailbox *src_mbox, struct index_record *src_rec,
 			struct mailbox *dest_mbox, const char *dest_rsrc,
+			struct carddav_db *dest_davdb,
 			unsigned overwrite, unsigned flags);
 static int carddav_put(struct transaction_t *txn, 
 		       struct mime_type_t *mime,
-		       struct mailbox *mailbox, unsigned flags);
+		       struct mailbox *mailbox,
+		       struct carddav_db *carddavdb,
+		       unsigned flags);
 static VObject *vcard_string_as_vobject(const char *str)
 {
     return Parse_MIME(str, strlen(str));
@@ -229,26 +235,27 @@ static struct meth_params carddav_params = {
     carddav_mime_types,
     &carddav_parse_path,
     &check_precond,
-    { (void **) &auth_carddavdb,
+    { (db_open_proc_t) &my_carddav_open,
+      (db_close_proc_t) &my_carddav_close,
       (db_lookup_proc_t) &carddav_lookup_resource,
       (db_foreach_proc_t) &carddav_foreach,
       (db_write_proc_t) &carddav_write,
       (db_delete_proc_t) &carddav_delete,
       (db_delmbox_proc_t) &carddav_delmbox },
     NULL,					/* No ACL extensions */
-    &carddav_copy,
+    (copy_proc_t) &carddav_copy,
     NULL,		  	      		/* No special DELETE handling */
     { MBTYPE_ADDRESSBOOK, NULL, NULL, 0 },	/* No special MK* method */
     NULL,		  	      		/* No special POST handling */
-    { CARDDAV_SUPP_DATA, &carddav_put },
+    { CARDDAV_SUPP_DATA, (put_proc_t) &carddav_put },
     carddav_props,
-    { { "addressbook-query", &report_card_query, DACL_READ,
-	REPORT_NEED_MBOX | REPORT_MULTISTATUS },
-      { "addressbook-multiget", &report_card_multiget, DACL_READ,
-	REPORT_NEED_MBOX | REPORT_MULTISTATUS },
-      { "sync-collection", &report_sync_col, DACL_READ,
-	REPORT_NEED_MBOX | REPORT_MULTISTATUS | REPORT_NEED_PROPS },
-      { NULL, NULL, 0, 0 } }
+    { { "addressbook-query", "multistatus", &report_card_query,
+	DACL_READ, REPORT_NEED_MBOX },
+      { "addressbook-multiget", "multistatus", &report_card_multiget,
+	DACL_READ, REPORT_NEED_MBOX },
+      { "sync-collection", "multistatus", &report_sync_col,
+	DACL_READ, REPORT_NEED_MBOX | REPORT_NEED_PROPS },
+      { NULL, NULL, NULL, 0, 0 } }
 };
 
 
@@ -290,12 +297,25 @@ struct namespace_t namespace_addressbook = {
 };
 
 
-static struct namespace carddav_namespace;
-
-static void my_carddav_init(struct buf *serverinfo)
+static struct carddav_db *my_carddav_open(struct mailbox *mailbox)
 {
-    int r;
+    if (httpd_userid && mboxname_userownsmailbox(httpd_userid, mailbox->name)) {
+	return auth_carddavdb;
+    }
+    else {
+	return carddav_open(mailbox, CALDAV_CREATE);
+    }
+}
 
+
+static void my_carddav_close(struct carddav_db *carddavdb)
+{
+    if (carddavdb && (carddavdb != auth_carddavdb)) carddav_close(carddavdb);
+}
+
+
+static void my_carddav_init(struct buf *serverinfo __attribute__((unused)))
+{
     namespace_addressbook.enabled =
 	config_httpmodules & IMAP_ENUM_HTTPMODULES_CARDDAV;
 
@@ -305,18 +325,10 @@ static void my_carddav_init(struct buf *serverinfo)
 	fatal("Required 'addressbookprefix' option is not set", EC_CONFIG);
     }
 
-    /* Set namespace -- force standard (internal) */
-    if ((r = mboxname_init_namespace(&carddav_namespace, 1))) {
-	syslog(LOG_ERR, "%s", error_message(r));
-	fatal(error_message(r), EC_CONFIG);
-    }
-
     carddav_init();
 
-    if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON &&
-	!strstr(buf_cstring(serverinfo), " libical/")) {
-	buf_printf(serverinfo, " libicalvcal/%s", ICAL_VERSION);
-    }
+    namespace_principal.enabled = 1;
+    namespace_principal.allow |= ALLOW_CARD;
 }
 
 
@@ -331,6 +343,11 @@ static void my_carddav_auth(const char *userid)
     char ident[MAX_MAILBOX_NAME];
     struct buf acl = BUF_INITIALIZER;
 
+    /* Construct mailbox name corresponding to userid's Inbox */
+    (*httpd_namespace.mboxname_tointernal)(&httpd_namespace, "INBOX",
+					   userid, mailboxname);
+    len = strlen(mailboxname);
+
     if (httpd_userisadmin ||
 	global_authisa(httpd_authstate, IMAPOPT_PROXYSERVERS)) {
 	/* admin or proxy from frontend - won't have DAV database */
@@ -341,19 +358,18 @@ static void my_carddav_auth(const char *userid)
     }
     else {
 	/* Open CardDAV DB for 'userid' */
+	struct mailbox mailbox;
+
+	mailbox.name = mailboxname;
+
 	my_carddav_reset();
-	auth_carddavdb = carddav_open(userid, CARDDAV_CREATE);
+	auth_carddavdb = carddav_open(&mailbox, CARDDAV_CREATE);
 	if (!auth_carddavdb) fatal("Unable to open CardDAV DB", EC_IOERR);
     }
 
     /* Auto-provision an addressbook for 'userid' */
     strlcpy(ident, userid, sizeof(ident));
     mboxname_hiersep_toexternal(&httpd_namespace, ident, 0);
-
-    /* Construct mailbox name corresponding to userid's Inbox */
-    (*carddav_namespace.mboxname_tointernal)(&carddav_namespace, "INBOX",
-					     userid, mailboxname);
-    len = strlen(mailboxname);
 
     /* addressbook-home-set */
     len += snprintf(mailboxname+len, MAX_MAILBOX_BUFFER - len, ".%s",
@@ -379,6 +395,7 @@ static void my_carddav_auth(const char *userid)
 		}
 	    }
 	}
+	else r = 0;
 
 	/* Create locally */
 	if (!r) r = mboxlist_createmailboxcheck(mailboxname, 0, NULL, 0,
@@ -565,6 +582,7 @@ static int carddav_parse_path(const char *path,
 static int carddav_copy(struct transaction_t *txn,
 			struct mailbox *src_mbox, struct index_record *src_rec,
 			struct mailbox *dest_mbox, const char *dest_rsrc,
+			struct carddav_db *dest_davdb,
 			unsigned overwrite, unsigned flags)
 {
     int ret;
@@ -587,7 +605,7 @@ static int carddav_copy(struct transaction_t *txn,
     mailbox_unlock_index(src_mbox, NULL);
 
     /* Store source resource at destination */
-    ret = store_resource(txn, vcard, dest_mbox, dest_rsrc, auth_carddavdb,
+    ret = store_resource(txn, vcard, dest_mbox, dest_rsrc, dest_davdb,
 			 overwrite, flags);
 
     cleanVObject(vcard);
@@ -606,7 +624,9 @@ static int carddav_copy(struct transaction_t *txn,
  */
 static int carddav_put(struct transaction_t *txn, 
 		       struct mime_type_t *mime,
-		       struct mailbox *mailbox, unsigned flags)
+		       struct mailbox *mailbox,
+		       struct carddav_db *davdb,
+		       unsigned flags)
 {
     int ret;
     VObject *vcard = NULL;
@@ -621,7 +641,7 @@ static int carddav_put(struct transaction_t *txn,
 
     /* Store resource at target */
     ret = store_resource(txn, vcard, mailbox, txn->req_tgt.resource,
-			 auth_carddavdb, OVERWRITE_CHECK, flags);
+			 davdb, OVERWRITE_CHECK, flags);
 
     if (flags & PREFER_REP) {
 	struct resp_body_t *resp_body = &txn->resp_body;
@@ -781,14 +801,16 @@ int propfind_abookurl(const xmlChar *name, xmlNsPtr ns,
     xmlNodePtr node;
     const char *abook = (const char *) rock;
 
-    if (!fctx->userid) return HTTP_NOT_FOUND;
+    if (!(namespace_addressbook.enabled && fctx->req_tgt->user))
+	return HTTP_NOT_FOUND;
 
     node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 			name, ns, NULL, 0);
 
     buf_reset(&fctx->buf);
-    buf_printf(&fctx->buf, "%s/user/%s/%s", namespace_addressbook.prefix,
-	       fctx->userid, abook ? abook : "");
+    buf_printf(&fctx->buf, "%s/user/%.*s/%s", namespace_addressbook.prefix,
+	       (int) fctx->req_tgt->userlen, fctx->req_tgt->user,
+	       abook ? abook : "");
 
     xml_add_href(node, fctx->ns[NS_DAV], buf_cstring(&fctx->buf));
 
@@ -839,7 +861,9 @@ static int report_card_query(struct transaction_t *txn,
     int ret = 0;
     xmlNodePtr node;
 
-    fctx->davdb = auth_carddavdb;
+    fctx->filter_crit = (void *) 0xDEADBEEF;  /* placeholder until we filter */
+    fctx->open_db = (db_open_proc_t) &my_carddav_open;
+    fctx->close_db = (db_close_proc_t) &my_carddav_close;
     fctx->lookup_resource = (db_lookup_proc_t) &carddav_lookup_resource;
     fctx->foreach_resource = (db_foreach_proc_t) &carddav_foreach;
     fctx->proc_by_resource = &propfind_by_resource;
@@ -854,7 +878,7 @@ static int report_card_query(struct transaction_t *txn,
 	}
     }
 
-    if (fctx->depth > 0) {
+    if (fctx->depth++ > 0) {
 	/* Calendar collection(s) */
 	if (txn->req_tgt.collection) {
 	    /* Add response for target calendar collection */
@@ -868,10 +892,12 @@ static int report_card_query(struct transaction_t *txn,
 			     httpd_authstate, propfind_by_collection, fctx);
 	}
 
+	if (fctx->davdb) my_carddav_close(fctx->davdb);
+
 	ret = *fctx->ret;
     }
 
-    return ret;
+    return (ret ? ret : HTTP_MULTI_STATUS);
 }
 
 
@@ -879,13 +905,9 @@ static int report_card_multiget(struct transaction_t *txn,
 				xmlNodePtr inroot, struct propfind_ctx *fctx)
 {
     int r, ret = 0;
-    struct request_target_t tgt;
     struct mailbox *mailbox = NULL;
     xmlNodePtr node;
     struct buf uri = BUF_INITIALIZER;
-
-    memset(&tgt, 0, sizeof(struct request_target_t));
-    tgt.namespace = URL_NS_CALENDAR;
 
     /* Get props for each href */
     for (node = inroot->children; node; node = node->next) {
@@ -893,6 +915,7 @@ static int report_card_multiget(struct transaction_t *txn,
 	    !xmlStrcmp(node->name, BAD_CAST "href")) {
 	    xmlChar *href = xmlNodeListGetString(inroot->doc, node->children, 1);
 	    int len = xmlStrlen(href);
+	    struct request_target_t tgt;
 	    struct carddav_data *cdata;
 
 	    buf_ensure(&uri, len);
@@ -900,6 +923,9 @@ static int report_card_multiget(struct transaction_t *txn,
 	    xmlFree(href);
 
 	    /* Parse the path */
+	    memset(&tgt, 0, sizeof(struct request_target_t));
+	    tgt.namespace = URL_NS_CALENDAR;
+
 	    if ((r = carddav_parse_path(uri.s, &tgt, &fctx->err->desc))) {
 		ret = r;
 		goto done;
@@ -912,7 +938,8 @@ static int report_card_multiget(struct transaction_t *txn,
 		if (mailbox) mailbox_unlock_index(mailbox, NULL);
 
 		/* Open mailbox for reading */
-		if ((r = http_mailbox_open(tgt.mboxname, &mailbox, LOCK_SHARED))) {
+		r = mailbox_open_irl(tgt.mboxname, &mailbox);
+		if (r && r != IMAP_MAILBOX_NONEXISTENT) {
 		    syslog(LOG_ERR, "http_mailbox_open(%s) failed: %s",
 			   tgt.mboxname, error_message(r));
 		    txn->error.desc = error_message(r);
@@ -923,21 +950,32 @@ static int report_card_multiget(struct transaction_t *txn,
 		fctx->mailbox = mailbox;
 	    }
 
+	    if (!fctx->mailbox || !tgt.resource) {
+		/* Add response for missing target */
+		xml_add_response(fctx, HTTP_NOT_FOUND, 0);
+		continue;
+	    }
+
+	    /* Open the DAV DB corresponding to the mailbox */
+	    fctx->davdb = my_carddav_open(fctx->mailbox);
+
 	    /* Find message UID for the resource */
-	    carddav_lookup_resource(auth_carddavdb,
+	    carddav_lookup_resource(fctx->davdb,
 				   tgt.mboxname, tgt.resource, 0, &cdata);
 	    cdata->dav.resource = tgt.resource;
 	    /* XXX  Check errors */
 
 	    propfind_by_resource(fctx, cdata);
+
+	    my_carddav_close(fctx->davdb);
 	}
     }
 
   done:
-    if (mailbox) mailbox_unlock_index(mailbox, NULL);
+    mailbox_close(&mailbox);
     buf_free(&uri);
 
-    return ret;
+    return (ret ? ret : HTTP_MULTI_STATUS);
 }
 
 
@@ -953,8 +991,11 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
     struct carddav_data *cdata;
     FILE *f = NULL;
     struct stagemsg *stage;
-    const char *version = NULL, *uid = NULL, *fullname = NULL, *nickname = NULL;
+    const char *version = NULL, *uid = NULL, *fullname = NULL;
     uquota_t size;
+    char *header;
+    uint32_t expunge_uid = 0;
+    struct index_record oldrecord;
     time_t now = time(NULL);
     char datestr[80];
     struct appendstate as;
@@ -977,9 +1018,6 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 	}
 	else if (!strcmp(name, "FN")) {
 	    fullname = fakeCString(vObjectUStringZValue(prop));
-	}
-	if (!strcmp(name, "NICKNAME")) {
-	    nickname = fakeCString(vObjectUStringZValue(prop));
 	}
     }
 
@@ -1007,6 +1045,24 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 	return HTTP_FORBIDDEN;
     }
 
+    if (cdata->dav.imap_uid) {
+	/* Fetch index record for the resource */
+	r = mailbox_find_index_record(mailbox, cdata->dav.imap_uid,
+				      &oldrecord);
+
+	if (overwrite == OVERWRITE_CHECK) {
+	    /* Check any preconditions */
+	    const char *etag = message_guid_encode(&oldrecord.guid);
+	    time_t lastmod = oldrecord.internaldate;
+	    int precond = check_precond(txn, cdata, etag, lastmod);
+
+	    if (precond == HTTP_OK)
+		return HTTP_PRECOND_FAILED;
+	}
+
+	expunge_uid = oldrecord.uid;
+    }
+
     /* Prepare to stage the message */
     if (!(f = append_newstage(mailbox->name, now, 0, &stage))) {
 	syslog(LOG_ERR, "append_newstage(%s) failed", mailbox->name);
@@ -1017,9 +1073,13 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
     /* Create iMIP header for resource */
 
     /* XXX  This needs to be done via an LDAP/DB lookup */
-    fprintf(f, "From: %s <>\r\n", proxy_userid);
+    header = charset_encode_mimeheader(proxy_userid, 0);
+    fprintf(f, "From: %s <>\r\n", header);
+    free(header);
 
-    fprintf(f, "Subject: %s\r\n", fullname);
+    header = charset_encode_mimeheader(fullname, 0);
+    fprintf(f, "Subject: %s\r\n", header);
+    free(header);
 
     rfc822date_gen(datestr, sizeof(datestr), now);  /* Use REV? */
 
@@ -1075,18 +1135,13 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 	    }
 	    else {
 		/* append_commit() returns a write-locked index */
-		struct index_record newrecord, oldrecord, *expunge;
+		struct index_record newrecord;
 
 		/* Read index record for new message (always the last one) */
 		mailbox_read_index_record(mailbox, mailbox->i.num_records,
 					  &newrecord);
 
-		/* Find message UID for the current resource, if exists */
-		carddav_lookup_resource(carddavdb,
-				       mailbox->name, resource, 1, &cdata);
-		/* XXX  check for errors */
-
-		if (cdata->dav.imap_uid) {
+		if (expunge_uid) {
 		    /* Now that we have the replacement message in place
 		       and the mailbox locked, re-read the old record
 		       and see if we should overwrite it.  Either way,
@@ -1096,35 +1151,12 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 
 		    ret = HTTP_NO_CONTENT;
 
-		    /* Fetch index record for the resource */
-		    r = mailbox_find_index_record(mailbox, cdata->dav.imap_uid,
-						  &oldrecord);
-
-		    if (overwrite == OVERWRITE_CHECK) {
-			/* Check any preconditions */
-			const char *etag = message_guid_encode(&oldrecord.guid);
-			time_t lastmod = oldrecord.internaldate;
-			int precond = check_precond(txn, cdata, etag, lastmod);
-
-			overwrite = (precond == HTTP_OK);
-		    }
-
-		    if (overwrite) {
-			/* Keep new resource - expunge the old one */
-			expunge = &oldrecord;
-		    }
-		    else {
-			/* Keep old resource - expunge the new one */
-			expunge = &newrecord;
-			ret = HTTP_PRECOND_FAILED;
-		    }
-
 		    /* Perform the actual expunge */
 		    r = mailbox_user_flag(mailbox, DFLAG_UNBIND,  &userflag);
 		    if (!r) {
-			expunge->user_flags[userflag/32] |= 1<<(userflag&31);
-			expunge->system_flags |= FLAG_EXPUNGED | FLAG_UNLINKED;
-			r = mailbox_rewrite_index_record(mailbox, expunge);
+			oldrecord.user_flags[userflag/32] |= 1<<(userflag&31);
+			oldrecord.system_flags |= FLAG_EXPUNGED | FLAG_UNLINKED;
+			r = mailbox_rewrite_index_record(mailbox, &oldrecord);
 		    }
 		    if (r) {
 			syslog(LOG_ERR, "expunging record (%s) failed: %s",
@@ -1136,19 +1168,6 @@ static int store_resource(struct transaction_t *txn, VObject *vcard,
 
 		if (!r) {
 		    struct resp_body_t *resp_body = &txn->resp_body;
-
-		    /* Create mapping entry from resource name to UID */
-		    cdata->dav.mailbox = mailbox->name;
-		    cdata->dav.resource = resource;
-		    cdata->dav.imap_uid = newrecord.uid;
-		    cdata->vcard_uid = uid;
-		    cdata->fullname = fullname;
-		    cdata->nickname = nickname;
-
-		    if (!cdata->dav.creationdate) cdata->dav.creationdate = now;
-
-		    carddav_write(carddavdb, cdata, 1);
-		    /* XXX  check for errors, if this fails, backout changes */
 
 		    /* Tell client about the new resource */
 		    resp_body->lastmod = newrecord.internaldate;

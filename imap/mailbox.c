@@ -73,6 +73,8 @@
 
 #include "acl.h"
 #include "assert.h"
+#include "caldav_db.h"
+#include "carddav_db.h"
 #include "crc32.h"
 #include "exitcodes.h"
 #include "global.h"
@@ -717,7 +719,7 @@ void mailbox_make_uniqueid(struct mailbox *mailbox)
 	hash %= PRIME;
     }
 
-    free(mailbox->uniqueid);
+    if (mailbox->uniqueid) free(mailbox->uniqueid);
     mailbox->uniqueid = xmalloc(32);
 
     snprintf(mailbox->uniqueid, 32, "%08x%08x",
@@ -1117,6 +1119,7 @@ int mailbox_read_header(struct mailbox *mailbox, char **aclptr)
 	mailbox->quotaroot = xstrndup(p, tab - p);
     }
 
+    if (mailbox->uniqueid) free(mailbox->uniqueid);
     if (oldformat) {
 	/* uniqueid needs to be generated when we know the uidvalidity */
 	mailbox->uniqueid = NULL;
@@ -2048,6 +2051,249 @@ int mailbox_index_recalc(struct mailbox *mailbox)
 	mailbox_index_update_counts(mailbox, &record, 1);
     }
 
+    return r;
+}
+
+#ifdef WITH_DAV
+static int mailbox_update_carddav(struct mailbox *mailbox,
+				 struct index_record *old,
+				 struct index_record *new)
+{
+    struct carddav_db *carddavdb = NULL;
+    struct param *param;
+    struct body *body = NULL;
+    struct carddav_data *cdata = NULL;
+    const char *resource = NULL;
+    int r = 0;
+
+    /* conditions in which there's nothing to do */
+    if (!new) goto done;
+
+    /* phantom record - never really existed here */
+    if (!old && (new->system_flags & FLAG_EXPUNGED))
+	goto done;
+
+    r = mailbox_cacherecord(mailbox, new);
+    if (r) goto done;
+
+    /* Get resource URL from filename param in Content-Disposition header */
+    message_read_bodystructure(new, &body);
+    for (param = body->disposition_params; param; param = param->next) {
+        if (!strcmp(param->attribute, "FILENAME")) {
+            resource = param->value;
+        }
+    }
+
+    carddavdb = carddav_open(mailbox, 0);
+
+    /* Find existing record for this resource */
+    carddav_lookup_resource(carddavdb, mailbox->name, resource, 1, &cdata);
+
+    /* XXX - if not matching by UID, skip - this record doesn't refer to the current item */
+
+    if (new->system_flags & FLAG_EXPUNGED) {
+	/* is there an existing record? */
+	if (!cdata) goto done;
+
+	/* does it still come from this UID? */
+	if (cdata->dav.imap_uid != new->uid) goto done;
+
+	/* delete entry */
+	r = carddav_delete(carddavdb, cdata->dav.rowid, 0);
+    }
+    else {
+	const char *uid = NULL, *fullname = NULL, *nickname = NULL;
+	VObjectIterator i;
+	const char *msg_base = NULL;
+	size_t msg_size = 0;
+	VObject *vcard;
+
+	/* already seen this message, so do we update it?  No */
+	if (old) goto done;
+
+	/* Load message containing the resource and parse vcard data */
+	r = mailbox_map_message(mailbox, new->uid, &msg_base, &msg_size);
+	if (r) goto done;
+
+	vcard = Parse_MIME(msg_base + new->header_size,
+			   new->size - new->header_size);
+	mailbox_unmap_message(mailbox, new->uid, &msg_base, &msg_size);
+	if (!vcard) goto done;
+
+	initPropIterator(&i, vcard);
+	while (moreIteration(&i)) {
+	    VObject *prop = nextVObject(&i);
+	    const char *name = vObjectName(prop);
+
+	    if (!strcmp(name, "UID")) {
+		uid = fakeCString(vObjectUStringZValue(prop));
+	    }
+	    else if (!strcmp(name, "FN")) {
+		fullname = fakeCString(vObjectUStringZValue(prop));
+	    }
+	    if (!strcmp(name, "NICKNAME")) {
+		nickname = fakeCString(vObjectUStringZValue(prop));
+	    }
+	}
+
+	/* Create mapping entry from resource name to UID */
+	cdata->dav.mailbox = mailbox->name;
+	cdata->dav.resource = resource;
+	cdata->dav.imap_uid = new->uid;
+	cdata->vcard_uid = uid;
+	cdata->fullname = fullname;
+	cdata->nickname = nickname;
+
+	if (!cdata->dav.creationdate)
+	    cdata->dav.creationdate = new->internaldate;
+
+	r = carddav_write(carddavdb, cdata, 0);
+    }
+
+done:
+    if (carddavdb) {
+	carddav_commit(carddavdb);
+	carddav_close(carddavdb);
+    }
+
+    return r;
+}
+
+static int mailbox_update_caldav(struct mailbox *mailbox,
+				 struct index_record *old,
+				 struct index_record *new)
+{
+    struct caldav_db *caldavdb = NULL;
+    struct param *param;
+    struct body *body = NULL;
+    struct caldav_data *cdata = NULL;
+    const char *resource = NULL;
+    const char *sched_tag = NULL;
+    int r = 0;
+
+    /* conditions in which there's nothing to do */
+    if (!new) goto done;
+
+    /* phantom record - never really existed here */
+    if (!old && (new->system_flags & FLAG_EXPUNGED))
+	goto done;
+
+    r = mailbox_cacherecord(mailbox, new);
+    if (r) goto done;
+
+    /* Get resource URL from filename param in Content-Disposition header */
+    message_read_bodystructure(new, &body);
+    for (param = body->disposition_params; param; param = param->next) {
+        if (!strcmp(param->attribute, "FILENAME")) {
+            resource = param->value;
+        }
+        else if (!strcmp(param->attribute, "SCHEDULE-TAG")) {
+            sched_tag = param->value;
+        }
+    }
+
+    caldavdb = caldav_open(mailbox, 0);
+
+    /* Find existing record for this resource */
+    caldav_lookup_resource(caldavdb, mailbox->name, resource, 1, &cdata);
+
+    /* XXX - if not matching by UID, skip - this record doesn't refer to the current item */
+
+    if (new->system_flags & FLAG_EXPUNGED) {
+	/* is there an existing record? */
+	if (!cdata) goto done;
+
+	/* does it still come from this UID? */
+	if (cdata->dav.imap_uid != new->uid) goto done;
+
+	/* delete entry */
+	r = caldav_delete(caldavdb, cdata->dav.rowid, 0);
+    }
+    else {
+	const char *msg_base = NULL;
+	size_t msg_size = 0;
+	icalcomponent *ical = NULL;
+
+	/* already seen this message, so do we update it?  No */
+	if (old) goto done;
+
+	/* Load message containing the resource and parse iCal data */
+	r = mailbox_map_message(mailbox, new->uid, &msg_base, &msg_size);
+	if (r) goto done;
+
+	ical = icalparser_parse_string(msg_base + new->header_size);
+	mailbox_unmap_message(mailbox, new->uid, &msg_base, &msg_size);
+	if (!ical) goto done;
+
+	cdata->dav.creationdate = new->internaldate;
+	cdata->dav.mailbox = mailbox->name;
+	cdata->dav.imap_uid = new->uid;
+	cdata->dav.resource = resource;
+	cdata->sched_tag = sched_tag;
+
+	caldav_make_entry(ical, cdata);
+
+	r = caldav_write(caldavdb, cdata, 0);
+
+        icalcomponent_free(ical);
+    }
+
+done:
+    message_free_body(body);
+    free(body);
+
+    if (caldavdb) {
+	caldav_commit(caldavdb);
+	caldav_close(caldavdb);
+    }
+
+    return r;
+}
+#else
+static int
+mailbox_update_carddav(struct mailbox *mailbox __attribute__((unused)),
+		       struct index_record *old __attribute__((unused)),
+		       struct index_record *new __attribute__((unused)))
+{
+    return 0;
+}
+
+static int
+mailbox_update_caldav(struct mailbox *mailbox __attribute__((unused)),
+		      struct index_record *old __attribute__((unused)),
+		      struct index_record *new __attribute__((unused)))
+{
+    return 0;
+}
+#endif /* WITH_DAV */
+
+/* NOTE: maybe make this able to return error codes if we have
+ * support for transactional mailbox updates later.  For now,
+ * we expect callers to have already done all sanity checking */
+static int mailbox_update_indexes(struct mailbox *mailbox,
+				  struct index_record *old,
+				  struct index_record *new)
+{
+    const char *userid = mboxname_to_userid(mailbox->name);
+    int r = 0;
+
+    if (old)
+	mailbox_index_update_counts(mailbox, old, 0);
+    if (new)
+	mailbox_index_update_counts(mailbox, new, 1);
+
+    if (!userid) return 0;
+
+    if (mailbox->mbtype & MBTYPE_CALENDAR) {
+	r = mailbox_update_caldav(mailbox, old, new);
+	if (r) return r;
+    }
+
+    if (mailbox->mbtype & MBTYPE_ADDRESSBOOK) {
+	r = mailbox_update_carddav(mailbox, old, new);
+	if (r) return r;
+    }
+
     return 0;
 }
 
@@ -2121,8 +2367,7 @@ int mailbox_rewrite_index_record(struct mailbox *mailbox,
     /* remove the counts for the old copy, and add them for
      * the new copy */
 
-    mailbox_index_update_counts(mailbox, &oldrecord, 0);
-    mailbox_index_update_counts(mailbox, record, 1);
+    mailbox_update_indexes(mailbox, &oldrecord, record);
 
     mailbox_index_record_to_buf(record, buf);
 
@@ -2234,10 +2479,10 @@ int mailbox_append_index_record(struct mailbox *mailbox,
     }
 
     /* add counts */
-    mailbox_index_update_counts(mailbox, record, 1);
+    mailbox_update_indexes(mailbox, NULL, record);
 
     mailbox_index_record_to_buf(record, buf);
-    
+
     recno = mailbox->i.num_records + 1;
 
     offset = mailbox->i.start_offset +
@@ -2689,6 +2934,7 @@ int mailbox_internal_seen(struct mailbox *mailbox, const char *userid)
 /* returns a mailbox locked in MAILBOX EXCLUSIVE mode, so you
  * don't need to lock the index file to work with it :) */
 int mailbox_create(const char *name,
+		   uint32_t mbtype,
 		   const char *part,
 		   const char *acl,
 		   const char *uniqueid,
@@ -2721,6 +2967,7 @@ int mailbox_create(const char *name,
 
     mailbox->part = xstrdup(part);
     mailbox->acl = xstrdup(acl);
+    mailbox->mbtype = mbtype;
 
     hasquota = quota_findroot(quotaroot, sizeof(quotaroot), name);
 
@@ -3114,9 +3361,8 @@ int mailbox_rename_copy(struct mailbox *oldmailbox,
     assert(mailbox_index_islocked(oldmailbox, 1));
 
     /* Create new mailbox */
-    r = mailbox_create(newname, newpartition,
-		       oldmailbox->acl, NULL,
-		       oldmailbox->i.options,
+    r = mailbox_create(newname, oldmailbox->mbtype, newpartition,
+		       oldmailbox->acl, NULL, oldmailbox->i.options,
 		       time(0), &newmailbox);
 
     if (r) return r;
@@ -3522,6 +3768,7 @@ static int mailbox_reconstruct_create(const char *name, struct mailbox **mbptr)
 
     mailbox->part = xstrdup(mbentry.partition);
     mailbox->acl = xstrdup(mbentry.acl);
+    mailbox->mbtype = mbentry.mbtype;
  
     /* Attempt to open index */
     r = mailbox_open_index(mailbox);
@@ -3532,8 +3779,8 @@ static int mailbox_reconstruct_create(const char *name, struct mailbox **mbptr)
 	/* no cyrus.index file at all - well, we're in a pickle!
          * no point trying to rescue anything else... */
 	mailbox_close(&mailbox);
-	return mailbox_create(name, mbentry.partition, mbentry.acl,
-			      NULL, options, time(0), mbptr);
+	return mailbox_create(name, mbentry.mbtype, mbentry.partition,
+			      mbentry.acl, NULL, options, time(0), mbptr);
     }
 
     /* read header, if it is not there, we need to create it */

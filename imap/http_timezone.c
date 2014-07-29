@@ -1,6 +1,6 @@
 /* http_timezone.c -- Routines for handling timezone service requests in httpd
  *
- * Copyright (c) 1994-2013 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1994-2014 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,6 @@
 /*
  * TODO:
  * - Implement localized names and "lang" parameter
- * - Implement action=find with sub-string match anywhere (not just prefix)?
  */
 
 #include <config.h>
@@ -66,6 +65,7 @@
 #include "jcal.h"
 #include "map.h"
 #include "tok.h"
+#include "tz_err.h"
 #include "util.h"
 #include "version.h"
 #include "xcal.h"
@@ -79,17 +79,13 @@ static time_t compile_time;
 static void timezone_init(struct buf *serverinfo);
 static void timezone_shutdown(void);
 static int meth_get(struct transaction_t *txn, void *params);
-static int action_capa(struct transaction_t *txn, struct hash_table *params);
-static int action_list(struct transaction_t *txn, struct hash_table *params);
-static int action_get(struct transaction_t *txn, struct hash_table *params);
-static int action_get_all(struct transaction_t *txn,
-			  struct mime_type_t *mime, icaltimetype *truncate);
-static int action_expand(struct transaction_t *txn, struct hash_table *params);
+static int action_capa(struct transaction_t *txn);
+static int action_list(struct transaction_t *txn);
+static int action_get(struct transaction_t *txn);
+static int action_expand(struct transaction_t *txn);
 static int json_response(int code, struct transaction_t *txn, json_t *root,
 			 char **resp);
-static int json_error_response(struct transaction_t *txn, const char *err);
-static const char *begin_ical(struct buf *buf);
-static void end_ical(struct buf *buf);
+static int json_error_response(struct transaction_t *txn, long code);
 
 struct observance {
     const char *name;
@@ -101,7 +97,7 @@ struct observance {
 
 static const struct action_t {
     const char *name;
-    int (*proc)(struct transaction_t *txn, struct hash_table *params);
+    int (*proc)(struct transaction_t *txn);
 } actions[] = {
     { "capabilities",	&action_capa },
     { "list",		&action_list },
@@ -116,15 +112,15 @@ static struct mime_type_t tz_mime_types[] = {
     /* First item MUST be the default type and storage format */
     { "text/calendar; charset=utf-8", "2.0", "ics", "ifb",
       (char* (*)(void *)) &icalcomponent_as_ical_string_r,
-      NULL, NULL, &begin_ical, &end_ical
+      NULL, NULL, NULL, NULL
     },
     { "application/calendar+xml; charset=utf-8", NULL, "xcs", "xfb",
       (char* (*)(void *)) &icalcomponent_as_xcal_string,
-      NULL, NULL, &begin_xcal, &end_xcal
+      NULL, NULL, NULL, NULL
     },
     { "application/calendar+json; charset=utf-8", NULL, "jcs", "jfb",
       (char* (*)(void *)) &icalcomponent_as_jcal_string,
-      NULL, NULL, &begin_jcal, &end_jcal
+      NULL, NULL, NULL, NULL
     },
     { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -145,7 +141,7 @@ struct namespace_t namespace_timezone = {
 	{ NULL,			NULL },			/* MKCOL	*/
 	{ NULL,			NULL },			/* MOVE		*/
 	{ &meth_options,	NULL },			/* OPTIONS	*/
-	{ NULL,			NULL },			/* POST		*/
+	{ &meth_get,		NULL },			/* POST	*/
 	{ NULL,			NULL },			/* PROPFIND	*/
 	{ NULL,			NULL },			/* PROPPATCH	*/
 	{ NULL,			NULL },			/* PUT		*/
@@ -156,7 +152,7 @@ struct namespace_t namespace_timezone = {
 };
 
 
-static void timezone_init(struct buf *serverinfo)
+static void timezone_init(struct buf *serverinfo __attribute__((unused)))
 {
     namespace_timezone.enabled =
 	config_httpmodules & IMAP_ENUM_HTTPMODULES_TIMEZONE;
@@ -169,12 +165,9 @@ static void timezone_init(struct buf *serverinfo)
 	return;
     }
 
-    if (config_serverinfo == IMAP_ENUM_SERVERINFO_ON &&
-	!strstr(buf_cstring(serverinfo), " Jansson/")) {
-	buf_printf(serverinfo, " Jansson/%s", JANSSON_VERSION);
-    }
-
     compile_time = calc_compile_time(__TIME__, __DATE__);
+
+    initialize_tz_error_table();
 }
 
 
@@ -189,43 +182,23 @@ static int meth_get(struct transaction_t *txn,
 		    void *params __attribute__((unused)))
 {
     int ret;
-    tok_t tok;
-    char *param;
     struct strlist *action;
-    struct hash_table query_params;
     const struct action_t *ap = NULL;
 
-    /* Parse the query string and add param/value pairs to hash table */
-    construct_hash_table(&query_params, 10, 1);
-    tok_initm(&tok, URI_QUERY(txn->req_uri), "&=", TOK_TRIMLEFT|TOK_TRIMRIGHT);
-    while ((param = tok_next(&tok))) {
-	struct strlist *vals;
-	char *value = tok_next(&tok);
-	if (!value) break;
-
-	vals = hash_lookup(param, &query_params);
-	appendstrlist(&vals, value);
-	hash_insert(param, vals, &query_params);
-    }
-    tok_fini(&tok);
-
-    action = hash_lookup("action", &query_params);
+    action = hash_lookup("action", &txn->req_qparams);
     if (action && !action->next  /* mandatory, once only */) {
 	for (ap = actions; ap->name && strcmp(action->s, ap->name); ap++);
     }
 
-    if (!ap || !ap->name) ret = json_error_response(txn, "invalid-action");
-    else ret = ap->proc(txn, &query_params);
-
-    free_hash_table(&query_params, (void (*)(void *)) &freestrlist);
+    if (!ap || !ap->name) ret = json_error_response(txn, TZ_INVALID_ACTION);
+    else ret = ap->proc(txn);
 
     return ret;
 }
 
 
 /* Perform a capabilities action */
-static int action_capa(struct transaction_t *txn,
-		       struct hash_table *params __attribute__((unused)))
+static int action_capa(struct transaction_t *txn)
 {
     int precond;
     struct message_guid guid;
@@ -274,29 +247,28 @@ static int action_capa(struct transaction_t *txn,
 	root = json_pack("{s:i"				/* version */
 			 "  s:{s:s s:{s:b s:b} s:[]}"	/* info */
 			 "  s:["			/* actions */
-			 "    {s:s s:[]}"		/* capabilities */
-			 "    {s:s s:["			/* list */
-//			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
+			 "    {s:s s:[]}"		/*   capabilities */
+			 "    {s:s s:["			/*   list */
+//			 "      {s:s s:b s:b}"		/*     lang */
+			 "      {s:s s:b s:b}"		/*     tzid */
+			 "      {s:s s:b s:b}"		/*     changedsince */
 			 "    ]}"
-			 "    {s:s s:["			/* get */
-//			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b s:[s s s]}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b s:[b b]}"
+			 "    {s:s s:["			/*   get */
+//			 "      {s:s s:b s:b}"		/*     lang */
+			 "      {s:s s:b s:b}"		/*     tzid */
+			 "      {s:s s:b s:b s:[s s s]}"/*     format */
+			 "      {s:s s:b s:b}"		/*     truncate */
 			 "    ]}"
-			 "    {s:s s:["			/* expand */
-//			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
+			 "    {s:s s:["			/*   expand */
+//			 "      {s:s s:b s:b}"		/*     lang */
+			 "      {s:s s:b s:b}"		/*     tzid */
+			 "      {s:s s:b s:b}"		/*     changedsince */
+			 "      {s:s s:b s:b}"		/*     start */
+			 "      {s:s s:b s:b}"		/*     end */
 			 "    ]}"
-			 "    {s:s s:["			/* find */
-//			 "      {s:s s:b s:b}"
-			 "      {s:s s:b s:b}"
+			 "    {s:s s:["			/*   find */
+//			 "      {s:s s:b s:b}"		/*     lang */
+			 "      {s:s s:b s:b}"		/*     name */
 			 "    ]}"
 			 "  ]}",
 			 "version", 1,
@@ -317,8 +289,6 @@ static int action_capa(struct transaction_t *txn,
 			 "values", "text/calendar", "application/calendar+xml",
 			 "application/calendar+json",
 			 "name", "truncate", "required", 0, "multi", 0,
-			 "name", "substitute-alias", "required", 0, "multi", 0,
-			 "values", 1, 0,
 
 			 "name", "expand", "parameters",
 //			 "name", "lang", "required", 0, "multi", 1,
@@ -345,18 +315,28 @@ static int action_capa(struct transaction_t *txn,
     return json_response(precond, txn, root, &resp);
 }
 
+struct list_rock {
+    json_t *tzarray;
+    struct hash_table *tztable;
+};
 
 static int list_cb(const char *tzid, int tzidlen,
 		   struct zoneinfo *zi, void *rock)
 {
-    json_t *tzarray = (json_t *) rock, *tz;
+    struct list_rock *lrock = (struct list_rock *) rock;
     char tzidbuf[200], lastmod[21];
+    json_t *tz;
+
+    if (lrock->tztable) {
+	if (hash_lookup(tzid, lrock->tztable)) return 0;
+	hash_insert(tzid, (void *) 0xDEADBEEF, lrock->tztable);
+    }
 
     strlcpy(tzidbuf, tzid, tzidlen+1);
     rfc3339date_gen(lastmod, sizeof(lastmod), zi->dtstamp);
 
     tz = json_pack("{s:s s:s}", "tzid", tzidbuf, "last-modified", lastmod);
-    json_array_append_new(tzarray, tz);
+    json_array_append_new(lrock->tzarray, tz);
 
     if (zi->data) {
 	struct strlist *sl;
@@ -373,7 +353,7 @@ static int list_cb(const char *tzid, int tzidlen,
 
 
 /* Perform a list action */
-static int action_list(struct transaction_t *txn, struct hash_table *params)
+static int action_list(struct transaction_t *txn)
 {
     int r, precond, tzid_only = 1;
     struct strlist *param, *name = NULL;
@@ -383,25 +363,25 @@ static int action_list(struct transaction_t *txn, struct hash_table *params)
     json_t *root = NULL;
 
     /* Sanity check the parameters */
-    param = hash_lookup("action", params);
+    param = hash_lookup("action", &txn->req_qparams);
     if (!strcmp("find", param->s)) {
-	name = hash_lookup("name", params);
+	name = hash_lookup("name", &txn->req_qparams);
 	if (!name || name->next  /* mandatory, once only */) {
-	    return json_error_response(txn, "invalid-name");
+	    return json_error_response(txn, TZ_INVALID_NAME);
 	}
 	tzid_only = 0;
     }
     else {
-	param = hash_lookup("changedsince", params);
+	param = hash_lookup("changedsince", &txn->req_qparams);
 	if (param) {
 	    changedsince = icaltime_as_timet(icaltime_from_string(param->s));
 	    if (!changedsince || param->next  /* once only */)
-		return json_error_response(txn, "invalid-changedsince");
+		return json_error_response(txn, TZ_INVALID_CHANGEDSINCE);
 	}
 
-	name = hash_lookup("tzid", params);
+	name = hash_lookup("tzid", &txn->req_qparams);
 	if (name) {
-	    if (changedsince) return json_error_response(txn, "invalid-tzid");
+	    if (changedsince) return json_error_response(txn, TZ_INVALID_TZID);
 	    else {
 		/* Check for tzid=*, and revert to empty list */
 		struct strlist *sl;
@@ -445,7 +425,9 @@ static int action_list(struct transaction_t *txn, struct hash_table *params)
     }
 
 
-    if (txn->meth == METH_GET) {
+    if (txn->meth != METH_HEAD) {
+	struct list_rock lrock = { NULL, NULL };
+	struct hash_table tzids;
 	char dtstamp[21];
 
 	/* Start constructing our response */
@@ -456,11 +438,19 @@ static int action_list(struct transaction_t *txn, struct hash_table *params)
 	    return HTTP_SERVER_ERROR;
 	}
 
+	lrock.tzarray = json_object_get(root, "timezones");
+	if (!tzid_only) {
+	    construct_hash_table(&tzids, 500, 1);
+	    lrock.tztable = &tzids;
+	}
+
 	/* Add timezones to array */
 	do {
 	    zoneinfo_find(name ? name->s : NULL, tzid_only, changedsince,
-			  &list_cb, json_object_get(root, "timezones"));
+			  &list_cb, &lrock);
 	} while (name && (name = name->next));
+
+	if (!tzid_only) free_hash_table(&tzids, NULL);
     }
 
     /* Output the JSON object */
@@ -493,8 +483,10 @@ static int rdate_compare(const void *rdate1, const void *rdate2)
 			    ((struct rdate *) rdate2)->date.time);
 }
 
-static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
+static void expand_vtimezone(icalcomponent *vtz, icalarray *obsarray,
+			     icaltimetype start, icaltimetype end)
 {
+    int truncate = !obsarray;
     icalcomponent *comp, *nextc;
     struct observance tombstone;
 
@@ -504,7 +496,8 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
     for (comp = icalcomponent_get_first_component(vtz, ICAL_ANY_COMPONENT);
 	 comp; comp = nextc) {
 	icalproperty *prop, *dtstart_prop = NULL, *rrule_prop = NULL;
-	icalarray *rdate_array = icalarray_new(sizeof(struct rdate), 20);
+	icalarray *rdate_array = icalarray_new(sizeof(struct rdate), 10);
+	icaltimetype dtstart;
 	struct observance obs;
 	unsigned n;
 	int r;
@@ -526,7 +519,7 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
 
 	    case ICAL_DTSTART_PROPERTY:
 		dtstart_prop = prop;
-		obs.onset = icalproperty_get_dtstart(prop);
+		obs.onset = dtstart = icalproperty_get_dtstart(prop);
 		break;
 
 	    case ICAL_TZOFFSETFROM_PROPERTY:
@@ -555,23 +548,47 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
 	}
 
 	/* We MUST have DTSTART, TZNAME, TZOFFSETFROM, and TZOFFSETTO */
-	if (!dtstart_prop || !obs.name || !obs.offset_from || !obs.offset_to)
-	    continue;
-
-	r = icaltime_compare(obs.onset, *truncate);
-	if (r <= 0) {
-	    /* Check DTSTART vs tombstone */
-	    check_tombstone(&tombstone, &obs, NULL);
-	}
-
-	if (r >= 0) {
-	    /* All observances occur on or after our cutoff, nothing to do */
+	if (!dtstart_prop || !obs.name || !obs.offset_from || !obs.offset_to) {
 	    icalarray_free(rdate_array);
 	    continue;
 	}
 
-	/* Check RRULE */
+	/* Check DTSTART vs window close */
+	if (icaltime_compare(obs.onset, end) >= 0) {
+	    /* All observances occur on/after window close, nothing to do */
+	    icalarray_free(rdate_array);
+	    continue;
+	}
+
+	/* Check DTSTART vs window open */
+	r = icaltime_compare(obs.onset, start);
+	if (r <= 0) {
+	    /* DTSTART is on/prior to our window open - check it vs tombstone */
+	    check_tombstone(&tombstone, &obs, NULL);
+	}
+
+	if (r >= 0) {
+	    /* DTSTART is on/after our window open */
+	    if (truncate) {
+		/* All observances occur on/after window open - nothing to do */
+		icalarray_free(rdate_array);
+		continue;
+	    }
+	    else if (!rrule_prop) {
+		/* Add the DTSTART observance to our array */
+		icalarray_append(obsarray, &obs);
+	    }
+	}
+	else if (rrule_prop) {
+	    /* RRULE starts prior to our window open - 
+	       bump RRULE start to 1 year prior to our window open */
+	    obs.onset.year = start.year - 1;
+	    obs.onset.month = start.month;
+	    obs.onset.day = start.day;
+	}
+
 	if (rrule_prop) {
+	    /* Add any RRULE observances within our window */
 	    struct icalrecurrencetype rrule;
 
 	    rrule = icalproperty_get_rrule(rrule_prop);
@@ -584,10 +601,13 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
 		    rrule.until.is_utc = 0;
 		}
 
-		if (icaltime_compare(rrule.until, *truncate) < 0) {
-		    /* RRULE ends prior to our cutoff - remove it */
-		    icalcomponent_remove_property(comp, rrule_prop);
-		    icalproperty_free(rrule_prop);
+		if (icaltime_compare(rrule.until, start) < 0) {
+		    /* RRULE ends prior to our window open */
+		    if (truncate) {
+			/* Remove RRULE */
+			icalcomponent_remove_property(comp, rrule_prop);
+			icalproperty_free(rrule_prop);
+		    }
 		    rrule_prop = NULL;
 
 		    /* Check UNTIL vs tombstone */
@@ -598,22 +618,37 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
 	    if (rrule_prop) {
 		icalrecur_iterator *ritr;
 
-		/* Set iterator to start 1 year prior to our cutoff */
-		obs.onset.year = truncate->year - 1;
-		obs.onset.month = truncate->month;
-		obs.onset.day = truncate->day;
-
 		ritr = icalrecur_iterator_new(rrule, obs.onset);
+		while (!icaltime_is_null_time(obs.onset =
+					      icalrecur_iterator_next(ritr))) {
 
-		/* Check last recurrence prior to our cutoff vs tombstone */
-		obs.onset = icalrecur_iterator_next(ritr);
-		check_tombstone(&tombstone, &obs, NULL);
+		    if (icaltime_compare(obs.onset, end) >= 0) {
+			/* Observance is on/after window close - we're done */
+			break;
+		    }
 
-		/* Use first recurrence after our cutoff as new DTSTART */
-		obs.onset = icalrecur_iterator_next(ritr);
-		icalproperty_set_dtstart(dtstart_prop, obs.onset);
-		dtstart_prop = NULL;
+		    /* Check observance vs our window open */
+		    r = icaltime_compare(obs.onset, start);
+		    if (r <= 0) {
+			/* Observance is on/prior to our window open -
+			   check it vs tombstone */
+			check_tombstone(&tombstone, &obs, NULL);
+		    }
 
+		    if (r >= 0) {
+			/* Observance is on/after our window open */
+			if (truncate && dtstart_prop) {
+			    /* Make first observance the new DTSTART */
+			    icalproperty_set_dtstart(dtstart_prop, obs.onset);
+			    dtstart_prop = NULL;
+			    break;
+			}
+			else {
+			    /* Add the observance to our array */
+			    icalarray_append(obsarray, &obs);
+			}
+		    }
+		}
 		icalrecur_iterator_free(ritr);
 	    }
 	}
@@ -625,57 +660,100 @@ static void truncate_vtimezone(icalcomponent *vtz, icaltimetype *truncate)
 	for (n = 0; n < rdate_array->num_elements; n++) {
 	    struct rdate *rdate = icalarray_element_at(rdate_array, n);
 
-	    r = icaltime_compare(rdate->date.time, *truncate);
+	    obs.onset = rdate->date.time;
+	    if (icaltime_compare(obs.onset, end) >= 0) {
+		/* RDATE is after our window close - we're done */
+		break;
+	    }
+
+	    r = icaltime_compare(obs.onset, start);
 	    if (r <= 0) {
-		/* Check RDATE vs tombstone */
+		/* RDATE is on/prior to window open - check it vs tombstone */
 		check_tombstone(&tombstone, &obs, &rdate->date.time);
 	    }
 
-	    if (r < 0) {
-		/* RDATE occurs prior to our cutoff - remove it */
+	    if (r >= 0) {
+		/* RDATE is on/after our window open */
+		if (truncate) {
+		    if (dtstart_prop) {
+			/* Make this RDATE the new DTSTART */
+			icalproperty_set_dtstart(dtstart_prop, rdate->date.time);
+			dtstart_prop = NULL;
+
+			icalcomponent_remove_property(comp, rdate->prop);
+			icalproperty_free(rdate->prop);
+		    }
+		    break;
+		}
+		else if (icaltime_compare(obs.onset, dtstart) != 0) {
+		    /* RDATE != DTSTART - add observance to our array */
+		    icalarray_append(obsarray, &obs);
+		}
+	    }
+	    else if (truncate) {
+		/* RDATE is prior to our window open - remove it */
 		icalcomponent_remove_property(comp, rdate->prop);
 		icalproperty_free(rdate->prop);
-	    }
-	    else {
-		if (dtstart_prop) {
-		    /* Make this RDATE the new DTSTART */
-		    icalproperty_set_dtstart(dtstart_prop, rdate->date.time);
-		    dtstart_prop = NULL;
-
-		    icalcomponent_remove_property(comp, rdate->prop);
-		    icalproperty_free(rdate->prop);
-		}
-		break;
 	    }
 	}
 	icalarray_free(rdate_array);
 
 	/* Final check */
-	if (dtstart_prop) {
-	    /* All observances occur prior to our cutoff, remove comp */
+	if (truncate && dtstart_prop) {
+	    /* All observances in comp occur prior to window open, remove it */
 	    icalcomponent_remove_component(vtz, comp);
 	    icalcomponent_free(comp);
 	}
     }
 
-    if (icaltime_compare(tombstone.onset, *truncate) < 0) {
-	/* Need to add a tombstone component starting at our cutoff */
-	comp = icalcomponent_vanew(
-	    tombstone.is_daylight ?
-	    ICAL_XDAYLIGHT_COMPONENT : ICAL_XSTANDARD_COMPONENT,
-	    icalproperty_new_tzoffsetfrom(tombstone.offset_from),
-	    icalproperty_new_tzoffsetto(tombstone.offset_to),
-	    icalproperty_new_tzname(tombstone.name),
-	    icalproperty_new_dtstart(*truncate),
-	    0);
-	icalcomponent_add_component(vtz, comp);
+    if (icaltime_compare(tombstone.onset, start) < 0) {
+	/* Need to add tombstone component/observance starting at window open */
+	if (truncate) {
+	    comp = icalcomponent_vanew(
+		tombstone.is_daylight ?
+		ICAL_XDAYLIGHT_COMPONENT : ICAL_XSTANDARD_COMPONENT,
+		icalproperty_new_tzoffsetfrom(tombstone.offset_from),
+		icalproperty_new_tzoffsetto(tombstone.offset_to),
+		icalproperty_new_tzname(tombstone.name),
+		icalproperty_new_dtstart(start),
+		0);
+	    icalcomponent_add_component(vtz, comp);
+	}
+	else {
+	    tombstone.onset = start;
+	    icalarray_append(obsarray, &tombstone);
+	}
     }
 }
 
-/* Perform a get action */
-static int action_get(struct transaction_t *txn, struct hash_table *params)
+static void truncate_vtimezone(icalcomponent *vtz, icaltimetype start)
 {
-    int r, precond, substitute = 0;
+    /* We don't have an end date for truncation, so use "end of time" */
+    time_t now = INT_MAX;
+    struct tm *tm = gmtime(&now);
+    icaltimetype end = icaltime_from_day_of_year(1, tm->tm_year + 1900);
+
+    expand_vtimezone(vtz, NULL, start, end);
+}
+
+/* Version of icaltime_from_string() which supports just YYYY */
+static icaltimetype icaltime_from_year_string(const char *str)
+{
+    struct icaltimetype tt;
+    size_t size = strlen(str);
+
+    if (size < 4 || size > 4) return icaltime_null_time();
+
+    tt = icaltime_from_day_of_year(1, atoi(str));
+    tt.is_date = tt.hour = tt.minute = tt.second = 0;
+
+    return tt;
+}
+
+/* Perform a get action */
+static int action_get(struct transaction_t *txn)
+{
+    int r, precond;
     struct strlist *param;
     const char *tzid;
     struct zoneinfo zi;
@@ -687,15 +765,15 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
     struct mime_type_t *mime = NULL;
 
     /* Sanity check the parameters */
-    param = hash_lookup("tzid", params);
+    param = hash_lookup("tzid", &txn->req_qparams);
     if (!param || param->next  /* mandatory, once only */
 	|| strchr(param->s, '.')  /* paranoia */) {
-	return json_error_response(txn, "invalid-tzid");
+	return json_error_response(txn, TZ_INVALID_TZID);
     }
     tzid = param->s;
 
     /* Check/find requested MIME type */
-    param = hash_lookup("format", params);
+    param = hash_lookup("format", &txn->req_qparams);
     if (param && !param->next  /* optional, once only */) {
 	for (mime = tz_mime_types; mime->content_type; mime++) {
 	    if (is_mediatype(param->s, mime->content_type)) break;
@@ -704,29 +782,21 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
     else mime = tz_mime_types;
 
     if (!mime || !mime->content_type) {
-	return json_error_response(txn, "invalid-format");
+	return json_error_response(txn, TZ_INVALID_FORMAT);
     }
 
     /* Check for any truncation */
-    param = hash_lookup("truncate", params);
+    param = hash_lookup("truncate", &txn->req_qparams);
     if (param) {
-	truncate = icaltime_from_day_of_year(1, atoi(param->s));
-	truncate.is_date = truncate.hour = truncate.minute = truncate.second = 0;
+	truncate = icaltime_from_year_string(param->s);
 	if (icaltime_is_null_time(truncate) || param->next  /* once only */)
-	    return json_error_response(txn, "invalid-truncate");
+	    return json_error_response(txn, TZ_INVALID_TRUNCATE);
     }
 
-    /* Handle tzid=* separately */
-    if (!strcmp(tzid, "*")) return action_get_all(txn, mime, &truncate);
-
     /* Get info record from the database */
-    if ((r = zoneinfo_lookup(tzid, &zi)))
-	return (r == CYRUSDB_NOTFOUND ? HTTP_NOT_FOUND : HTTP_SERVER_ERROR);
-
-    if (zi.type == ZI_LINK) {
-	/* Check for substitute-alias */
-	param = hash_lookup("substitute-alias", params);
-	if (param && !strcmp(param->s, "true")) substitute = 1;
+    if ((r = zoneinfo_lookup(tzid, &zi))) {
+	return (r == CYRUSDB_NOTFOUND ?
+		json_error_response(txn, TZ_NOT_FOUND) : HTTP_SERVER_ERROR);
     }
 
     /* Generate ETag & Last-Modified from info record */
@@ -760,7 +830,7 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
     }
 
 
-    if (txn->meth == METH_GET) {
+    if (txn->meth != METH_HEAD) {
 	static struct buf pathbuf = BUF_INITIALIZER;
 	const char *path, *proto, *host, *msg_base = NULL;
 	unsigned long msg_size = 0;
@@ -785,11 +855,17 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
 	vtz = icalcomponent_get_first_component(ical, ICAL_VTIMEZONE_COMPONENT);
 	prop = icalcomponent_get_first_property(vtz, ICAL_TZID_PROPERTY);
 
-	if (substitute) {
+	if (zi.type == ZI_LINK) {
+	    /* Add EQUIVALENT-TZID */
+	    const char *equiv = icalproperty_get_tzid(prop);
+	    icalproperty *eprop = icalproperty_new_x(equiv);
+
+	    icalproperty_set_x_name(eprop, "EQUIVALENT-TZID");	
+	    icalcomponent_add_property(vtz, eprop);
+
 	    /* Substitute TZID alias */
 	    icalproperty_set_tzid(prop, tzid);
 	}
-	else tzid = icalproperty_get_tzid(prop);
 
 	/* Start constructing TZURL */
 	buf_reset(&pathbuf);
@@ -801,12 +877,11 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
 		       (int) strcspn(mime->content_type, ";"),
 		       mime->content_type);
 	}
-
 	if (!icaltime_is_null_time(truncate)) {
-	    /* Truncate the VTIMEZONE */
-	    truncate_vtimezone(vtz, &truncate);
-
 	    buf_printf(&pathbuf, "&truncate=%d", truncate.year);
+
+	    /* Truncate the VTIMEZONE */
+	    truncate_vtimezone(vtz, truncate);
 	}
 
 	/* Set TZURL property */
@@ -833,174 +908,6 @@ static int action_get(struct transaction_t *txn, struct hash_table *params)
 }
 
 
-static const char *begin_ical(struct buf *buf)
-{
-    /* Begin iCalendar stream */
-    buf_setcstr(buf, "BEGIN:VCALENDAR\r\n");
-    buf_printf(buf, "PRODID:-//CyrusIMAP.org/Cyrus %s//EN\r\n",
-	       cyrus_version());
-    buf_appendcstr(buf, "VERSION:2.0\r\n");
-
-    return "";
-}
-
-static void end_ical(struct buf *buf)
-{
-    /* End iCalendar stream */
-    buf_setcstr(buf, "END:VCALENDAR\r\n");
-}
-
-struct get_rock {
-    struct transaction_t *txn;
-    struct mime_type_t *mime;
-    icaltimetype *truncate;
-    const char *sep;
-    unsigned count;
-};
-
-static int get_cb(const char *tzid, int tzidlen,
-		  struct zoneinfo *zi __attribute__((unused)),
-		  void *rock)
-{
-    struct get_rock *grock = (struct get_rock *) rock;
-    struct buf *pathbuf = &grock->txn->buf;
-    struct mime_type_t *mime = grock->mime;
-    const char *path, *proto, *host, *msg_base = NULL;
-    unsigned long msg_size = 0;
-    icalcomponent *ical, *vtz;
-    icalproperty *prop;
-    int fd = -1;
-    char *tz_str;
-
-    buf_reset(pathbuf);
-    buf_printf(pathbuf, "%s%s/%.*s.ics",
-	       config_dir, FNAME_ZONEINFODIR, tzidlen, tzid);
-    path = buf_cstring(pathbuf);
-
-    /* Open, mmap, and parse the file */
-    if ((fd = open(path, O_RDONLY)) == -1) return HTTP_SERVER_ERROR;
-    map_refresh(fd, 1, &msg_base, &msg_size, MAP_UNKNOWN_LEN, path, NULL);
-    if (!msg_base) return HTTP_SERVER_ERROR;
-    ical = icalparser_parse_string(msg_base);
-    map_free(&msg_base, &msg_size);
-    close(fd);
-	    
-    if (grock->count++ && *grock->sep) {
-	/* Add separator, if necessary */
-	struct buf *buf = &grock->txn->resp_body.payload;
-
-	buf_reset(buf);
-	buf_printf_markup(buf, 0, grock->sep);
-	write_body(0, grock->txn, buf_cstring(buf), buf_len(buf));
-    }
-
-    vtz = icalcomponent_get_first_component(ical, ICAL_VTIMEZONE_COMPONENT);
-    prop = icalcomponent_get_first_property(vtz, ICAL_TZID_PROPERTY);
-
-    /* Start constructing TZURL */
-    buf_reset(pathbuf);
-    http_proto_host(grock->txn->req_hdrs, &proto, &host);
-    buf_printf(pathbuf, "%s://%s%s?action=get&tzid=%.*s",
-	       proto, host, namespace_timezone.prefix, tzidlen, tzid);
-    if (mime != tz_mime_types) {
-	buf_printf(pathbuf, "&format=%.*s",
-		   (int) strcspn(mime->content_type, ";"),
-		   mime->content_type);
-    }
-
-    if (!icaltime_is_null_time(*grock->truncate)) {
-	/* Truncate the VTIMEZONE */
-	truncate_vtimezone(vtz, grock->truncate);
-
-	buf_printf(pathbuf, "&truncate=%d", grock->truncate->year);
-    }
-
-    /* Set TZURL property */
-    prop = icalproperty_new_tzurl(buf_cstring(pathbuf));
-    icalcomponent_add_property(vtz, prop);
-
-    /* Output the (converted) VTIMEZONE component */
-    tz_str = mime->to_string(vtz);
-    write_body(0, grock->txn, tz_str, strlen(tz_str));
-    free(tz_str);
-
-    icalcomponent_free(ical);
-
-    return 0;
-}
-
-
-static int action_get_all(struct transaction_t *txn,
-			  struct mime_type_t *mime, icaltimetype *truncate)
-{
-    int r, precond;
-    struct resp_body_t *resp_body = &txn->resp_body;
-    struct zoneinfo info;
-    time_t lastmod;
-    struct buf *buf = &resp_body->payload;
-    struct get_rock grock = { txn, mime, truncate, NULL, 0 };
-
-    /* Get info record from the database */
-    if ((r = zoneinfo_lookup_info(&info))) return HTTP_SERVER_ERROR;
-
-    /* Generate ETag & Last-Modified from info record */
-    assert(!buf_len(&txn->buf));
-    buf_printf(&txn->buf, "%u-%ld", strhash(info.data->s), info.dtstamp);
-    lastmod = info.dtstamp;
-    freestrlist(info.data);
-
-    /* Check any preconditions */
-    precond = check_precond(txn, NULL, buf_cstring(&txn->buf), lastmod);
-
-    switch (precond) {
-    case HTTP_OK:
-    case HTTP_NOT_MODIFIED:
-	/* Fill in ETag, Last-Modified, and Expires */
-	resp_body->etag = buf_cstring(&txn->buf);
-	resp_body->lastmod = lastmod;
-	resp_body->maxage = 86400;  /* 24 hrs */
-	txn->flags.cc |= CC_MAXAGE | CC_REVALIDATE;
-	if (httpd_userid) txn->flags.cc |= CC_PUBLIC;
-
-	if (precond != HTTP_NOT_MODIFIED) break;
-
-    default:
-	/* We failed a precondition - don't perform the request */
-	resp_body->type = NULL;
-	return precond;
-    }
-
-    /* Setup for chunked response */
-    txn->flags.te |= TE_CHUNKED;
-    txn->flags.vary |= VARY_ACCEPT;
-    txn->resp_body.type = mime->content_type;
-
-    /* Short-circuit for HEAD request */
-    if (txn->meth == METH_HEAD) {
-	response_header(HTTP_OK, txn);
-	return 0;
-    }
-
-    /* iCalendar data in response should not be transformed */
-    txn->flags.cc |= CC_NOTRANSFORM;
-
-    /* Begin (converted) iCalendar stream */
-    grock.sep = mime->begin_stream(buf);
-    write_body(HTTP_OK, txn, buf_cstring(buf), buf_len(buf));
-
-    zoneinfo_find(NULL, 1 /* tzid_only */, 0, &get_cb, &grock);
-
-    /* End (converted) iCalendar stream */
-    mime->end_stream(buf);
-    write_body(0, txn, buf_cstring(buf), buf_len(buf));
-
-    /* End of output */
-    write_body(0, txn, NULL, 0);
-
-    return 0;
-}
-
-
 static int observance_compare(const void *obs1, const void *obs2)
 {
     return icaltime_compare(((struct observance *) obs1)->onset,
@@ -1008,7 +915,7 @@ static int observance_compare(const void *obs1, const void *obs2)
 }
 
 /* Perform an expand action */
-static int action_expand(struct transaction_t *txn, struct hash_table *params)
+static int action_expand(struct transaction_t *txn)
 {
     int r, precond;
     struct strlist *param;
@@ -1020,25 +927,25 @@ static int action_expand(struct transaction_t *txn, struct hash_table *params)
     json_t *root = NULL;
 
     /* Sanity check the parameters */
-    param = hash_lookup("tzid", params);
+    param = hash_lookup("tzid", &txn->req_qparams);
     if (!param || param->next  /* mandatory, once only */
 	|| strchr(param->s, '.')  /* paranoia */) {
-	return json_error_response(txn, "invalid-tzid");
+	return json_error_response(txn, TZ_INVALID_TZID);
     }
     tzid = param->s;
 
-    param = hash_lookup("changedsince", params);
+    param = hash_lookup("changedsince", &txn->req_qparams);
     if (param) {
 	changedsince = icaltime_as_timet(icaltime_from_string(param->s));
 	if (!changedsince || param->next  /* once only */)
-	    return json_error_response(txn, "invalid-changedsince");
+	    return json_error_response(txn, TZ_INVALID_CHANGEDSINCE);
     }
 
-    param = hash_lookup("start", params);
+    param = hash_lookup("start", &txn->req_qparams);
     if (param) {
-	start = icaltime_from_string(param->s);
+	start = icaltime_from_year_string(param->s);
 	if (icaltime_is_null_time(start) || param->next  /* once only */)
-	    return json_error_response(txn, "invalid-start");
+	    return json_error_response(txn, TZ_INVALID_START);
     }
     else {
 	/* Default to current year */
@@ -1047,23 +954,27 @@ static int action_expand(struct transaction_t *txn, struct hash_table *params)
 
 	start = icaltime_from_day_of_year(1, tm->tm_year + 1900);
     }
+    start.is_date = 0;
 
-    param = hash_lookup("end", params);
+    param = hash_lookup("end", &txn->req_qparams);
     if (param) {
-	end = icaltime_from_string(param->s);
+	end = icaltime_from_year_string(param->s);
 	if (icaltime_compare(end, start) <= 0  /* end MUST be > start */
 	    || param->next  /* once only */)
-	    return json_error_response(txn, "invalid-end");
+	    return json_error_response(txn, TZ_INVALID_END);
     }
     else {
 	/* Default to start year + 10 */
 	memcpy(&end, &start, sizeof(icaltimetype));
 	end.year += 10;
     }
+    end.is_date = 0;
 
     /* Get info record from the database */
-    if ((r = zoneinfo_lookup(tzid, &zi)))
-	return (r == CYRUSDB_NOTFOUND ? HTTP_NOT_FOUND : HTTP_SERVER_ERROR);
+    if ((r = zoneinfo_lookup(tzid, &zi))) {
+	return (r == CYRUSDB_NOTFOUND ?
+		json_error_response(txn, TZ_NOT_FOUND) : HTTP_SERVER_ERROR);
+    }
 
     /* Generate ETag & Last-Modified from info record */
     assert(!buf_len(&txn->buf));
@@ -1096,11 +1007,11 @@ static int action_expand(struct transaction_t *txn, struct hash_table *params)
     }
 
 
-    if (txn->meth == METH_GET) {
+    if (txn->meth != METH_HEAD) {
 	static struct buf pathbuf = BUF_INITIALIZER;
 	const char *path, *msg_base = NULL;
 	unsigned long msg_size = 0;
-	icalcomponent *ical, *vtz, *comp;
+	icalcomponent *ical, *vtz;
 	char dtstamp[21];
 	icalarray *obsarray;
 	json_t *jobsarray;
@@ -1131,148 +1042,8 @@ static int action_expand(struct transaction_t *txn, struct hash_table *params)
 
 	/* Create an array of observances */
 	obsarray = icalarray_new(sizeof(struct observance), 20);
-
-	/* Process each VTMEZONE STANDARD/DAYLIGHT subcomponent */
 	vtz = icalcomponent_get_first_component(ical, ICAL_VTIMEZONE_COMPONENT);
-	for (comp = icalcomponent_get_first_component(vtz, ICAL_ANY_COMPONENT);
-	     comp;
-	     comp = icalcomponent_get_next_component(vtz, ICAL_ANY_COMPONENT)) {
-
-	    icaltimetype dtstart = icaltime_null_time();
-	    struct observance obs;
-	    icalproperty *prop, *rrule_prop = NULL;
-
-	    /* Grab the properties that we require to expand recurrences */
-	    memset(&obs, 0, sizeof(struct observance));
-	    for (prop = icalcomponent_get_first_property(comp,
-							 ICAL_ANY_PROPERTY);
-		 prop;
-		 prop = icalcomponent_get_next_property(comp,
-							ICAL_ANY_PROPERTY)) {
-
-		switch (icalproperty_isa(prop)) {
-		case ICAL_TZNAME_PROPERTY:
-		    obs.name = icalproperty_get_tzname(prop);
-		    break;
-
-		case ICAL_DTSTART_PROPERTY:
-		    dtstart = icalproperty_get_dtstart(prop);
-		    break;
-
-		case ICAL_TZOFFSETFROM_PROPERTY:
-		    obs.offset_from = icalproperty_get_tzoffsetfrom(prop);
-		    break;
-
-		case ICAL_TZOFFSETTO_PROPERTY:
-		    obs.offset_to = icalproperty_get_tzoffsetto(prop);
-		    break;
-
-		case ICAL_RRULE_PROPERTY:
-		    rrule_prop = prop;
-		    break;
-
-		default:
-		    /* ignore all other properties */
-		    break;
-		}
-	    }
-
-	    /* We MUST have TZNAME, DTSTART, TZOFFSETFROM and TZOFFSETTO */
-	    if (!obs.name || !obs.offset_from || !obs.offset_to ||
-		icaltime_is_null_time(dtstart)) continue;
-
-	    /* Adjust DTSTART to UTC */
-	    memcpy(&obs.onset, &dtstart, sizeof(icaltimetype));
-	    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
-	    obs.onset.is_utc = 1;
-
-	    if (icaltime_compare(obs.onset, end) > 0) {
-		/* Skip observance(s) after our window */
-	    }
-	    else if (rrule_prop) {
-		/* Add any RRULE observances within our window */
-		struct icalrecurrencetype rrule;
-		icalrecur_iterator *ritr;
-		icaltimetype recur;
-
-		rrule = icalproperty_get_rrule(rrule_prop);
-
-		if (!icaltime_is_null_time(rrule.until) && rrule.until.is_utc) {
-		    /* Adjust UNTIL to local time */
-		    icaltime_adjust(&rrule.until, 0, 0, 0, obs.offset_from);
-		    rrule.until.is_utc = 0;
-		}
-
-		if (icaltime_compare(start, obs.onset) > 0) {
-		    /* Set iterator dtstart to be 1 day prior to our window */
-		    obs.onset.year = start.year;
-		    obs.onset.month = start.month;
-		    obs.onset.day = start.day - 1;
-		}
-
-		/* Adjust iterator dtstart to local time */
-		icaltime_adjust(&obs.onset, 0, 0, 0, obs.offset_from);
-		obs.onset.is_utc = 0;
-
-		ritr = icalrecur_iterator_new(rrule, obs.onset);
-		while (!icaltime_is_null_time(recur =
-					      icalrecur_iterator_next(ritr))) {
-		    /* Adjust observance to UTC */
-		    memcpy(&obs.onset, &recur, sizeof(icaltimetype));
-		    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
-		    obs.onset.is_utc = 1;
-
-		    if (icaltime_compare(obs.onset, end) > 0) {
-			/* Quit if we've gone past our window */
-			break;
-		    }
-		    else if (icaltime_compare(obs.onset, start) < 0) {
-			/* Skip observances prior to our window */
-		    }
-		    else {
-			/* Add the observance to our array */
-			icalarray_append(obsarray, &obs);
-		    }
-		}
-		icalrecur_iterator_free(ritr);
-	    }
-	    else if (icaltime_compare(obs.onset, start) < 0) {
-		/* Skip observances prior to our window */
-	    }
-	    else {
-		/* Add the DTSTART observance to our array */
-		icalarray_append(obsarray, &obs);
-	    }
-
-	    /* Add any RDATE observances within our window */
-	    for (prop = icalcomponent_get_first_property(comp,
-							 ICAL_RDATE_PROPERTY);
-		 prop;
-		 prop = icalcomponent_get_next_property(comp,
-							ICAL_RDATE_PROPERTY)) {
-		struct icaldatetimeperiodtype rdate =
-		    icalproperty_get_rdate(prop);
-
-		/* Adjust RDATE to UTC */
-		memcpy(&obs.onset, &rdate.time, sizeof(icaltimetype));
-		icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
-		obs.onset.is_utc = 1;
-
-		if (icaltime_compare(obs.onset, start) < 0) {
-		    /* Skip observances prior to our window */
-		}
-		else if (icaltime_compare(obs.onset, end) > 0) {
-		    /* Skip observances after our window */
-		}
-		else if (icaltime_compare(obs.onset, dtstart) == 0) {
-		    /* Skip duplicates of DTSTART observance */
-		}
-		else {
-		    /* Add the RDATE observance to our array */
-		    icalarray_append(obsarray, &obs);
-		}
-	    }
-	}
+	expand_vtimezone(vtz, obsarray, start, end);
 
 	/* Sort the observances by onset */
 	icalarray_sort(obsarray, &observance_compare);
@@ -1286,7 +1057,7 @@ static int action_expand(struct transaction_t *txn, struct hash_table *params)
 				  json_pack("{s:s s:s s:i s:i}",
 					    "name", obs->name,
 					    "onset",
-					    icaltime_as_ical_string(obs->onset),
+					    icaltime_as_iso_string(obs->onset),
 					    "utc-offset-from", obs->offset_from,
 					    "utc-offset-to", obs->offset_to));
 	}
@@ -1333,15 +1104,26 @@ static int json_response(int code, struct transaction_t *txn, json_t *root,
 }
 
 
-static int json_error_response(struct transaction_t *txn, const char *err)
+static int json_error_response(struct transaction_t *txn, long tz_code)
 {
     json_t *root;
+    long http_code;
 
-    root = json_pack("{s:s}", "error", err);
+    root = json_pack("{s:s}", "error", error_message(tz_code));
     if (!root) {
 	txn->error.desc = "Unable to create JSON response";
 	return HTTP_SERVER_ERROR;
     }
 
-    return json_response(HTTP_BAD_REQUEST, txn, root, NULL);
+    switch (tz_code) {
+    case TZ_NOT_FOUND:
+	http_code = HTTP_NOT_FOUND;
+	break;
+
+    default:
+	http_code = HTTP_BAD_REQUEST;
+	break;
+    }
+
+    return json_response(http_code, txn, root, NULL);
 }

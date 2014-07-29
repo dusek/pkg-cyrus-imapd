@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.1 -->
-<!-- CreationDate: Mon Dec 16 16:30:55 2013 -->
+<!-- CreationDate: Tue Jul 22 16:36:19 2014 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -373,10 +373,15 @@ The default of 1000 is much higher than any sane message
 should have.</p>
 
 <p style="margin-left:11%;"><b>caldav_allowscheduling:</b>
-1</p>
+on</p>
 
-<p style="margin-left:18%;">If enabled, the server will
-perform calendar scheduling operations.</p>
+<p style="margin-left:18%;">Enable calendar scheduling
+operations. If set to &quot;apple&quot;, the server will
+emulate Apple CalendarServer behavior as closely as
+possible.</p>
+
+<p style="margin-left:18%; margin-top: 1em">Allowed values:
+<i>off</i>, <i>on</i>, <i>apple</i></p>
 
 <p style="margin-left:11%;"><b>caldav_realm:</b>
 &lt;none&gt;</p>
@@ -395,6 +400,15 @@ automatically appended. The public calendar hierarchy will
 be at the toplevel of the shared namespace. A user&rsquo;s
 personal calendar hierarchy will be a child of their
 Inbox.</p>
+
+
+<p style="margin-left:11%;"><b>calendar_user_address_set:</b>
+&lt;none&gt;</p>
+
+<p style="margin-left:18%;">Space-separated list of domains
+corresponding to calendar user addresses for which the
+server is responsible. If not set (the default), the value
+of the &quot;servername&quot; option will be used.</p>
 
 <p style="margin-left:11%;"><b>carddav_realm:</b>
 &lt;none&gt;</p>
@@ -1265,7 +1279,7 @@ than in the mailbox directory on a spool partition.</p>
 
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>header</i>, <i>index</i>, <i>cache</i>, <i>expunge</i>,
-<i>squat</i>, <i>lock</i></p>
+<i>squat</i>, <i>lock</i>, <i>dav</i></p>
 
 <p style="margin-left:11%;"><b>metapartition-name:</b>
 &lt;none&gt;</p>
@@ -1936,7 +1950,12 @@ available free space for proxying CREATE.</p>
 <p style="margin-left:18%;">This is the hostname visible in
 the greeting messages of the POP, IMAP and LMTP daemons. If
 it is unset, then the result returned from gethostname(2) is
-used.</p>
+used. This is also the value used by murder clusters to
+identify the host name. It should be resolvable by DNS to
+the correct host, and unique within an active cluster. If
+you are using low level replication (e.g. drbd) then it
+should be the same on each copy and the DNS name should also
+be moved to the new master on failover.</p>
 
 <p style="margin-left:11%;"><b>serverinfo:</b> on</p>
 
@@ -2226,13 +2245,16 @@ replicating to every other machine.</p>
 when authenticating to a sync server. Prefix with a channel
 name to only apply for that channel</p>
 
-<p style="margin-left:11%;"><b>sync_port:</b> csync</p>
+<p style="margin-left:11%;"><b>sync_port:</b>
+&lt;none&gt;</p>
 
 <p style="margin-left:18%;">Name of the service (or port
-number) of the replication service on replica host. The
-default is &quot;csync&quot; which is usally port 2005, but
-any service name or numeric port can be specified. Prefix
-with a channel name to only apply for that channel</p>
+number) of the replication service on replica host. Prefix
+with a channel name to only apply for that channel. If not
+specified, the replication client will first try
+&quot;imap&quot; (port 143) to check if imapd supports
+replication, otherwise it will default to &quot;csync&quot;
+(usually port 2005).</p>
 
 <p style="margin-left:11%;"><b>sync_realm:</b>
 &lt;none&gt;</p>

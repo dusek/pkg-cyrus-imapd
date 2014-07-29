@@ -59,17 +59,17 @@ CYRUS_USER=@cyrus_user@
 CYRUS_GROUP=@cyrus_group@
 
 DEFS = @DEFS@ @LOCALDEFS@
-CPPFLAGS = -I.. -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @SIEVE_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@ @XML2_CFLAGS@ @ICAL_CFLAGS@ @SQLITE3_CFLAGS@ @DKIM_CFLAGS@
-IMAP_LIBS = @IMAP_LIBS@ @LIB_RT@
+CPPFLAGS = -I.. -I$(srcdir)/../lib @COM_ERR_CPPFLAGS@ @SIEVE_CPPFLAGS@ @CPPFLAGS@ @SASLFLAGS@ @XML2_CFLAGS@ @ICAL_CFLAGS@ @SQLITE3_CFLAGS@ @ICU_CFLAGS@ @DKIM_CFLAGS@ @JSON_CFLAGS@
+IMAP_LIBS = @IMAP_LIBS@ @LIB_RT@ @ICAL_LIBS@ @ICU_LIBS@ @SQLITE3_LIBS@
 
 RSS_OBJS = http_rss.o
 DAV_OBJS = http_dav.o dav_db.o
 CALDAV_OBJS = http_caldav.o caldav_db.o smtpclient.o xcal.o jcal.o
 CARDDAV_OBJS = http_carddav.o carddav_db.o
 ISCHED_OBJS = http_ischedule.o
-TIMEZONE_OBJS = http_timezone.o zoneinfo_db.o
-HTTP_OBJS = httpd.o http_err.o http_proxy.o @HTTP_OBJS@
-HTTP_LIBS = @XML2_LIBS@ @ICAL_LIBS@ @SQLITE3_LIBS@ @DKIM_LIBS@ @JSON_LIBS@
+TIMEZONE_OBJS = http_timezone.o zoneinfo_db.o tz_err.o
+HTTP_OBJS = httpd.o http_err.o http_client.o http_proxy.o @HTTP_OBJS@
+HTTP_LIBS = @XML2_LIBS@ @ICAL_LIBS@ @SQLITE3_LIBS@ @ICU_LIBS@ @DKIM_LIBS@ @JSON_LIBS@
 
 SIEVE_OBJS = @SIEVE_OBJS@
 SIEVE_LIBS = @SIEVE_LIBS@
@@ -112,9 +112,9 @@ LOBJS= append.o mailbox.o mboxlist.o mupdate-client.o mboxname.o message.o \
 	imapparse.o telemetry.o user.o notify.o idle.o quota_db.o \
 	sync_log.o $(SEEN) mboxkey.o backend.o tls.o message_guid.o \
 	statuscache_db.o userdeny_db.o sequence.o upgrade_index.o \
-	dlist.o version.o
+	dlist.o version.o dav_util.o caldav_db.o carddav_db.o dav_db.o
 
-IMAPDOBJS=pushstats.o imapd.o proxy.o imap_proxy.o index.o
+IMAPDOBJS=pushstats.o imapd.o proxy.o imap_proxy.o index.o sync_support.o
 
 LMTPOBJS=lmtpstats.o lmtpengine.o spool.o
 
@@ -133,7 +133,7 @@ PROGS = imapd lmtpd pop3d \
 
 BUILTSOURCES = imap_err.c imap_err.h pushstats.c pushstats.h \
 	lmtpstats.c lmtpstats.h mupdate_err.c mupdate_err.h \
-	nntp_err.c nntp_err.h http_err.c http_err.h
+	nntp_err.c nntp_err.h http_err.c http_err.h tz_err.c tz_err.h
 
 all: $(BUILTSOURCES) $(PROGS) $(SUIDPROGS)
 
@@ -148,6 +148,7 @@ install:
 	done
 	ln -f $(DESTDIR)$(service_path)/pop3d $(DESTDIR)$(service_path)/pop3proxyd
 	ln -f $(DESTDIR)$(service_path)/imapd $(DESTDIR)$(service_path)/proxyd
+	ln -f $(DESTDIR)$(service_path)/imapd $(DESTDIR)$(service_path)/sync_server
 	ln -f $(DESTDIR)$(service_path)/lmtpd $(DESTDIR)$(service_path)/lmtpproxyd
 
 .c.o:
@@ -194,6 +195,11 @@ http_err.c: http_err.et
 	$(COMPILE_ET) $(srcdir)/http_err.et
 
 http_err.h: http_err.c
+
+tz_err.c: tz_err.et
+	$(COMPILE_ET) $(srcdir)/tz_err.et
+
+tz_err.h: tz_err.c
 
 ### Services
 idled: idled.o mutex_fake.o libimap.a $(DEPLIBS)
@@ -257,13 +263,6 @@ fud: fud.o libimap.a mutex_fake.o $(DEPLIBS) $(SERVICE)
 
 smmapd: smmapd.o libimap.a mutex_fake.o $(DEPLIBS) $(SERVICE)
 	$(CC) $(LDFLAGS) -o smmapd $(SERVICE) smmapd.o mutex_fake.o libimap.a \
-	$(DEPLIBS) $(LIBS) $(LIB_WRAP)
-
-sync_server: sync_server.o sync_support.o \
-	imapparse.o tls.o libimap.a mutex_fake.o $(DEPLIBS) $(SERVICE)
-	$(CC) $(LDFLAGS) -o \
-	sync_server sync_server.o sync_support.o \
-	imapparse.o tls.o $(SERVICE) libimap.a mutex_fake.o \
 	$(DEPLIBS) $(LIBS) $(LIB_WRAP)
 
 httpd: $(HTTP_OBJS) proxy.o backend.o index.o spool.o tls.o mutex_fake.o \

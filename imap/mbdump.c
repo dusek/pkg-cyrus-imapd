@@ -64,6 +64,7 @@
 
 #include "assert.h"
 #include "annotate.h"
+#include "dav_util.h"
 #include "exitcodes.h"
 #include "global.h"
 #include "imap_err.h"
@@ -469,11 +470,12 @@ static struct data_file data_files[] = {
     { META_INDEX,   "cyrus.index"   },
     { META_CACHE,   "cyrus.cache"   },
     { META_EXPUNGE, "cyrus.expunge" },
+    { META_DAV,     "cyrus.dav"     },
     { 0, NULL }
 };
 
-enum { SEEN_DB = 0, SUBS_DB = 1, MBOXKEY_DB = 2 };
-static int NUM_USER_DATA_FILES = 3;
+enum { SEEN_DB = 0, SUBS_DB = 1, MBOXKEY_DB = 2, DAV_DB = 3 };
+static int NUM_USER_DATA_FILES = 4;
 
 int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		 int oldversion,
@@ -629,6 +631,14 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		fname = mboxkey_getpath(userid);
 		ftag = "MBOXKEY";
 		break;
+	    case DAV_DB: {
+		struct buf dav_file = BUF_INITIALIZER;
+
+		dav_getpath_byuserid(&dav_file, userid);
+		fname = (char *) buf_cstring(&dav_file);
+		ftag = "DAV";
+		break;
+	    }
 	    default:
 		fatal("unknown user data file", EC_OSFILE);
 	    }
@@ -836,8 +846,8 @@ int undump_mailbox(const char *mbname,
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	struct mboxlist_entry mbentry;
 	r = mboxlist_lookup(mbname, &mbentry, NULL);
-	if (!r) r = mailbox_create(mbname, mbentry.partition, mbentry.acl,
-				   NULL, 0, 0, &mailbox);
+	if (!r) r = mailbox_create(mbname, mbentry.mbtype, mbentry.partition,
+				   mbentry.acl, NULL, 0, 0, &mailbox);
     }
     if(r) goto done;
 
@@ -987,6 +997,12 @@ int undump_mailbox(const char *mbname,
 	    char *s = user_hash_subs(userid);
 	    strlcpy(fnamebuf, s, sizeof(fnamebuf));
 	    free(s);
+	} else if (userid && !strcmp(file.s, "DAV")) {
+	    /* overwriting this outright is absolutely what we want to do */
+	    struct buf dav_file = BUF_INITIALIZER;
+	    dav_getpath_byuserid(&dav_file, userid);
+	    strlcpy(fnamebuf, buf_cstring(&dav_file), sizeof(fnamebuf));
+	    buf_free(&dav_file);
 	} else if (userid && !strcmp(file.s, "SEEN")) {
 	    seen_file = seen_getpath(userid);
 
