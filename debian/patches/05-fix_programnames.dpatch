@@ -30,7 +30,7 @@
  
 --- cyrus-imapd-2.4.orig/imap/reconstruct.c
 +++ cyrus-imapd-2.4/imap/reconstruct.c
-@@ -401,8 +401,8 @@ int main(int argc, char **argv)
+@@ -409,8 +409,8 @@ int main(int argc, char **argv)
  void usage(void)
  {
      fprintf(stderr,

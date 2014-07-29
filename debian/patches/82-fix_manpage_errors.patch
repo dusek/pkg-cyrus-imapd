@@ -1,6 +1,6 @@
 --- cyrus-imapd-2.4.orig/lib/imapoptions
 +++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1051,12 +1051,13 @@ And the notification message will be ava
+@@ -1058,12 +1058,13 @@ And the notification message will be ava
     in minutes.  The minimum value is 10, the default. */
  
  { "popuseacl", 0, SWITCH }

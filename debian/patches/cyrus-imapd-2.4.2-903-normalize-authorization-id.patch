@@ -66,7 +66,7 @@ By normalize, it is intended that;
  
 --- cyrus-imapd-2.4.orig/lib/imapoptions
 +++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1579,6 +1579,11 @@ product version in the capabilities */
+@@ -1592,6 +1592,11 @@ product version in the capabilities */
  /* The absolute path to the zoneinfo db file.  If not specified,
     will be confdir/zoneinfo.db */
  

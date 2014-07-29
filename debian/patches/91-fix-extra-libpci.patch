@@ -1,8 +1,6 @@
-Index: cyrus-imapd-2.4/cmulocal/ucdsnmp.m4
-===================================================================
---- cyrus-imapd-2.4.orig/cmulocal/ucdsnmp.m4	2013-07-02 06:39:05.000000000 +0000
-+++ cyrus-imapd-2.4/cmulocal/ucdsnmp.m4	2014-05-15 07:44:51.317606720 +0000
-@@ -27,7 +27,7 @@
+--- cyrus-imapd-2.4.orig/cmulocal/ucdsnmp.m4
++++ cyrus-imapd-2.4/cmulocal/ucdsnmp.m4
+@@ -27,7 +27,7 @@ if test "$with_snmp" != "no"; then
    if test -x "$SNMP_CONFIG"; then
      AC_MSG_CHECKING(NET SNMP libraries)
  

@@ -16,7 +16,7 @@
  {
      char   *str;
      int     w;
-@@ -752,7 +752,7 @@ int     tls_init_serverengine(const char
+@@ -705,7 +705,7 @@ int     tls_init_serverengine(const char
      s_key_file = config_getstring(IMAPOPT_TLS_KEY_FILE);
  
      if (!set_cert_stuff(s_ctx, s_cert_file, s_key_file)) {
