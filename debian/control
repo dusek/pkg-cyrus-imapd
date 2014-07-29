@@ -196,10 +196,10 @@ Package: cyrus-murder
 Section: mail
 Architecture: any
 Depends: cyrus-common (= ${binary:Version}),
+	 cyrus-imapd (= ${binary:Version}),
+	 cyrus-pop3d (= ${binary:Version}),
 	 ${shlibs:Depends},
 	 ${misc:Depends}
-Recommends: cyrus-imapd (= ${binary:Version}),
-	    cyrus-pop3d (= ${binary:Version})
 Breaks: cyrus-murder-2.4 (<< 2.4.17+caldav~beta10-2~)
 Replaces: cyrus-murder-2.4 (<< 2.4.17+caldav~beta10-2~)
 Description: Cyrus mail system - proxies and aggregator
