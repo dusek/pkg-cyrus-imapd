@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-1) unstable; urgency=medium
+
+  * New upstream version 2.4.17+caldav~beta10
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 29 Jul 2014 10:28:35 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta9-12) unstable; urgency=medium
 
   * Fix binNMUability by linking docs to cyrus-common-2.4 (Closes: #755705)
