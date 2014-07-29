@@ -73,6 +73,7 @@
 #include <dkim.h>
 
 //#define TEST
+//#define IOPTEST
 
 #define BASE64_LEN(inlen) ((((inlen) + 2) / 3) * 4)
 
@@ -168,6 +169,7 @@ static int meth_get_isched(struct transaction_t *txn,
 			   void *params __attribute__((unused)))
 {
     int precond;
+    struct strlist *action;
     struct message_guid guid;
     const char *etag;
     static time_t lastmod = 0;
@@ -175,8 +177,8 @@ static int meth_get_isched(struct transaction_t *txn,
     static int bufsiz = 0;
 
     /* We don't handle GET on a anything other than ?action=capabilities */
-    if (!URI_QUERY(txn->req_uri) ||
-	strcmp(URI_QUERY(txn->req_uri), "action=capabilities")) {
+    action = hash_lookup("action", &txn->req_qparams);
+    if (!action || action->next || strcmp(action->s, "capabilities")) {
 	txn->error.desc = "Invalid action";
 	return HTTP_BAD_REQUEST;
     }
@@ -215,6 +217,7 @@ static int meth_get_isched(struct transaction_t *txn,
 	xmlNodePtr root, capa, node, comp, meth;
 	xmlNsPtr ns[NUM_NAMESPACE];
 	struct mime_type_t *mime;
+	int i, n;
 
 	/* Start construction of our query-result */
 	if (!(root = init_xml_response("query-result", NS_ISCHED, NULL, ns))) {
@@ -224,11 +227,11 @@ static int meth_get_isched(struct transaction_t *txn,
 
 	capa = xmlNewChild(root, NULL, BAD_CAST "capabilities", NULL);
 
-	node = xmlNewChild(capa, NULL, BAD_CAST "serial-number",
+	xmlNewChild(capa, NULL, BAD_CAST "serial-number",
 			   BAD_CAST buf_cstring(&txn->buf));
 
 	node = xmlNewChild(capa, NULL, BAD_CAST "versions", NULL);
-	node = xmlNewChild(node, NULL, BAD_CAST "version", BAD_CAST "1.0");
+	xmlNewChild(node, NULL, BAD_CAST "version", BAD_CAST "1.0");
 
 	node = xmlNewChild(capa, NULL,
 			   BAD_CAST "scheduling-messages", NULL);
@@ -242,6 +245,16 @@ static int meth_get_isched(struct transaction_t *txn,
 	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "CANCEL");
 	comp = xmlNewChild(node, NULL, BAD_CAST "component", NULL);
 	xmlNewProp(comp, BAD_CAST "name", BAD_CAST "VTODO");
+	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
+	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "REQUEST");
+	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
+	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "REPLY");
+	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
+	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "CANCEL");
+	comp = xmlNewChild(node, NULL, BAD_CAST "component", NULL);
+	xmlNewProp(comp, BAD_CAST "name", BAD_CAST "VPOLL");
+	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
+	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "POLLSTATUS");
 	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
 	xmlNewProp(meth, BAD_CAST "name", BAD_CAST "REQUEST");
 	meth = xmlNewChild(comp, NULL, BAD_CAST "method", NULL);
@@ -273,7 +286,21 @@ static int meth_get_isched(struct transaction_t *txn,
 	}
 
 	node = xmlNewChild(capa, NULL, BAD_CAST "attachments", NULL);
-	node = xmlNewChild(node, NULL, BAD_CAST "inline", NULL);
+	xmlNewChild(node, NULL, BAD_CAST "inline", NULL);
+
+	node = xmlNewChild(capa, NULL, BAD_CAST "rscales", NULL);
+	for (i = 0, n = rscale_calendars->num_elements; i < n; i++) {
+	    const char **rscale = icalarray_element_at(rscale_calendars, i);
+
+	    xmlNewChild(node, NULL, BAD_CAST "rscale", BAD_CAST *rscale);
+	}
+
+	/* XXX  need to fill these with values */
+	xmlNewChild(capa, NULL, BAD_CAST "max-content-length", NULL);
+	xmlNewChild(capa, NULL, BAD_CAST "min-date-time", NULL);
+	xmlNewChild(capa, NULL, BAD_CAST "max-date-time", NULL);
+	xmlNewChild(capa, NULL, BAD_CAST "max-recipients", NULL);
+	xmlNewChild(capa, NULL, BAD_CAST "administrator", NULL);
 
 	/* Dump XML response tree into a text buffer */
 	if (buf) xmlFree(buf);
@@ -301,7 +328,7 @@ static int meth_post_isched(struct transaction_t *txn,
 			    void *params __attribute__((unused)))
 {
     int ret = 0, r, authd = 0;
-    const char **hdr;
+    const char **hdr, **recipients;
     struct mime_type_t *mime = NULL;
     icalcomponent *ical = NULL, *comp;
     icalcomponent_kind kind = 0;
@@ -341,15 +368,16 @@ static int meth_post_isched(struct transaction_t *txn,
 	return HTTP_BAD_REQUEST;
     }
 
-    /* Check Recipient */
-    if (!(hdr = spool_getheader(txn->req_hdrs, "Recipient"))) {
+    /* Check Recipients */
+    if (!(recipients = spool_getheader(txn->req_hdrs, "Recipient"))) {
 	txn->error.precond = ISCHED_RECIP_MISSING;
 	return HTTP_BAD_REQUEST;
     }
 
     /* Read body */
     txn->req_body.flags |= BODY_DECODE;
-    r = read_body(httpd_in, txn->req_hdrs, &txn->req_body, &txn->error.desc);
+    r = http_read_body(httpd_in, httpd_out,
+		       txn->req_hdrs, &txn->req_body, &txn->error.desc);
     if (r) {
 	txn->flags.conn = CONN_CLOSE;
 	return r;
@@ -382,7 +410,16 @@ static int meth_post_isched(struct transaction_t *txn,
 
     /* Parse the iCal data for important properties */
     ical = mime->from_string(buf_cstring(&txn->req_body.payload));
-    if (!ical || !icalrestriction_check(ical)) {
+    if (!ical || (icalcomponent_isa(ical) != ICAL_VCALENDAR_COMPONENT)) {
+	txn->error.precond = ISCHED_INVALID_DATA;
+	return HTTP_BAD_REQUEST;
+    }
+
+    icalrestriction_check(ical);
+    if ((txn->error.desc = get_icalcomponent_errstr(ical))) {
+	assert(!buf_len(&txn->buf));
+	buf_setcstr(&txn->buf, txn->error.desc);
+	txn->error.desc = buf_cstring(&txn->buf);
 	txn->error.precond = ISCHED_INVALID_DATA;
 	return HTTP_BAD_REQUEST;
     }
@@ -396,7 +433,7 @@ static int meth_post_isched(struct transaction_t *txn,
     }
 
     /* Check method preconditions */
-    if (!meth || !uid || !prop) {
+    if (!meth || !comp || !uid || !prop) {
 	txn->error.precond = ISCHED_INVALID_SCHED;
 	ret = HTTP_BAD_REQUEST;
 	goto done;
@@ -406,25 +443,26 @@ static int meth_post_isched(struct transaction_t *txn,
     case ICAL_VFREEBUSY_COMPONENT:
 	if (meth == ICAL_METHOD_REQUEST)
 	    ret = sched_busytime_query(txn, mime, ical);
-	else {
-	    txn->error.precond = ISCHED_INVALID_SCHED;
-	    ret = HTTP_BAD_REQUEST;
-	}
+	else goto invalid_meth;
 	break;
 
     case ICAL_VEVENT_COMPONENT:
     case ICAL_VTODO_COMPONENT:
+    case ICAL_VPOLL_COMPONENT:
 	switch (meth) {
+	case ICAL_METHOD_POLLSTATUS:
+	    if (kind != ICAL_VPOLL_COMPONENT) goto invalid_meth;
+
 	case ICAL_METHOD_REQUEST:
 	case ICAL_METHOD_REPLY:
 	case ICAL_METHOD_CANCEL: {
 	    struct sched_data sched_data =
-		{ 1, meth == ICAL_METHOD_REPLY, ical, NULL, 0, NULL, NULL };
+		{ 1, meth == ICAL_METHOD_REPLY,
+		  ical, NULL, 0, ICAL_SCHEDULEFORCESEND_NONE, NULL };
 	    xmlNodePtr root = NULL;
 	    xmlNsPtr ns[NUM_NAMESPACE];
 	    struct auth_state *authstate;
-	    icalcomponent *comp;
-	    icalproperty *prop;
+	    int i;
 
 	    /* Start construction of our schedule-response */
 	    if (!(root = init_xml_response("schedule-response",
@@ -435,31 +473,28 @@ static int meth_post_isched(struct transaction_t *txn,
 	    }
 
 	    authstate = auth_newstate("anonymous");
-	    comp = icalcomponent_get_first_real_component(ical);
 
-	    /* Process each attendee */
-	    for (prop = icalcomponent_get_first_property(comp,
-							 ICAL_ATTENDEE_PROPERTY);
-		 prop;
-		 prop =
-		     icalcomponent_get_next_property(comp,
-						     ICAL_ATTENDEE_PROPERTY)) {
-		const char *attendee;
-		struct sched_param sparam;
-		int r;
+	    /* Process each recipient */
+	    for (i = 0; recipients[i]; i++) {
+		tok_t tok =
+		    TOK_INITIALIZER(recipients[i], ",", TOK_TRIMLEFT|TOK_TRIMRIGHT);
+		char *recipient;
 
-		/* Is attendee remote or local? */
-		attendee = icalproperty_get_attendee(prop);
-		r = caladdress_lookup(attendee, &sparam);
+		while ((recipient = tok_next(&tok))) {
+		    /* Is recipient remote or local? */
+		    struct sched_param sparam;
+		    int r = caladdress_lookup(recipient, &sparam);
 
-		/* Don't allow scheduling of remote users via an iSchedule request */
-		if (sparam.flags & SCHEDTYPE_REMOTE) r = HTTP_FORBIDDEN;
+		    /* Don't allow scheduling with remote users via iSchedule */
+		    if (sparam.flags & SCHEDTYPE_REMOTE) r = HTTP_FORBIDDEN;
 
-		if (r) sched_data.status = REQSTAT_NOUSER;
-		else sched_deliver((char *) attendee, &sched_data, authstate);
+		    if (r) sched_data.status = REQSTAT_NOUSER;
+		    else sched_deliver(recipient, &sched_data, authstate);
 
-		xml_add_schedresponse(root, NULL, BAD_CAST attendee,
-				      BAD_CAST sched_data.status);
+		    xml_add_schedresponse(root, NULL, BAD_CAST recipient,
+					  BAD_CAST sched_data.status);
+		}
+		tok_fini(&tok);
 	    }
 
 	    /* Fill in iSchedule-Capabilities */
@@ -472,12 +507,16 @@ static int meth_post_isched(struct transaction_t *txn,
 	    break;
 
 	default:
+	invalid_meth:
+	    txn->error.desc = "Unsupported iTIP method";
 	    txn->error.precond = ISCHED_INVALID_SCHED;
 	    ret = HTTP_BAD_REQUEST;
+	    goto done;
 	}
 	break;
 
     default:
+	txn->error.desc = "Unsupported iCalendar component";
 	txn->error.precond = ISCHED_INVALID_SCHED;
 	ret = HTTP_BAD_REQUEST;
     }
@@ -496,7 +535,7 @@ int isched_send(struct sched_param *sparam, const char *recipient,
     struct backend *be;
     static unsigned send_count = 0;
     static struct buf hdrs = BUF_INITIALIZER;
-    const char *body, *uri;
+    const char *body, *uri, *originator;
     size_t bodylen;
     icalcomponent *comp;
     icalcomponent_kind kind;
@@ -512,11 +551,11 @@ int isched_send(struct sched_param *sparam, const char *recipient,
 
     /* Open connection to iSchedule receiver.
        Use header buffer to construct remote server[:port][/tls] */
-    buf_setcstr(&hdrs, sparam->server);
-    if (sparam->port) buf_printf(&hdrs, ":%u", sparam->port);
-    if (sparam->flags & SCHEDTYPE_SSL) buf_appendcstr(&hdrs, "/tls");
-    if (sparam->flags & SCHEDTYPE_REMOTE) buf_appendcstr(&hdrs, "/noauth");
-    be = proxy_findserver(buf_cstring(&hdrs), &http_protocol, NULL,
+    buf_setcstr(&txn.buf, sparam->server);
+    if (sparam->port) buf_printf(&txn.buf, ":%u", sparam->port);
+    if (sparam->flags & SCHEDTYPE_SSL) buf_appendcstr(&txn.buf, "/tls");
+    if (sparam->flags & SCHEDTYPE_REMOTE) buf_appendcstr(&txn.buf, "/noauth");
+    be = proxy_findserver(buf_cstring(&txn.buf), &http_protocol, NULL,
 			  &backend_cached, NULL, NULL, httpd_in);
     if (!be) return HTTP_UNAVAILABLE;
 
@@ -549,8 +588,23 @@ int isched_send(struct sched_param *sparam, const char *recipient,
 
     buf_printf(&hdrs, "Content-Length: %u\r\n", (unsigned) bodylen);
 
-    prop = icalcomponent_get_first_property(comp, ICAL_ORGANIZER_PROPERTY);
-    buf_printf(&hdrs, "Originator: %s\r\n", icalproperty_get_organizer(prop));
+    /* Determine Originator based on method and component */
+    if (icalcomponent_get_method(ical) == ICAL_METHOD_REPLY) {
+	if (icalcomponent_isa(comp) == ICAL_VPOLL_COMPONENT) {
+	    prop = icalcomponent_get_first_property(comp, ICAL_VOTER_PROPERTY);
+	    originator = icalproperty_get_voter(prop);
+	}
+	else {
+	    prop =
+		icalcomponent_get_first_property(comp, ICAL_ATTENDEE_PROPERTY);
+	    originator = icalproperty_get_attendee(prop);
+	}
+    }
+    else {
+	prop = icalcomponent_get_first_property(comp, ICAL_ORGANIZER_PROPERTY);
+	originator = icalproperty_get_organizer(prop);
+    }
+    buf_printf(&hdrs, "Originator: %s\r\n", originator);
 
     if (recipient) {
 	/* Single recipient */
@@ -645,6 +699,16 @@ int isched_send(struct sched_param *sparam, const char *recipient,
 	case 307:
 	case 308:  /* Redirection */
 	    uri = spool_getheader(txn.req_hdrs, "Location")[0];
+	    if (txn.req_body.flags & BODY_CLOSE) {
+		proxy_downserver(be);
+		be = proxy_findserver(buf_cstring(&txn.buf), &http_protocol,
+				      NULL, &backend_cached,
+				      NULL, NULL, httpd_in);
+		if (!be) {
+		    r = HTTP_UNAVAILABLE;
+		    break;
+		}
+	    }
 	    goto redirect;
 
 	default:
@@ -654,6 +718,7 @@ int isched_send(struct sched_param *sparam, const char *recipient,
 
     if (txn.req_hdrs) spool_free_hdrcache(txn.req_hdrs);
     buf_free(&txn.req_body.payload);
+    buf_free(&txn.buf);
 
     return r;
 }
@@ -684,7 +749,11 @@ static DKIM_CBSTAT isched_get_key(DKIM *dkim, DKIM_SIGINFO *sig,
 	/* Split type/options */
 	if ((opts = strchr(type, '/'))) *opts++ = '\0';
 
+#ifdef IOPTEST  /* CalConnect ioptest */
+	if (1) {
+#else
 	if (!strcmp(type, "private-exchange")) {
+#endif
 	    const char *prefix = config_getstring(IMAPOPT_HTTPDOCROOT);
 	    struct buf path = BUF_INITIALIZER;
 	    FILE *f;
@@ -906,7 +975,7 @@ static int meth_get_domainkey(struct transaction_t *txn,
 static void isched_init(struct buf *serverinfo)
 {
     if (!(config_httpmodules & IMAP_ENUM_HTTPMODULES_CALDAV) ||
-	!config_getswitch(IMAPOPT_CALDAV_ALLOWSCHEDULING)) {
+	!config_getenum(IMAPOPT_CALDAV_ALLOWSCHEDULING)) {
 	/* Need CALDAV and CALDAV_SCHED in order to have ISCHEDULE */
 	return;
     }
@@ -923,6 +992,11 @@ static void isched_init(struct buf *serverinfo)
 	namespace_ischedule.enabled =
 	    config_httpmodules & IMAP_ENUM_HTTPMODULES_ISCHEDULE;
     }
+
+    /* Add OpenDKIM version to serverinfo string */
+    buf_printf(serverinfo, " OpenDKIM/%u.%u.%u",
+	       (ver >> 24) & 0xff, (ver >> 16) & 0xff, (ver >> 8) & 0xff);
+    if (ver & 0xff) buf_printf(serverinfo, ".%u", ver & 0xff);
 
     if (namespace_ischedule.enabled) {
 	int fd;
@@ -943,11 +1017,6 @@ static void isched_init(struct buf *serverinfo)
 	uint32_t ver = dkim_libversion();
 	unsigned need_dkim =
 	    namespace_ischedule.enabled == IMAP_ENUM_HTTPMODULES_ISCHEDULE;
-
-	/* Add OpenDKIM version to serverinfo string */
-	buf_printf(serverinfo, " OpenDKIM/%u.%u.%u",
-		   (ver >> 24) & 0xff, (ver >> 16) & 0xff, (ver >> 8) & 0xff);
-	if (ver & 0xff) buf_printf(serverinfo, ".%u", ver & 0xff);
 
 	/* Initialize DKIM library */
 	if (!(dkim_lib = dkim_init(NULL, NULL))) {

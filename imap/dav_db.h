@@ -44,7 +44,12 @@
 #ifndef DAV_DB_H
 #define DAV_DB_H
 
+#include <config.h>
+
+#ifdef WITH_DAV
+
 #include <sqlite3.h>
+#include "dav_util.h"
 
 struct dav_data {
     unsigned rowid;
@@ -73,8 +78,8 @@ int dav_init(void);
 /* done with all DAV operations for this process */
 int dav_done(void);
 
-/* get a database handle corresponding to userid */
-sqlite3 *dav_open(const char *userid, const char *cmds);
+/* get a database handle corresponding to mailbox */
+sqlite3 *dav_open(struct mailbox *mailbox, const char *cmds);
 
 /* close this handle */
 int dav_close(sqlite3 *davdb);
@@ -85,7 +90,9 @@ int dav_exec(sqlite3 *davdb, const char *cmd, struct bind_val bval[],
 	     int (*cb)(sqlite3_stmt *stmt, void *rock), void *rock,
 	     sqlite3_stmt **stmt);
 
-/* delete database corresponding to userid */
-int dav_delete(const char *userid);
+/* delete database corresponding to mailbox */
+int dav_delete(struct mailbox *mailbox);
+
+#endif /* WITH_DAV */
 
 #endif /* DAV_DB_H */

@@ -43,6 +43,8 @@
 
 #include <config.h>
 
+#ifdef WITH_DAV
+
 #include <syslog.h>
 #include <string.h>
 
@@ -122,8 +124,8 @@ int carddav_done(void)
     " UNIQUE( mailbox, resource ) );"					\
     "CREATE INDEX IF NOT EXISTS idx_vcard_uid ON vcard_objs ( vcard_uid );"
 
-/* Open DAV DB corresponding to userid */
-struct carddav_db *carddav_open(const char *userid, int flags)
+/* Open DAV DB corresponding to mailbox */
+struct carddav_db *carddav_open(struct mailbox *mailbox, int flags)
 {
     sqlite3 *db;
     struct carddav_db *carddavdb = NULL;
@@ -131,7 +133,7 @@ struct carddav_db *carddav_open(const char *userid, int flags)
 
     if (flags & CARDDAV_TRUNC) cmds = CMD_DROP CMD_CREATE;
 
-    db = dav_open(userid, cmds);
+    db = dav_open(mailbox, cmds);
 
     if (db) {
 	carddavdb = xzmalloc(sizeof(struct carddav_db));
@@ -505,3 +507,18 @@ int carddav_delmbox(struct carddav_db *carddavdb, const char *mailbox, int commi
 
     return r;
 }
+
+#else
+
+int carddav_init(void)
+{
+    return 0;
+}
+
+
+int carddav_done(void)
+{
+    return 0;
+}
+
+#endif /* WITH_DAV */

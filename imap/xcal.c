@@ -50,6 +50,7 @@
 #include <libxml/tree.h>
 
 #include "httpd.h"
+#include "tok.h"
 #include "util.h"
 #include "version.h"
 #include "xcal.h"
@@ -58,6 +59,9 @@
 extern icalvalue_kind icalproperty_kind_to_value_kind(icalproperty_kind kind);
 extern const char* icalrecur_freq_to_string(icalrecurrencetype_frequency kind);
 extern const char* icalrecur_weekday_to_string(icalrecurrencetype_weekday kind);
+#ifdef HAVE_RSCALE
+extern const char* icalrecur_skip_to_string(icalrecurrencetype_skip kind);
+#endif
 
 
 /*
@@ -198,6 +202,15 @@ void icalrecurrencetype_add_as_xxx(struct icalrecurrencetype *recur, void *obj,
 
     add_str(obj, "freq", icalrecur_freq_to_string(recur->freq));
 
+#ifdef HAVE_RSCALE
+    if (recur->rscale) {
+	add_str(obj, "rscale", recur->rscale);
+
+	if (recur->skip != ICAL_SKIP_BACKWARD)
+	    add_str(obj, "skip", icalrecur_skip_to_string(recur->skip));
+    }
+#endif
+
     /* until and count are mutually exclusive */
     if (recur->until.year) {
 	add_str(obj, "until", icaltime_as_iso_string(recur->until));
@@ -226,6 +239,8 @@ void icalrecurrencetype_add_as_xxx(struct icalrecurrencetype *recur, void *obj,
 	int limit = recurmap[j].limit - 1;
 
 	for (i = 0; i < limit && array[i] != ICAL_RECURRENCE_ARRAY_MAX; i++) {
+	    char temp[20];
+
 	    if (j == 3) { /* BYDAY */
 		const char *daystr;
 		int pos;
@@ -235,14 +250,20 @@ void icalrecurrencetype_add_as_xxx(struct icalrecurrencetype *recur, void *obj,
 		pos = icalrecurrencetype_day_position(array[i]);  
 
 		if (pos != 0) {
-		    char temp[20];
-
 		    snprintf(temp, sizeof(temp), "%d%s", pos, daystr);
 		    daystr = temp;
 		}   
 
 		add_str(obj, recurmap[j].str, daystr);
 	    }
+#ifdef HAVE_RSCALE
+	    else if (j == 7 /* BYMONTH */
+		     && icalrecurrencetype_month_is_leap(array[i])) {
+		snprintf(temp, sizeof(temp), "%dL",
+			 icalrecurrencetype_month_month(array[i]));
+		add_str(obj, recurmap[j].str, temp);
+	    }
+#endif
 	    else add_int(obj, recurmap[j].str, array[i]);
 	}
     }
@@ -457,6 +478,32 @@ static void icalproperty_add_value_as_xml_element(xmlNodePtr xprop,
 
     default:
 	str = icalvalue_as_ical_string(value);
+
+	switch (icalproperty_isa(prop)) {
+	case ICAL_CATEGORIES_PROPERTY:
+	case ICAL_RESOURCES_PROPERTY:
+	case ICAL_POLLPROPERTIES_PROPERTY:
+	    if (strchr(str, ',')) {
+		/* Handle multi-valued properties */
+		tok_t tok;
+
+		tok_init(&tok, str, ",", TOK_TRIMLEFT|TOK_TRIMRIGHT|TOK_EMPTY);
+		str = tok_next(&tok);
+		xmlAddChild(xtype, xmlNewText(BAD_CAST str));
+
+		while ((str = tok_next(&tok))) {
+		    if (*str) {
+			xtype = xmlNewChild(xprop, NULL, BAD_CAST type, NULL);
+			xmlAddChild(xtype, xmlNewText(BAD_CAST str));
+		    }
+		}
+		tok_fini(&tok);
+		return;
+	    }
+
+	default: break;
+	}
+
 	break;
     }
 
@@ -509,7 +556,6 @@ static xmlNodePtr icalproperty_as_xml_element(icalproperty *prop)
 
 
     /* Add value */
-    /* XXX  Need to handle multi-valued properties */
     icalproperty_add_value_as_xml_element(xprop, prop);
 
     return xprop;
@@ -634,6 +680,9 @@ struct icalrecur_parser {
 };
 
 extern icalrecurrencetype_frequency icalrecur_string_to_freq(const char* str);
+#ifdef HAVE_RSCALE
+extern icalrecurrencetype_skip icalrecur_string_to_skip(const char* str);
+#endif
 extern void icalrecur_add_byrules(struct icalrecur_parser *parser, short *array,
 				  int size, char* vals);
 extern void icalrecur_add_bydayrules(struct icalrecur_parser *parser,
@@ -655,6 +704,14 @@ struct icalrecurrencetype *icalrecur_add_rule(struct icalrecurrencetype **rt,
     if (!strcmp(rpart, "freq")) {
 	(*rt)->freq = icalrecur_string_to_freq(get_str(data));
     }
+#ifdef HAVE_RSCALE
+    else if (!strcmp(rpart, "rscale")) {
+	(*rt)->rscale = icalmemory_tmp_copy(get_str(data));
+    }
+    else if (!strcmp(rpart, "skip")) {
+	(*rt)->skip = icalrecur_string_to_skip(get_str(data));
+    }
+#endif
     else if (!strcmp(rpart, "count")) {
 	(*rt)->count = get_int(data);
     }
@@ -987,11 +1044,37 @@ static icalproperty *xml_element_to_icalproperty(xmlNodePtr xprop)
 
 
     /* Add value */
-    /* XXX  Need to handle multi-valued properties */
-    value = xml_element_to_icalvalue(node, valkind);
-    if (!value) {
-	syslog(LOG_ERR, "Parsing %s property value failed", propname);
-	goto error;
+    switch (kind) {
+    case ICAL_CATEGORIES_PROPERTY:
+    case ICAL_RESOURCES_PROPERTY:
+    case ICAL_POLLPROPERTIES_PROPERTY:
+	if (valkind == ICAL_TEXT_VALUE) {
+	    /* Handle multi-valued properties */
+	    struct buf buf = BUF_INITIALIZER;
+	    xmlChar *content = NULL;
+
+	    content = xmlNodeGetContent(node);
+	    buf_setcstr(&buf, (const char *) content);
+	    free(content);
+
+	    while ((node = xmlNextElementSibling(node))) {
+		buf_putc(&buf, ',');
+		content = xmlNodeGetContent(node);
+		buf_appendcstr(&buf, (const char *) content);
+		free(content);
+	    }
+
+	    value = icalvalue_new_from_string(valkind, buf_cstring(&buf));
+	    buf_free(&buf);
+	    break;
+	}
+
+    default:
+	value = xml_element_to_icalvalue(node, valkind);
+	if (!value) {
+	    syslog(LOG_ERR, "Parsing %s property value failed", propname);
+	    goto error;
+	}
     }
 
     icalproperty_set_value(prop, value);

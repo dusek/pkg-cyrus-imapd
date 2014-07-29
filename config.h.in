@@ -220,8 +220,14 @@
 /* Do we have an rlim_t? */
 #undef HAVE_RLIM_T
 
+/* Build RSCALE support into httpd? */
+#undef HAVE_RSCALE
+
 /* Define to 1 if you have the <rxposix.h> header file. */
 #undef HAVE_RXPOSIX_H
+
+/* Do we have built-in support for scheduling params? */
+#undef HAVE_SCHEDULING_PARAMS
 
 /* Define to 1 if you have the `setrlimit' function. */
 #undef HAVE_SETRLIMIT
@@ -325,6 +331,12 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Build VAVAILABILITY support into httpd? */
+#undef HAVE_VAVAILABILITY
+
+/* Build VPOLL support into httpd? */
+#undef HAVE_VPOLL
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF

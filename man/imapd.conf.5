@@ -231,8 +231,12 @@ messages are parsed recursively and a deep enough MIME structure
 can cause a stack overflow.  Do not parse deeper than this many
 layers of MIME structure.  The default of 1000 is much higher
 than any sane message should have. 
-.IP "\fBcaldav_allowscheduling:\fR 1" 5
-If enabled, the server will perform calendar scheduling operations. 
+.IP "\fBcaldav_allowscheduling:\fR on" 5
+Enable calendar scheduling operations. If set to "apple", the
+server will emulate Apple CalendarServer behavior as closely as
+possible. 
+
+Allowed values: \fIoff\fR, \fIon\fR, \fIapple\fR
 .IP "\fBcaldav_realm:\fR <none>" 5
 The realm to present for HTTP authentication of CalDAV resources.
 If not set (the default), the value of the "servername" option will
@@ -242,6 +246,10 @@ The prefix for the calendar mailboxes hierarchies.  The hierarchy
 delimiter will be automatically appended.  The public calendar
 hierarchy will be at the toplevel of the shared namespace.  A
 user's personal calendar hierarchy will be a child of their Inbox. 
+.IP "\fBcalendar_user_address_set:\fR <none>" 5
+Space-separated list of domains corresponding to calendar user
+addresses for which the server is responsible.  If not set (the
+default), the value of the "servername" option will be used. 
 .IP "\fBcarddav_realm:\fR <none>" 5
 The realm to present for HTTP authentication of CardDAV resources.
 If not set (the default), the value of the "servername" option will
@@ -682,7 +690,7 @@ Space-separated list of metadata files to be stored on a
 \fImetapartition\fR rather than in the mailbox directory on a spool
 partition. 
 
-Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR, \fIlock\fR
+Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR, \fIlock\fR, \fIdav\fR
 .IP "\fBmetapartition-name:\fR <none>" 5
 The pathname of the metadata partition \fIname\fR, corresponding to
 spool partition \fBpartition-name\fR.  For any mailbox residing in
@@ -1059,7 +1067,12 @@ CREATE.
 .IP "\fBservername:\fR <none>" 5
 This is the hostname visible in the greeting messages of the POP,
 IMAP and LMTP daemons. If it is unset, then the result returned
-from gethostname(2) is used. 
+from gethostname(2) is used.  This is also the value used by murder
+clusters to identify the host name.  It should be resolvable by
+DNS to the correct host, and unique within an active cluster.  If
+you are using low level replication (e.g. drbd) then it should be
+the same on each copy and the DNS name should also be moved to
+the new master on failover. 
 .IP "\fBserverinfo:\fR on" 5
 The server information to display in the greeting and capability
 responses. Information is displayed as follows:
@@ -1199,11 +1212,12 @@ other machine.
 .IP "\fBsync_password:\fR <none>" 5
 The default password to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 
-.IP "\fBsync_port:\fR csync" 5
+.IP "\fBsync_port:\fR <none>" 5
 Name of the service (or port number) of the replication service on
-replica host.  The default is "csync" which is usally port 2005, but
-any service name or numeric port can be specified.
-Prefix with a channel name to only apply for that channel 
+replica host.  Prefix with a channel name to only apply for that
+channel.  If not specified, the replication client will first
+try "imap" (port 143) to check if imapd supports replication,
+otherwise it will default to "csync" (usually port 2005).  
 .IP "\fBsync_realm:\fR <none>" 5
 The authentication realm to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 

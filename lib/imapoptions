@@ -253,8 +253,10 @@ Blank lines and lines beginning with ``#'' are ignored.
    layers of MIME structure.  The default of 1000 is much higher
    than any sane message should have. */
 
-{ "caldav_allowscheduling", 1, SWITCH }
-/* If enabled, the server will perform calendar scheduling operations. */
+{ "caldav_allowscheduling", "on", ENUM("off", "on", "apple") }
+/* Enable calendar scheduling operations. If set to "apple", the
+   server will emulate Apple CalendarServer behavior as closely as
+   possible. */
 
 { "caldav_realm", NULL, STRING }
 /* The realm to present for HTTP authentication of CalDAV resources.
@@ -266,6 +268,11 @@ Blank lines and lines beginning with ``#'' are ignored.
    delimiter will be automatically appended.  The public calendar
    hierarchy will be at the toplevel of the shared namespace.  A
    user's personal calendar hierarchy will be a child of their Inbox. */
+
+{ "calendar_user_address_set", NULL, STRING }
+/* Space-separated list of domains corresponding to calendar user
+   addresses for which the server is responsible.  If not set (the
+   default), the value of the "servername" option will be used. */
 
 { "carddav_realm", NULL, STRING }
 /* The realm to present for HTTP authentication of CardDAV resources.
@@ -794,7 +801,7 @@ Blank lines and lines beginning with ``#'' are ignored.
 { "mboxname_lockpath", NULL, STRING }
 /* Path to mailbox name lock files (default $conf/lock) */
 
-{ "metapartition_files", "", BITFIELD("header", "index", "cache", "expunge", "squat", "lock") }
+{ "metapartition_files", "", BITFIELD("header", "index", "cache", "expunge", "squat", "lock", "dav") }
 /* Space-separated list of metadata files to be stored on a
    \fImetapartition\fR rather than in the mailbox directory on a spool
    partition. */
@@ -1246,8 +1253,13 @@ And the notification message will be available on \fIstdin\fR.
 { "servername", NULL, STRING }
 /* This is the hostname visible in the greeting messages of the POP,
    IMAP and LMTP daemons. If it is unset, then the result returned
-   from gethostname(2) is used. */
-   
+   from gethostname(2) is used.  This is also the value used by murder
+   clusters to identify the host name.  It should be resolvable by
+   DNS to the correct host, and unique within an active cluster.  If
+   you are using low level replication (e.g. drbd) then it should be
+   the same on each copy and the DNS name should also be moved to
+   the new master on failover. */
+
 { "serverinfo", "on", ENUM("off", "min", "on") }
 /* The server information to display in the greeting and capability
    responses. Information is displayed as follows:
@@ -1413,11 +1425,12 @@ product version in the capabilities */
 /* The default password to use when authenticating to a sync server.
    Prefix with a channel name to only apply for that channel */
 
-{ "sync_port", "csync", STRING }
+{ "sync_port", NULL, STRING }
 /* Name of the service (or port number) of the replication service on
-   replica host.  The default is "csync" which is usally port 2005, but
-   any service name or numeric port can be specified.
-   Prefix with a channel name to only apply for that channel */
+   replica host.  Prefix with a channel name to only apply for that
+   channel.  If not specified, the replication client will first
+   try "imap" (port 143) to check if imapd supports replication,
+   otherwise it will default to "csync" (usually port 2005).  */
 
 { "sync_realm", NULL, STRING }
 /* The authentication realm to use when authenticating to a sync server.

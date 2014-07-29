@@ -85,6 +85,10 @@ struct mboxlist_entry {
     char *acl;
 };
 
+/* Convert mbtype to/from a string */
+const char *mboxlist_mbtype_to_string(uint32_t mbtype);
+uint32_t mboxlist_string_to_mbtype(const char *string);
+
 /* Lookup 'name' in the mailbox list. */
 int mboxlist_lookup(const char *name, struct mboxlist_entry *entry, struct txn **tid);
 
@@ -117,11 +121,11 @@ int mboxlist_createmailbox(const char *name, int mbtype,
 			   int localonly, int forceuser, int dbonly);
 
 /* create mailbox from sync */
-int mboxlist_createsync(const char *name, int mbtype,
-			const char *partition, 
+int mboxlist_createsync(const char *name, int mbtype, const char *partition, 
 			const char *userid, struct auth_state *auth_state,
 			int options, unsigned uidvalidity, const char *acl,
-			const char *uniqueid, struct mailbox **mboxptr);
+			const char *uniqueid, int local_only,
+			struct mailbox **mboxptr);
 
 int mboxlist_createmailbox_full(const char *name, int mbtype,
 				const char *partition,
@@ -152,7 +156,7 @@ int mboxlist_deletemailbox(const char *name, int isadmin, const char *userid,
 int mboxlist_renamemailbox(const char *oldname, const char *newname,
 			   const char *partition, int isadmin,
 			   const char *userid, struct auth_state *auth_state,
-			   int forceuser, int ignorequota);
+			   int local_only, int forceuser, int ignorequota);
 
 /* change ACL */
 int mboxlist_setacl(const char *name, const char *identifier,

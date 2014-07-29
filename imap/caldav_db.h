@@ -46,9 +46,47 @@
 
 #include <config.h>
 
+/* prepare for caldav operations in this process */
+int caldav_init(void);
+
+/* done with all caldav operations for this process */
+int caldav_done(void);
+
+#ifdef WITH_DAV
+
 #include <libical/ical.h>
 
 #include "dav_db.h"
+
+#ifndef HAVE_VAVAILABILITY
+/* Allow us to compile without #ifdef HAVE_VAVAILABILITY everywhere */
+#define ICAL_VAVAILABILITY_COMPONENT  ICAL_NO_COMPONENT
+#endif
+
+#ifndef HAVE_VPOLL
+/* Allow us to compile without #ifdef HAVE_VPOLL everywhere */
+#define ICAL_VPOLL_COMPONENT   	      ICAL_NO_COMPONENT
+#define ICAL_METHOD_POLLSTATUS	      ICAL_METHOD_NONE
+#define ICAL_VOTER_PROPERTY	      ICAL_NO_PROPERTY
+#define icalproperty_get_voter	      icalproperty_get_attendee
+#endif
+
+/* Bitmask of calendar components */
+enum {
+    /* "Real" components - MUST remain in this order (values used in DAV DB) */
+    CAL_COMP_VEVENT =		(1<<0),
+    CAL_COMP_VTODO =		(1<<1),
+    CAL_COMP_VJOURNAL =		(1<<2),
+    CAL_COMP_VFREEBUSY =	(1<<3),
+    CAL_COMP_VAVAILABILITY =	(1<<4),
+    CAL_COMP_VPOLL =	   	(1<<5),
+    /* Append additional "real" components here */
+
+    /* Other components - values don't matter - prepend here */
+    CAL_COMP_VALARM =		(1<<13),
+    CAL_COMP_VTIMEZONE =	(1<<14),
+    CAL_COMP_VCALENDAR =	(1<<15)
+};
 
 struct caldav_db;
 
@@ -67,14 +105,8 @@ struct caldav_data {
     const char *sched_tag;
 };
 
-/* prepare for caldav operations in this process */
-int caldav_init(void);
-
-/* done with all caldav operations for this process */
-int caldav_done(void);
-
-/* get a database handle corresponding to userid */
-struct caldav_db *caldav_open(const char *userid, int flags);
+/* get a database handle corresponding to mailbox */
+struct caldav_db *caldav_open(struct mailbox *mailbox, int flags);
 
 /* close this handle */
 int caldav_close(struct caldav_db *caldavdb);
@@ -118,5 +150,7 @@ int caldav_abort(struct caldav_db *caldavdb);
 void caldav_make_entry(icalcomponent *ical, struct caldav_data *cdata);
 
 int caldav_mboxname(const char *name, const char *userid, char *result);
+
+#endif /* WITH_DAV */
 
 #endif /* CALDAV_DB_H */
