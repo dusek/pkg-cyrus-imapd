@@ -1,2 +1,0 @@
-cyrus-admin-2.4: shell-script-fails-syntax-check usr/bin/cyradm
-cyrus-admin-2.4: shell-script-fails-syntax-check ./usr/bin/cyradm

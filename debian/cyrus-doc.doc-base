@@ -1,4 +1,4 @@
-Document: cyrus2.4-manual
+Document: cyrus-manual
 Title: CMU Cyrus 2.4 Manual
 Author: Carnegie Mellon University
 Abstract: This manual describes how to configure and administer 
@@ -6,5 +6,5 @@ Abstract: This manual describes how to configure and administer
 Section: Network/Communication/Mail
 
 Format: HTML
-Index: /usr/share/doc/cyrus-doc-2.4/html/index.html
-Files: /usr/share/doc/cyrus-doc-2.4/html/*.html
+Index: /usr/share/doc/cyrus-doc/html/index.html
+Files: /usr/share/doc/cyrus-doc/html/*.html

@@ -2,7 +2,7 @@
 
 set -e
 
-DOCDIR=/usr/share/doc/libcyrus-imap-perl24
+DOCDIR=/usr/share/doc/libcyrus-imap-perl
 DOCLINK=cyrus-common
 
 if [ -d $DOCDIR ] && [ ! -L $DOCDIR ]; then

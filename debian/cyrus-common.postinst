@@ -95,6 +95,30 @@ case "$1" in
             chown cyrus:mail ${userdeny_database}
 	    echo "done."
         fi	    
+
+     	if [ -f /usr/lib/cyrus/cyrus-db-types.active ]; then
+	    /usr/lib/cyrus/bin/upgrade-db
+	    RET="$?"
+	    case "$RET" in
+		0) ;;
+		2)
+		    echo "ERROR: Upgrading of database backends failed." 1>&2
+		    echo "ERROR: Please check the output, fix errors and re-run /usr/lib/cyrus/bin/upgrade-db" 1>&2
+		    echo "ERROR: script, before trying to start cyrus-imapd." 1>&2
+		    ;;
+		1|*)
+		    echo "ERROR: Upgrading of database backends failed with a fatal error." 1>&2
+		    echo "ERROR: Please check /usr/share/doc/cyrus-common/README.Debian*" 1>&2
+		    echo "ERROR: for instructions how to upgrade cyrus databases manually." 1>&2
+		    exit $RET;
+		    ;;
+	    esac
+	fi
+
+	# Legacy code / needed in case something will change in future
+	# Hopefully this will be handled by upstream next time
+	cp -p /usr/lib/cyrus/cyrus-hardwired-config.txt \
+	    /usr/lib/cyrus/cyrus-hardwired-config.active
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

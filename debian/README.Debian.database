@@ -27,7 +27,7 @@ database backends seem to have changed since the last active version.
 
 After converting all the mail stores and /var/lib/cyrus to use the proper
 database backends using cvt_cyrusdb(8), remove
-/usr/lib/cyrus/cyrus-db-types.active and run "dpkg-reconfigure cyrus-common-2.4"
+/usr/lib/cyrus/cyrus-db-types.active and run "dpkg-reconfigure cyrus-common"
 once to reset the error trigger, and start cyrmaster.
 
 If cvt-cyrusdb locks up just at the beginning of the conversion, your databases
@@ -114,20 +114,9 @@ Step-by-step conversion guide:
 
 3. Reset the database backend change system
    rm /usr/lib/cyrus/cyrus-db-types.active
-   dpkg-reconfigure cyrus-common-2.4
+   dpkg-reconfigure cyrus-common
 
 4. Start Cyrus, if not started by step 3
    /etc/init.d/cyrus-imapd start
-
-WHY THERE IS NO AUTOMATED UPGRADE SCRIPT:  Because I dislike people who do not
-read docs, and one Debian user asked me exactly the wrong thing (about
-cyrus21-imapd) while I was in the middle of writing said script AND I am quite
-short on time lately: it is much faster to write a doc than to write and test
-the script.  So, now everyone will need to read the docs to get Cyrus working
-again.  I am not holding back the skiplist change for that script anymore.
-
-Maybe someday I will finish the upgrade script.  Maybe someone else will write
-one (I will certainly include it in the package, if it is good enough).  Don't
-hold your breath, though.
 
  -- Henrique de Moraes Holschuh <hmh@debian.org>

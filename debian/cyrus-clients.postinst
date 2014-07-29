@@ -2,7 +2,7 @@
 
 set -e
 
-DOCDIR=/usr/share/doc/cyrus-clients-2.4
+DOCDIR=/usr/share/doc/cyrus-clients
 DOCLINK=cyrus-common
 
 if [ -d $DOCDIR ] && [ ! -L $DOCDIR ]; then
