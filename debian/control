@@ -177,6 +177,7 @@ Description: Cyrus mail system - POP3 support
 Package: cyrus-admin
 Architecture: all
 Section: mail
+Pre-Depends: dpkg (>= 1.17.5)
 Depends: libcyrus-imap-perl (>= ${binary:Version}),
 	 ${misc:Depends},
 	 ${perl:Depends}
@@ -258,6 +259,7 @@ Description: Cyrus mail system - CalDAV and CardDAV support
 Package: cyrus-clients
 Architecture: any
 Section: mail
+Pre-Depends: dpkg (>= 1.17.5)
 Depends: ${shlibs:Depends},
 	 ${misc:Depends}
 Breaks: cyrus-clients-2.4 (<< 2.4.17+caldav~beta10-2~)
@@ -288,6 +290,7 @@ Description: Cyrus mail system - developer files
 
 Package: libcyrus-imap-perl
 Architecture: any
+Pre-Depends: dpkg (>= 1.17.5)
 Depends: ${perl:Depends},
 	 ${shlibs:Depends},
 	 ${misc:Depends}

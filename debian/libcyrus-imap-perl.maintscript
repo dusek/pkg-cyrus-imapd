@@ -1,0 +1,1 @@
+symlink_to_dir /usr/share/doc/libcyrus-imap-perl/ /usr/share/doc/cyrus-common-2.4 2.4.17+caldav~beta10-3~ -- "$@"

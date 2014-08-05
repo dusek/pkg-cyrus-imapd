@@ -226,14 +226,19 @@ override_dh_auto_install:
 	xargs < debian/cyrus-common.contrib -rti cp -r '{}' $(DOCDIR)/contrib
 
 override_dh_installdocs:
-	dh_installdocs -p cyrus-common -p cyrus-doc
+	dh_installdocs \
+	  -p cyrus-common -p cyrus-doc -p cyrus-clients \
+	  -p cyrus-admin -p libcyrus-imap-perl
 	dh_installdocs --remaining-packages --link-doc=cyrus-common
 
 override_dh_installinit:
 	dh_installinit -p cyrus-common --name=cyrus-imapd
 
 override_dh_installchangelogs:
-	dh_installchangelogs -p cyrus-common -p cyrus-doc doc/changes.html
+	dh_installchangelogs \
+	  -p cyrus-common -p cyrus-doc -p cyrus-clients \
+	  -p cyrus-admin -p libcyrus-imap-perl \
+	  doc/changes.html
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
