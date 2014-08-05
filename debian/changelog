@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-3) unstable; urgency=medium
+
+  * Add versioned depends between dummy to real versionless packages
+  * Fix Vcs fields (s/git.debian.org/anonscm.debian.org)
+  * Remove dependency on cyrus-common where not needed (Closes: #757046)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 05 Aug 2014 12:01:18 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-2) experimental; urgency=medium
 
   * Drop versioning from the cyrus-imapd package
