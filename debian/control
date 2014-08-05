@@ -337,7 +337,7 @@ Package: cyrus-pop3d-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-pop3d,
+Depends: cyrus-pop3d (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - POP3 support [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -346,7 +346,7 @@ Package: cyrus-admin-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-admin,
+Depends: cyrus-admin (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - administration tools [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -355,7 +355,7 @@ Package: cyrus-murder-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-murder,
+Depends: cyrus-murder (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - proxies and aggregator [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -364,7 +364,7 @@ Package: cyrus-replication-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-replication,
+Depends: cyrus-replication (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - replication [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -373,7 +373,7 @@ Package: cyrus-nntpd-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-nntpd,
+Depends: cyrus-nntpd (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - NNTP support [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -382,7 +382,7 @@ Package: cyrus-caldav-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-caldav,
+Depends: cyrus-caldav (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - CalDAV and CardDAV support [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -391,7 +391,7 @@ Package: cyrus-clients-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-clients,
+Depends: cyrus-clients (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - test clients [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -400,7 +400,7 @@ Package: cyrus-dev-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: cyrus-dev,
+Depends: cyrus-dev (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - developer files [dummy package]
  This package is empty transitional package and can be safely removed.
@@ -409,7 +409,7 @@ Package: libcyrus-imap-perl24
 Architecture: all
 Section: oldlibs
 Priority: extra
-Depends: libcyrus-imap-perl,
+Depends: libcyrus-imap-perl (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Interface to Cyrus imap client imclient library [dummy package]
  This package is empty transitional package and can be safely removed.
