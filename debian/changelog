@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-4) unstable; urgency=high
+
+  * Remove obsolete cyrus-admin, cyrus-clients and libcyrus-imap-perl
+    postinst scripts (Closes: #757521, #757756)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 11 Aug 2014 11:01:04 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-3) unstable; urgency=medium
 
   * Add versioned depends between dummy to real versionless packages
