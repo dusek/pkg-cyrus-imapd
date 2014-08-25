@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-5) unstable; urgency=high
+
+  * Don't link transitional packages to cyrus-common documentation
+    (Closes: #755705)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 25 Aug 2014 11:05:07 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-4) unstable; urgency=high
 
   * Remove obsolete cyrus-admin, cyrus-clients and libcyrus-imap-perl
