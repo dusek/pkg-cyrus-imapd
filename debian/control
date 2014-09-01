@@ -3,8 +3,6 @@ Section: mail
 Priority: extra
 Maintainer: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
 Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
-	   Sven Mueller <sven@debian.org>,
-	   Benjamin Seidenberg <benjamin@debian.org>,
 	   Ondřej Surý <ondrej@debian.org>,
 	   Anthony Prades <toony.debian@chezouam.net>
 Standards-Version: 3.9.5
