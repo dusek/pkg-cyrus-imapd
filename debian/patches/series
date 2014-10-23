@@ -33,3 +33,4 @@ cyrus-tls-1.2.patch
 91-fix-extra-libpci.patch
 parse-GUID-for-binary-appends-as-well.patch
 use-system-unicodedata.patch
+TLS-configuration.patch
