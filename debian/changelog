@@ -1,3 +1,13 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-6) unstable; urgency=medium
+
+  * Cleanup inactive uploaders (Closes: #760134) and thank you for all the
+    hard work in the past years!
+  * Pull TLS configuration patch from upstream git repository (Disables
+    SSLv2 and SSLv3 by default and adds TLS PFS)
+  * Disable SSLv2 and SSLv3 in a default imapd.conf file
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 23 Oct 2014 12:28:10 +0200
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-5) unstable; urgency=high
 
   * Don't link transitional packages to cyrus-common documentation
