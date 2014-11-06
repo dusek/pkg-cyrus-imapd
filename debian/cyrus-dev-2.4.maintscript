@@ -1,1 +1,1 @@
-dir_to_symlink /usr/share/doc/cyrus-dev-2.4 /usr/share/doc/cyrus-common-2.4 2.4.17+caldav~beta10-7~ -- "$@"
+dir_to_symlink /usr/share/doc/cyrus-dev-2.4 /usr/share/doc/cyrus-common-2.4 2.4.17+caldav~beta10-7~
