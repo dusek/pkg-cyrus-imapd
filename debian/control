@@ -175,7 +175,7 @@ Description: Cyrus mail system - POP3 support
 Package: cyrus-admin
 Architecture: all
 Section: mail
-Pre-Depends: dpkg (>= 1.17.5)
+Pre-Depends: ${misc:Pre-Depends}
 Depends: libcyrus-imap-perl (>= ${binary:Version}),
 	 ${misc:Depends},
 	 ${perl:Depends}
@@ -257,7 +257,7 @@ Description: Cyrus mail system - CalDAV and CardDAV support
 Package: cyrus-clients
 Architecture: any
 Section: mail
-Pre-Depends: dpkg (>= 1.17.5)
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${shlibs:Depends},
 	 ${misc:Depends}
 Breaks: cyrus-clients-2.4 (<< 2.4.17+caldav~beta10-2~)
@@ -288,7 +288,7 @@ Description: Cyrus mail system - developer files
 
 Package: libcyrus-imap-perl
 Architecture: any
-Pre-Depends: dpkg (>= 1.17.5)
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${perl:Depends},
 	 ${shlibs:Depends},
 	 ${misc:Depends}
@@ -311,6 +311,7 @@ Package: cyrus-common-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - common files [dummy package]
@@ -320,6 +321,7 @@ Package: cyrus-doc-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-doc (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - documentation files [dummy package]
@@ -329,6 +331,7 @@ Package: cyrus-imapd-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-imapd (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - IMAP support [dummy package]
@@ -338,6 +341,7 @@ Package: cyrus-pop3d-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-pop3d (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - POP3 support [dummy package]
@@ -347,6 +351,7 @@ Package: cyrus-admin-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-admin (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - administration tools [dummy package]
@@ -356,6 +361,7 @@ Package: cyrus-murder-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-murder (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - proxies and aggregator [dummy package]
@@ -365,6 +371,7 @@ Package: cyrus-replication-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-replication (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - replication [dummy package]
@@ -374,6 +381,7 @@ Package: cyrus-nntpd-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-nntpd (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - NNTP support [dummy package]
@@ -383,6 +391,7 @@ Package: cyrus-caldav-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-caldav (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - CalDAV and CardDAV support [dummy package]
@@ -392,6 +401,7 @@ Package: cyrus-clients-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-clients (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - test clients [dummy package]
@@ -401,6 +411,7 @@ Package: cyrus-dev-2.4
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-dev (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Cyrus mail system - developer files [dummy package]
@@ -410,6 +421,7 @@ Package: libcyrus-imap-perl24
 Architecture: all
 Section: oldlibs
 Priority: extra
+Pre-Depends: ${misc:Pre-Depends}
 Depends: libcyrus-imap-perl (>= ${source:Version}~),
 	 ${misc:Depends}
 Description: Interface to Cyrus imap client imclient library [dummy package]
