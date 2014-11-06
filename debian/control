@@ -312,8 +312,7 @@ Architecture: all
 Section: oldlibs
 Priority: extra
 Pre-Depends: ${misc:Pre-Depends}
-Depends: cyrus-common (>= ${source:Version}~),
-	 ${misc:Depends}
+Depends: ${misc:Depends}
 Description: Cyrus mail system - common files [dummy package]
  This package is empty transitional package and can be safely removed.
 
