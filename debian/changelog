@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-8) unstable; urgency=medium
+
+  * Don't use dh_installdoc --link-doc feature at all, it just creates
+    more problems than it solves (Closes: #769553)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 18 Nov 2014 13:06:45 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-7) unstable; urgency=medium
 
   * Add dir_to_symlink dpkg-maintscript-helper call for transitional
