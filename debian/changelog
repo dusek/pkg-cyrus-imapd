@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-9) unstable; urgency=medium
+
+  * Add missing backslash in configure params (Closes: #771071)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 27 Nov 2014 09:28:43 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-8) unstable; urgency=medium
 
   * Don't use dh_installdoc --link-doc feature at all, it just creates
