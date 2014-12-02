@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-11) unstable; urgency=medium
+
+  * Add more missing symlink_to_dir calls based on last X packages
+    from testing.
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 02 Dec 2014 17:33:25 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-10) unstable; urgency=medium
 
   * Last attempt to get the maintscripts right (Closes: #771749)
