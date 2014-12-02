@@ -42,6 +42,7 @@ Homepage: http://www.cyrusimap.org/
 Package: cyrus-common
 Architecture: any
 Section: mail
+Pre-Depends: ${misc:Pre-Depends}
 Depends: adduser,
 	 db-util,
 	 db-upgrade-util,
@@ -93,6 +94,7 @@ Description: Cyrus mail system - common files
 Package: cyrus-doc
 Architecture: all
 Section: doc
+Pre-Depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}
 Breaks: cyrus-doc-2.4 (<< 2.4.17+caldav~beta10-2~)
 Replaces: cyrus-doc-2.4 (<< 2.4.17+caldav~beta10-2~)
@@ -117,6 +119,7 @@ Description: Cyrus mail system - documentation files
 Package: cyrus-imapd
 Architecture: any
 Section: mail
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 ${shlibs:Depends},
 	 ${misc:Depends}
@@ -146,6 +149,7 @@ Description: Cyrus mail system - IMAP support
 Package: cyrus-pop3d
 Architecture: any
 Section: mail
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 ${shlibs:Depends},
 	 ${misc:Depends}
@@ -194,6 +198,7 @@ Description: Cyrus mail system - administration tools
 Package: cyrus-murder
 Section: mail
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 cyrus-imapd (= ${binary:Version}),
 	 cyrus-pop3d (= ${binary:Version}),
@@ -212,6 +217,7 @@ Description: Cyrus mail system - proxies and aggregator
 Package: cyrus-replication
 Section: mail
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 cyrus-imapd (= ${binary:Version}) | cyrus-pop3d (= ${binary:Version}),
 	 ${shlibs:Depends},
@@ -227,6 +233,7 @@ Description: Cyrus mail system - replication
 Package: cyrus-nntpd
 Architecture: any
 Section: mail
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 ${shlibs:Depends},
 	 ${misc:Depends}
@@ -243,6 +250,7 @@ Description: Cyrus mail system - NNTP support
 Package: cyrus-caldav
 Architecture: any
 Section: mail
+Pre-Depends: ${misc:Pre-Depends}
 Depends: cyrus-common (= ${binary:Version}),
 	 ${shlibs:Depends},
 	 ${misc:Depends}
@@ -274,6 +282,7 @@ Description: Cyrus mail system - test clients
 Package: cyrus-dev
 Architecture: any
 Section: devel
+Pre-Depends: ${misc:Pre-Depends}
 Depends: libcyrus-imap-perl (>= ${binary:Version}),
 	 cyrus-common (= ${binary:Version}),
 	 libsasl2-dev (>= 2.1.9),
