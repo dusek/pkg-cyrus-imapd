@@ -231,9 +231,11 @@ override_dh_installinit:
 override_dh_installchangelogs:
 	dh_installchangelogs \
 	  -p cyrus-common -p cyrus-doc -p cyrus-clients \
-	  -p cyrus-admin -p libcyrus-imap-perl \
+	  -p cyrus-admin -p libcyrus-imap-perl -p cyrus-imapd \
+	  -p cyrus-pop3d -p cyrus-murder -p cyrus-replication \
+	  -p cyrus-nntpd -p cyrus-caldav -p cyrus-dev \
 	  doc/changes.html
-	dh_installchangelogs -p cyrus-common-2.4
+	dh_installchangelogs --remaining-packages
 
 override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
