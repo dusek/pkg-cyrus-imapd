@@ -1,3 +1,10 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-12) unstable; urgency=medium
+
+  * Add Breaks/Replaces for old cyrus-imapd-2.2 dummy packages 
+    to cleanup old installations.
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 03 Dec 2014 09:12:15 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-11) unstable; urgency=medium
 
   * Add more missing symlink_to_dir calls based on last X packages
