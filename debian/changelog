@@ -1,3 +1,9 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-13) unstable; urgency=medium
+
+  * Force dpkg-dev to 1.17.22 to have correct Pre-Depends
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 30 Dec 2014 18:25:18 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-12) unstable; urgency=medium
 
   * Add Breaks/Replaces for old cyrus-imapd-2.2 dummy packages 
