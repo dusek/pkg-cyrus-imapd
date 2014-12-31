@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-14) unstable; urgency=medium
+
+  * Bump required debhelper version to 9.20141221~ to it correctly set
+    ${misc:Pre-Depends}
+  * Drop Build-Depends on dpkg-dev that's not needed
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 31 Dec 2014 08:58:37 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-13) unstable; urgency=medium
 
   * Force dpkg-dev to 1.17.22 to have correct Pre-Depends
