@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-15) unstable; urgency=medium
+
+  * Manually add dpkg (>= 1.17.14) to Pre-Depends to have correctly
+    working dpkg-maintscript-helper symlink_to_dir without full path
+  * Format debian/* with wrap-and-sort -a
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 07 Jan 2015 13:18:39 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-14) unstable; urgency=medium
 
   * Bump required debhelper version to 9.20141221~ to it correctly set
