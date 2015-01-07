@@ -25,7 +25,7 @@ Upstream sources are at: ftp://ftp.cyrusimap.org/cyrus-imapd/.
 Upstream Author: Carnegie Mellon University <cyrus-bugs+@andrew.cmu.edu>
 Upstream bugs:   http://bugzilla.cyrusimap.org/bugzilla3/
 
-Patches: 
+Patches:
 The Debian version of Cyrus IMAP is heavily patched to adequate it to Debian,
 and sometimes to add functionality.  All such patches are submitted upstream to
 CMU, for proper inclusion in Cyrus -- but not all of them will be accepted, of
@@ -82,4 +82,3 @@ following copyright notice:
 
 For more information, see http://asg.web.cmu.edu/cyrus/imapd/license.html
 (local copy stored in /usr/share/doc/cyrus2-common/license.html)
-
