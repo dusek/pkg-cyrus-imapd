@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-17) unstable; urgency=medium
+
+  [Daniel Dickinson]
+  * Fix users in virtual domains cannot access caldav/carddav
+    (Closes: #774128)
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 02 Feb 2015 10:27:53 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-16) unstable; urgency=medium
 
   * Manually add dpkg (>= 1.17.14) to Pre-Depends to have correctly
