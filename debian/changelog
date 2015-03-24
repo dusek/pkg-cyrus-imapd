@@ -1,3 +1,11 @@
+cyrus-imapd-2.4 (2.4.17+caldav~beta10-18) unstable; urgency=medium
+
+  * Fix PIDFile location in sysvinit script (Closes: #778781)
+  * Fix ACL string corruption on removal of an ACL identifier
+    (Closes: #778779)
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 24 Mar 2015 12:09:49 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-17) unstable; urgency=medium
 
   [Daniel Dickinson]
