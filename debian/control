@@ -5,8 +5,9 @@ Maintainer: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.
 Uploaders: Henrique de Moraes Holschuh <hmh@debian.org>,
            Ondřej Surý <ondrej@debian.org>,
            Anthony Prades <toony.debian@chezouam.net>
-Standards-Version: 3.9.5
-Build-Depends: bison,
+Standards-Version: 3.9.6
+Build-Depends: autotools-dev,
+               bison,
                comerr-dev,
                debhelper (>= 9),
                dh-autoreconf,

@@ -7,15 +7,12 @@
 #			    David Parker <david@neongoat.com>
 #
 
-#
-# Please refer to debian/README.source for instructions
-# TODO: needs update
-#
-
-# Debian Hardening
-export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+# see EXAMPLES in dpkg-buildflags(1) and read /usr/share/dpkg/*
 DPKG_EXPORT_BUILDFLAGS = 1
-include /usr/share/dpkg/buildflags.mk
+include /usr/share/dpkg/default.mk
+
+# see FEATURE AREAS in dpkg-buildflags(1)
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 # DebHelper control
 export DH_ALWAYS_EXCLUDE=CVS:.svn:.git
@@ -31,8 +28,7 @@ DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
 # Extra version information to add to Cyrus IMAPd ID
-DEBVERSION ?= $(shell LC_ALL=C dpkg-parsechangelog | sed -ne 's/^Version: \(.*-\)/\1/p')
-EXTRA_IDENT := Debian-$(DEBVERSION)
+EXTRA_IDENT := Debian-$(DEB_VERSION)
 
 # DB engine version
 export BDB_VERSION ?= $(shell LC_ALL=C dpkg-query -l 'libdb[45].[0-9]-dev' | grep ^ii | sed -e 's|.*\s\libdb\([45]\.[0-9]\)-dev\s.*|\1|')
@@ -45,30 +41,25 @@ else
   CONFFLAGS += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
 endif
 
-# Other oddities
-ifneq (,$(findstring strict,$(DEB_BUILD_OPTIONS)))
-	CONFFLAGS += --enable-warnings-are-errors
-endif
-
 %:
-	dh $@ --with autoreconf,systemd --parallel
+	dh $@ --with autoreconf --with autotools-dev --with systemd --parallel
 
-override_dh_autoreconf:
-	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
+#override_dh_autoreconf:
+#	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
 
-override_dh_auto_clean:
-	dh_auto_clean
-	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
-	rm -f config.h config.cache config.status config.log stamp-config confdefs.h
-	rm -f mkinstalldirs
-	rm -f netnews/Makefile perl/imap/Makefile.old perl/sieve/managesieve/Makefile.old snmp/Makefile Makefile et/Makefile
-	rm -f doc/pod2htm*
-	rm -f master/makedepend.log 
-	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
+#override_dh_auto_clean:
+#	dh_auto_clean
+#	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
+#	rm -f config.h config.cache config.status config.log stamp-config confdefs.h
+#	rm -f mkinstalldirs
+#	rm -f netnews/Makefile perl/imap/Makefile.old perl/sieve/managesieve/Makefile.old snmp/Makefile Makefile et/Makefile
+#	rm -f doc/pod2htm*
+#	rm -f master/makedepend.log 
+#	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
 
 override_dh_auto_configure:
 	# Rebuild the build system
-	automake -f -a 2>/dev/null || true
+#	automake -f -a 2>/dev/null || true
 	dh_auto_configure -- \
 	 $(CONFFLAGS) \
 	 --with-extraident=$(EXTRA_IDENT) \
@@ -106,11 +97,11 @@ override_dh_auto_configure:
 		>> debian/README.configure-options
 	sed -i 's/ -lsensors//' master/Makefile
 
-
 override_dh_auto_build:
-	PERL_MM_OPT="INSTALLDIRS=vendor" $(MAKE)
-	# store database configuration for possible automatic
-	# upgrading later
+	PERL_MM_OPT="INSTALLDIRS=vendor" dh_auto_build
+
+# store database configuration for possible automatic
+# upgrading later
 	echo "DBENGINE $(DBENGINE)" >>debian/cyrus-db-types.txt
 	grep '_db"' lib/imapoptions \
 	| cut -d, -f1-2 | sed -e 's/{ "//;s/_db", "/ /;s/"$$//' \
@@ -120,15 +111,16 @@ override_dh_auto_build:
 	mv debian/cyrus-db-types.txt debian/cyrus-db-types.txt.old \
 	&& sort -u < debian/cyrus-db-types.txt.old > debian/cyrus-db-types.txt \
 	&& rm debian/cyrus-db-types.txt.old
-	#
-	# store some useful state about the current package
-	echo "PACKAGE_VERSION $(DEBVERSION)" >debian/cyrus-hardwired-config.txt
+
+# store some useful state about the current package
+	echo "PACKAGE_VERSION $(DEB_VERSION)" >debian/cyrus-hardwired-config.txt
 	if grep -q -s -n -E '^[[:space:]]*#define[[:space:]]+USE_DIR_FULL[[:space:]]+1' config.h ; then \
 		echo "USE_DIR_FULL 1" >>debian/cyrus-hardwired-config.txt ;\
 	else \
 		echo "USE_DIR_FULL 0" >>debian/cyrus-hardwired-config.txt ;\
 	fi
-	# former build-indep
+
+# former build-indep
 	cd doc &&\
 	pod2man ../perl/sieve/scripts/sieveshell.pl > ../man/sieveshell.1 &&\
 	fig2dev -L png murder.fig murder.png &&\
@@ -143,7 +135,7 @@ override_dh_auto_build:
 	rm -f pod2htm*
 
 override_dh_auto_install:
-	dh_auto_install -- DESTDIR=$(TMPPKG)
+	dh_auto_install # -- DESTDIR=$(TMPPKG)
 
 	# install the cyrus tool
 	install -d -m 755 $(TMPPKG)/usr/sbin
@@ -159,7 +151,7 @@ override_dh_auto_install:
 
 	# We rename some utils, so we need to sort out the manpages
 	for i in master deliver ; do \
-		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$$i.8 ; \
+	    mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$$i.8 ; \
 	done
 
 	# Move all manpages under cyrus- namespace
