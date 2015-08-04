@@ -63,37 +63,38 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 	 $(CONFFLAGS) \
 	 --with-extraident=$(EXTRA_IDENT) \
-	 --prefix=/usr/share --exec-prefix=/usr --libexecdir=/usr/sbin \
-	 --bindir=/usr/sbin --sbindir=/usr/sbin \
-	 --includedir=/usr/include/cyrus --mandir=/usr/share/man \
-	 --datadir=/usr/share/cyrus --sysconfdir=/etc \
+	 --includedir=/usr/include/cyrus \
+	 --datadir=/usr/share/cyrus \
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
-	 --mandir=/usr/share/man \
-	 --with-cyrus-prefix=/usr/lib/cyrus \
-	 --enable-gssapi \
-	 --with-gss_impl=mit \
-	 --with-ldap=/usr \
-	 --with-lock=fcntl \
-	 --with-perl=/usr/bin/perl \
-	 --with-openssl=/usr \
-	 --with-bdb=db \
-	 --with-bdb-libdir=/usr/lib --with-bdb-incdir=/usr/include \
-	 --enable-murder --enable-nntp --enable-replication \
-	 --disable-listext --with-sasl=/usr \
+	 --disable-silet-rules \
+	 --enable-autocreate \
 	 --enable-idled \
+	 --enable-nntp \
+	 --enable-murder \
+	 --enable-calalarmd \
 	 --enable-http \
-	 --with-opendkim-libdir=/usr/include/opendkim \
-	 --with-opendkim-incdir=/usr/lib \
+	 --enable-replication \
+	 --enable-gssapi \
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
+	 --with-lock=fcntl \
+	 --with-ldap=/usr \
+	 --with-krb=/usr \
+	 --with-krbimpl=mit \
+	 --with-openssl=/usr \
+	 --with-zlib=/usr \
+	 --with-libcap \
+	 --with-pidfile=/var/run/cyrus-master.pid \
 	 --with-com_err="" \
-	 --with-pidfile=/var/run/cyrmaster.pid \
 	 --with-syslogfacility=MAIL \
-	 --with-ucdsnmp=/usr
+	 --with-gss_impl=mit \
+	 --with-sasl=/usr \
+	 --with-perl=/usr/bin/perl \
+	 --with-snmp=/usr
 	echo 'To build this package, configure was called as follows:' \
 		> debian/README.configure-options
 	grep '^ac_cs_config=' config.status \
-	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
+x	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
 		>> debian/README.configure-options
 	sed -i 's/ -lsensors//' master/Makefile
 
