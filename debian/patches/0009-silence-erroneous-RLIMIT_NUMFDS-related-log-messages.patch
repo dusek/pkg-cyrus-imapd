@@ -1,0 +1,35 @@
+From: Henrique de Moraes Holschuh <hmh@debian.org>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: silence erroneous RLIMIT_NUMFDS-related log messages
+
+Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
+
+Fixes setrlimit(RLIMIT_NUMFDS) handling to be less obnoxious and
+not barf error messages to syslog incorrectly, nor log nonsense
+if getrlimit(RLIMIT_NUMFDS) failed.
+---
+ master/master.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/master/master.c b/master/master.c
+index e9edb14..cbfcf87 100644
+--- a/master/master.c
++++ b/master/master.c
+@@ -1890,7 +1890,7 @@ static void limit_fds(rlim_t x)
+     struct rlimit rl;
+ 
+ #ifdef HAVE_GETRLIMIT
+-    if (!getrlimit(RLIMIT_NUMFDS, &rl)) {
++    if (getrlimit(RLIMIT_NUMFDS, &rl) >= 0) {
+         rl.rlim_cur = (x == RLIM_INFINITY || x > rl.rlim_max) ? rl.rlim_max : x;
+     }
+     else
+@@ -1904,7 +1904,7 @@ static void limit_fds(rlim_t x)
+                rl.rlim_cur, rl.rlim_max);
+     }
+ 
+-    if (setrlimit(RLIMIT_NUMFDS, &rl) < 0) {
++    if (setrlimit(RLIMIT_NUMFDS, &rl) < 0 && x != RLIM_INFINITY) {
+         syslog(LOG_ERR,
+                "setrlimit: Unable to set file descriptors limit to %ld: %m",
+                rl.rlim_cur);

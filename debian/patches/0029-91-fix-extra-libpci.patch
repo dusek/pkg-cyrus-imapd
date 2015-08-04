@@ -1,0 +1,21 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:07 +0200
+Subject: 91-fix-extra-libpci
+
+---
+ cmulocal/ucdsnmp.m4 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cmulocal/ucdsnmp.m4 b/cmulocal/ucdsnmp.m4
+index 07f37b8..2574e21 100644
+--- a/cmulocal/ucdsnmp.m4
++++ b/cmulocal/ucdsnmp.m4
+@@ -26,7 +26,7 @@ if test "$with_snmp" != "no"; then
+   if test -x "$SNMP_CONFIG"; then
+     AC_MSG_CHECKING(NET SNMP libraries)
+ 
+-    SNMP_LIBS=`$SNMP_CONFIG --agent-libs`
++    SNMP_LIBS=`$SNMP_CONFIG --agent-libs | sed -e s/-lpci//`
+     SNMP_PREFIX=`$SNMP_CONFIG --prefix`
+ 
+     if test -n "$SNMP_LIBS" && test -n "$SNMP_PREFIX"; then

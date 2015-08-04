@@ -1,0 +1,61 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:04 +0200
+Subject: 06-disable_runpath.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 06-disable_runpath.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: disable runpath
+
+@DPATCH@
+---
+ cmulocal/cyrus.m4 | 16 +---------------
+ configure.ac      |  3 ---
+ 2 files changed, 1 insertion(+), 18 deletions(-)
+
+diff --git a/cmulocal/cyrus.m4 b/cmulocal/cyrus.m4
+index 6180152..a0734b6 100644
+--- a/cmulocal/cyrus.m4
++++ b/cmulocal/cyrus.m4
+@@ -2,6 +2,7 @@ dnl
+ dnl Additional macros for configure.in packaged up for easier theft.
+ dnl tjs@andrew.cmu.edu 6-may-1998
+ dnl
++dnl Debian fix (hmh@debian.org): We don't want runpath set in Debian
+ 
+ dnl It would be good if ANDREW_ADD_LIBPATH could detect if something was
+ dnl already there and not redundantly add it if it is.
+@@ -27,18 +28,3 @@ AC_DEFUN([CMU_ADD_LIBPATH_TO], [
+         $2="-L$1 ${$2} $andrew_cv_runpath_switch$1"
+   fi
+ ])
+-
+-dnl runpath initialization
+-AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
+-   # CMU GUESS RUNPATH SWITCH
+-  AC_CACHE_CHECK(for runpath switch, andrew_cv_runpath_switch, [
+-    # first, try -R
+-    SAVE_LDFLAGS="${LDFLAGS}"
+-    LDFLAGS="-R /usr/lib"
+-    AC_TRY_LINK([],[],[andrew_cv_runpath_switch="-R"], [
+-        LDFLAGS="-Wl,-rpath,/usr/lib"
+-    AC_TRY_LINK([],[],[andrew_cv_runpath_switch="-Wl,-rpath,"],
+-    [andrew_cv_runpath_switch="none"])
+-    ])
+-  LDFLAGS="${SAVE_LDFLAGS}"
+-  ])])
+diff --git a/configure.ac b/configure.ac
+index 0dcb335..ac8e290 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -172,9 +172,6 @@ else
+   AC_MSG_ERROR(The Cyrus IMAPD requires support for long long int)
+ fi
+ 
+-dnl check for -R, etc. switch
+-CMU_GUESS_RUNPATH_SWITCH
+-
+ AC_CHECK_HEADERS(unistd.h sys/select.h sys/param.h stdarg.h)
+ AC_REPLACE_FUNCS(memmove strcasecmp ftruncate strerror posix_fadvise strsep memmem)
+ AC_CHECK_FUNCS(strlcat strlcpy getgrouplist fmemopen pselect)

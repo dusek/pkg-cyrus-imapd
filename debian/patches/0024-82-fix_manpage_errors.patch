@@ -1,0 +1,47 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:06 +0200
+Subject: 82-fix_manpage_errors
+
+---
+ lib/imapoptions  | 11 ++++++-----
+ man/cyr_dbtool.8 |  4 ++--
+ 2 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/lib/imapoptions b/lib/imapoptions
+index dd26e69..ad957d4 100644
+--- a/lib/imapoptions
++++ b/lib/imapoptions
+@@ -1417,12 +1417,13 @@ If all partitions are over that limit, this feature is not used anymore.
+    in minutes.  The minimum value is 10, the default. */
+ 
+ { "popuseacl", 0, SWITCH }
++
+ /* Enforce IMAP ACLs in the pop server.  Due to the nature of the POP3
+-   protocol, the only rights which are used by the pop server are 'r',
+-   't', and 's' for the owner of the mailbox.  The 'r' right allows the
+-   user to open the mailbox and list/retrieve messages.  The 't' right
+-   allows the user to delete messages.  The 's' right allows messages
+-   retrieved by the user to have the \\Seen flag set (only if
++   protocol, the only rights which are used by the pop server are 'r', 't',
++   and 's' for the owner of the mailbox.  The 'r' right allows
++   the user to open the mailbox and list/retrieve messages.  The 't'
++   right allows the user to delete messages.  The 's' right allows
++   messages retrieved by the user to have the \\Seen flag set (only if
+    \fIpopuseimapflags\fR is also enabled). */
+ 
+ { "popuseimapflags", 0, SWITCH }
+diff --git a/man/cyr_dbtool.8 b/man/cyr_dbtool.8
+index 83d2c6e..71ac6d8 100644
+--- a/man/cyr_dbtool.8
++++ b/man/cyr_dbtool.8
+@@ -85,8 +85,8 @@ terminated by tab or newline, values are terminated by newline.
+ Running without any options will list the available database backends and
+ usable actions.
+ .PP
+-The 'consistency' command runs a consistency check on the DB by calling
+-'myconsistent' on it.
++The 'consistency' command runs a consistency check on the DB by
++calling 'myconsistent' on it.
+ .PP
+ The 'repack' command will compress the database by removing stale data
+ on backends which support it.  It's a NOOP otherwise.

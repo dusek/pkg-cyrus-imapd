@@ -1,0 +1,55 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:07 +0200
+Subject: 86-fix_PATH_MAX_on_hurd
+
+---
+ imap/pop3d.c     | 4 ++++
+ master/master.c  | 4 ++++
+ master/service.c | 4 ++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/imap/pop3d.c b/imap/pop3d.c
+index 05585ec..3468b60 100644
+--- a/imap/pop3d.c
++++ b/imap/pop3d.c
+@@ -96,6 +96,10 @@
+ 
+ #include "iostat.h"
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN
++#endif
++
+ #ifdef HAVE_KRB
+ /* kerberos des is purported to conflict with OpenSSL DES */
+ #define DES_DEFS
+diff --git a/master/master.c b/master/master.c
+index b05b814..a8aca72 100644
+--- a/master/master.c
++++ b/master/master.c
+@@ -70,6 +70,10 @@
+ #include <limits.h>
+ #include <math.h>
+ 
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++
+ #ifndef INADDR_NONE
+ #define INADDR_NONE 0xffffffff
+ #endif
+diff --git a/master/service.c b/master/service.c
+index c923736..a510cf2 100644
+--- a/master/service.c
++++ b/master/service.c
+@@ -72,6 +72,10 @@
+ #include "strarray.h"
+ #include "signals.h"
+ 
++#ifndef PATH_MAX
++#define PATH_MAX 4096
++#endif
++
+ extern int optind, opterr;
+ extern char *optarg;
+ 

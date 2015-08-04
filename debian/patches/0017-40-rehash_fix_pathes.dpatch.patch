@@ -1,0 +1,32 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:06 +0200
+Subject: 40-rehash_fix_pathes.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 40_rehash_fix_pathes.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix paths in tools/rehash
+
+@DPATCH@
+---
+ tools/rehash | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/tools/rehash b/tools/rehash
+index 7bdad86..ba58e44 100755
+--- a/tools/rehash
++++ b/tools/rehash
+@@ -66,10 +66,10 @@ my %ishash = map { $_ => 1 } (@bdirs, @fdirs);
+ 
+ # evil globals
+ my @configs = ($imapdconf);
+-my $confdir = "/var/imap";
++my $confdir = "/var/lib/cyrus";
+ my @parts;
+ my $yn = "y";
+-my $sievedir = "/usr/sieve";
++my $sievedir = "/var/spool/sieve";
+ my $nosievedir = 0;
+ my $hashimapspool = 0;
+ my $fulldirhash = 0;

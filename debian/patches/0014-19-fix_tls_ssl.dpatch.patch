@@ -1,0 +1,73 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: 19-fix_tls_ssl.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 19-fix_tls_errormessage.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Make TLS/SSL error message more informative
+
+@DPATCH@
+---
+ imap/tls.c      | 4 ++--
+ imtest/imtest.c | 3 ++-
+ lib/imclient.c  | 2 +-
+ 3 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/imap/tls.c b/imap/tls.c
+index f1f0be2..156a18a 100644
+--- a/imap/tls.c
++++ b/imap/tls.c
+@@ -840,7 +840,7 @@ EXPORTED int     tls_init_serverengine(const char *ident,
+     }
+ 
+     if (!set_cert_stuff(s_ctx, server_cert_file, server_key_file)) {
+-        syslog(LOG_ERR, "TLS server engine: cannot load server cert/key data.");
++        syslog(LOG_ERR, "TLS server engine: cannot load cert/key data, may be a cert/key mismatch?");
+         return (-1);
+     }
+ 
+@@ -1452,7 +1452,7 @@ HIDDEN int tls_init_clientengine(int verifydepth,
+ 
+     if (client_cert || client_key) {
+         if (!set_cert_stuff(c_ctx, client_cert, client_key)) {
+-            syslog(LOG_ERR,"TLS client engine: cannot load client cert/key data");
++            syslog(LOG_ERR,"TLS client engine: cannot load cert/key data, may be a cert/key mismatch?");
+             return (-1);
+         }
+     }
+diff --git a/imtest/imtest.c b/imtest/imtest.c
+index 7a8984a..9f1d5d4 100644
+--- a/imtest/imtest.c
++++ b/imtest/imtest.c
+@@ -63,6 +63,7 @@
+ #include <sys/types.h>
+ #include <sys/un.h>
+ #include <unistd.h>
++#include <ctype.h>
+ 
+ #include <sasl/sasl.h>
+ #include <sasl/saslutil.h>
+@@ -525,7 +526,7 @@ static int tls_init_clientengine(int verifydepth, char *var_tls_cert_file, char
+ 
+     if (c_cert_file || c_key_file)
+         if (!set_cert_stuff(tls_ctx, c_cert_file, c_key_file)) {
+-            printf("TLS engine: cannot load cert/key data\n");
++            printf("TLS engine: cannot load cert/key data, maybe a cert/key mismatch?\n");
+             return IMTEST_FAIL;
+         }
+     SSL_CTX_set_tmp_rsa_callback(tls_ctx, tmp_rsa_cb);
+diff --git a/lib/imclient.c b/lib/imclient.c
+index b84ad65..6ade532 100644
+--- a/lib/imclient.c
++++ b/lib/imclient.c
+@@ -1667,7 +1667,7 @@ static int tls_init_clientengine(struct imclient *imclient,
+ 
+     if (c_cert_file || c_key_file)
+         if (!set_cert_stuff(imclient->tls_ctx, c_cert_file, c_key_file)) {
+-            printf("[ TLS engine: cannot load cert/key data ]\n");
++	    printf("[ TLS engine: cannot load cert/key data, might be a cert/key mismatch]\n");
+             return -1;
+         }
+     SSL_CTX_set_tmp_rsa_callback(imclient->tls_ctx, tmp_rsa_cb);

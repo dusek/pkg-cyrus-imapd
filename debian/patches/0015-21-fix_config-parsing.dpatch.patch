@@ -1,0 +1,44 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: 21-fix_config-parsing.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 21-fix_config-parsing.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix parsing of master.conf
+
+@DPATCH@
+---
+ master/masterconf.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/master/masterconf.c b/master/masterconf.c
+index 766219a..10b4c29 100644
+--- a/master/masterconf.c
++++ b/master/masterconf.c
+@@ -151,7 +151,12 @@ int masterconf_getint(struct entry *e,
+ 
+     if (!val) return def;
+     if (!Uisdigit(*val) &&
+-        (*val != '-' || !Uisdigit(val[1]))) return def;
++        (*val != '-' || !Uisdigit(val[1]))) {
++            syslog(LOG_DEBUG,
++        	"value '%s' for '%s' does not look like a number.",
++        	val, key);
++            return def;
++    }
+     return atoi(val);
+ }
+ 
+@@ -169,6 +174,10 @@ int masterconf_getswitch(struct entry *e, const char *key, int def)
+              (val[0] == 'o' && val[1] == 'n') || val[0] == 't') {
+         return 1;
+     }
++
++    syslog(LOG_DEBUG, "cannot interpret value '%s' for key '%s'. use y/n.",
++	   val, key);
++
+     return def;
+ }
+ 

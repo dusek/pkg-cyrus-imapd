@@ -1,0 +1,31 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:06 +0200
+Subject: 81-dont-test-for-long-names.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 81-dont-test-for-long-names.dpatch by Henrique de Moraes Holschuh <hmh@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: remove AC_SYS_LONG_FILE_NAMES test to avoid problems with fakeroot
+## DP: this is a _very_ old patch from Cyrus 2.1, might not be needed anymore
+
+@DPATCH@
+---
+ configure.ac | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index c881d15..995affb 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -137,10 +137,6 @@ AC_PROG_INSTALL
+ AC_USE_SYSTEM_EXTENSIONS
+ AC_ISC_POSIX
+ AC_PROG_AWK
+-AC_SYS_LONG_FILE_NAMES
+-if test $ac_cv_sys_long_file_names = no; then
+-        AC_MSG_ERROR(The Cyrus IMAPD requires support for long file names)
+-fi
+ AC_C_INLINE
+ 
+ gl_VISIBILITY

@@ -1,0 +1,28 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:06 +0200
+Subject: 50-fix-imclient-manpage.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 50-fix-imclient-manpage.dpatch by Sven Mueller <sven@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix formatting of imclient manpage
+
+@DPATCH@
+---
+ man/imclient.3 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/man/imclient.3 b/man/imclient.3
+index 859f2a0..6a0520f 100644
+--- a/man/imclient.3
++++ b/man/imclient.3
+@@ -39,7 +39,7 @@
+ .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ .SH NAME
+-imclient library - authenticating callback interface to IMAP/IMSP servers
++imclient \- (library) authenticating callback interface to IMAP/IMSP servers
+ .SH SYNOPSIS
+ .ad l
+ .ft B

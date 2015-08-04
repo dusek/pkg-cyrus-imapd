@@ -1,0 +1,42 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: 14-xmalloc.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 14-xmalloc.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix xmalloc usage
+
+@DPATCH@
+---
+ lib/map_stupidshared.c | 1 +
+ lib/xmalloc.h          | 4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/lib/map_stupidshared.c b/lib/map_stupidshared.c
+index c97cd64..cd5f1d9 100644
+--- a/lib/map_stupidshared.c
++++ b/lib/map_stupidshared.c
+@@ -47,6 +47,7 @@
+ #include <sys/stat.h>
+ #include <syslog.h>
+ 
++#include "xmalloc.h"
+ #include "map.h"
+ #include "exitcodes.h"
+ #include "xmalloc.h"
+diff --git a/lib/xmalloc.h b/lib/xmalloc.h
+index 9deaf6f..4f7b508 100644
+--- a/lib/xmalloc.h
++++ b/lib/xmalloc.h
+@@ -60,7 +60,7 @@ extern void *xmemdup (const void *ptr, unsigned size);
+ 
+ /* Functions using xmalloc.h must provide a function called fatal() conforming
+    to the following: */
+-extern void fatal(const char *fatal_message, int fatal_code);
+-/*   __attribute__ ((noreturn));*/
++extern void fatal(const char *fatal_message, int fatal_code)
++   __attribute__ ((noreturn));
+ 
+ #endif /* INCLUDED_XMALLOC_H */

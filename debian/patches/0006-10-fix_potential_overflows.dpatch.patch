@@ -1,0 +1,52 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:04 +0200
+Subject: 10-fix_potential_overflows.dpatch
+
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 10-fix_potential_overflows.dpatch by Sven Mueller <debian@incase.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: fix potential buffer overflows
+## DP: Revised for 2.3.14 by Duncan Gibb <duncan.gibb@siriusit.co.uk>
+## DP: Many of the problems Sven's original patch fixed have since
+## DP: been resolved upsteam (thanks mainly to Bron Gondwana).
+
+@DPATCH@
+---
+ imtest/imtest.c | 2 +-
+ master/master.c | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/imtest/imtest.c b/imtest/imtest.c
+index 888fd84..7a8984a 100644
+--- a/imtest/imtest.c
++++ b/imtest/imtest.c
+@@ -1227,7 +1227,7 @@ static void interactive(struct protocol_t *protocol, char *filename)
+ 
+         /* can't have this and a file for input */
+         sunsock.sun_family = AF_UNIX;
+-        strcpy(sunsock.sun_path, output_socket);
++	strlcpy(sunsock.sun_path, output_socket, sizeof(sunsock.sun_path));
+         unlink(output_socket);
+ 
+         listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+diff --git a/master/master.c b/master/master.c
+index 6c72447..e9edb14 100644
+--- a/master/master.c
++++ b/master/master.c
+@@ -232,13 +232,14 @@ static void get_daemon(char *path, unsigned size, const strarray_t *cmd)
+     else snprintf(path, size, "%s/%s", LIBEXEC_DIR, cmd->data[0]);
+ }
+ 
+-static void get_prog(char *path, unsigned size, const strarray_t *cmd)
++static void get_prog(char *path, unsigned int size, const strarray_t *cmd)
+ {
+     if (cmd->data[0][0] == '/') {
+         /* master lacks strlcpy, due to no libcyrus */
+         snprintf(path, size, "%s", cmd->data[0]);
+     }
+     else snprintf(path, size, "%s/%s", SBIN_DIR, cmd->data[0]);
++    path[size-1] = '\0';
+ }
+ 
+ static void get_statsock(int filedes[2])

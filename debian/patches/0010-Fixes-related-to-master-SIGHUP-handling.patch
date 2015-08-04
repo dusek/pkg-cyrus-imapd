@@ -1,0 +1,65 @@
+From: Henrique de Moraes Holschuh <hmh@debian.org>
+Date: Tue, 4 Aug 2015 10:38:05 +0200
+Subject: Fixes related to master SIGHUP handling
+
+Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
+
+* Cleans up various data fields for reconfig.
+---
+ master/master.c | 16 +++++++++++-----
+ 1 file changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/master/master.c b/master/master.c
+index cbfcf87..bfff925 100644
+--- a/master/master.c
++++ b/master/master.c
+@@ -1763,9 +1763,9 @@ static void add_service(const char *name, struct entry *e, void *rock)
+ 
+     /* is this service actually there? */
+     if (!verify_service_file(Services[i].exec)) {
+-        fatalf(EX_CONFIG,
+-                 "cannot find executable for service '%s'", name);
+-        /* if it is not, we're misconfigured, die. */
++	/* if it is not, we just skip it */
++	syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
++	return;
+     }
+ 
+     Services[i].maxforkrate = maxforkrate;
+@@ -1785,6 +1785,7 @@ static void add_service(const char *name, struct entry *e, void *rock)
+         if (prefork > 1) prefork = 1;
+         Services[i].desired_workers = prefork;
+         Services[i].max_workers = 1;
++	Services[i].babysite = 0;
+     }
+ 
+     if (reconfig) {
+@@ -1834,7 +1835,7 @@ static void add_event(const char *name, struct entry *e, void *rock)
+     if (!strcmp(cmd,"")) {
+         char buf[256];
+         snprintf(buf, sizeof(buf),
+-                 "unable to find command or port for event '%s'", name);
++                 "unable to find command for event '%s'", name);
+ 
+         if (ignore_err) {
+             syslog(LOG_WARNING, "WARNING: %s -- ignored", buf);
+@@ -1960,13 +1961,18 @@ static void reread_conf(struct timeval now)
+                        Services[i].stat[0], Services[i].stat[1]);
+ 
+             /* Only free the service info on the primary */
+-            if(Services[i].associate == 0) {
++            if (Services[i].associate == 0) {
++		free(Services[i].name);
+                 free(Services[i].listen);
+                 free(Services[i].proto);
+             }
++	    Services[i].name = NULL;
+             Services[i].listen = NULL;
+             Services[i].proto = NULL;
+             Services[i].desired_workers = 0;
++	    Services[i].nforks = 0;
++	    Services[i].nactive = 0;
++	    Services[i].nconnections = 0;
+ 
+             /* close all listeners */
+             shutdown(Services[i].socket, SHUT_RDWR);
