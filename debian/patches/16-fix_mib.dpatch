@@ -5,8 +5,8 @@
 ## DP: Fix MIB file for cyrus
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/master/CYRUS-MASTER.mib
-+++ cyrus-imapd-2.4/master/CYRUS-MASTER.mib
+--- cyrus-imapd.orig/master/CYRUS-MASTER.mib
++++ cyrus-imapd/master/CYRUS-MASTER.mib
 @@ -1,12 +1,15 @@
  CYRUS-MASTER-MIB DEFINITIONS ::= BEGIN
  
@@ -26,4 +26,4 @@
 +cmuCyrus       OBJECT IDENTIFIER ::= { cmuMIB 6 }
  
  cyrusMasterMIB MODULE-IDENTITY
-     LAST-UPDATED "0010312300Z"		-- 2000 Oct 31
+     LAST-UPDATED "0010312300Z"          -- 2000 Oct 31

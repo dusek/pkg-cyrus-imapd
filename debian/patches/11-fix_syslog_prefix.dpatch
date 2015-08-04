@@ -6,59 +6,59 @@
 ## DP: log prefix.
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/imap/global.c
-+++ cyrus-imapd-2.4/imap/global.c
-@@ -111,6 +111,9 @@ int session_id_count = 0;
- 
- strarray_t *suppressed_capabilities = NULL;
+--- cyrus-imapd.orig/imap/global.c
++++ cyrus-imapd/imap/global.c
+@@ -151,6 +151,9 @@ static int get_facility(const char *name
+     return SYSLOG_FACILITY;
+ }
  
 +/* syslog prefix tag */
 +static char syslog_prefix[20];
 +
  /* Called before a cyrus application starts (but after command line parameters
   * are read) */
- int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
-@@ -138,7 +141,9 @@ int cyrus_init(const char *alt_config, c
-     
+ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flags, int config_need_data)
+@@ -184,7 +187,9 @@ EXPORTED int cyrus_init(const char *alt_
+ 
      /* xxx we lose here since we can't have the prefix until we load the
       * config file */
--    openlog(config_ident, LOG_PID, SYSLOG_FACILITY);
+-    openlog(config_ident, syslog_opts, SYSLOG_FACILITY);
 +    strncpy(syslog_prefix, "cyrus/", sizeof(syslog_prefix));
-+    strncat(syslog_prefix, ident, sizeof(syslog_prefix) - 7);
-+    openlog(syslog_prefix, LOG_PID, SYSLOG_FACILITY);
++    strncat(syslog_prefix, config_ident, sizeof(syslog_prefix) - 7);
++    openlog(syslog_prefix, syslog_opts, SYSLOG_FACILITY);
  
      /* Load configuration file.  This will set config_dir when it finds it */
-     config_read(alt_config);
---- cyrus-imapd-2.4.orig/ptclient/ptexpire.c
-+++ cyrus-imapd-2.4/ptclient/ptexpire.c
-@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
- 	fatal("must run as the Cyrus user", EC_USAGE);
+     config_read(alt_config, config_need_data);
+--- cyrus-imapd.orig/ptclient/ptexpire.c
++++ cyrus-imapd/ptclient/ptexpire.c
+@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
+         fatal("must run as the Cyrus user", EC_USAGE);
      }
-     
+ 
 -    openlog("ptexpire", LOG_PID, SYSLOG_FACILITY);
 +    openlog("cyrus/ptexpire", LOG_PID, SYSLOG_FACILITY);
  
      while ((opt = getopt(argc, argv, "C:E:")) != EOF) {
- 	switch (opt) {
---- cyrus-imapd-2.4.orig/ptclient/test.c
-+++ cyrus-imapd-2.4/ptclient/test.c
-@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
+         switch (opt) {
+--- cyrus-imapd.orig/ptclient/test.c
++++ cyrus-imapd/ptclient/test.c
+@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
      cacheid=cache;
    } else
      cacheid=NULL;
--  openlog("pttest", LOG_PID, SYSLOG_FACILITY);  
-+  openlog("cyrus/pttest", LOG_PID, SYSLOG_FACILITY);  
-   
+-  openlog("pttest", LOG_PID, SYSLOG_FACILITY);
++  openlog("cyrus/pttest", LOG_PID, SYSLOG_FACILITY);
+ 
    if (!auth_setid(argv[1],cacheid))
      printf ("Auth_memberof(%s,%s) is %d\n", argv[1], argv[2],
---- cyrus-imapd-2.4.orig/ptclient/test2.c
-+++ cyrus-imapd-2.4/ptclient/test2.c
-@@ -46,7 +46,7 @@
+--- cyrus-imapd.orig/ptclient/test2.c
++++ cyrus-imapd/ptclient/test2.c
+@@ -45,7 +45,7 @@
  
  int main(void) {
    char cacheid[16]="4224423";
 -  openlog("testr", LOG_PID, SYSLOG_FACILITY);
 +  openlog("cyrus/testr", LOG_PID, SYSLOG_FACILITY);
-   
+ 
    if (!auth_setid("cg2v@club.cc.cmu.edu",cacheid))
      printf ("Auth_memberof(cg2v,cg2v:me) is %d\n",

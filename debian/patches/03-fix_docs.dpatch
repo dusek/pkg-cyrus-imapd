@@ -5,21 +5,21 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
 ## DP: Fix FAQ and virtual domains installation docs
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/doc/faq.html
-+++ cyrus-imapd-2.4/doc/faq.html
-@@ -169,7 +169,7 @@ Dec  6 12:58:57 mail3.andrew.cmu.edu ima
+--- cyrus-imapd.orig/doc/faq.html
++++ cyrus-imapd/doc/faq.html
+@@ -168,7 +168,7 @@ Dec  6 12:58:57 mail3.andrew.cmu.edu ima
  </pre>
  
  <p>Make sure that <tt>saslauthd</tt> is running and that the cyrus
--user can access the unix domain socket (defaults to <tt>/var/run/mux</tt>).
-+user can access the unix domain socket (defaults to <tt>/var/run/saslauthd/mux</tt>).
+-user can access the unix domain socket (defaults to <tt>/var/run/mux</tt>).</p>
++user can access the unix domain socket (defaults to <tt>/var/run/saslauthd/mux</tt>).</p>
  
  </dd>
  
---- cyrus-imapd-2.4.orig/doc/install-virtdomains.html
-+++ cyrus-imapd-2.4/doc/install-virtdomains.html
-@@ -99,6 +99,10 @@ then set <tt>defaultdomain</tt> to 'xxx.
- to the <tt>defaultdomain</tt>.  See <a href=#admins>Administrators</a>
+--- cyrus-imapd.orig/doc/install-virtdomains.html
++++ cyrus-imapd/doc/install-virtdomains.html
+@@ -101,6 +101,10 @@ then set <tt>defaultdomain</tt> to 'xxx.
+ to the <tt>defaultdomain</tt>.  See <a href="#admins">Administrators</a>
  below for further discussion.
  
 +<p><b>Note:</b> Users in the <tt>defaultdomain</tt> must <i>not</i>
@@ -29,9 +29,9 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  <p>Here is a sample <tt>imapd.conf</tt> with a minimal set of configuration
  options.</p>
  
---- cyrus-imapd-2.4.orig/lib/imapoptions
-+++ cyrus-imapd-2.4/lib/imapoptions
-@@ -307,7 +307,11 @@ Blank lines and lines beginning with ``#
+--- cyrus-imapd.orig/lib/imapoptions
++++ cyrus-imapd/lib/imapoptions
+@@ -525,7 +525,11 @@ Blank lines and lines beginning with ``#
     mailbox that does not have a parent mailbox. */
  
  { "defaultdomain", NULL, STRING }
@@ -44,7 +44,7 @@ _# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -751,7 +755,10 @@ Blank lines and lines beginning with ``#
+@@ -1049,7 +1053,10 @@ Blank lines and lines beginning with ``#
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL

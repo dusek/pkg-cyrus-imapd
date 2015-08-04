@@ -15,35 +15,34 @@ By normalize, it is intended that;
  lib/libcyr_cfg.h |    2 ++
  4 files changed, 29 insertions(+), 0 deletions(-)
 
---- cyrus-imapd-2.4.orig/imap/global.c
-+++ cyrus-imapd-2.4/imap/global.c
-@@ -227,6 +227,8 @@ int cyrus_init(const char *alt_config, c
- 				  config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
- 	libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
- 				  config_getswitch(IMAPOPT_USERNAME_TOLOWER));
+--- cyrus-imapd.orig/imap/global.c
++++ cyrus-imapd/imap/global.c
+@@ -285,6 +285,8 @@ EXPORTED int cyrus_init(const char *alt_
+                                   config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
+         libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
+                                   config_getswitch(IMAPOPT_USERNAME_TOLOWER));
 +	libcyrus_config_setswitch(CYRUSOPT_NORMALIZEUID,
 +				  config_getswitch(IMAPOPT_NORMALIZEUID));
- 	libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_UNSAFE,
- 				  config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
- 	libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
---- cyrus-imapd-2.4.orig/lib/auth_unix.c
-+++ cyrus-imapd-2.4/lib/auth_unix.c
-@@ -156,10 +156,12 @@ const char *identifier;
- size_t len;
+         libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_UNSAFE,
+                                   config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
+         libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
+--- cyrus-imapd.orig/lib/auth_unix.c
++++ cyrus-imapd/lib/auth_unix.c
+@@ -150,9 +150,11 @@ static char allowedchars[256] = {
+ static const char *mycanonifyid(const char *identifier, size_t len)
  {
      static char retbuf[81];
 +    char backup[81];
      struct group *grp;
-     char sawalpha;
      char *p;
      int username_tolower = 0;
 +    int ic,rbc;
  
-     if(!len) len = strlen(identifier);
-     if(len >= sizeof(retbuf)) return NULL;
-@@ -211,6 +213,22 @@ size_t len;
-     /* now we don't */
-     /* if (!sawalpha) return NULL;  */
+     if (!len) len = strlen(identifier);
+     if (len >= sizeof(retbuf)) return NULL;
+@@ -194,6 +196,22 @@ static const char *mycanonifyid(const ch
+         }
+     }
  
 +    if( (libcyrus_config_getswitch(CYRUSOPT_NORMALIZEUID) == 1) ) {
 +        strcpy(backup,retbuf);
@@ -64,9 +63,9 @@ By normalize, it is intended that;
      return retbuf;
  }
  
---- cyrus-imapd-2.4.orig/lib/imapoptions
-+++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1592,6 +1592,11 @@ product version in the capabilities */
+--- cyrus-imapd.orig/lib/imapoptions
++++ cyrus-imapd/lib/imapoptions
+@@ -2132,6 +2132,11 @@ product version in the capabilities */
  /* The absolute path to the zoneinfo db file.  If not specified,
     will be confdir/zoneinfo.db */
  
@@ -78,9 +77,9 @@ By normalize, it is intended that;
  /*
  .SH SEE ALSO
  .PP
---- cyrus-imapd-2.4.orig/lib/libcyr_cfg.c
-+++ cyrus-imapd-2.4/lib/libcyr_cfg.c
-@@ -158,6 +158,10 @@ struct cyrusopt_s cyrus_options[] = {
+--- cyrus-imapd.orig/lib/libcyr_cfg.c
++++ cyrus-imapd/lib/libcyr_cfg.c
+@@ -144,6 +144,10 @@ static struct cyrusopt_s cyrus_options[]
        CFGVAL(long, 1),
        CYRUS_OPT_SWITCH },
  
@@ -91,9 +90,9 @@ By normalize, it is intended that;
      { CYRUSOPT_LAST, { NULL }, CYRUS_OPT_NOTOPT }
  };
  
---- cyrus-imapd-2.4.orig/lib/libcyr_cfg.h
-+++ cyrus-imapd-2.4/lib/libcyr_cfg.h
-@@ -116,6 +116,8 @@ enum cyrus_opt {
+--- cyrus-imapd.orig/lib/libcyr_cfg.h
++++ cyrus-imapd/lib/libcyr_cfg.h
+@@ -105,6 +105,8 @@ enum cyrus_opt {
      CYRUSOPT_SQL_USESSL,
      /* Checkpoint after every recovery (OFF) */
      CYRUSOPT_SKIPLIST_ALWAYS_CHECKPOINT,
@@ -101,4 +100,4 @@ By normalize, it is intended that;
 +    CYRUSOPT_NORMALIZEUID,
  
      CYRUSOPT_LAST
-     
+ 

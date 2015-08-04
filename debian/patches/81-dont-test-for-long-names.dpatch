@@ -6,22 +6,16 @@
 ## DP: this is a _very_ old patch from Cyrus 2.1, might not be needed anymore
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/configure.in
-+++ cyrus-imapd-2.4/configure.in
-@@ -99,10 +99,12 @@ AC_AIX
+--- cyrus-imapd.orig/configure.ac
++++ cyrus-imapd/configure.ac
+@@ -137,10 +137,6 @@ AC_PROG_INSTALL
+ AC_USE_SYSTEM_EXTENSIONS
  AC_ISC_POSIX
  AC_PROG_AWK
- AC_C_CONST
 -AC_SYS_LONG_FILE_NAMES
 -if test $ac_cv_sys_long_file_names = no; then
--	AC_MSG_ERROR(The Cyrus IMAPD requires support for long file names)
+-        AC_MSG_ERROR(The Cyrus IMAPD requires support for long file names)
 -fi
-+dnl fakeroot sometimes fails this test
-+dnl and Debian always supports long filenames anyway
-+dnl AC_SYS_LONG_FILE_NAMES
-+dnl if test $ac_cv_sys_long_file_names = no; then
-+dnl	AC_MSG_ERROR(The Cyrus IMAPD requires support for long file names)
-+dnl fi
  AC_C_INLINE
  
- dnl Check the size of various types
+ gl_VISIBILITY

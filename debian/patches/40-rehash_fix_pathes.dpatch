@@ -5,8 +5,8 @@
 ## DP: Fix paths in tools/rehash
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/tools/rehash
-+++ cyrus-imapd-2.4/tools/rehash
+--- cyrus-imapd.orig/tools/rehash
++++ cyrus-imapd/tools/rehash
 @@ -66,10 +66,10 @@ my %ishash = map { $_ => 1 } (@bdirs, @f
  
  # evil globals

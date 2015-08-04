@@ -1,13 +1,11 @@
-01-fix_Makefile.in.dpatch
 03-fix_docs.dpatch
 05-fix_programnames.dpatch
 06-disable_runpath.dpatch
-07-add-warnings-are-errors-mode.dpatch
 08-clean_socket_closes.dpatch
 09-kerberos-ipv4-ipv6-kludge-removal.dpatch
 10-fix_potential_overflows.dpatch
 11-fix_syslog_prefix.dpatch
-12-fix_timeout_handling.dpatch
+#12-fix_timeout_handling.dpatch
 13a-uid_t-cleanups
 13b-MAXFD-cleanups
 13c-master-reload
@@ -17,7 +15,6 @@
 19-fix_tls_ssl.dpatch
 21-fix_config-parsing.dpatch
 30-update_perlcalling.sh.dpatch
-35-masssievec_remove_unused_variable.dpatch
 40-rehash_fix_pathes.dpatch
 50-fix-imclient-manpage.dpatch
 65-sieveshell-enhancements.dpatch
@@ -33,6 +30,3 @@ cyrus-tls-1.2.patch
 91-fix-extra-libpci.patch
 parse-GUID-for-binary-appends-as-well.patch
 use-system-unicodedata.patch
-TLS-configuration.patch
-fix-caldav-virtdomain-users.patch
-bug778779.patch

@@ -1,6 +1,6 @@
---- cyrus-imapd-2.4.orig/imap/message.c
-+++ cyrus-imapd-2.4/imap/message.c
-@@ -388,6 +388,8 @@ int message_parse_binary_file(FILE *infi
+--- cyrus-imapd.orig/imap/message.c
++++ cyrus-imapd/imap/message.c
+@@ -401,6 +401,8 @@ EXPORTED int message_parse_binary_file(F
  
      message_guid_generate(&(*body)->guid, msg.base, msg.len);
  

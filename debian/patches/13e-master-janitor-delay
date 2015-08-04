@@ -22,52 +22,51 @@ Origin: vendor, Debian Cyrus IMAPd 2.1.16-7 (2004-08-07)
 
 NOTE: patch is missing manpage fixes to describe -J
 
---- cyrus-imapd-2.4.orig/master/master.c
-+++ cyrus-imapd-2.4/master/master.c
-@@ -176,6 +176,8 @@ struct centry {
+--- cyrus-imapd.orig/master/master.c
++++ cyrus-imapd/master/master.c
+@@ -175,6 +175,8 @@ struct centry {
+ };
  static struct centry *ctable[child_table_size];
- static struct centry *cfreelist;
  
 +static int child_mourning_time = 2;    /* Time in seconds to remember child
 +					  after processing SIGCHLD */
- static int janitor_frequency = 1;	/* Janitor sweeps per second */
- static int janitor_position;		/* Entry to begin at in next sweep */
- static struct timeval janitor_mark;	/* Last time janitor did a sweep */
-@@ -918,7 +920,7 @@ void reap_child(void)
- 		}
- 	    }
- 	    c->service_state = SERVICE_STATE_DEAD;
--	    c->janitor_deadline = time(NULL) + 2;
-+	    c->janitor_deadline = time(NULL) + child_mourning_time;
- 	} else {
- 	    /* Are we multithreaded now? we don't know this child */
- 	    syslog(LOG_ERR,
-@@ -1764,9 +1766,9 @@ int main(int argc, char **argv)
+ static int janitor_frequency = 1;       /* Janitor sweeps per second */
+ static int janitor_position;            /* Entry to begin at in next sweep */
+ static struct timeval janitor_mark;     /* Last time janitor did a sweep */
+@@ -348,7 +350,7 @@ static void centry_set_state(struct cent
+ {
+     c->service_state = state;
+     if (state == SERVICE_STATE_DEAD)
+-        c->janitor_deadline = time(NULL) + 2;
++        c->janitor_deadline = time(NULL) + child_mourning_time;
+ }
+ 
+ /*
+@@ -2041,9 +2043,9 @@ int main(int argc, char **argv)
      p = getenv("CYRUS_VERBOSE");
      if (p) verbose = atoi(p) + 1;
  #ifdef HAVE_NETSNMP
--    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:P:x:")) != EOF) {
-+    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:J:P:x:")) != EOF) {
+-    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:vP:x:")) != EOF) {
++    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:J:vP:x:")) != EOF) {
  #else
--    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:")) != EOF) {
-+    while ((opt = getopt(argc, argv, "C:M:p:l:Ddj:J:")) != EOF) {
+-    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:v")) != EOF) {
++    while ((opt = getopt(argc, argv, "C:L:M:p:l:Ddj:J:v")) != EOF) {
  #endif
- 	switch (opt) {
- 	case 'C': /* alt imapd.conf file */
-@@ -1799,8 +1801,15 @@ int main(int argc, char **argv)
- 	    /* Janitor frequency */
- 	    janitor_frequency = atoi(optarg);
- 	    if(janitor_frequency < 1)
--		fatal("The janitor period must be at least 1 second", EX_CONFIG);
-+		fatal("The janitor frequency must be at least once per second", EX_CONFIG);
- 	    break;   
-+       case 'J':
-+           /* Janitor delay before cleanup of a child */
-+           child_mourning_time = atoi(optarg);
-+           if(child_mourning_time < 1)
-+               fatal("The janitor's mourning time interval must be at least 1 second",
-+                       EX_CONFIG);
-+           break;
+         switch (opt) {
+         case 'C': /* alt imapd.conf file */
+@@ -2076,7 +2078,14 @@ int main(int argc, char **argv)
+             /* Janitor frequency */
+             janitor_frequency = atoi(optarg);
+             if(janitor_frequency < 1)
+-                fatal("The janitor period must be at least 1 second", EX_CONFIG);
++                fatal("The janitor frequency must be at least once per second", EX_CONFIG);
++            break;
++        case 'J':
++            /* Janitor delay before cleanup of a child */
++            child_mourning_time = atoi(optarg);
++            if(child_mourning_time < 1)
++                fatal("The janitor's mourning time interval must be at least 1 second",
++                        EX_CONFIG);
+             break;
  #ifdef HAVE_NETSNMP
- 	case 'P': /* snmp AgentXPingInterval */
- 	    agentxpinginterval = atoi(optarg);
+         case 'P': /* snmp AgentXPingInterval */

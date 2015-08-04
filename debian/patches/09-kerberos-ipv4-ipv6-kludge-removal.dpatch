@@ -6,9 +6,9 @@
 ## DP: into real IPv4 addresses.
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/imap/pop3d.c
-+++ cyrus-imapd-2.4/imap/pop3d.c
-@@ -715,41 +715,6 @@ void fatal(const char* s, int code)
+--- cyrus-imapd.orig/imap/pop3d.c
++++ cyrus-imapd/imap/pop3d.c
+@@ -735,41 +735,6 @@ EXPORTED void fatal(const char* s, int c
  }
  
  #ifdef HAVE_KRB
@@ -22,10 +22,10 @@
 -    int port;
 -
 -    if (sa->sa_family != AF_INET6)
--	return;
+-        return;
 -    sin6 = (struct sockaddr_in6 *)sa;
 -    if (!IN6_IS_ADDR_V4MAPPED((&sin6->sin6_addr)))
--	return;
+-        return;
 -    sin4 = (struct sockaddr_in *)sa;
 -    addr = *(uint32_t *)&sin6->sin6_addr.s6_addr[12];
 -    port = sin6->sin6_port;
@@ -40,7 +40,7 @@
 -}
 -#else
 -static void sockaddr_unmapped(struct sockaddr *sa __attribute__((unused)),
--			      socklen_t *len __attribute__((unused)))
+-                              socklen_t *len __attribute__((unused)))
 -{
 -    return;
 -}

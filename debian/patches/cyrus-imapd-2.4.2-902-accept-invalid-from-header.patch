@@ -15,9 +15,9 @@ Cyrus should not raise problems.
  imap/message.c |   18 ++++++++++++++++--
  1 files changed, 16 insertions(+), 2 deletions(-)
 
---- cyrus-imapd-2.4.orig/imap/message.c
-+++ cyrus-imapd-2.4/imap/message.c
-@@ -173,6 +173,8 @@ int allow_null;
+--- cyrus-imapd.orig/imap/message.c
++++ cyrus-imapd/imap/message.c
+@@ -186,6 +186,8 @@ EXPORTED int message_copy_strict(struct
      int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
      int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
      int inheader = 1, blankline = 1;
@@ -25,16 +25,14 @@ Cyrus should not raise problems.
 +    static const char * from_header = "From ";
  
      while (size) {
- 	n = prot_read(from, buf, size > 4096 ? 4096 : size);
-@@ -249,11 +251,24 @@ int allow_null;
- 	/* Check for valid header name */
- 	if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
- 	    if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;
+         n = prot_read(from, buf, size > 4096 ? 4096 : size);
+@@ -262,9 +264,22 @@ EXPORTED int message_copy_strict(struct
+         /* Check for valid header name */
+         if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
+             if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;
 -      if (strstr(buf, "From ") != buf)
--	    for (p = (unsigned char *)buf; *p != ':'; p++) {
--		if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
--	    }
--	}
+-            for (p = (unsigned char *)buf; *p != ':'; p++) {
+-                if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
 +            p = (unsigned char *) buf;
 +            if (*p == '>') p++;
 +
@@ -51,8 +49,6 @@ Cyrus should not raise problems.
 +                    is_from++;
 +                else
 +                    if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
-+            }
-+        }
+             }
+         }
  
- 	/* Used to be some 8bit checks here but those were moved above so that 
- 	   we could do something other than refuse the message.

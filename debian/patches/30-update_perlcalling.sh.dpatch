@@ -10,32 +10,32 @@
 ## DP:       This should be the default actually. 
 
 @DPATCH@
---- cyrus-imapd-2.4.orig/perl/imap/examples/auditmbox.pl
-+++ cyrus-imapd-2.4/perl/imap/examples/auditmbox.pl
+--- cyrus-imapd.orig/perl/imap/examples/auditmbox.pl
++++ cyrus-imapd/perl/imap/examples/auditmbox.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- cyrus-imapd-2.4.orig/perl/imap/examples/imapcollate.pl
-+++ cyrus-imapd-2.4/perl/imap/examples/imapcollate.pl
+--- cyrus-imapd.orig/perl/imap/examples/imapcollate.pl
++++ cyrus-imapd/perl/imap/examples/imapcollate.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- cyrus-imapd-2.4.orig/perl/imap/examples/imapdu.pl
-+++ cyrus-imapd-2.4/perl/imap/examples/imapdu.pl
+--- cyrus-imapd.orig/perl/imap/examples/imapdu.pl
++++ cyrus-imapd/perl/imap/examples/imapdu.pl
 @@ -1,4 +1,4 @@
 -#! /usr/bin/perl -w
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- cyrus-imapd-2.4.orig/perl/sieve/scripts/installsieve.pl
-+++ cyrus-imapd-2.4/perl/sieve/scripts/installsieve.pl
+--- cyrus-imapd.orig/perl/sieve/scripts/installsieve.pl
++++ cyrus-imapd/perl/sieve/scripts/installsieve.pl
 @@ -1,6 +1,4 @@
 -#! /bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -44,8 +44,8 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- cyrus-imapd-2.4.orig/perl/sieve/scripts/sieveshell.pl
-+++ cyrus-imapd-2.4/perl/sieve/scripts/sieveshell.pl
+--- cyrus-imapd.orig/perl/sieve/scripts/sieveshell.pl
++++ cyrus-imapd/perl/sieve/scripts/sieveshell.pl
 @@ -1,6 +1,4 @@
 -#! /bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -54,17 +54,17 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
---- cyrus-imapd-2.4.orig/snmp/snmpgen
-+++ cyrus-imapd-2.4/snmp/snmpgen
+--- cyrus-imapd.orig/snmp/snmpgen
++++ cyrus-imapd/snmp/snmpgen
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,24 +41,6 @@
- #
- # $Id: snmpgen,v 1.21 2010/01/06 17:02:00 murch Exp $
+@@ -39,24 +39,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -87,17 +87,17 @@
  require 5;
  
  #Tim Martin
---- cyrus-imapd-2.4.orig/tools/config2header
-+++ cyrus-imapd-2.4/tools/config2header
+--- cyrus-imapd.orig/tools/config2header
++++ cyrus-imapd/tools/config2header
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,24 +41,6 @@
- #
- # $Id: config2header,v 1.17 2010/01/06 17:02:01 murch Exp $
+@@ -39,24 +39,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -120,17 +120,17 @@
  require 5;
  
  use strict;
---- cyrus-imapd-2.4.orig/tools/config2man
-+++ cyrus-imapd-2.4/tools/config2man
+--- cyrus-imapd.orig/tools/config2man
++++ cyrus-imapd/tools/config2man
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,24 +41,6 @@
- #
- # $Id: config2man,v 1.6 2010/01/06 17:02:01 murch Exp $
+@@ -39,24 +39,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -153,17 +153,17 @@
  require 5;
  
  use strict;
---- cyrus-imapd-2.4.orig/tools/dohash
-+++ cyrus-imapd-2.4/tools/dohash
+--- cyrus-imapd.orig/tools/dohash
++++ cyrus-imapd/tools/dohash
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,26 +41,9 @@
- #
- # $Id: dohash,v 1.14 2010/01/06 17:02:01 murch Exp $
+@@ -39,26 +39,9 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -188,8 +188,8 @@
  require 5;
  
  $| = 1;
---- cyrus-imapd-2.4.orig/tools/masssievec
-+++ cyrus-imapd-2.4/tools/masssievec
+--- cyrus-imapd.orig/tools/masssievec
++++ cyrus-imapd/tools/masssievec
 @@ -1,4 +1,6 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -198,9 +198,9 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,26 +43,6 @@
- #
- # $Id: masssievec,v 1.8 2010/01/06 17:02:01 murch Exp $
+@@ -39,26 +41,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -225,17 +225,17 @@
  require 5;
  
  $| = 1;
---- cyrus-imapd-2.4.orig/tools/mkimap
-+++ cyrus-imapd-2.4/tools/mkimap
+--- cyrus-imapd.orig/tools/mkimap
++++ cyrus-imapd/tools/mkimap
 @@ -1,4 +1,4 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,24 +41,6 @@
- #
- # $Id: mkimap,v 1.20 2010/01/06 17:02:01 murch Exp $
+@@ -39,24 +39,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -258,8 +258,8 @@
  require 5;
  
  sub read_conf {
---- cyrus-imapd-2.4.orig/tools/mknewsgroups
-+++ cyrus-imapd-2.4/tools/mknewsgroups
+--- cyrus-imapd.orig/tools/mknewsgroups
++++ cyrus-imapd/tools/mknewsgroups
 @@ -1,4 +1,6 @@
 -#!/bin/sh
 +#!/usr/bin/perl -w
@@ -268,9 +268,9 @@
  #
  # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
  #
-@@ -41,27 +43,6 @@
- #
- # $Id: mknewsgroups,v 1.4 2010/01/06 17:02:01 murch Exp $
+@@ -39,27 +41,6 @@
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 -#!perl -w
@@ -296,8 +296,8 @@
  require 5;
  
  use Getopt::Long;
---- cyrus-imapd-2.4.orig/tools/translatesieve
-+++ cyrus-imapd-2.4/tools/translatesieve
+--- cyrus-imapd.orig/tools/translatesieve
++++ cyrus-imapd/tools/translatesieve
 @@ -1,6 +1,4 @@
 -#!/bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -306,9 +306,9 @@
  # script to translate sieve scripts to use unixhierarchysep and/or altnamespace
  # make sure you run it as the cyrus user
  #!/usr/bin/perl
-@@ -46,21 +44,6 @@ exec perl -x -S $0 ${1+"$@"} # -*-perl-*
- #
- # $Id: translatesieve,v 1.10 2010/01/06 17:02:02 murch Exp $
+@@ -44,21 +42,6 @@ exec perl -x -S $0 ${1+"$@"} # -*-perl-*
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -if ($] !~ /^5\..*/) {
 -  # uh-oh. this isn't perl 5.
@@ -328,16 +328,16 @@
  require 5;
  
  $| = 1;
---- cyrus-imapd-2.4.orig/tools/undohash
-+++ cyrus-imapd-2.4/tools/undohash
+--- cyrus-imapd.orig/tools/undohash
++++ cyrus-imapd/tools/undohash
 @@ -1,4 +1,4 @@
 -#!/usr/bin/perl
 +#!/usr/bin/perl -w
  # script to downgrade from cyrus imapd 1.6.2+ to earlier.
  # do NOT run this script while imapd's are running
  #
---- cyrus-imapd-2.4.orig/tools/upgradesieve
-+++ cyrus-imapd-2.4/tools/upgradesieve
+--- cyrus-imapd.orig/tools/upgradesieve
++++ cyrus-imapd/tools/upgradesieve
 @@ -1,6 +1,4 @@
 -#!/bin/sh
 -exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
@@ -346,9 +346,9 @@
  # script to upgrade sievedir from imapd 1.6.13
  # make sure you run it as the cyrus user
  #!/usr/bin/perl
-@@ -46,21 +44,6 @@ exec perl -x -S $0 ${1+"$@"} # -*-perl-*
- #
- # $Id: upgradesieve,v 1.10 2010/01/06 17:02:02 murch Exp $
+@@ -44,21 +42,6 @@ exec perl -x -S $0 ${1+"$@"} # -*-perl-*
+ # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  
 -if ($] !~ /^5\..*/) {
 -  # uh-oh. this isn't perl 5.

@@ -1,6 +1,6 @@
---- cyrus-imapd-2.4.orig/cmulocal/ucdsnmp.m4
-+++ cyrus-imapd-2.4/cmulocal/ucdsnmp.m4
-@@ -27,7 +27,7 @@ if test "$with_snmp" != "no"; then
+--- cyrus-imapd.orig/cmulocal/ucdsnmp.m4
++++ cyrus-imapd/cmulocal/ucdsnmp.m4
+@@ -26,7 +26,7 @@ if test "$with_snmp" != "no"; then
    if test -x "$SNMP_CONFIG"; then
      AC_MSG_CHECKING(NET SNMP libraries)
  

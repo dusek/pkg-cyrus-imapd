@@ -12,8 +12,8 @@ locks.
 Is this patch correct?  Will it cause issues with other uses of alarm()
 in Cyrus code?
 
---- cyrus-imapd-2.4.orig/configure.in
-+++ cyrus-imapd-2.4/configure.in
+--- cyrus-imapd-2.4.orig/configure.ac
++++ cyrus-imapd-2.4/configure.ac
 @@ -1592,7 +1592,11 @@ enum {
      SQUAT_ENGINE = 1,
  

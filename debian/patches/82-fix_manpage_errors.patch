@@ -1,6 +1,6 @@
---- cyrus-imapd-2.4.orig/lib/imapoptions
-+++ cyrus-imapd-2.4/lib/imapoptions
-@@ -1058,12 +1058,13 @@ And the notification message will be ava
+--- cyrus-imapd.orig/lib/imapoptions
++++ cyrus-imapd/lib/imapoptions
+@@ -1417,12 +1417,13 @@ If all partitions are over that limit, t
     in minutes.  The minimum value is 10, the default. */
  
  { "popuseacl", 0, SWITCH }
@@ -19,9 +19,9 @@
     \fIpopuseimapflags\fR is also enabled). */
  
  { "popuseimapflags", 0, SWITCH }
---- cyrus-imapd-2.4.orig/man/cyr_dbtool.8
-+++ cyrus-imapd-2.4/man/cyr_dbtool.8
-@@ -79,8 +79,8 @@ terminated by tab or newline, values are
+--- cyrus-imapd.orig/man/cyr_dbtool.8
++++ cyrus-imapd/man/cyr_dbtool.8
+@@ -85,8 +85,8 @@ terminated by tab or newline, values are
  Running without any options will list the available database backends and
  usable actions.
  .PP
@@ -30,5 +30,5 @@
 +The 'consistency' command runs a consistency check on the DB by
 +calling 'myconsistent' on it.
  .PP
- .I cyr_dbtool
- reads any applicable configuration options out of the
+ The 'repack' command will compress the database by removing stale data
+ on backends which support it.  It's a NOOP otherwise.
