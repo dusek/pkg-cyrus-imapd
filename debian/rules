@@ -82,6 +82,7 @@ override_dh_auto_configure:
 	 --with-ldap=/usr \
 	 --with-krb=/usr \
 	 --with-krbimpl=mit \
+	 --without-krbdes \
 	 --with-openssl=/usr \
 	 --with-zlib=/usr \
 	 --with-libcap \
