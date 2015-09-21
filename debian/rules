@@ -42,7 +42,7 @@ else
 endif
 
 %:
-	dh $@ --with autoreconf --with autotools-dev --with systemd --parallel
+	dh $@ --with autoreconf --with autotools-dev --with systemd
 
 #override_dh_autoreconf:
 #	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
