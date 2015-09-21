@@ -96,7 +96,7 @@ override_dh_auto_configure:
 	echo 'To build this package, configure was called as follows:' \
 		> debian/README.configure-options
 	grep '^ac_cs_config=' config.status \
-x	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
+	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
 		>> debian/README.configure-options
 	sed -i 's/ -lsensors//' master/Makefile
 
