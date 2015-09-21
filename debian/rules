@@ -68,7 +68,7 @@ override_dh_auto_configure:
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
 	 --disable-silent-rules \
-	 --enable-xapian \
+	 --disable-xapian \
 	 --enable-autocreate \
 	 --enable-idled \
 	 --enable-nntp \
