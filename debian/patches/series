@@ -29,3 +29,4 @@
 0029-91-fix-extra-libpci.patch
 0030-parse-GUID-for-binary-appends-as-well.patch
 0031-use-system-unicodedata.patch
+0032-missing-AC_LANG_SOURCE.patch
