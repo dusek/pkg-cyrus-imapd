@@ -76,7 +76,7 @@ override_dh_auto_configure:
 	 --enable-calalarmd \
 	 --enable-http \
 	 --enable-replication \
-	 --enable-gssapi \
+	 --enable-gssapi="/usr" \
 	 --with-cyrus-user=cyrus --with-cyrus-group=mail \
 	 --with-lock=fcntl \
 	 --with-ldap \
@@ -90,7 +90,7 @@ override_dh_auto_configure:
 	 --with-com_err \
 	 --with-syslogfacility=MAIL \
 	 --with-gss_impl=mit \
-	 --with-sasl= \
+	 --with-sasl="/usr" \
 	 --with-perl=/usr/bin/perl \
 	 --with-snmp
 	echo 'To build this package, configure was called as follows:' \
