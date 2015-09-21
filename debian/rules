@@ -98,7 +98,6 @@ override_dh_auto_configure:
 	grep '^ac_cs_config=' config.status \
 	| sed -e 's/^ac_cs_config="/configure /;s/"$$//' \
 		>> debian/README.configure-options
-	sed -i 's/ -lsensors//' master/Makefile
 
 override_dh_auto_build:
 	PERL_MM_OPT="INSTALLDIRS=vendor" dh_auto_build
