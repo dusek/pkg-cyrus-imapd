@@ -27,10 +27,10 @@ NOTE: patch is missing manpage fixes to describe -J
  1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/master/master.c b/master/master.c
-index bfff925..b05b814 100644
+index 1ca2267..3c2b68e 100644
 --- a/master/master.c
 +++ b/master/master.c
-@@ -175,6 +175,8 @@ struct centry {
+@@ -176,6 +176,8 @@ struct centry {
  };
  static struct centry *ctable[child_table_size];
  
@@ -39,7 +39,7 @@ index bfff925..b05b814 100644
  static int janitor_frequency = 1;       /* Janitor sweeps per second */
  static int janitor_position;            /* Entry to begin at in next sweep */
  static struct timeval janitor_mark;     /* Last time janitor did a sweep */
-@@ -348,7 +350,7 @@ static void centry_set_state(struct centry *c, enum sstate state)
+@@ -349,7 +351,7 @@ static void centry_set_state(struct centry *c, enum sstate state)
  {
      c->service_state = state;
      if (state == SERVICE_STATE_DEAD)
@@ -48,7 +48,7 @@ index bfff925..b05b814 100644
  }
  
  /*
-@@ -2041,9 +2043,9 @@ int main(int argc, char **argv)
+@@ -2047,9 +2049,9 @@ int main(int argc, char **argv)
      p = getenv("CYRUS_VERBOSE");
      if (p) verbose = atoi(p) + 1;
  #ifdef HAVE_NETSNMP
@@ -60,7 +60,7 @@ index bfff925..b05b814 100644
  #endif
          switch (opt) {
          case 'C': /* alt imapd.conf file */
-@@ -2076,7 +2078,14 @@ int main(int argc, char **argv)
+@@ -2082,7 +2084,14 @@ int main(int argc, char **argv)
              /* Janitor frequency */
              janitor_frequency = atoi(optarg);
              if(janitor_frequency < 1)

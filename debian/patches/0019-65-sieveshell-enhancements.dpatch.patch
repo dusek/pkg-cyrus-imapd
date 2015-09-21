@@ -16,22 +16,22 @@ Subject: 65-sieveshell-enhancements.dpatch
  2 files changed, 59 insertions(+), 14 deletions(-)
 
 diff --git a/perl/imap/IMAP/Shell.pm b/perl/imap/IMAP/Shell.pm
-index a5b736c..2a32a90 100644
+index 42ed457..fd884dc 100644
 --- a/perl/imap/IMAP/Shell.pm
 +++ b/perl/imap/IMAP/Shell.pm
-@@ -437,7 +437,7 @@ sub run {
+@@ -445,7 +445,7 @@ sub run {
  sub shell {
    my ($server, $port, $authz, $auth, $systemrc, $userrc, $dorc, $mech, $pw,
-       $tlskey, $notls) =
+       $tlskey, $notls, $cacert, $capath) =
 -    ('', 143, undef, $ENV{USER} || $ENV{LOGNAME}, '/usr/local/etc/cyradmrc.pl',
 +    ('', 143, undef, $ENV{USER} || $ENV{LOGNAME}, '/etc/cyradmrc.pl',
-      "$ENV{HOME}/.cyradmrc.pl", 1, undef, undef, undef, undef);
+      "$ENV{HOME}/.cyradmrc.pl", 1, undef, undef, undef, undef, undef, undef);
    GetOptions('user|u=s' => \$auth,
               'authz|z=s' => \$authz,
-@@ -471,7 +471,7 @@ sub shell {
-     $cyradm->authenticate(-authz => $authz, -user => $auth,
+@@ -482,7 +482,7 @@ sub shell {
                            -mechanism => $mech, -password => $pw,
-                           -tlskey => $tlskey, -notls => $notls)
+                           -tlskey => $tlskey, -notls => $notls,
+                           -cafile => $cacert, -cadir => $capath)
 -      or die "cyradm: cannot authenticate to server with $mech as $auth\n";
 +      or die "cyradm: cannot authenticate to server" . (defined($mech)?" with $mech":"") . " as $auth\n";
    }

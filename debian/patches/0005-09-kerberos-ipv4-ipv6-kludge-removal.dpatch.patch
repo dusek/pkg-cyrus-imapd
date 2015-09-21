@@ -15,10 +15,10 @@ Subject: 09-kerberos-ipv4-ipv6-kludge-removal.dpatch
  1 file changed, 35 deletions(-)
 
 diff --git a/imap/pop3d.c b/imap/pop3d.c
-index cf769c0..05585ec 100644
+index c2274df..3a9b7c7 100644
 --- a/imap/pop3d.c
 +++ b/imap/pop3d.c
-@@ -735,41 +735,6 @@ EXPORTED void fatal(const char* s, int code)
+@@ -733,41 +733,6 @@ EXPORTED void fatal(const char* s, int code)
  }
  
  #ifdef HAVE_KRB

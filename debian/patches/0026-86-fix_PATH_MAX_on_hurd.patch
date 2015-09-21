@@ -9,7 +9,7 @@ Subject: 86-fix_PATH_MAX_on_hurd
  3 files changed, 12 insertions(+)
 
 diff --git a/imap/pop3d.c b/imap/pop3d.c
-index 05585ec..3468b60 100644
+index 3a9b7c7..65ac479 100644
 --- a/imap/pop3d.c
 +++ b/imap/pop3d.c
 @@ -96,6 +96,10 @@
@@ -24,12 +24,12 @@ index 05585ec..3468b60 100644
  /* kerberos des is purported to conflict with OpenSSL DES */
  #define DES_DEFS
 diff --git a/master/master.c b/master/master.c
-index b05b814..a8aca72 100644
+index 3c2b68e..8bc94db 100644
 --- a/master/master.c
 +++ b/master/master.c
-@@ -70,6 +70,10 @@
- #include <limits.h>
+@@ -71,6 +71,10 @@
  #include <math.h>
+ #include <inttypes.h>
  
 +#ifndef PATH_MAX
 +#define PATH_MAX 4096

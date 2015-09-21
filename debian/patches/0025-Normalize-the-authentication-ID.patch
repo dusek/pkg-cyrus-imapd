@@ -16,7 +16,7 @@ By normalize, it is intended that;
  5 files changed, 31 insertions(+)
 
 diff --git a/imap/global.c b/imap/global.c
-index c13d957..bec6f5a 100644
+index be9dfbb..6e8e4f3 100644
 --- a/imap/global.c
 +++ b/imap/global.c
 @@ -285,6 +285,8 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
@@ -29,7 +29,7 @@ index c13d957..bec6f5a 100644
                                    config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
          libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
 diff --git a/lib/auth_unix.c b/lib/auth_unix.c
-index 17c537a..dc69b90 100644
+index 6caddaa..910453d 100644
 --- a/lib/auth_unix.c
 +++ b/lib/auth_unix.c
 @@ -150,9 +150,11 @@ static char allowedchars[256] = {
@@ -68,10 +68,10 @@ index 17c537a..dc69b90 100644
  }
  
 diff --git a/lib/imapoptions b/lib/imapoptions
-index ad957d4..57846d1 100644
+index 9394226..0a3e89f 100644
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -2132,6 +2132,11 @@ product version in the capabilities */
+@@ -2140,6 +2140,11 @@ product version in the capabilities */
  /* The absolute path to the zoneinfo db file.  If not specified,
     will be confdir/zoneinfo.db */
  

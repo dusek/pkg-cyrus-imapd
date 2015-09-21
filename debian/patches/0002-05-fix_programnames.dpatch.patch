@@ -50,7 +50,7 @@ index 31ead1a..a60d0a3 100644
      fprintf(stderr, "421 4.3.0 %s\n", cyrus_version());
      exit(EC_USAGE);
 diff --git a/imap/quota.c b/imap/quota.c
-index 7bf79c4..686a061 100644
+index 55290c8..19b4750 100644
 --- a/imap/quota.c
 +++ b/imap/quota.c
 @@ -218,7 +218,7 @@ int main(int argc,char **argv)
@@ -63,10 +63,10 @@ index 7bf79c4..686a061 100644
  }
  
 diff --git a/imap/reconstruct.c b/imap/reconstruct.c
-index 9fa118c..f78c6a0 100644
+index 3a7e73d..a7963d7 100644
 --- a/imap/reconstruct.c
 +++ b/imap/reconstruct.c
-@@ -404,7 +404,7 @@ int main(int argc, char **argv)
+@@ -401,7 +401,7 @@ int main(int argc, char **argv)
  static void usage(void)
  {
      fprintf(stderr,

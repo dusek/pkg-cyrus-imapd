@@ -6,8 +6,10 @@ Subject: missing-AC_LANG_SOURCE
  configure.ac | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
---- cyrus-imapd.orig/configure.ac
-+++ cyrus-imapd/configure.ac
+diff --git a/configure.ac b/configure.ac
+index a257817..4e143a2 100644
+--- a/configure.ac
++++ b/configure.ac
 @@ -530,11 +530,11 @@ if test "$spt_type" = ""; then
  fi
  if test "$spt_type" = ""; then

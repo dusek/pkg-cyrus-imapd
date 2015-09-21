@@ -14,7 +14,7 @@ Subject: 80-kbsd-no-psstrings.dpatch
  1 file changed, 7 insertions(+), 8 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index ac8e290..c881d15 100644
+index 13d1a6d..a703b6b 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -534,16 +534,15 @@ if test "$spt_type" = ""; then

@@ -7,7 +7,7 @@ Subject: parse-GUID-for-binary-appends-as-well
  1 file changed, 2 insertions(+)
 
 diff --git a/imap/message.c b/imap/message.c
-index 9ecb0cd..ef482d0 100644
+index 04b312c..2d089a1 100644
 --- a/imap/message.c
 +++ b/imap/message.c
 @@ -401,6 +401,8 @@ EXPORTED int message_parse_binary_file(FILE *infile, struct body **body)

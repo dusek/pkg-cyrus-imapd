@@ -10,12 +10,14 @@ Subject: 06-disable_runpath.dpatch
 
 @DPATCH@
 ---
- cmulocal/cyrus.m4 | 16 +---------------
+ cmulocal/cyrus.m4 | 32 ++++----------------------------
  configure.ac      |  3 ---
- 2 files changed, 1 insertion(+), 18 deletions(-)
+ 2 files changed, 4 insertions(+), 31 deletions(-)
 
---- cyrus-imapd.orig/cmulocal/cyrus.m4
-+++ cyrus-imapd/cmulocal/cyrus.m4
+diff --git a/cmulocal/cyrus.m4 b/cmulocal/cyrus.m4
+index 6180152..8f390f7 100644
+--- a/cmulocal/cyrus.m4
++++ b/cmulocal/cyrus.m4
 @@ -2,43 +2,19 @@ dnl
  dnl Additional macros for configure.in packaged up for easier theft.
  dnl tjs@andrew.cmu.edu 6-may-1998
@@ -64,8 +66,10 @@ Subject: 06-disable_runpath.dpatch
 -    ])
 -  LDFLAGS="${SAVE_LDFLAGS}"
 -  ])])
---- cyrus-imapd.orig/configure.ac
-+++ cyrus-imapd/configure.ac
+diff --git a/configure.ac b/configure.ac
+index 816cd50..13d1a6d 100644
+--- a/configure.ac
++++ b/configure.ac
 @@ -172,9 +172,6 @@ else
    AC_MSG_ERROR(The Cyrus IMAPD requires support for long long int)
  fi

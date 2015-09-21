@@ -18,7 +18,7 @@ Subject: 11-fix_syslog_prefix.dpatch
  4 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/imap/global.c b/imap/global.c
-index 2ab4d06..c13d957 100644
+index c07d0e7..be9dfbb 100644
 --- a/imap/global.c
 +++ b/imap/global.c
 @@ -151,6 +151,9 @@ static int get_facility(const char *name)

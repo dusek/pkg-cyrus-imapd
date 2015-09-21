@@ -24,7 +24,7 @@ need similar patches.
  4 files changed, 19 insertions(+)
 
 diff --git a/imap/fud.c b/imap/fud.c
-index 1323120..fcb5bbc 100644
+index d2dd3ff..b5f6342 100644
 --- a/imap/fud.c
 +++ b/imap/fud.c
 @@ -143,6 +143,15 @@ void shut_down(int code)
@@ -44,10 +44,10 @@ index 1323120..fcb5bbc 100644
  }
  
 diff --git a/imap/imapd.c b/imap/imapd.c
-index b611dd6..f09cd5d 100644
+index 750d194..7d97f09 100644
 --- a/imap/imapd.c
 +++ b/imap/imapd.c
-@@ -1133,6 +1133,10 @@ void shut_down(int code)
+@@ -1134,6 +1134,10 @@ void shut_down(int code)
  #ifdef HAVE_SSL
      tls_shutdown_serverengine();
  #endif
@@ -59,10 +59,10 @@ index b611dd6..f09cd5d 100644
      cyrus_done();
  
 diff --git a/imap/lmtpd.c b/imap/lmtpd.c
-index b3ece16..3973b92 100644
+index 7a73f2d..12a0058 100644
 --- a/imap/lmtpd.c
 +++ b/imap/lmtpd.c
-@@ -1076,6 +1076,9 @@ void shut_down(int code)
+@@ -1037,6 +1037,9 @@ void shut_down(int code)
  
      cyrus_done();
  
@@ -73,10 +73,10 @@ index b3ece16..3973b92 100644
  }
  
 diff --git a/imap/pop3d.c b/imap/pop3d.c
-index 53c3fcd..cf769c0 100644
+index bdb9fed..c2274df 100644
 --- a/imap/pop3d.c
 +++ b/imap/pop3d.c
-@@ -699,6 +699,9 @@ void shut_down(int code)
+@@ -697,6 +697,9 @@ void shut_down(int code)
  #endif
  
      cyrus_done();

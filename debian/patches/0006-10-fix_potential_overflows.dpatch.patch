@@ -31,10 +31,10 @@ index 888fd84..7a8984a 100644
  
          listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
 diff --git a/master/master.c b/master/master.c
-index 6c72447..e9edb14 100644
+index da7d789..3f9942a 100644
 --- a/master/master.c
 +++ b/master/master.c
-@@ -232,13 +232,14 @@ static void get_daemon(char *path, unsigned size, const strarray_t *cmd)
+@@ -233,13 +233,14 @@ static void get_daemon(char *path, unsigned size, const strarray_t *cmd)
      else snprintf(path, size, "%s/%s", LIBEXEC_DIR, cmd->data[0]);
  }
  

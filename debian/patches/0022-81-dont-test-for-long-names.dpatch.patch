@@ -15,7 +15,7 @@ Subject: 81-dont-test-for-long-names.dpatch
  1 file changed, 4 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index c881d15..995affb 100644
+index a703b6b..a257817 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -137,10 +137,6 @@ AC_PROG_INSTALL

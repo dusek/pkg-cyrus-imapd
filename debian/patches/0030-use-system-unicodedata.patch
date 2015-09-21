@@ -7,10 +7,10 @@ Subject: use-system-unicodedata
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 36580e8..003ca5f 100644
+index 6cb2cc3..5292ca2 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -1378,10 +1378,10 @@ lib_libcyrus_min_la_LIBADD = $(LTLIBOBJS) $(LIB_UUID)
+@@ -1387,10 +1387,10 @@ lib_libcyrus_min_la_LIBADD = $(LTLIBOBJS) $(LIB_UUID)
  lib_libcyrus_min_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
  
  lib/chartable.c: lib/mkchartable.pl lib/charset/unifix.txt \

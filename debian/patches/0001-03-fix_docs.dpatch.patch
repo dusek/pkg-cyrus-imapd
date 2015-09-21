@@ -44,13 +44,13 @@ index 957e26c..9d6da47 100644
  options.</p>
  
 diff --git a/lib/imapoptions b/lib/imapoptions
-index 59990f7..12ab9b5 100644
+index 461103c..6dff61a 100644
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -525,7 +525,11 @@ Blank lines and lines beginning with ``#'' are ignored.
+@@ -542,7 +542,11 @@ Blank lines and lines beginning with ``#'' are ignored.
     mailbox that does not have a parent mailbox. */
  
- { "defaultdomain", NULL, STRING }
+ { "defaultdomain", "internal", STRING }
 -/* The default domain for virtual domain support */
 +/* The default domain for virtual domain support. Note that this domain
 +   is stripped from the email-address transmitted using LMTP, but it
@@ -60,7 +60,7 @@ index 59990f7..12ab9b5 100644
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -1049,7 +1053,10 @@ Blank lines and lines beginning with ``#'' are ignored.
+@@ -1066,7 +1070,10 @@ Blank lines and lines beginning with ``#'' are ignored.
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL
