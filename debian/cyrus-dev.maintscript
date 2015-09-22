@@ -1,3 +1,0 @@
-symlink_to_dir /usr/share/doc/cyrus-dev cyrus-common 2.4.17+caldav~beta10-11~
-symlink_to_dir /usr/share/doc/cyrus-dev cyrus-common-2.4 2.4.17+caldav~beta10-11~
-symlink_to_dir /usr/share/doc/cyrus-dev cyrus-dev-2.4 2.4.17+caldav~beta10-11~

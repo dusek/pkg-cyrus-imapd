@@ -1,1 +1,0 @@
-mv_conffile /etc/logcheck/violations.ignore.d/cyrus-common-2_4 /etc/logcheck/violations.ignore.d/cyrus-common 2.4.17+caldav~beta10-3~
