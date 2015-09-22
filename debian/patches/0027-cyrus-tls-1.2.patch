@@ -3,70 +3,131 @@ Date: Tue, 4 Aug 2015 10:38:07 +0200
 Subject: cyrus-tls-1.2
 
 ---
- imap/tls.c      | 4 ++--
- imtest/imtest.c | 4 +++-
- lib/imclient.c  | 4 +++-
- 3 files changed, 8 insertions(+), 4 deletions(-)
+ imap/tls.c      | 34 +++++++++++++++++-----------------
+ imtest/imtest.c |  9 ++++++++-
+ lib/imclient.c  | 11 +++++++++--
+ 3 files changed, 34 insertions(+), 20 deletions(-)
 
 diff --git a/imap/tls.c b/imap/tls.c
-index 156a18a..3116897 100644
+index 156a18a..007f2af 100644
 --- a/imap/tls.c
 +++ b/imap/tls.c
-@@ -676,7 +676,7 @@ EXPORTED int     tls_init_serverengine(const char *ident,
+@@ -674,20 +674,23 @@ EXPORTED int     tls_init_serverengine(const char *ident,
+         return -1;
+     }
  
-     /* even if we want TLS only, we use SSLv23 server method so we can
-        deal with a client sending an SSLv2 greeting message */
--    s_ctx = SSL_CTX_new(SSLv23_server_method());
+-    /* even if we want TLS only, we use SSLv23 server method so we can
+-       deal with a client sending an SSLv2 greeting message */
++#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 +    s_ctx = SSL_CTX_new(TLS_server_method());
++#else
+     s_ctx = SSL_CTX_new(SSLv23_server_method());
++#endif
++
      if (s_ctx == NULL) {
          return (-1);
      };
-@@ -1403,7 +1403,7 @@ HIDDEN int tls_init_clientengine(int verifydepth,
+ 
+-    off |= SSL_OP_ALL;          /* Work around all known bugs */
++    off |= SSL_OP_ALL;            /* Work around all known bugs */
++    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
++    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
++    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
+ 
+     const char *tls_versions = config_getstring(IMAPOPT_TLS_VERSIONS);
+ 
+-    off |= SSL_OP_NO_SSLv2;
+-    off |= SSL_OP_NO_SSLv3;
+-
+     if (strstr(tls_versions, "tls1_2") == NULL) {
+ #if (OPENSSL_VERSION_NUMBER >= 0x1000105fL)
+         //syslog(LOG_DEBUG, "TLS server engine: Disabled TLSv1.2");
+@@ -715,13 +718,6 @@ EXPORTED int     tls_init_serverengine(const char *ident,
+     if (server_cipher_order)
+         off |= SSL_OP_CIPHER_SERVER_PREFERENCE;
+ 
+-#if (OPENSSL_VERSION_NUMBER >= 0x1000000fL)
+-    if (!config_getswitch(IMAPOPT_TLS_COMPRESSION)) {
+-        off |= SSL_OP_NO_COMPRESSION;
+-        syslog(LOG_DEBUG, "TLS client engine: Setting SSL_OP_NO_COMPRESSION");
+-    }
+-#endif // (OPENSSL_VERSION_NUMBER >= 0x1000000fL)
+-
+     SSL_CTX_set_options(s_ctx, off);
+     SSL_CTX_set_info_callback(s_ctx, apps_ssl_info_callback);
+ 
+@@ -1402,15 +1398,19 @@ HIDDEN int tls_init_clientengine(int verifydepth,
+         return -1;
      }
  
-     /* XXX  May need to use only SSLv3 for iSchedule */
--    c_ctx = SSL_CTX_new(SSLv23_client_method());
+-    /* XXX  May need to use only SSLv3 for iSchedule */
++#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 +    c_ctx = SSL_CTX_new(TLS_client_method());
++#else
+     c_ctx = SSL_CTX_new(SSLv23_client_method());
++#endif
      if (c_ctx == NULL) {
          return (-1);
      };
+ 
+-    off |= SSL_OP_ALL;          /* Work around all known bugs */
+-    off |= SSL_OP_NO_SSLv2;
+-    off |= SSL_OP_NO_SSLv3;
++    off |= SSL_OP_ALL;            /* Work around all known bugs */
++    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
++    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
++    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
+ 
+     SSL_CTX_set_options(c_ctx, off);
+     SSL_CTX_set_info_callback(c_ctx, apps_ssl_info_callback);
 diff --git a/imtest/imtest.c b/imtest/imtest.c
-index 9f1d5d4..1b4a56d 100644
+index 9f1d5d4..fd55e70 100644
 --- a/imtest/imtest.c
 +++ b/imtest/imtest.c
-@@ -491,12 +491,14 @@ static int tls_init_clientengine(int verifydepth, char *var_tls_cert_file, char
+@@ -491,12 +491,19 @@ static int tls_init_clientengine(int verifydepth, char *var_tls_cert_file, char
          return IMTEST_FAIL;
      }
  
--    tls_ctx = SSL_CTX_new(SSLv23_client_method());
++#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 +    tls_ctx = SSL_CTX_new(TLS_client_method());
++#else
+     tls_ctx = SSL_CTX_new(SSLv23_client_method());
++#endif
      if (tls_ctx == NULL) {
          return IMTEST_FAIL;
      };
  
-     off |= SSL_OP_ALL;          /* Work around all known bugs */
-+    off |= SSL_OP_NO_SSLv2;     /* Disable insecure SSLv2 */
-+    off |= SSL_OP_NO_SSLv3;     /* Disable insecure SSLv3 */
+-    off |= SSL_OP_ALL;          /* Work around all known bugs */
++    off |= SSL_OP_ALL;            /* Work around all known bugs */
++    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
++    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
++    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
      SSL_CTX_set_options(tls_ctx, off);
      SSL_CTX_set_info_callback(tls_ctx, apps_ssl_info_callback);
  
 diff --git a/lib/imclient.c b/lib/imclient.c
-index 6ade532..30a0804 100644
+index 6ade532..85fcf3c 100644
 --- a/lib/imclient.c
 +++ b/lib/imclient.c
-@@ -1631,12 +1631,14 @@ static int tls_init_clientengine(struct imclient *imclient,
+@@ -1631,12 +1631,19 @@ static int tls_init_clientengine(struct imclient *imclient,
          return -1;
      }
  
 -    imclient->tls_ctx = SSL_CTX_new(TLSv1_client_method());
++#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
 +    imclient->tls_ctx = SSL_CTX_new(TLS_client_method());
++#else
++    imclient->tls_ctx = SSL_CTX_new(SSLv23_client_method());
++#endif
      if (imclient->tls_ctx == NULL) {
          return -1;
      };
  
-     off |= SSL_OP_ALL;          /* Work around all known bugs */
-+    off |= SSL_OP_NO_SSLv2;     /* Disable insecure SSLv2 */
-+    off |= SSL_OP_NO_SSLv3;     /* Disable insecure SSLv3 */
+-    off |= SSL_OP_ALL;          /* Work around all known bugs */
++    off |= SSL_OP_ALL;            /* Work around all known bugs */
++    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
++    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
++    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
      SSL_CTX_set_options(imclient->tls_ctx, off);
  
      /* debugging   SSL_CTX_set_info_callback(imclient->tls_ctx, apps_ssl_info_callback); */
