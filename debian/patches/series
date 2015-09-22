@@ -29,3 +29,4 @@
 0029-use-system-unicodedata.patch
 0030-missing-AC_LANG_SOURCE.patch
 0031-libisieve-has-to-be-noinst_LTLIBRARY-for-PIC-code-to.patch
+0032-Fix-typo-in-sphinx-that-disabled-squat.patch
