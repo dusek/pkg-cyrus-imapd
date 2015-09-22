@@ -1,6 +1,7 @@
 etc/pam.d/imap
 usr/lib/cyrus/bin/idled
 usr/lib/cyrus/bin/imapd
+usr/lib/cyrus/bin/squatter
 usr/share/man/man8/cyrus-squatter.8
 usr/share/man/man8/idled.8
 usr/share/man/man8/imapd.8
