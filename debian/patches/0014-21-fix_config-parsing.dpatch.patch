@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:05 +0200
-Subject: 21-fix_config-parsing.dpatch
+Subject: Minor fixes of master.conf parsing to be more verbose
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 21-fix_config-parsing.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fix parsing of master.conf
-
-@DPATCH@
 ---
  master/masterconf.c | 11 ++++++++++-
  1 file changed, 10 insertions(+), 1 deletion(-)

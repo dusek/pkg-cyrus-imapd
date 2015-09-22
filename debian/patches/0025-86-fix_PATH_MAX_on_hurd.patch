@@ -1,6 +1,6 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Ondřej Surý <ondrej@debian.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
-Subject: 86-fix_PATH_MAX_on_hurd
+Subject: Fix PATH_MAX on GNU/Hurd
 
 ---
  imap/pop3d.c     | 4 ++++

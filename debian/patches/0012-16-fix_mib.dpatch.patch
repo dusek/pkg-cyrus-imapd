@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:05 +0200
-Subject: 16-fix_mib.dpatch
+Subject: Fix MIB file for cyrus
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 16-fix_mib.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fix MIB file for cyrus
-
-@DPATCH@
 ---
  master/CYRUS-MASTER.mib | 11 +++++++----
  1 file changed, 7 insertions(+), 4 deletions(-)

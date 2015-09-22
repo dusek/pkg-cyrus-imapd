@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Petr Salinger <Petr.Salinger@seznam.cz>
 Date: Tue, 4 Aug 2015 10:38:06 +0200
-Subject: 80-kbsd-no-psstrings.dpatch
+Subject: Try compile PS_STRINGS instead just checking the header to fix GNU/kFreeBSD
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 80-kbsd-no-psstring
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: disable PS_STRINGS for GNU/kFreeBSD
-
-@DPATCH@
 ---
  configure.ac | 15 +++++++--------
  1 file changed, 7 insertions(+), 8 deletions(-)
@@ -41,3 +34,29 @@ index 13d1a6d..a703b6b 100644
  fi
  if test "$spt_type" = ""; then
          AC_MSG_CHECKING(for SCO)
+From: Ondřej Surý <ondrej@sury.org>
+Date: Mon, 21 Sep 2015 16:44:19 +0200
+Subject: Escape the code in AC_LANG_SOURCE
+
+---
+ configure.ac | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index a257817..4e143a2 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -530,11 +530,11 @@ if test "$spt_type" = ""; then
+ fi
+ if test "$spt_type" = ""; then
+         AC_MSG_CHECKING(for PS_STRINGS)
+-AC_CACHE_VAL(cyrus_cv_sys_psstrings, AC_COMPILE_IFELSE([
++AC_CACHE_VAL(cyrus_cv_sys_psstrings, AC_COMPILE_IFELSE([AC_LANG_SOURCE([
+ #include <machine/vmparam.h>
+ #include <sys/exec.h>
+ void *p = PS_STRINGS;
+-],cyrus_cv_sys_psstrings=yes,cyrus_cv_sys_psstrings=no))
++])],cyrus_cv_sys_psstrings=yes,cyrus_cv_sys_psstrings=no))
+          if test $cyrus_cv_sys_psstrings = yes; then
+                  spt_type=SPT_PSSTRINGS
+          fi

@@ -25,8 +25,6 @@
 0025-86-fix_PATH_MAX_on_hurd.patch
 0026-cyrus-tls-1.2.patch
 0027-91-fix-extra-libpci.patch
-0028-parse-GUID-for-binary-appends-as-well.patch
 0029-use-system-unicodedata.patch
-0030-missing-AC_LANG_SOURCE.patch
 0031-libisieve-has-to-be-noinst_LTLIBRARY-for-PIC-code-to.patch
 0032-Fix-typo-in-sphinx-that-disabled-squat.patch

@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:05 +0200
-Subject: 14-xmalloc.dpatch
+Subject: Fix xmalloc usage
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 14-xmalloc.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fix xmalloc usage
-
-@DPATCH@
 ---
  lib/map_stupidshared.c | 1 +
  lib/xmalloc.h          | 4 ++--

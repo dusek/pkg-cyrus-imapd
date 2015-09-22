@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <sven@debian.org>
 Date: Tue, 4 Aug 2015 10:38:06 +0200
-Subject: 50-fix-imclient-manpage.dpatch
+Subject: Fix formatting of imclient manpage
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 50-fix-imclient-manpage.dpatch by Sven Mueller <sven@debian.org>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fix formatting of imclient manpage
-
-@DPATCH@
 ---
  man/imclient.3 | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)

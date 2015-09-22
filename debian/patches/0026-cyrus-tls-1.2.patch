@@ -1,6 +1,6 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Ondřej Surý <ondrej@sury.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
-Subject: cyrus-tls-1.2
+Subject: Disable SSLv2, SSLv3 and TLS compression, use TLS_*_method when available
 
 ---
  imap/tls.c      | 34 +++++++++++++++++-----------------

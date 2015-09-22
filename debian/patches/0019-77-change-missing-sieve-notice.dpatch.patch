@@ -1,15 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <sven@debian.org>
 Date: Tue, 4 Aug 2015 10:38:06 +0200
-Subject: 77-change-missing-sieve-notice.dpatch
+Subject: Change the wording of sieved's notice when a user's default sieve script is missing
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 77-change-missing-sieve-notice.dpatch.dpatch by Sven Mueller <sven@debian.org>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Change the wording of sieved's notice when a user's default sieve
-## DP: script is missing
-
-@DPATCH@
 ---
  sieve/script.c | 7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)

@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:05 +0200
-Subject: 19-fix_tls_ssl.dpatch
+Subject: Make TLS/SSL error message more informative
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 19-fix_tls_errormessage.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Make TLS/SSL error message more informative
-
-@DPATCH@
 ---
  imap/tls.c      | 4 ++--
  imtest/imtest.c | 3 ++-
