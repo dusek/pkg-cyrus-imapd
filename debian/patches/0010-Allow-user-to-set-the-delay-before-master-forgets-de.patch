@@ -27,7 +27,7 @@ NOTE: patch is missing manpage fixes to describe -J
  1 file changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/master/master.c b/master/master.c
-index 1ca2267..3c2b68e 100644
+index a73c956..ded1020 100644
 --- a/master/master.c
 +++ b/master/master.c
 @@ -176,6 +176,8 @@ struct centry {
@@ -48,7 +48,7 @@ index 1ca2267..3c2b68e 100644
  }
  
  /*
-@@ -2047,9 +2049,9 @@ int main(int argc, char **argv)
+@@ -2041,9 +2043,9 @@ int main(int argc, char **argv)
      p = getenv("CYRUS_VERBOSE");
      if (p) verbose = atoi(p) + 1;
  #ifdef HAVE_NETSNMP
@@ -60,7 +60,7 @@ index 1ca2267..3c2b68e 100644
  #endif
          switch (opt) {
          case 'C': /* alt imapd.conf file */
-@@ -2082,7 +2084,14 @@ int main(int argc, char **argv)
+@@ -2076,7 +2078,14 @@ int main(int argc, char **argv)
              /* Janitor frequency */
              janitor_frequency = atoi(optarg);
              if(janitor_frequency < 1)

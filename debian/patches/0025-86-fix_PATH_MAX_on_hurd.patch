@@ -24,7 +24,7 @@ index 3a9b7c7..65ac479 100644
  /* kerberos des is purported to conflict with OpenSSL DES */
  #define DES_DEFS
 diff --git a/master/master.c b/master/master.c
-index 3c2b68e..8bc94db 100644
+index ded1020..40b8c48 100644
 --- a/master/master.c
 +++ b/master/master.c
 @@ -71,6 +71,10 @@
