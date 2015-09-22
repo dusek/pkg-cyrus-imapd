@@ -1,7 +1,7 @@
 usr/bin/cyradm
 usr/bin/installsieve
 usr/bin/sieveshell
-usr/share/icons/*
 usr/share/man/man1/cyradm.1p
+usr/share/icons/*
 usr/share/man/man1/installsieve.1
 usr/share/man/man1/sieveshell.1

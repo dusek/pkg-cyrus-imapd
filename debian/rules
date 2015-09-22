@@ -23,6 +23,7 @@ export DOCDIR := $(CURDIR)/debian/$(DOCPKG)/usr/share/doc/$(DOCPKG)
 
 export DEB_CFLAGS_MAINT_APPEND  = -Wall -Wextra -g -fno-strict-aliasing -pipe $(if $(findstring noopt,$(DEB_BUILD_OPTIONS)),-O0,-O2)
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+export PERL_MM_OPT="INSTALLDIRS=vendor CCFLAGS='$(dpkg-buildflags --get CFLAGS)' LDDLFLAGS='$(dpkg-buildflags --get LDFLAGS)'"
 
 DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
@@ -58,8 +59,6 @@ endif
 #	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
 
 override_dh_auto_configure:
-	# Rebuild the build system
-#	automake -f -a 2>/dev/null || true
 	dh_auto_configure -- \
 	 $(CONFFLAGS) \
 	 --with-extraident=$(EXTRA_IDENT) \
@@ -67,6 +66,8 @@ override_dh_auto_configure:
 	 --datadir=/usr/share/cyrus \
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
+	 --libexecdir=/usr/lib/cyrus/bin \
+	 --sbindir=/usr/lib/cyrus/bin \
 	 --disable-silent-rules \
 	 --disable-xapian \
 	 --enable-autocreate \
@@ -100,7 +101,7 @@ override_dh_auto_configure:
 		>> debian/README.configure-options
 
 override_dh_auto_build:
-	PERL_MM_OPT="INSTALLDIRS=vendor" dh_auto_build
+	dh_auto_build
 
 # store database configuration for possible automatic
 # upgrading later
@@ -151,14 +152,32 @@ override_dh_auto_install:
 		do install -m 644 $$i $(TMPPKG)/etc/pam.d/$${i%.pam} ;\
 	done)
 
-	# We rename some utils, so we need to sort out the manpages
-	for i in master deliver ; do \
-	    mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyr$$i.8 ; \
-	done
+	# Install cyradm icons
+	install -d -m 755 $(TMPPKG)/usr/share/icons/mini
+	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
+	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
+
+	# Install debian-provided scripts
+	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/bin/
+	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
+	install debian/cyrus-init-helper $(TMPPKG)/usr/lib/cyrus/bin/init-helper
+	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
+	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
+
+	# and logcheck files
+	install -d -m 755 $(TMPPKG)/etc/logcheck/ignore.d.server/ $(TMPPKG)/etc/logcheck/violations.ignore.d/
+	install -m 644 debian/logcheck.ignore $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
+	install -m 644 debian/logcheck.violations.ignore $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
+
+	# And other upgrade helpers
+	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
+		   $(TMPPKG)/usr/lib/cyrus
 
 	# Move all manpages under cyrus- namespace
 	install -m 644 debian/cyrus-makedirs.8 debian/cyrus-arbitronsort.8 debian/cyrus-dump.8 \
 		$(TMPPKG)/usr/share/man/man8/
+
+	# We rename some utils, so we need to sort out the manpages
 	for i in master reconstruct quota deliver \
 	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
 	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
@@ -171,31 +190,11 @@ override_dh_auto_install:
 	install -d -m 755 $(TMPPKG)/usr/share/snmp/mibs
 	install -m 644 master/CYRUS-MASTER.mib $(TMPPKG)/usr/share/snmp/mibs/CYRUS-MASTER-MIB.txt
 
-	# Install cyradm icons
-	install -d -m 755 $(TMPPKG)/usr/share/icons/mini
-	install -m 644 debian/cyradm-32x32.xpm $(TMPPKG)/usr/share/icons/cyradm.xpm
-	install -m 644 debian/cyradm-16x16.xpm $(TMPPKG)/usr/share/icons/mini/cyradm.xpm
-
-	# Install debian-provided scripts
-	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
-	install debian/cyrus-init-helper $(TMPPKG)/usr/lib/cyrus/bin/init-helper
-	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
-	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
-
-	# and logcheck files
-	install -d -m 755 $(TMPPKG)/etc/logcheck/ignore.d.server/ $(TMPPKG)/etc/logcheck/violations.ignore.d/
-	install -m 644 debian/logcheck.ignore $(TMPPKG)/etc/logcheck/ignore.d.server/cyrus-imapd
-	install -m 644 debian/logcheck.violations.ignore $(TMPPKG)/etc/logcheck/violations.ignore.d/cyrus-imapd
-
 	# Install the stuff needed for upgrades
 	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
 	for i in convert-sieve.pl dohash rehash undohash translatesieve upgradesieve masssievec; do \
 		install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
 	done
-
-	# And other upgrade helpers
-	install -m 644 debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt \
-		   $(TMPPKG)/usr/lib/cyrus
 
 	# And other misc useful tools
 	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/lib/cyrus/bin/arbitronsort
@@ -235,5 +234,5 @@ override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
 
 override_dh_install:
-	rm $(CURDIR)/debian/tmp/usr/lib/cyrus/bin/*proxyd
-	dh_install --fail-missing
+	rm $(TMPPKG)/usr/lib/cyrus/bin/*proxyd
+	dh_install --fail-missing -X.la

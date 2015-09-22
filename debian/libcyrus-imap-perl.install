@@ -1,12 +1,1 @@
-#!/usr/bin/perl -w
-
-use Config;
-
-print substr($Config{vendorarch}, 1) . "\n";
-print <<EOF
-usr/share/man/man3/Cyrus::SIEVE::managesieve.3pm
-usr/share/man/man3/Cyrus::IMAP::Admin.3pm
-usr/share/man/man3/Cyrus::IMAP::IMSP.3pm
-usr/share/man/man3/Cyrus::IMAP::Shell.3pm
-usr/share/man/man3/Cyrus::IMAP.3pm
-EOF
+usr/share/man/man3/*

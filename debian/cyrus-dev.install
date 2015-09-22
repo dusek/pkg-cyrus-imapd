@@ -1,3 +1,4 @@
-usr/share/include/cyrus/* /usr/include/cyrus/
-usr/share/lib/* /usr/lib/
+usr/include/cyrus/*
+usr/lib/*/*.so
+usr/lib/*/pkgconfig/*.pc
 usr/share/man/man3/imclient*

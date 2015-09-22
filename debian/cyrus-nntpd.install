@@ -4,4 +4,3 @@ usr/lib/cyrus/bin/nntpd
 usr/share/man/man8/fetchnews.8
 usr/share/man/man8/nntpd.8
 usr/share/man/man8/rmnews.8
-usr/share/man/man8/syncnews.8
