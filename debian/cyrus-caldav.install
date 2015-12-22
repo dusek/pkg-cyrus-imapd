@@ -1,4 +1,3 @@
-usr/lib/cyrus/bin/calalarmd
 usr/lib/cyrus/bin/dav_reconstruct
 usr/lib/cyrus/bin/httpd
 usr/share/man/man8/cyrus-httpd.8
