@@ -1,10 +1,10 @@
-# translation of cyrus-imapd-2.4 2.4.14-1_de.po to German
+# translation of cyrus-imapd 2.4.14-1_de.po to German
 #
 # Erik Schanze <eriks@debian.org>, 2004-2009.
 msgid ""
 msgstr ""
 "Project-Id-Version: cyrus-imapd_2.4 2.4.14-1_de\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-27 22:30+0200\n"
 "Last-Translator: Erik Schanze <eriks@debian.org>\n"

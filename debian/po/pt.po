@@ -1,12 +1,12 @@
-# Portuguese translation of cyrus-imapd-2.4 debconf messages.
+# Portuguese translation of cyrus-imapd debconf messages.
 # Copyright (C) 2009 Carlos Lisboa
-# This file is distributed under the same license as the cyrus-imapd-2.4 package.
+# This file is distributed under the same license as the cyrus-imapd package.
 # Carlos Lisboa <carloslisboa@gmail.com>, 2009.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-27 21:19+0100\n"
 "Last-Translator: Carlos Lisboa <carloslisboa@gmail.com>\n"

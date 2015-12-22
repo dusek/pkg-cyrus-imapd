@@ -1,4 +1,4 @@
-# Translation of cyrus-imapd-2.4 2.4.14-1_templates.po to Debian l10n Dutch
+# Translation of cyrus-imapd 2.4.14-1_templates.po to Debian l10n Dutch
 # This file is distributed under the same license as the cyrus-imapd package.
 #
 #    Translators, if you are not familiar with the PO format, gettext
@@ -17,8 +17,8 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2006-09-18 20:27+0100\n"
 "Last-Translator: Kurt De Bree <kdebree@telenet.be>\n"

@@ -1,10 +1,10 @@
-# Traduzione italiana di cyrus-imapd-2.4
+# Traduzione italiana di cyrus-imapd
 # Copyright (C) 2009 Free Software Foundation, Inc.
 # Cristian Rigamonti <cri@linux.it>, 2009.
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.14-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-15 21:13+0200\n"
 "Last-Translator: Cristian Rigamonti <cri@linux.it>\n"

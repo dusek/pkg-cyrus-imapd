@@ -1,12 +1,12 @@
-# Danish translation cyrus-imapd-2.4.
-# Copyright (C) 2011 cyrus-imapd-2.4 & nedenstående oversættere.
-# This file is distributed under the same license as the cyrus-imapd-2.4 package.
+# Danish translation cyrus-imapd.
+# Copyright (C) 2011 cyrus-imapd & nedenstående oversættere.
+# This file is distributed under the same license as the cyrus-imapd package.
 # Joe Hansen (joedalton2@yahoo.dk), 2011.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2011-07-12 12:42+0000\n"
 "Last-Translator: Joe Hansen <joedalton2@yahoo.dk>\n"

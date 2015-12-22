@@ -4,8 +4,8 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.14-1 \n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.14-1 \n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2006-08-16 18:12+0930\n"
 "Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"

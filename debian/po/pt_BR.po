@@ -1,11 +1,11 @@
-# PO-DEBCONF TEMPLATE FOR cyrus-imapd-2.4.
+# PO-DEBCONF TEMPLATE FOR cyrus-imapd.
 # Copyright (C) 2002 Henrique de Moraes Holschuh <hmh@debian.org>
-# This file is distributed under the same license as the cyrus-imapd-2.4 package.
+# This file is distributed under the same license as the cyrus-imapd package.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.7\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.7\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2003-03-03 10:45-0300\n"
 "Last-Translator: Henrique de Moraes Holschuh <hmh@debian.org>\n"

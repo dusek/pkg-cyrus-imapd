@@ -1,14 +1,14 @@
-# French translation for cyrus-imapd-2.4.
+# French translation for cyrus-imapd.
 # Copyright (C) 2009 Debian French l10n team <debian-l10n-french@lists.debian.org>
-# This file is distributed under the same license as the cyrus-imapd-2.4 package.
+# This file is distributed under the same license as the cyrus-imapd package.
 #
 # Translators:
 # Philippe Batailler <philippe.batailler@free.fr>, 2009
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: cyrus-imapd-2.4 2.4.8-1\n"
-"Report-Msgid-Bugs-To: cyrus-imapd-2.4@packages.debian.org\n"
+"Project-Id-Version: cyrus-imapd 2.4.8-1\n"
+"Report-Msgid-Bugs-To: cyrus-imapd@packages.debian.org\n"
 "POT-Creation-Date: 2011-04-11 15:24+0200\n"
 "PO-Revision-Date: 2009-04-16 20:31+0200\n"
 "Last-Translator: Philippe Batailler <philippe.batailler@free.fr>\n"
