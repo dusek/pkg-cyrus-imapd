@@ -11,14 +11,14 @@ information on such and so forth, see (amongst others):
 If one chooses to allow slightly invalid headers in the MTA, then
 Cyrus should not raise problems.
 ---
- imap/message.c | 21 ++++++++++++++++++---
- 1 file changed, 18 insertions(+), 3 deletions(-)
+ imap/message.c | 17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/imap/message.c b/imap/message.c
-index 38c0c58..04b312c 100644
+index 17342ef..c90607f 100644
 --- a/imap/message.c
 +++ b/imap/message.c
-@@ -186,6 +186,8 @@ EXPORTED int message_copy_strict(struct protstream *from, FILE *to,
+@@ -166,6 +166,8 @@ EXPORTED int message_copy_strict(struct protstream *from, FILE *to,
      int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
      int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
      int inheader = 1, blankline = 1;
@@ -26,30 +26,26 @@ index 38c0c58..04b312c 100644
 +    static const char * from_header = "From ";
  
      while (size) {
-         n = prot_read(from, buf, size > 4096 ? 4096 : size);
-@@ -262,9 +264,22 @@ EXPORTED int message_copy_strict(struct protstream *from, FILE *to,
-         /* Check for valid header name */
-         if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
-             if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;
+ 	n = prot_read(from, buf, size > 4096 ? 4096 : size);
+@@ -242,9 +244,18 @@ EXPORTED int message_copy_strict(struct protstream *from, FILE *to,
+ 	/* Check for valid header name */
+ 	if (sawnl && buf[0] != ' ' && buf[0] != '\t') {
+ 	    if (buf[0] == ':') return IMAP_MESSAGE_BADHEADER;
 -      if (strstr(buf, "From ") != buf)
--            for (p = (unsigned char *)buf; *p != ':'; p++) {
--                if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
-+            p = (unsigned char *) buf;
-+            if (*p == '>') p++;
-+
-+            if (*p == from_header[0])
-+                is_from = 0;
-+            else
-+                is_from = -1;
-+
+-	    for (p = (unsigned char *)buf; *p != ':'; p++) {
+-		if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
++	    p = (unsigned char *) buf;
++	    if (*p == '>') p++;
++	    is_from = (*p == from_header[0])?0:1;
 +            for (; *p != ':' && is_from < 5; p++) {
-+                if (is_from > 0 && *p != from_header[is_from])
++		if (is_from > 0 && *p != from_header[is_from]) {
 +                    is_from = -1;
-+
-+                if (is_from >= 0)
++		}
++                if (is_from >= 0) {
 +                    is_from++;
-+                else
++                } else {
 +                    if (*p <= ' ') return IMAP_MESSAGE_BADHEADER;
-             }
-         }
++		}
+ 	    }
+ 	}
  

@@ -16,20 +16,20 @@ By normalize, it is intended that;
  5 files changed, 31 insertions(+)
 
 diff --git a/imap/global.c b/imap/global.c
-index be9dfbb..6e8e4f3 100644
+index b038d3d..cd51b78 100644
 --- a/imap/global.c
 +++ b/imap/global.c
-@@ -285,6 +285,8 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
-                                   config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
-         libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
-                                   config_getswitch(IMAPOPT_USERNAME_TOLOWER));
+@@ -277,6 +277,8 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
+ 				  config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
+ 	libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
+ 				  config_getswitch(IMAPOPT_USERNAME_TOLOWER));
 +	libcyrus_config_setswitch(CYRUSOPT_NORMALIZEUID,
 +				  config_getswitch(IMAPOPT_NORMALIZEUID));
-         libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_UNSAFE,
-                                   config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
-         libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
+ 	libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_UNSAFE,
+ 				  config_getswitch(IMAPOPT_SKIPLIST_UNSAFE));
+ 	libcyrus_config_setstring(CYRUSOPT_TEMP_PATH,
 diff --git a/lib/auth_unix.c b/lib/auth_unix.c
-index 6caddaa..910453d 100644
+index 1f034da..914ea0b 100644
 --- a/lib/auth_unix.c
 +++ b/lib/auth_unix.c
 @@ -150,9 +150,11 @@ static char allowedchars[256] = {
@@ -45,7 +45,7 @@ index 6caddaa..910453d 100644
      if (!len) len = strlen(identifier);
      if (len >= sizeof(retbuf)) return NULL;
 @@ -194,6 +196,22 @@ static const char *mycanonifyid(const char *identifier, size_t len)
-         }
+ 	}
      }
  
 +    if( (libcyrus_config_getswitch(CYRUSOPT_NORMALIZEUID) == 1) ) {
@@ -68,10 +68,10 @@ index 6caddaa..910453d 100644
  }
  
 diff --git a/lib/imapoptions b/lib/imapoptions
-index 9394226..0a3e89f 100644
+index d80f081..5f7c523 100644
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -2140,6 +2140,11 @@ product version in the capabilities */
+@@ -2008,6 +2008,11 @@ product version in the capabilities */
  /* The absolute path to the zoneinfo db file.  If not specified,
     will be confdir/zoneinfo.db */
  
@@ -84,10 +84,10 @@ index 9394226..0a3e89f 100644
  .SH SEE ALSO
  .PP
 diff --git a/lib/libcyr_cfg.c b/lib/libcyr_cfg.c
-index bd7ded2..116f709 100644
+index 57b7b24..58ac088 100644
 --- a/lib/libcyr_cfg.c
 +++ b/lib/libcyr_cfg.c
-@@ -144,6 +144,10 @@ static struct cyrusopt_s cyrus_options[] = {
+@@ -156,6 +156,10 @@ static struct cyrusopt_s cyrus_options[] = {
        CFGVAL(long, 1),
        CYRUS_OPT_SWITCH },
  
@@ -99,10 +99,10 @@ index bd7ded2..116f709 100644
  };
  
 diff --git a/lib/libcyr_cfg.h b/lib/libcyr_cfg.h
-index 8e9a137..dfd88d3 100644
+index 3983ccd..8f48422 100644
 --- a/lib/libcyr_cfg.h
 +++ b/lib/libcyr_cfg.h
-@@ -105,6 +105,8 @@ enum cyrus_opt {
+@@ -111,6 +111,8 @@ enum cyrus_opt {
      CYRUSOPT_SQL_USESSL,
      /* Checkpoint after every recovery (OFF) */
      CYRUSOPT_SKIPLIST_ALWAYS_CHECKPOINT,
@@ -110,4 +110,4 @@ index 8e9a137..dfd88d3 100644
 +    CYRUSOPT_NORMALIZEUID,
  
      CYRUSOPT_LAST
- 
+     

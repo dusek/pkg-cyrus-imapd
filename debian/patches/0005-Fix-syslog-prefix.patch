@@ -1,13 +1,9 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:05 +0200
-Subject: 11-fix_syslog_prefix.dpatch
+Subject: Fix syslog prefix
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 11-fix_syslog_prefix.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Make sure all programs log (to syslog) with "cyrus/<program>" as the
-## DP: log prefix.
+Make sure all programs log (to syslog) with "cyrus/<program>" as the
+log prefix.
 
 @DPATCH@
 ---
@@ -18,10 +14,10 @@ Subject: 11-fix_syslog_prefix.dpatch
  4 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/imap/global.c b/imap/global.c
-index c07d0e7..be9dfbb 100644
+index bfe081c..b038d3d 100644
 --- a/imap/global.c
 +++ b/imap/global.c
-@@ -151,6 +151,9 @@ static int get_facility(const char *name)
+@@ -148,6 +148,9 @@ static int get_facility(const char *name)
      return SYSLOG_FACILITY;
  }
  
@@ -31,8 +27,8 @@ index c07d0e7..be9dfbb 100644
  /* Called before a cyrus application starts (but after command line parameters
   * are read) */
  EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flags, int config_need_data)
-@@ -184,7 +187,9 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
- 
+@@ -181,7 +184,9 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
+     
      /* xxx we lose here since we can't have the prefix until we load the
       * config file */
 -    openlog(config_ident, syslog_opts, SYSLOG_FACILITY);
@@ -43,33 +39,33 @@ index c07d0e7..be9dfbb 100644
      /* Load configuration file.  This will set config_dir when it finds it */
      config_read(alt_config, config_need_data);
 diff --git a/ptclient/ptexpire.c b/ptclient/ptexpire.c
-index 6d3fec6..2ad624d 100644
+index 86358a3..940e115 100644
 --- a/ptclient/ptexpire.c
 +++ b/ptclient/ptexpire.c
 @@ -113,7 +113,7 @@ int main(int argc, char *argv[])
-         fatal("must run as the Cyrus user", EC_USAGE);
+ 	fatal("must run as the Cyrus user", EC_USAGE);
      }
- 
+     
 -    openlog("ptexpire", LOG_PID, SYSLOG_FACILITY);
 +    openlog("cyrus/ptexpire", LOG_PID, SYSLOG_FACILITY);
  
      while ((opt = getopt(argc, argv, "C:E:")) != EOF) {
-         switch (opt) {
+ 	switch (opt) {
 diff --git a/ptclient/test.c b/ptclient/test.c
-index 614d602..634cf82 100644
+index 920fe35..a0da9e6 100644
 --- a/ptclient/test.c
 +++ b/ptclient/test.c
 @@ -58,7 +58,7 @@ int main(int argc, char **argv) {
      cacheid=cache;
    } else
      cacheid=NULL;
--  openlog("pttest", LOG_PID, SYSLOG_FACILITY);
-+  openlog("cyrus/pttest", LOG_PID, SYSLOG_FACILITY);
- 
+-  openlog("pttest", LOG_PID, SYSLOG_FACILITY);  
++  openlog("cyrus/pttest", LOG_PID, SYSLOG_FACILITY);  
+   
    if (!auth_setid(argv[1],cacheid))
      printf ("Auth_memberof(%s,%s) is %d\n", argv[1], argv[2],
 diff --git a/ptclient/test2.c b/ptclient/test2.c
-index dc38023..18a66ea 100644
+index 84e2fbf..b3ba184 100644
 --- a/ptclient/test2.c
 +++ b/ptclient/test2.c
 @@ -45,7 +45,7 @@
@@ -78,6 +74,6 @@ index dc38023..18a66ea 100644
    char cacheid[16]="4224423";
 -  openlog("testr", LOG_PID, SYSLOG_FACILITY);
 +  openlog("cyrus/testr", LOG_PID, SYSLOG_FACILITY);
- 
+   
    if (!auth_setid("cg2v@club.cc.cmu.edu",cacheid))
      printf ("Auth_memberof(cg2v,cg2v:me) is %d\n",

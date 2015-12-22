@@ -1,0 +1,23 @@
+From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+Date: Tue, 4 Aug 2015 10:38:04 +0200
+Subject: Disable runpath checking
+
+@DPATCH@
+---
+ configure.ac | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 255c0ed..3339468 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -187,9 +187,6 @@ fi
+ CMU_C___ATTRIBUTE__
+ CMU_C_FPIC
+ 
+-dnl check for -R, etc. switch
+-CMU_GUESS_RUNPATH_SWITCH
+-
+ AC_CHECK_HEADERS(unistd.h sys/select.h sys/param.h stdarg.h)
+ AC_REPLACE_FUNCS(memmove strcasecmp ftruncate strerror posix_fadvise strsep memmem)
+ AC_CHECK_FUNCS(strlcat strlcpy getgrouplist fmemopen pselect)

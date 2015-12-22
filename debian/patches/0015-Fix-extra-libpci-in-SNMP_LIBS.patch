@@ -1,13 +1,13 @@
 From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
-Subject: 91-fix-extra-libpci
+Subject: Fix extra libpci in SNMP_LIBS
 
 ---
  cmulocal/ucdsnmp.m4 | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/cmulocal/ucdsnmp.m4 b/cmulocal/ucdsnmp.m4
-index 07f37b8..2574e21 100644
+index c8e791d..4a7da19 100644
 --- a/cmulocal/ucdsnmp.m4
 +++ b/cmulocal/ucdsnmp.m4
 @@ -26,7 +26,7 @@ if test "$with_snmp" != "no"; then

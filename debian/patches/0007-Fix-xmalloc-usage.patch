@@ -8,7 +8,7 @@ Subject: Fix xmalloc usage
  2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/lib/map_stupidshared.c b/lib/map_stupidshared.c
-index c97cd64..cd5f1d9 100644
+index 5ac035a..559fd12 100644
 --- a/lib/map_stupidshared.c
 +++ b/lib/map_stupidshared.c
 @@ -47,6 +47,7 @@

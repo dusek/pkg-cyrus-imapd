@@ -1,14 +1,7 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:04 +0200
-Subject: 03-fix_docs.dpatch
+Subject: Fix FAQ and virtual domains installation docs
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-_# 03-fix_docs.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: Fix FAQ and virtual domains installation docs
-
-@DPATCH@
 ---
  doc/faq.html                 |  2 +-
  doc/install-virtdomains.html |  4 ++++
@@ -44,13 +37,13 @@ index 957e26c..9d6da47 100644
  options.</p>
  
 diff --git a/lib/imapoptions b/lib/imapoptions
-index 461103c..6dff61a 100644
+index 61df6eb..d80f081 100644
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -542,7 +542,11 @@ Blank lines and lines beginning with ``#'' are ignored.
+@@ -490,7 +490,11 @@ Blank lines and lines beginning with ``#'' are ignored.
     mailbox that does not have a parent mailbox. */
  
- { "defaultdomain", "internal", STRING }
+ { "defaultdomain", NULL, STRING }
 -/* The default domain for virtual domain support */
 +/* The default domain for virtual domain support. Note that this domain
 +   is stripped from the email-address transmitted using LMTP, but it
@@ -60,7 +53,7 @@ index 461103c..6dff61a 100644
  
  { "defaultpartition", NULL, STRING }
  /* The partition name used by default for new mailboxes.  If not
-@@ -1066,7 +1070,10 @@ Blank lines and lines beginning with ``#'' are ignored.
+@@ -1004,7 +1008,10 @@ Blank lines and lines beginning with ``#'' are ignored.
  /* The list of remote realms whose users may authenticate using cross-realm
     authentication identifiers.  Separate each realm name by a space.  (A
     cross-realm identity is considered any identity returned by SASL

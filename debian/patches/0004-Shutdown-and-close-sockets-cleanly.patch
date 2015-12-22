@@ -2,8 +2,6 @@ From: Henrique de Moraes Holschuh <hmh@debian.org>
 Date: Tue, 4 Aug 2015 10:38:04 +0200
 Subject: Shutdown and close sockets cleanly
 
-Origin: vendor, Debian Cyrus IMAPd 2.1.4-11 (2002-05-19)
-
 Cleanly shutdown and close sockets, this is supposed to allow for better
 TCP teardown on the remote end, and reduces CLOSE_WAIT time.
 
@@ -24,10 +22,10 @@ need similar patches.
  4 files changed, 19 insertions(+)
 
 diff --git a/imap/fud.c b/imap/fud.c
-index d2dd3ff..b5f6342 100644
+index fdd56e5..2b4b177 100644
 --- a/imap/fud.c
 +++ b/imap/fud.c
-@@ -143,6 +143,15 @@ void shut_down(int code)
+@@ -141,6 +141,15 @@ void shut_down(int code)
      mboxlist_done();
      closelog();
      cyrus_done();
@@ -44,10 +42,10 @@ index d2dd3ff..b5f6342 100644
  }
  
 diff --git a/imap/imapd.c b/imap/imapd.c
-index 750d194..7d97f09 100644
+index 97a7f5a..6a1367a 100644
 --- a/imap/imapd.c
 +++ b/imap/imapd.c
-@@ -1134,6 +1134,10 @@ void shut_down(int code)
+@@ -1126,6 +1126,10 @@ void shut_down(int code)
  #ifdef HAVE_SSL
      tls_shutdown_serverengine();
  #endif
@@ -59,10 +57,10 @@ index 750d194..7d97f09 100644
      cyrus_done();
  
 diff --git a/imap/lmtpd.c b/imap/lmtpd.c
-index 7a73f2d..12a0058 100644
+index 838e4ca..4d4fd35 100644
 --- a/imap/lmtpd.c
 +++ b/imap/lmtpd.c
-@@ -1037,6 +1037,9 @@ void shut_down(int code)
+@@ -1005,6 +1005,9 @@ void shut_down(int code)
  
      cyrus_done();
  
@@ -73,10 +71,10 @@ index 7a73f2d..12a0058 100644
  }
  
 diff --git a/imap/pop3d.c b/imap/pop3d.c
-index bdb9fed..c2274df 100644
+index 6554a90..ebe4db3 100644
 --- a/imap/pop3d.c
 +++ b/imap/pop3d.c
-@@ -697,6 +697,9 @@ void shut_down(int code)
+@@ -705,6 +705,9 @@ void shut_down(int code)
  #endif
  
      cyrus_done();
@@ -85,4 +83,4 @@ index bdb9fed..c2274df 100644
 +    cyrus_close_sock(2);
  
      if (config_iolog) {
-         read_io_count(io_count_stop);
+ 	read_io_count(io_count_stop);

@@ -1,15 +1,8 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Sven Mueller <debian@incase.de>
 Date: Tue, 4 Aug 2015 10:38:04 +0200
-Subject: 05-fix_programnames.dpatch
+Subject: Fix some minor things in manpages,
+ fix program names in manpages and program sources
 
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## 05-fix_programnames_in_manpages.dpatch by Sven Mueller <debian@incase.de>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: fix some minor things in manpages, fix program names in manpages and
-## DP: program sources
-
-@DPATCH@
 ---
  imap/deliver.c     |  2 +-
  imap/quota.c       |  2 +-
@@ -37,41 +30,41 @@ Subject: 05-fix_programnames.dpatch
  23 files changed, 71 insertions(+), 62 deletions(-)
 
 diff --git a/imap/deliver.c b/imap/deliver.c
-index 31ead1a..a60d0a3 100644
+index d5f17d6..0adc267 100644
 --- a/imap/deliver.c
 +++ b/imap/deliver.c
-@@ -113,7 +113,7 @@ static struct backend *init_net(const char *sockaddr);
+@@ -111,7 +111,7 @@ static struct backend *init_net(const char *sockaddr);
  static void usage(void)
  {
-     fprintf(stderr,
--            "421-4.3.0 usage: deliver [-C <alt_config> ] [-m mailbox]"
-+            "421-4.3.0 usage: cyrdeliver [-C <alt_config> ] [-m mailbox]"
-             " [-a auth] [-r return_path] [-l] [-D]\r\n");
+     fprintf(stderr, 
+-	    "421-4.3.0 usage: deliver [-C <alt_config> ] [-m mailbox]"
++	    "421-4.3.0 usage: cyrdeliver [-C <alt_config> ] [-m mailbox]"
+ 	    " [-a auth] [-r return_path] [-l] [-D]\r\n");
      fprintf(stderr, "421 4.3.0 %s\n", cyrus_version());
      exit(EC_USAGE);
 diff --git a/imap/quota.c b/imap/quota.c
-index 55290c8..19b4750 100644
+index 3f8363b..6d0ea6c 100644
 --- a/imap/quota.c
 +++ b/imap/quota.c
 @@ -218,7 +218,7 @@ int main(int argc,char **argv)
  static void usage(void)
  {
      fprintf(stderr,
--            "usage: quota [-C <alt_config>] [-d <domain>] [-f] [-q] [prefix]...\n");
-+            "usage: cyrquota [-C <alt_config>] [-d <domain>] [-f] [-q] [prefix]...\n");
+-	    "usage: quota [-C <alt_config>] [-d <domain>] [-f] [-q] [prefix]...\n");
++	    "usage: cyrquota [-C <alt_config>] [-d <domain>] [-f] [-q] [prefix]...\n");
      exit(EC_USAGE);
  }
  
 diff --git a/imap/reconstruct.c b/imap/reconstruct.c
-index 3a7e73d..a7963d7 100644
+index 5ad1347..674def3 100644
 --- a/imap/reconstruct.c
 +++ b/imap/reconstruct.c
-@@ -401,7 +401,7 @@ int main(int argc, char **argv)
+@@ -410,7 +410,7 @@ int main(int argc, char **argv)
  static void usage(void)
  {
      fprintf(stderr,
--            "usage: reconstruct [-C <alt_config>] [-p partition] [-ksrfxu] mailbox...\n");
-+            "usage: cyrreconstruct [-C <alt_config>] [-p partition] [-ksrfxu] mailbox...\n");
+-	    "usage: reconstruct [-C <alt_config>] [-p partition] [-ksrfxu] mailbox...\n");
++	    "usage: cyrreconstruct [-C <alt_config>] [-p partition] [-ksrfxu] mailbox...\n");
      fprintf(stderr, "       reconstruct [-C <alt_config>] -m\n");
      exit(EC_USAGE);
  }
@@ -106,7 +99,7 @@ index 432f45c..5619b0d 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/ctl_mboxlist.8 b/man/ctl_mboxlist.8
-index cf1b081..839176e 100644
+index 546d56c..b55e466 100644
 --- a/man/ctl_mboxlist.8
 +++ b/man/ctl_mboxlist.8
 @@ -164,4 +164,4 @@ Use the database specified by \fIfilename\fR instead of the default
@@ -116,23 +109,23 @@ index cf1b081..839176e 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/cyr_expire.8 b/man/cyr_expire.8
-index 6049e70..4b01252 100644
+index 73302df..95f68fe 100644
 --- a/man/cyr_expire.8
 +++ b/man/cyr_expire.8
-@@ -182,4 +182,4 @@ only \fIexpire-days\fR is considered for all mailboxes.
+@@ -162,4 +162,4 @@ only \fIexpire-days\fR is considered for all mailboxes.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR, \fBcyradm(1p)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR, \fBcyradm(1p)\fR
 diff --git a/man/cyrus.conf.5 b/man/cyrus.conf.5
-index 686b472..9dcacb0 100644
+index bbab4b9..2c70fd7 100644
 --- a/man/cyrus.conf.5
 +++ b/man/cyrus.conf.5
 @@ -43,9 +43,9 @@
  cyrus.conf \- Cyrus configuration file
  .SH DESCRIPTION
- \fB/etc/cyrus.conf\fR
+ \fB/etc/cyrus.conf\fR 
 -is the configuration file for the Cyrus \fBmaster\fR process.  It
 +is the configuration file for the Cyrus \fBcyrmaster\fR process.  It
  defines the startup procedures, services and events to be spawned by
@@ -159,7 +152,7 @@ index 686b472..9dcacb0 100644
  \fBtimsieved(8)\fR, \fBidled(8)\fR, \fBnotifyd(8)\fR, \fBctl_cyrusdb(8)\fR,
  \fBctl_deliver(8)\fR, \fBtls_prune(8)\fR, \fBhosts_access(5)\fR
 diff --git a/man/deliver.8 b/man/deliver.8
-index dba1337..71524b7 100644
+index b0a9a4a..b621853 100644
 --- a/man/deliver.8
 +++ b/man/deliver.8
 @@ -1,5 +1,5 @@
@@ -191,7 +184,7 @@ index dba1337..71524b7 100644
  .B \-C
  .I config-file
 diff --git a/man/fud.8 b/man/fud.8
-index a49809f..a246d0d 100644
+index 2801298..84ddf7f 100644
 --- a/man/fud.8
 +++ b/man/fud.8
 @@ -60,7 +60,7 @@ FUD \- provide information about user mailboxes
@@ -223,7 +216,7 @@ index ca2c287..137f648 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/imapd.8 b/man/imapd.8
-index 98abbcc..2911885 100644
+index ce9e884..95f14c0 100644
 --- a/man/imapd.8
 +++ b/man/imapd.8
 @@ -74,7 +74,7 @@ imapd \- IMAP server process
@@ -261,7 +254,7 @@ index 3e7c849..c0cab93 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/master.8 b/man/master.8
-index 5c1e681..1a238e9 100644
+index 80d03b6..5a4379f 100644
 --- a/man/master.8
 +++ b/man/master.8
 @@ -1,5 +1,5 @@
@@ -334,7 +327,7 @@ index 5c1e681..1a238e9 100644
  configuration file is reread.  Any active services removed from the
 @@ -160,9 +160,18 @@ generated for processes that have not been recycled whithin 30s.
  The environment variable \fBCYRUS_VERBOSE\fR can be set to log additional
- debugging information. Setting the value to 1 results in base level logging.
+ debugging information. Setting the value to 1 results in base level logging. 
  Setting it higher results in more log messages being generated.
 +.SH BUGS
 +Services do not always go away silently when removed through a SIGHUP.  If
@@ -353,7 +346,7 @@ index 5c1e681..1a238e9 100644
  .PP
  \fBcyrus.conf(5)\fR, \fBimapd.conf(5)\fR, \fBimapd(8)\fR,
 diff --git a/man/nntpd.8 b/man/nntpd.8
-index 2ac29a6..62501d8 100644
+index 413dadf..99c5fa1 100644
 --- a/man/nntpd.8
 +++ b/man/nntpd.8
 @@ -77,7 +77,7 @@ nntpd \- NNTP server process
@@ -391,7 +384,7 @@ index cad4819..cd30798 100644
 -\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBmaster(8)\fR, \fBlmtpd(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBcyrmaster(8)\fR, \fBlmtpd(8)\fR
 diff --git a/man/pop3d.8 b/man/pop3d.8
-index 97a8b42..c30f2fd 100644
+index eb6771f..93962ce 100644
 --- a/man/pop3d.8
 +++ b/man/pop3d.8
 @@ -74,7 +74,7 @@ pop3d \- POP3 server process
@@ -410,7 +403,7 @@ index 97a8b42..c30f2fd 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/quota.8 b/man/quota.8
-index 1da56ca..f11b628 100644
+index 1ea5e11..3e3cbe9 100644
 --- a/man/quota.8
 +++ b/man/quota.8
 @@ -1,5 +1,5 @@
@@ -437,11 +430,11 @@ index 1da56ca..f11b628 100644
  ]
  .SH DESCRIPTION
 -.I Quota
-+.I cyruota
++.I cyrquota
  generates a report listing quota roots, giving their limits and usage.
  If the
  .I \-f
- option is given,
+ option is given, 
 -.I quota
 +.I cyrquota
  first fixes any inconsistencies in the quota subsystem, such as
@@ -453,7 +446,7 @@ index 1da56ca..f11b628 100644
  Running
 -.I quota
 +.I cyrquota
- with both the
+ with both the 
  .I \-f
  option and
  .I mailbox-prefix
@@ -465,7 +458,7 @@ index 1da56ca..f11b628 100644
  .IR imapd.conf (5)
  file unless specified otherwise by \fB-C\fR.
 diff --git a/man/reconstruct.8 b/man/reconstruct.8
-index 5cafdab..0f76ad9 100644
+index 8e2b262..fc9e194 100644
 --- a/man/reconstruct.8
 +++ b/man/reconstruct.8
 @@ -1,5 +1,5 @@
@@ -509,19 +502,19 @@ index 5cafdab..0f76ad9 100644
  .PP
  If
 -.I Reconstruct
-+.I cyreconstruct
++.I cyrreconstruct
  can find existing header and index files, it attempts to preserve any
  data in them that is not derivable from the message files themselves.
- The state
+ The state 
  .I reconstruct
  attempts to preserve includes the flag names, flag state, and
  internaldate.
 -.I Reconstruct
-+.I cyreconstruct
++.I cyrreconstruct
  derives all other information from the message files.
  .PP
 -.I Reconstruct
-+.I cyreconstruct
++.I cyrreconstruct
  reads its configuration options out of the
  .IR imapd.conf (5)
  file unless specified otherwise by \fB-C\fR.  Any mailbox directory
