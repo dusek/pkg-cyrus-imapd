@@ -5,4 +5,3 @@ usr/lib/cyrus/bin/squatter
 usr/share/man/man8/cyrus-squatter.8
 usr/share/man/man8/cyrus-idled.8
 usr/share/man/man8/cyrus-imapd.8
-usr/share/man/manr/cyrus-imapd.conf.rst

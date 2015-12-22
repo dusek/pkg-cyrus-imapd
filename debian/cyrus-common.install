@@ -27,18 +27,15 @@ usr/lib/cyrus/bin/master
 usr/lib/cyrus/bin/mbexamine
 usr/lib/cyrus/bin/mbpath
 usr/lib/cyrus/bin/mbtool
-usr/lib/cyrus/bin/message_test
 usr/lib/cyrus/bin/notifyd
 usr/lib/cyrus/bin/ptdump
 usr/lib/cyrus/bin/ptexpire
 usr/lib/cyrus/bin/ptloader
 usr/lib/cyrus/bin/quota
 usr/lib/cyrus/bin/reconstruct
-usr/lib/cyrus/bin/search_test
 usr/lib/cyrus/bin/sievec
 usr/lib/cyrus/bin/sieved
 usr/lib/cyrus/bin/smmapd
-usr/lib/cyrus/bin/squat_dump
 usr/lib/cyrus/bin/timsieved
 usr/lib/cyrus/bin/tls_prune
 usr/lib/cyrus/bin/unexpunge
@@ -50,7 +47,6 @@ usr/sbin/cyrus
 usr/share/man/man5/cyrus.conf.5
 usr/share/man/man5/imapd.conf.5
 usr/share/man/man5/krb.equiv.5
-usr/share/man/man8/cyrus-ctl_conversationsdb.8
 usr/share/man/man8/cyrus-cyr_deny.8
 usr/share/man/man8/cyrus-cyr_info.8
 usr/share/man/man8/cyrus-arbitron.8
