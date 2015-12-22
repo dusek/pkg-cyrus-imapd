@@ -45,19 +45,6 @@ endif
 %:
 	dh $@ --with autoreconf --with autotools-dev --with systemd
 
-#override_dh_autoreconf:
-#	dh_autoreconf --as-needed autoreconf -- -f -i -I cmulocal
-
-#override_dh_auto_clean:
-#	dh_auto_clean
-#	rm -f build-indep-stamp build-arch-stamp configure-stamp install-arch-stamp install-indep-stamp build-stamp build-prepare-stamp
-#	rm -f config.h config.cache config.status config.log stamp-config confdefs.h
-#	rm -f mkinstalldirs
-#	rm -f netnews/Makefile perl/imap/Makefile.old perl/sieve/managesieve/Makefile.old snmp/Makefile Makefile et/Makefile
-#	rm -f doc/pod2htm*
-#	rm -f master/makedepend.log 
-#	rm -f debian/cyrus-db-types.txt debian/cyrus-hardwired-config.txt debian/README.configure-options
-
 override_dh_auto_configure:
 	dh_auto_configure -- \
 	 $(CONFFLAGS) \
@@ -69,12 +56,10 @@ override_dh_auto_configure:
 	 --libexecdir=/usr/lib/cyrus/bin \
 	 --sbindir=/usr/lib/cyrus/bin \
 	 --disable-silent-rules \
-	 --disable-xapian \
 	 --enable-autocreate \
 	 --enable-idled \
 	 --enable-nntp \
 	 --enable-murder \
-	 --enable-calalarmd \
 	 --enable-http \
 	 --enable-replication \
 	 --enable-gssapi="/usr" \
@@ -91,7 +76,7 @@ override_dh_auto_configure:
 	 --with-com_err \
 	 --with-syslogfacility=MAIL \
 	 --with-gss_impl=mit \
-	 --with-sasl="/usr" \
+	 --with-sasl \
 	 --with-perl=/usr/bin/perl \
 	 --with-snmp
 	echo 'To build this package, configure was called as follows:' \
@@ -193,7 +178,7 @@ override_dh_auto_install:
 	# Install the stuff needed for upgrades
 	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
 	for i in convert-sieve.pl dohash rehash undohash translatesieve upgradesieve masssievec; do \
-		install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
+	        install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
 	done
 
 	# And other misc useful tools
