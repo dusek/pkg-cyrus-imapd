@@ -1,4 +1,4 @@
-cyrus-imapd (2.5.7-1) unstable; urgency=medium
+cyrus-imapd (2.5.7-0+exp1) experimental; urgency=medium
 
   * Imported Upstream version 2.5.7
   * Rebase and reduce patches on top of 2.5.7 release
