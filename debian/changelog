@@ -1,3 +1,10 @@
+cyrus-imapd (2.5.7-1) unstable; urgency=medium
+
+  * Imported Upstream version 2.5.7
+  * Rebase and reduce patches on top of 2.5.7 release
+
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 22 Dec 2015 12:24:50 +0100
+
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-18) unstable; urgency=medium
 
   * Fix PIDFile location in sysvinit script (Closes: #778781)
