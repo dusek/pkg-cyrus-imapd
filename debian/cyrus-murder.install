@@ -1,2 +1,4 @@
 etc/pam.d/mupdate
-usr/lib/cyrus/bin/cyrus-mupdate*
+usr/lib/cyrus/bin/mupdate
+usr/lib/cyrus/bin/mupdatetest
+usr/share/man/man1/cyrus-mupdatetest.1
