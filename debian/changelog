@@ -2,8 +2,11 @@ cyrus-imapd (2.5.7-1) unstable; urgency=medium
 
   * Imported Upstream version 2.5.7
   * Rebase and reduce patches on top of 2.5.7 release
+  * Rename all manpages to cyrus-*; except cyradm
+  * cyradm gets installed to usr/bin, leave it there
+  * Update the Debian documentation a bit (TODO: it still needs more work)
 
- -- Ondřej Surý <ondrej@debian.org>  Tue, 22 Dec 2015 12:24:50 +0100
+ -- Ondřej Surý <ondrej@debian.org>  Tue, 22 Dec 2015 14:34:00 +0100
 
 cyrus-imapd-2.4 (2.4.17+caldav~beta10-18) unstable; urgency=medium
 
