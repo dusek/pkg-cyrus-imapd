@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: user.c,v 1.28 2010/01/06 17:01:42 murch Exp $
  */
 
 #include <config.h>
@@ -50,7 +48,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <syslog.h>
@@ -72,19 +69,20 @@
 # endif
 #endif
 
-#include "dav_util.h"
 #include "global.h"
-#include "user.h"
+#include "imap/imap_err.h"
+#include "mailbox.h"
 #include "mboxkey.h"
 #include "mboxlist.h"
-#include "mailbox.h"
-#include "util.h"
-#include "seen.h"
+#include "mboxname.h"
+#include "proc.h"
 #include "quota.h"
+#include "seen.h"
+#include "user.h"
+#include "util.h"
 #include "xmalloc.h"
-#include "sync_log.h"
 
-#define FNAME_SUBSSUFFIX ".sub"
+#define FNAME_SUBSSUFFIX "sub"
 
 #if 0
 static int user_deleteacl(char *name, int matchlen, int maycreate, void* rock)
@@ -126,7 +124,7 @@ static int user_deleteacl(char *name, int matchlen, int maycreate, void* rock)
 }
 #endif
 
-const char *user_sieve_path(const char *user)
+EXPORTED const char *user_sieve_path(const char *user)
 {
     static char sieve_path[2048];
     char hash, *domain;
@@ -184,62 +182,30 @@ static int user_deletesieve(const char *user)
     return 0;
 }
 
-static int user_deletedav(const char *userid)
-{
-    struct buf fname = BUF_INITIALIZER;
-    int r = 0;
-
-    dav_getpath_byuserid(&fname, userid);
-    if (unlink(buf_cstring(&fname)) && errno != ENOENT) {
-	syslog(LOG_WARNING, "error unlinking %s: %m", buf_cstring(&fname));
-	r = CYRUSDB_IOERROR;
-    }
-
-    buf_free(&fname);
-
-    return r;
-}
-
-int user_deletedata(char *user, char *userid __attribute__((unused)),
-		    struct auth_state *authstate __attribute__((unused)),
-		    int wipe_user)
+EXPORTED int user_deletedata(const char *userid, int wipe_user)
 {
     char *fname;
 
     /* delete seen state and mbox keys */
     if(wipe_user) {
-	seen_delete_user(user);
+	seen_delete_user(userid);
 	/* XXX  what do we do about multiple backends? */
-	mboxkey_delete_user(user);
+	mboxkey_delete_user(userid);
     }
 
     /* delete subscriptions */
-    fname = user_hash_subs(user);
+    fname = user_hash_subs(userid);
     (void) unlink(fname);
     free(fname);
 
     /* delete quotas */
-    user_deletequotaroots(user);
-
-    /* delete ACLs - we're using the internal names here */
-#if 0
-    /* xxx no reason to do this if user_deleteacl is a stub anyway. */
-    if(wipe_user) {
-	const char pat[] = "*";
-	mboxlist_findall(NULL, pat, sizeof(pat), userid,
-			 authstate, user_deleteacl,
-			 user);
-    }
-#endif
+    user_deletequotaroots(userid);
 
     /* delete sieve scripts */
-    user_deletesieve(user);
+    user_deletesieve(userid);
 
-    /* delete DAV database */
-    user_deletedav(user);
+    proc_killuser(userid);
 
-    sync_log_user(user);
-    
     return 0;
 }
 
@@ -277,7 +243,7 @@ static int user_renamesub(char *name, int matchlen __attribute__((unused)),
 	return 0;
     }
 
-    return mboxlist_changesub(name, rrock->newuser, NULL, 1, 1);
+    return mboxlist_changesub(name, rrock->newuser, NULL, 1, 1, 1);
 }
 
 static int user_renamesieve(char *olduser, char *newuser)
@@ -346,7 +312,7 @@ static int user_renamesieve(char *olduser, char *newuser)
     return r;
 }
 
-int user_renamedata(char *olduser, char *newuser,
+EXPORTED int user_renamedata(char *olduser, char *newuser,
 		    char *userid __attribute__((unused)),
 		    struct auth_state *authstate)
 {
@@ -404,19 +370,20 @@ int user_renamedata(char *olduser, char *newuser,
     return r;
 }
 
-int user_renameacl(char *name, char *olduser, char *newuser)
+EXPORTED int user_renameacl(struct namespace *namespace, char *name,
+			    char *olduser, char *newuser)
 {
     int r = 0;
     char *acl;
     char *rights, *nextid;
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
     char *aclalloc;
 
     r = mboxlist_lookup(name, &mbentry, NULL);
     if (r) return r;
 
     /* setacl re-calls mboxlist_lookup and will stomp on us */
-    aclalloc = acl = xstrdup(mbentry.acl);
+    aclalloc = acl = xstrdup(mbentry->acl);
 
     while (!r && acl) {
 	rights = strchr(acl, '\t');
@@ -429,48 +396,51 @@ int user_renameacl(char *name, char *olduser, char *newuser)
 
 	if (!strcmp(acl, olduser)) {
 	    /* copy ACL for olduser to newuser */
-	    r = mboxlist_setacl(name, newuser, rights, 1, newuser, NULL);
+	    r = mboxlist_setacl(namespace, name, newuser, rights, 1, newuser, NULL);
 	    /* delete ACL for olduser */
 	    if (!r)
-		r = mboxlist_setacl(name, olduser, (char *)0, 1, newuser, NULL);
+		r = mboxlist_setacl(namespace, name, olduser, (char *)0, 1, newuser, NULL);
 	}
 
 	acl = nextid;
     }
 
     free(aclalloc);
+    mboxlist_entry_free(&mbentry);
 
     return r;
 }
 
-int user_copyquotaroot(char *oldname, char *newname)
+EXPORTED int user_copyquotaroot(char *oldname, char *newname)
 {
     int r = 0;
     struct quota q;
 
-    q.root = oldname;
+    quota_init(&q, oldname);
     r = quota_read(&q, NULL, 0);
-    if (!r) mboxlist_setquota(newname, q.limit, 0);
+    if (!r)
+	mboxlist_setquotas(newname, q.limits, 0);
+    quota_free(&q);
 
     return r;
 }
 
 static int find_p(void *rockp,
-		  const char *key, int keylen,
+		  const char *key, size_t keylen,
 		  const char *data __attribute__((unused)),
-		  int datalen __attribute__((unused)))
+		  size_t datalen __attribute__((unused)))
 {
     char *inboxname = (char *)rockp;
-    int inboxlen = strlen(inboxname);
+    size_t inboxlen = strlen(inboxname);
 
     return (!strncmp(key, inboxname, inboxlen) &&
 	    (keylen == inboxlen || key[inboxlen] == '.'));
 }
 
 static int find_cb(void *rockp __attribute__((unused)),
-		   const char *key, int keylen,
+		   const char *key, size_t keylen,
 		   const char *data __attribute__((unused)),
-		   int datalen __attribute__((unused)))
+		   size_t datalen __attribute__((unused)))
 {
     char *root;
     int r;
@@ -498,36 +468,40 @@ int user_deletequotaroots(const char *user)
     }
 
     if (!r) {
-	r = config_quota_db->foreach(qdb, inboxname, strlen(inboxname),
+	r = cyrusdb_foreach(qdb, inboxname, strlen(inboxname),
 				     &find_p, &find_cb, inboxname, NULL);
     }
 
     return r;
 }
 
-/* hash the userid to a file containing the subscriptions for that user */
-char *user_hash_subs(const char *userid)
+static char *user_hash_meta(const char *userid, const char *suffix)
 {
-    char *fname = xmalloc(strlen(config_dir) + sizeof(FNAME_DOMAINDIR) +
-			  sizeof(FNAME_USERDIR) + strlen(userid) +
-			  sizeof(FNAME_SUBSSUFFIX) + 10);
-    char c, *domain;
+    struct mboxname_parts parts;
+    const char *domain;
+    char *result;
+
+    mboxname_init_parts(&parts);
 
     if (config_virtdomains && (domain = strchr(userid, '@'))) {
-	char d = (char) dir_hash_c(domain+1, config_fulldirhash);
-	*domain = '\0';  /* split user@domain */
-	c = (char) dir_hash_c(userid, config_fulldirhash);
-	sprintf(fname, "%s%s%c/%s%s%c/%s%s", config_dir, FNAME_DOMAINDIR, d,
-		domain+1, FNAME_USERDIR, c, userid, FNAME_SUBSSUFFIX);
-	*domain = '@';  /* replace '@' */
+	char *bareuserid = xstrndup(userid, domain-userid);
+	parts.userid = bareuserid;
+	parts.domain = domain + 1;
+	result = mboxname_conf_getpath(&parts, suffix);
+	free(bareuserid);
     }
     else {
-	c = (char) dir_hash_c(userid, config_fulldirhash);
-	sprintf(fname, "%s%s%c/%s%s", config_dir, FNAME_USERDIR, c, userid,
-		FNAME_SUBSSUFFIX);
+	parts.userid = userid;
+	result = mboxname_conf_getpath(&parts, suffix);
     }
 
-    return fname;
+    /* doesn't do anything here, but included for completeness */
+    mboxname_free_parts(&parts);
+
+    return result;
 }
 
-
+HIDDEN char *user_hash_subs(const char *userid)
+{
+    return user_hash_meta(userid, FNAME_SUBSSUFFIX);
+}

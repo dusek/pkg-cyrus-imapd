@@ -38,26 +38,24 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: parseaddr.c,v 1.20 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
 #include <string.h>
 
 #include "parseaddr.h"
 #include "xmalloc.h"
 #include "util.h"
 
-static char parseaddr_unspecified_domain[] = "unspecified-domain";
+static const char unknown_user[] = "unknown-user";
+static const char unspecified_domain[] = "unspecified-domain";
 
-static void parseaddr_append (struct address ***addrpp, char *name,
-				char *route, char *mailbox, char *domain,
-				char **freemep);
-static int parseaddr_phrase (char **inp, char **phrasep, char *specials);
+static void parseaddr_append(struct address ***addrpp, const char *name,
+			     const char *route, const char *mailbox,
+			     const char *domain, char **freemep);
+static int parseaddr_phrase (char **inp, char **phrasep, const char *specials);
 static int parseaddr_domain (char **inp, char **domainp, char **commmentp);
 static int parseaddr_route (char **inp, char **routep);
 
@@ -65,10 +63,7 @@ static int parseaddr_route (char **inp, char **routep);
  * Parse an address list in 's', appending address structures to
  * the list pointed to by 'addrp'.
  */
-void
-parseaddr_list(str, addrp)
-const char *str;
-struct address **addrp;
+EXPORTED void parseaddr_list(const char *str, struct address **addrp)
 {
     char *s;
     int ingroup = 0;
@@ -150,9 +145,7 @@ struct address **addrp;
 /*
  * Free the address list 'addr'
  */
-void
-parseaddr_free(addr)
-struct address *addr;
+EXPORTED void parseaddr_free(struct address *addr)
 {
     struct address *next;
 
@@ -167,14 +160,9 @@ struct address *addr;
 /*
  * Helper function to append a new address structure to and address list.
  */
-static void
-parseaddr_append(addrpp, name, route, mailbox, domain, freemep)
-struct address ***addrpp;
-char *name;
-char *route;
-char *mailbox;
-char *domain;
-char **freemep;
+static void parseaddr_append(struct address ***addrpp, const char *name,
+			     const char *route, const char *mailbox,
+			     const char *domain, char **freemep)
 {
     struct address *newaddr;
 
@@ -196,7 +184,7 @@ char **freemep;
     newaddr->mailbox = mailbox;
 
     if (domain && !*domain) {
-	domain = parseaddr_unspecified_domain;
+	domain = unspecified_domain;
     }
     newaddr->domain = domain;
 
@@ -234,10 +222,7 @@ char **freemep;
 /*
  * Parse an RFC 822 "phrase", stopping at 'specials'
  */
-static int parseaddr_phrase(inp, phrasep, specials)
-char **inp;
-char **phrasep;
-char *specials;
+static int parseaddr_phrase(char **inp, char **phrasep, const char *specials)
 {
     int c;
     char *src = *inp;
@@ -299,10 +284,7 @@ fail:
 /*
  * Parse a domain.  If 'commentp' is non-nil, parses any trailing comment
  */
-static int parseaddr_domain(inp, domainp, commentp)
-char **inp;
-char **domainp;
-char **commentp;
+static int parseaddr_domain(char **inp, char **domainp, char **commentp)
 {
     int c;
     char *src = *inp;
@@ -352,13 +334,11 @@ char **commentp;
 	}
     }
 }
-	
+
 /*
  * Parse a source route (at-domain-list)
  */
-static int parseaddr_route(inp, routep)
-char **inp;
-char **routep;
+static int parseaddr_route(char **inp, char **routep)
 {
     int c;
     char *src = *inp;
@@ -389,5 +369,107 @@ char **routep;
 	    return c;
 	}
     }
+}
+
+EXPORTED char *address_get_all(const struct address *a, int canon_domain)
+{
+    char *s = NULL;
+
+    if (a->mailbox || a->domain) {
+	const char *m = a->mailbox ? a->mailbox : unknown_user;
+	const char *d = a->domain ? a->domain : unspecified_domain;
+	s = strconcat(m, "@", d, (char *)NULL);
+	if (canon_domain)
+	    lcase(s + strlen(m) + 1);
+    }
+
+    return s;
+}
+
+EXPORTED char *address_get_localpart(const struct address *a)
+{
+    return xstrdupnull(a->mailbox);
+}
+
+EXPORTED char *address_get_domain(const struct address *a, int canon_domain)
+{
+    char *s = NULL;
+
+    if (a->domain) {
+	s = xstrdup(a->domain);
+	if (canon_domain)
+	    lcase(s);
+    }
+
+    return s;
+}
+
+EXPORTED char *address_get_user(const struct address *a)
+{
+    char *s = NULL;
+
+    if (a->mailbox) {
+	char *p = strchr(a->mailbox, '+');
+	int len = p ? p - a->mailbox : (int)strlen(a->mailbox);
+	s = xstrndup(a->mailbox, len);
+    }
+
+    return s;
+}
+
+EXPORTED char *address_get_detail(const struct address *a)
+{
+    char *s = NULL;
+
+    if (a->mailbox) {
+	char *p = strchr(a->mailbox, '+');
+	s = p ? xstrdup(p + 1) : NULL;
+    }
+
+    return s;
+}
+
+/*
+ * Address iterator interface
+ */
+
+EXPORTED void address_itr_init(struct address_itr *ai, const char *str)
+{
+    memset(ai, 0, sizeof(*ai));
+    parseaddr_list(str, &ai->addrlist);
+    ai->anext = ai->addrlist;
+}
+
+EXPORTED const struct address *address_itr_next(struct address_itr *ai)
+{
+    struct address *a;
+    if (ai->anext == NULL)
+	return NULL;
+    a = ai->anext;
+    ai->anext = ai->anext->next;
+    return a;
+}
+
+EXPORTED void address_itr_fini(struct address_itr *ai)
+{
+    parseaddr_free(ai->addrlist);
+    memset(ai, 0, sizeof(*ai));
+}
+
+
+/*
+ * Convenience function to return a single canonicalised address.
+ */
+EXPORTED char *address_canonicalise(const char *str)
+{
+    struct address *addrlist = NULL;
+    char *s = NULL;
+
+    parseaddr_list(str, &addrlist);
+    if (addrlist)
+	s = address_get_all(addrlist, 1);
+    parseaddr_free(addrlist);
+
+    return s;
 }
 

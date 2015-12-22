@@ -39,14 +39,11 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: glob.c,v 1.36 2010/01/06 17:01:45 murch Exp $
- *
  * Author: Chris Newman
  * Start Date: 4/5/93
  */
 
 #include <config.h>
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include "util.h"
@@ -62,15 +59,13 @@ static char inbox[] = "INBOX";
 /* initialize globbing structure
  *  This makes the following changes to the input string:
  *   1) '*' added to each end if GLOB_SUBSTRING
- *   2) '%' converted to '?' if no GLOB_HIERARCHIAL
+ *   2) '%' converted to '?' if no GLOB_HIERARCHY
  *   3) '?'s moved to left of '*'
  *   4) '*' eats all '*'s and '%'s connected by any wildcard
  *   5) '%' eats all adjacent '%'s
  */
-glob *glob_init_suppress (str, flags, suppress)
-    const char *str;
-    int flags;
-    const char *suppress;
+EXPORTED glob *glob_init_suppress(const char *str, int flags,
+			 const char *suppress)
 {
     glob *g;
     char *dst;
@@ -187,8 +182,7 @@ glob *glob_init_suppress (str, flags, suppress)
 
 /* free a glob structure
  */
-void glob_free (g)
-    glob **g;
+EXPORTED void glob_free(glob **g)
 {
     if (*g) free((void *) *g);
     *g = NULL;
@@ -202,11 +196,8 @@ void glob_free (g)
  *            set to return value + 1 on partial match, otherwise -1
  *            if NULL, partial matches not allowed
  */
-int glob_test (g, ptr, len, min)
-    glob* g;
-    const char* ptr;
-    long int len;
-    long int *min;
+EXPORTED int glob_test(glob* g, const char* ptr,
+	      long int len, long int *min)
 {
     const char *gptr, *pend;	/* glob pointer, end of ptr string */
     const char *gstar, *pstar;	/* pointers for '*' patterns */
@@ -441,27 +432,3 @@ int glob_test (g, ptr, len, min)
     return (*gptr == '\0' && ptr == pend ? ptr - start : -1);
 }
 
-#ifdef TEST_GLOB
-int main (argc, argv)
-    int argc;
-    char* argv[];
-{
-    glob *g = glob_init_suppress(argv[1], GLOB_INBOXCASE|GLOB_HIERARCHY,
-				 "user.nifty");
-    char text[1024];
-    int len;
-    long min;
-
-    if (g) {
-	printf("%d/%s/%s\n", g->flags, g->inbox, g->str);
-	while (fgets(text, sizeof (text), stdin) != NULL) {
-	    len = strlen(text) - 1;
-	    text[len] = '\0';
-	    min = 0;
-	    while (min >= 0) {
-		printf("%d\n", glob_test(g, text, len, &min));
-	    }
-	}
-    }
-}
-#endif /* TEST_GLOB */

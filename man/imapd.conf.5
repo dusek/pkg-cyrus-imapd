@@ -28,7 +28,7 @@
 .\"      Pittsburgh, PA  15213
 .\"      (412) 268-7393, fax: (412) 268-7395
 .\"      innovation@andrew.cmu.edu
-*
+.\"
 .\" 4. Redistributions of any form whatsoever must retain the following
 .\"    acknowledgment:
 .\"    "This product includes software developed by Computing Services
@@ -41,15 +41,13 @@
 .\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-.\"
-.\" $Id: imapoptions,v 1.78 2010/06/28 12:06:43 brong Exp $
 
 .SH NAME
 imapd.conf \- IMAP configuration file
 .SH DESCRIPTION
-\fB/etc/imapd.conf\fR 
+\fB/etc/imapd.conf\fR
 is the configuration file for the Cyrus IMAP server.  It defines
-local parameters for IMAP. 
+local parameters for IMAP.
 .PP
 Each line of the \fB/etc/imapd.conf\fR file has the form
 .IP
@@ -92,11 +90,14 @@ Some options have no default value, these are listed with
 are listed with ``<none>''.
 
 .IP "\fBaddressbookprefix:\fR #addressbooks" 5
+.RS 5
 The prefix for the addressbook mailboxes hierarchies.  The hierarchy
 delimiter will be automatically appended.  The public addressbook
 hierarchy will be at the toplevel of the shared namespace.  A
 user's personal calendar hierarchy will be a child of their Inbox. 
+.RE
 .IP "\fBadmins:\fR <empty string>" 5
+.RS 5
 The list of userids with administrative rights.  Separate each userid
 with a space.  Sites using Kerberos authentication may use
 separate "admin" instances.
@@ -107,38 +108,58 @@ Administrative accounts should not receive mail.  That is, if user
 Some problems may occur otherwise, most notably the ability of
 administrators to create top-level mailboxes visible to users,
 but not writable by users. 
+.RE
 .IP "\fBafspts_localrealms:\fR <none>" 5
+.RS 5
 The list of realms which are to be treated as local, and thus stripped
 during identifier canonicalization (for the AFSPTS ptloader module).
 This is different from loginrealms in that it occurs later in the
 authorization process (as the user id is canonified for PTS lookup) 
+.RE
 .IP "\fBafspts_mycell:\fR <none>" 5
 Cell to use for AFS PTS lookups.  Defaults to the local cell. 
 .IP "\fBallowallsubscribe:\fR 0" 5
+.RS 5
 Allow subscription to nonexistent mailboxes.  This option is
 typically used on backend servers in a Murder so that users can
 subscribe to mailboxes that don't reside on their "home" server.
 This option can also be used as a workaround for IMAP clients which
 don't play well with nonexistent or unselectable mailboxes (e.g.,
 Microsoft Outlook). 
+.RE
 .IP "\fBallowanonymouslogin:\fR 0" 5
+.RS 5
 Permit logins by the user "anonymous" using any password.  Also
 allows use of the SASL ANONYMOUS mechanism. 
+.RE
 .IP "\fBallowapop:\fR 1" 5
+.RS 5
 Allow use of the POP3 APOP authentication command.
 .PP
 Note that this command requires that SASL is compiled with APOP
 support, that the plaintext passwords are available in a SASL auxprop
 backend (e.g., sasldb), and that the system can provide enough entropy
 (e.g., from /dev/urandom) to create a challenge in the banner. 
+.RE
 .IP "\fBallownewnews:\fR 0" 5
+.RS 5
 Allow use of the NNTP NEWNEWS command.
 .PP
 Note that this is a very expensive command and should only be
 enabled when absolutely necessary. 
+.RE
 .IP "\fBallowplaintext:\fR 0" 5
-Allow the use of cleartext passwords on the wire. 
+.RS 5
+If enabled, allows the use of cleartext passwords on the wire.
+.PP
+By default, the use of cleartext passwords requires a TLS/SSL
+encryption layer to be negotiated prior to any cleartext
+authentication mechanisms being advertised or allowed.  To require a
+TLS/SSL encryption layer to be negotiated prior to ANY
+authentication, see the \fItls_required\fR option. 
+.RE
 .IP "\fBallowusermoves:\fR 0" 5
+.RS 5
 Allow moving user accounts (with associated meta-data) via RENAME
 or XFER.
 .PP
@@ -146,7 +167,9 @@ Note that measures should be taken to make sure that the user being
 moved is not logged in, and cannot login during the move.  Failure
 to do so may result in the user's meta-data (seen state,
 subscriptions, etc) being corrupted or out of date. 
+.RE
 .IP "\fBaltnamespace:\fR 0" 5
+.RS 5
 Use the alternate IMAP namespace, where personal folders reside at the
 same level in the hierarchy as INBOX.
 .PP
@@ -156,18 +179,30 @@ and Sieve scripts (lmtpd).  This option does NOT apply to admin tools
 such as cyradm (admins ONLY), reconstruct, quota, etc., NOR does it
 affect LMTP delivery of messages directly to mailboxes via
 plus-addressing. 
-.IP "\fBannotation_db:\fR skiplist" 5
+.RE
+.IP "\fBannotation_db:\fR twoskip" 5
 The cyrusdb backend to use for mailbox annotations. 
 
-Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fItwoskip\fR
 .IP "\fBannotation_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the annotations db file.  If not specified,
 will be confdir/annotations.db 
+.RE
 .IP "\fBanyoneuseracl:\fR 1" 5
+.RS 5
 Should non-admin users be allowed to set ACLs for the 'anyone'
 user on their mailboxes?  In a large organization this can cause
 support problems, but it's enabled by default. 
+.RE
+.IP "\fBannotation_allow_undefined:\fR 0" 5
+.RS 5
+Allow clients to store values for entries which are not
+* defined either by Cyrus or in the annotations_definitions
+* file. 
+.RE
 .IP "\fBannotation_definitions:\fR <none>" 5
+.RS 5
 File containing external (third-party) annotation definitions.
 .PP
 Each line of the file specifies the properties of an annotation and
@@ -175,121 +210,344 @@ has the following form:
 .IP
 \fIname\fR, \fIscope\fR, \fIattrib-type\fR, \fIproxy-type\fR,
 \fIattrib-names\fR, \fIacl\fR
+.\"
 .IP \fIname\fR 5
-is the hierarchical name as in the draft standard, typically of the
-form /vendor/acme/blurdybloop
+is the hierarchical name as in RFC 5257 or RFC 5464 (in the latter case,
+without the leading \fB/shared\fR or \fB/private\fR).  For example,
+/vendor/acme/blurdybloop.
+.\"
 .IP \fIscope\fR 5
-specifies whether the annotation is for the \fBserver\fR or a
-\fBmailbox\fR
+specifies whether the annotation is for the \fBserver\fR, a
+\fBmailbox\fR, or a \fBmessage\fR.
+.\"
 .IP \fIattrib-type\fR 5
-specifies the attribute data type which is one of: \fBstring\fR,
-\fBboolean\fR, \fBint\fR, \fBuint\fR, or \fBcontent-type\fR
+.RS 5
+specifies the attribute data type, which is used only to check the
+string value passed by clients when setting annotations.  The
+\fIattrib-type\fR is one of:
+.\"
+.IP \fBstring\fR 5
+any value is accepted.
+.\"
+.IP \fBcontent-type\fR 5
+this obsolete data type, which was useful for early drafts of the standard,
+is accepted but silently translated to \fBstring\fR.
+.\"
+.IP \fBboolean\fR 5
+only the strings "true" or "false" are accepted.  Checking is
+case-insensitive but the value is forced to lowercase.
+.\"
+.IP \fBint\fR 5
+integers are accepted.
+.\"
+.IP \fBuint\fR 5
+non-negative integers are accepted.
+.\"
+.RE
+.\"
 .IP \fIproxy-type\fR 5
 specifies whether this attribute is for the \fBbackend\fR or
-\fBproxy\fR servers or both (\fBproxy_and_backend\fR) 
+\fBproxy\fR servers or both (\fBproxy_and_backend\fR)
+.\"
 .IP \fIattrib-names\fR 5
 is the space-separated list of available attributes for the
-annotation. Possible attribute names are (where the suffixless \fBfoo\fR
-permits both \fBfoo.priv\fR and \fBfoo.shared\fR): \fBalue\fR,
-\fBvalue.shared\fR, \fBvalue.priv\fR, \fBsize\fR, \fBsize.shared\fR,
-\fBsize.priv\fR, \fBmodifiedsince\fR, \fBmodifiedsince.shared\fR,
-\fBmodifiedsince.priv\fR, \fBcontent-type\fR,
-\fBcontent-type.shared\fR, \fBcontent-type.priv\fR
-.IP \fIacl\fR 5
-is the extra ACL requirements for setting annotations. This is the
-standard IMAP ACL permission bit string format. Particularly useful
-is the \fBa\fR right to require admin privileges. Note that some ACL
-requirements (read and write on the mailbox) are hard-wired in the
-server
+annotation. Possible attribute names are \fBvalue.shared\fR,
+\fBvalue.priv\fR, and \fBvalue\fR (which permits both \fBvalue.priv\fR
+and \fBvalue.shared\fR).  The attribute names \fBsize\fR,
+\fBsize.shared\fR, and \fBsize.priv\fR are accepted but ignored; these
+attributes are automatically provided by the server if the corresponding
+\fBvalue\fR attribute is specified.  Some obsolete attributes, which were
+defined early drafts of the standard, are accepted and ignored with a
+warning.
+.\"
+.IP \fIextra-permissions\fR 5
+is the extra ACL permission bits required for setting this annotation, in
+standard IMAP ACL permission bit string format.  Note that this is
+in addition to the permission bits specified in RFC 5257 and RFC 5464,
+so leaving this field empty is harmless.  Note also that there is no way
+to specify that an annotation can only be set by an admin user; in
+particular the \fBa\fP permission bit does not achieve this.
 .PP
 Blank lines and lines beginning with ``#'' are ignored.
 
+.RE
+.IP "\fBannotation_callout:\fR <none>" 5
+.RS 5
+The pathname of a callout to be used to automatically add annotations
+or flags to a message when it is appended to a mailbox.  The path can
+be either an executable (including a script), or a UNIX domain
+socket.  
+.RE
 .IP "\fBauditlog:\fR 0" 5
+.RS 5
 Should cyrus output log entries for every action taken on a message
 file or mailboxes list entry?  It's noisy so disabled by default, but
 can be very useful for tracking down what happened if things look strange 
+.RE
 .IP "\fBauth_mech:\fR unix" 5
 The authorization mechanism to use. 
 
 Allowed values: \fIunix\fR, \fIpts\fR, \fIkrb\fR, \fIkrb5\fR
+.IP "\fBautocreateinboxfolders:\fR <none>" 5
+Deprecated in favor of \fIautocreate_inbox_folders\fR. 
 .IP "\fBautocreatequota:\fR 0" 5
-If nonzero, normal users may create their own IMAP accounts by
-creating the mailbox INBOX.  The user's quota is set to the value
-if it is positive, otherwise the user has unlimited quota. 
+Deprecated in favor of \fIautocreate_quota\fR. 
+.IP "\fBautocreatequotamsg:\fR -1" 5
+Deprecated in favor of \fIautocreate_quota_messages\fR. 
+.IP "\fBautosievefolders:\fR <none>" 5
+Deprecated in favor of \fIautocreate_sieve_folders\fR. 
+.IP "\fBgenerate_compiled_sieve_script:\fR <none>" 5
+Deprecated in favor of \fIautocreate_sieve_script_compile\fR. 
+.IP "\fBautocreate_sieve_compiled_script:\fR <none>" 5
+Deprecated in favor of \fIautocreate_sieve_script_compiled\fR. 
+.IP "\fBautosubscribeinboxfolders:\fR <none>" 5
+Deprecated in favor of \fIautocreate_subscribe_folders\fR. 
+.IP "\fBautosubscribesharedfolders:\fR <none>" 5
+Deprecated in favor of \fIautocreate_subscribe_sharedfolders\fR. 
+.IP "\fBautosubscribe_all_sharedfolders:\fR 0" 5
+Deprecated in favor of \fIautocreate_subscribe_sharedfolders_all\fR. 
+.IP "\fBautocreate_inbox_folders:\fR <none>" 5
+.RS 5
+If a user does not have an INBOX already, and the INBOX is to be
+created, create the list of folders in this setting as well.
+.PP
+INBOX folders are created under both the following conditions:
+.\"
+.IP 1.
+The user logins via the IMAP or the POP3 protocol.
+\fIautocreate_quota\fR option must have a value of zero or greater.
+.IP 2.
+A message arrives for the user through the \fIlmtpd(8)\fR.
+\fIautocreate_post\fR option must be enabled.
+.PP
+\fIautocreate_inbox_folders\fR is a list of INBOX's subfolders
+separated by a "|", that are automatically created by the server
+under the previous two scenarios. Leading and trailing whitespace is
+stripped, so "Junk | Trash" results in two folders: "Junk" and
+"Trash". 
+.RE
+.IP "\fBautocreate_post:\fR 0" 5
+.RS 5
+If enabled, when \fIlmtpd(8)\fR receives an incoming mail for an
+INBOX that does not exist, then the INBOX is automatically created
+by \fIlmtpd(8)\fR and delivery of the message continues. 
+.RE
+.IP "\fBautocreate_quota:\fR -1" 5
+.RS 5
+If set to a value of zero or higher, users have their INBOX folders
+created upon a successful login event or upon \fIlmtpd(8)\fR
+message delivery if \fIautocreate_post\fR is enabled, provided their
+INBOX did not yet already exist.
+.PP
+The user's quota is set to the value if it is greater than zero,
+otherwise the user has unlimited quota.
+.PP
+Note that quota is specified in kilobytes. 
+.RE
+.IP "\fBautocreate_quota_messages:\fR -1" 5
+.RS 5
+If set to a value of zero or higher, users who have their INBOX
+folders created upon a successful login event (see
+\fIautocreate_quota\fR), or upon \fIlmtpd(8)\fR message delivery if
+\fIautocreate_post\fR is enabled, receive the message quota
+configured in this option.
+.PP
+The default of -1 disables assigning message quota.
+.PP
+For consistency with \fIautocreate_quota\fR, a value of zero is treated
+as unlimited message quota, rather than a message quota of zero. 
+.RE
+.IP "\fBautocreate_sieve_folders:\fR <none>" 5
+.RS 5
+A "|" separated list of subfolders of INBOX that will be
+automatically created, if requested by a sieve filter, through the
+"fileinto" action. The default is to create no folders
+automatically.
+.PP
+Leading and trailing whitespace is stripped from each folder, so a
+setting of "Junk | Trash" will create two folders: "Junk" and
+"Trash". 
+.RE
+.IP "\fBautocreate_sieve_script:\fR <none>" 5
+.RS 5
+The full path of a file that contains a sieve script. This script
+automatically becomes a user's initial default sieve filter script.
+.PP
+When this option is not defined, no default sieve filter is created.
+The file must be readable by the Cyrus daemon. 
+.RE
+.IP "\fBautocreate_sieve_script_compile:\fR 0" 5
+.RS 5
+If set to yes and no compiled sieve script file exists, the sieve script which is
+compiled on the fly will be saved in the file name that autocreate_sieve_compiledscript
+option points to. In order a compiled script to be generated, autocreate_sieve_script and
+autocreate_sieve_compiledscript must have valid values 
+.RE
+.IP "\fBautocreate_sieve_script_compiled:\fR <none>" 5
+.RS 5
+The full path of a file that contains a compiled in bytecode sieve script. This script
+automatically becomes a user's initial default sieve filter script.  If this option is
+not specified, or the filename doesn't exist then the script defined by
+autocreate_sieve_script is compiled on the fly and installed as the user's default
+sieve script 
+.RE
+.IP "\fBautocreate_subscribe_folders:\fR <none>" 5
+.RS 5
+A list of folder names, separated by "|", that the users get automatically subscribed to,
+when their INBOX is created. These folder names must have been included in the
+autocreateinboxfolders option of the imapd.conf. 
+.RE
+.IP "\fBautocreate_subscribe_sharedfolders:\fR <none>" 5
+.RS 5
+A list of shared folders (bulletin boards), separated by "|", that the users get
+automatically subscribed to, after their INBOX is created. The shared folder must
+have been created and the user must have the required permissions to get subscribed
+to it. Otherwise, subscribing to the shared folder fails. 
+.RE
+.IP "\fBautocreate_subscribe_sharedfolders_all:\fR 0" 5
+.RS 5
+If set to yes, the user is automatically subscribed to all shared folders, one has permission
+to subscribe to. 
+.RE
+.IP "\fBautocreate_users:\fR anyone" 5
+.RS 5
+A space separated list of users and/or groups that are allowed their INBOX to be
+automatically created. 
+.RE
 .IP "\fBberkeley_cachesize:\fR 512" 5
+.RS 5
 Size (in kilobytes) of the shared memory buffer pool (cache) used
 by the berkeley environment.  The minimum allowed value is 20.  The
 maximum allowed value is 4194303 (4GB). 
+.RE
 .IP "\fBberkeley_locks_max:\fR 50000" 5
+.RS 5
 Maximum number of locks to be held or requested in the berkeley
 environment. 
+.RE
 .IP "\fBberkeley_txns_max:\fR 100" 5
+.RS 5
 Maximum number of transactions to be supported in the berkeley
 environment. 
+.RE
 .IP "\fBboundary_limit:\fR 1000" 5
+.RS 5
 messages are parsed recursively and a deep enough MIME structure
 can cause a stack overflow.  Do not parse deeper than this many
 layers of MIME structure.  The default of 1000 is much higher
 than any sane message should have. 
+.RE
 .IP "\fBcaldav_allowscheduling:\fR on" 5
+.RS 5
 Enable calendar scheduling operations. If set to "apple", the
 server will emulate Apple CalendarServer behavior as closely as
 possible. 
 
 Allowed values: \fIoff\fR, \fIon\fR, \fIapple\fR
+.RE
+.IP "\fBcaldav_maxdatetime:\fR 20380119T031407Z" 5
+.RS 5
+The latest date and time accepted by the server (ISO format).  This
+value is also used for expanding non-terminating recurrence rules.
+.PP
+Note that increasing this value will require the DAV databases for
+calendars to be reconstructed with the \fBdav_reconstruct\fR
+utility in order to see its effect on serer-side time-based
+queries. 
+.RE
+.IP "\fBcaldav_mindatetime:\fR 19011213T204552Z" 5
+The earliest date and time accepted by the server (ISO format). 
 .IP "\fBcaldav_realm:\fR <none>" 5
+.RS 5
 The realm to present for HTTP authentication of CalDAV resources.
 If not set (the default), the value of the "servername" option will
 be used.
+.RE
 .IP "\fBcalendarprefix:\fR #calendars" 5
+.RS 5
 The prefix for the calendar mailboxes hierarchies.  The hierarchy
 delimiter will be automatically appended.  The public calendar
 hierarchy will be at the toplevel of the shared namespace.  A
 user's personal calendar hierarchy will be a child of their Inbox. 
+.RE
 .IP "\fBcalendar_user_address_set:\fR <none>" 5
+.RS 5
 Space-separated list of domains corresponding to calendar user
 addresses for which the server is responsible.  If not set (the
 default), the value of the "servername" option will be used. 
+.RE
 .IP "\fBcarddav_realm:\fR <none>" 5
+.RS 5
 The realm to present for HTTP authentication of CardDAV resources.
 If not set (the default), the value of the "servername" option will
 be used.
+.RE
+.IP "\fBchatty:\fR 0" 5
+.RS 5
+If yes, syslog tags and commands for every IMAP command, mailboxes
+for every lmtp connection, every POP3 command, etc 
+.RE
 .IP "\fBclient_timeout:\fR 10" 5
+.RS 5
 Number of seconds to wait before returning a timeout failure when
 performing a client connection (e.g., in a murder environment) 
+.RE
 .IP "\fBcommandmintimer:\fR <none>" 5
+.RS 5
 Time in seconds. Any imap command that takes longer than this
 time is logged. 
+.RE
 .IP "\fBconfigdirectory:\fR <none>" 5
+.RS 5
 The pathname of the IMAP configuration directory.  This field is
 required. 
+.RE
+.IP "\fBcreateonpost:\fR 0" 5
+Deprecated in favor of \fIautocreate_post\fR. 
 .IP "\fBdav_realm:\fR <none>" 5
+.RS 5
 The realm to present for HTTP authentication of generic DAV
 resources (principals).  If not set (the default), the value of the
 "servername" option will be used.
+.RE
 .IP "\fBdebug_command:\fR <none>" 5
+.RS 5
 Debug command to be used by processes started with -D option.  The string
 is a C format string that gets 3 options: the first is the name of the
 executable (without path).  The second is the pid (integer) and the third
 is the service ID.  Example: /usr/local/bin/gdb /usr/cyrus/bin/%s %d 
+.RE
 .IP "\fBdefaultacl:\fR anyone lrs" 5
+.RS 5
 The Access Control List (ACL) placed on a newly-created (non-user)
 mailbox that does not have a parent mailbox. 
+.RE
 .IP "\fBdefaultdomain:\fR <none>" 5
 The default domain for virtual domain support 
 .IP "\fBdefaultpartition:\fR <none>" 5
+.RS 5
 The partition name used by default for new mailboxes.  If not
-specified, the partition with the most free space will be used for new
-mailboxes. 
+specified, the partition with the most free space will be used for
+new mailboxes.
+.PP
+Note that the partition specified by this option must also be
+specified as \fIpartition-name\fR, where you substitute 'name'
+for the alphanumeric string you set \fIdefaultpartition\fR to. 
+.RE
 .IP "\fBdefaultserver:\fR <none>" 5
+.RS 5
 The backend server name used by default for new mailboxes.  If not
 specified, the server with the most free space will be used for new
 mailboxes. 
+.RE
 .IP "\fBdeletedprefix:\fR DELETED" 5
+.RS 5
 If "delete_mode" set to be "delayed", the prefix for the deleted
 mailboxes hierarchy.  The hierarchy delimiter will be automatically
 appended. 
-.IP "\fBdelete_mode:\fR immediate" 5
+.RE
+.IP "\fBdelete_mode:\fR delayed" 5
+.RS 5
 The manner in which mailboxes are deleted. "immediate" mode is the
 default behavior in which mailboxes are removed immediately.  In
 "delayed" mode, mailboxes are renamed to a special hiearchy defined
@@ -297,43 +555,101 @@ by the "deletedprefix" option to be removed later by cyr_expire.
 
 
 Allowed values: \fIimmediate\fR, \fIdelayed\fR
+.RE
 .IP "\fBdeleteright:\fR c" 5
+.RS 5
 Deprecated - only used for backwards compatibility with existing
 installations.  Lists the old RFC 2086 right which was used to
 grant the user the ability to delete a mailbox.  If a user has this
 right, they will automatically be given the new 'x' right. 
+.RE
 .IP "\fBdisable_user_namespace:\fR 0" 5
-Preclude list command on user namespace.  If set to 'yes', the 
+.RS 5
+Preclude list command on user namespace.  If set to 'yes', the
 LIST response will never include any other user's mailbox.  Admin
 users will always see all mailboxes.  The default is 'no' 
+.RE
 .IP "\fBdisable_shared_namespace:\fR 0" 5
-Preclude list command on user namespace.  If set to 'yes', the 
+.RS 5
+Preclude list command on shared namespace.  If set to 'yes', the
 LIST response will never include any non-user mailboxes.  Admin
 users will always see all mailboxes.  The default is 'no' 
+.RE
 .IP "\fBdisconnect_on_vanished_mailbox:\fR 0" 5
+.RS 5
 If enabled, IMAP/POP3/NNTP clients will be disconnected by the
 server if the currently selected mailbox is (re)moved by another
 session.  Otherwise, the missing mailbox is treated as empty while
 in use by the client.
-.IP "\fBdkim_domain:\fR <none>" 5
-The domain to be reported as doing DKIM signing. 
-.IP "\fBdkim_selector:\fR <none>" 5
+.RE
+.IP "\fBischedule_dkim_domain:\fR <none>" 5
+The domain to be reported as doing iSchedule DKIM signing. 
+.IP "\fBischedule_dkim_key_file:\fR <none>" 5
+File containing the private key for iSchedule DKIM signing. 
+.IP "\fBischedule_dkim_selector:\fR <none>" 5
+.RS 5
 Name of the selector subdividing the domain namespace.  This
-specifies the actual key used for DKIM signing within the domain. 
-.IP "\fBduplicate_db:\fR skiplist" 5
+specifies the actual key used for iSchedule DKIM signing within the
+domain. 
+.RE
+.IP "\fBduplicate_db:\fR twoskip" 5
+.RS 5
 The cyrusdb backend to use for the duplicate delivery suppression
 and sieve. 
 
-Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR
+Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR, \fItwoskip\fR
+.RE
 .IP "\fBduplicate_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the duplicate db file.  If not specified,
 will be confdir/deliver.db 
+.RE
 .IP "\fBduplicatesuppression:\fR 1" 5
+.RS 5
 If enabled, lmtpd will suppress delivery of a message to a mailbox if
 a message with the same message-id (or resent-message-id) is recorded
 as having already been delivered to the mailbox.  Records the mailbox
 and message-id/resent-message-id of all successful deliveries. 
-.IP "\fBexpunge_mode:\fR default" 5
+.RE
+.IP "\fBevent_content_inclusion_mode:\fR standard" 5
+.RS 5
+The mode in which message content may be included with MessageAppend and
+MessageNew. "standard" mode is the default behavior in which message is
+included up to a size with the notification. In "message" mode, the message
+is included and may be truncated to a size. In "header" mode, it includes
+headers truncated to a size. In "body" mode, it includes body truncated
+to a size. In "headerbody" mode, it includes full headers and body truncated
+to a size 
+
+Allowed values: \fIstandard\fR, \fImessage\fR, \fIheader\fR, \fIbody\fR, \fIheaderbody\fR
+.RE
+.IP "\fBevent_content_size:\fR 0" 5
+.RS 5
+Truncate the message content that may be included with MessageAppend and
+MessageNew. Set 0 to include the entire message itself 
+.RE
+.IP "\fBevent_exclude_flags:\fR <none>" 5
+Don't send event notification for given IMAP flag(s) 
+.IP "\fBevent_exclude_specialuse:\fR \\Junk" 5
+.RS 5
+Don't send event notification for folder with given special-use attributes.
+Set ALL for any folder 
+.RE
+.IP "\fBevent_extra_params:\fR timestamp" 5
+Space-separated list of extra parameters to add to any appropriated event. 
+
+Allowed values: \fIbodyStructure\fR, \fIclientAddress\fR, \fIdiskUsed\fR, \fIflagNames\fR, \fImessageContent\fR, \fImessageSize\fR, \fImessages\fR, \fImodseq\fR, \fIservice\fR, \fItimestamp\fR, \fIuidnext\fR, \fIvnd.cmu.midset\fR, \fIvnd.cmu.unseenMessages\fR, \fIvnd.cmu.envelope\fR, \fIvnd.cmu.sessionId\fR, \fIvnd.cmu.mbtype\fR, \fIvnd.cmu.davFilename\fR, \fIvnd.cmu.davUid\fR
+.IP "\fBevent_groups:\fR message mailbox" 5
+Space-separated list of groups of related events to turn on notification 
+
+Allowed values: \fImessage\fR, \fIquota\fR, \fIflags\fR, \fIaccess\fR, \fImailbox\fR, \fIsubscription\fR
+.IP "\fBevent_notifier:\fR <none>" 5
+.RS 5
+Notifyd(8) method to use for "EVENT" notifications which are based on
+the RFC 5423.  If not set, "EVENT" notifications are disabled. 
+.RE
+.IP "\fBexpunge_mode:\fR delayed" 5
+.RS 5
 The mode in which messages (and their corresponding cache entries)
 are expunged.  "default" mode is the default behavior in which the
 message files are purged at the time of the EXPUNGE, but index
@@ -350,28 +666,25 @@ EXPUNGE and should result in greater responsiveness for the client,
 especially when expunging a large number of messages. 
 
 Allowed values: \fIdefault\fR, \fIimmediate\fR, \fIdelayed\fR
-.IP "\fBexpunge_days:\fR 7" 5
-Number of days to retain expunged messages before cleaning up their
-index records.  The default is 7.  This is necessary for QRESYNC
-to work correctly.  If combined with delayed expunge (above) you
-will also be able to unexpunge messages during this time. 
+.RE
 .IP "\fBfailedloginpause:\fR 3" 5
 Number of seconds to pause after a failed login. 
-.IP "\fBflushseenstate:\fR 0" 5
-If enabled, changes to the seen state will be flushed to disk
-immediately, otherwise changes will be cached and flushed when the
-mailbox is closed.  This option may be used to fix the problem of
-previously read messages being marked as unread in Microsoft
-Outlook, at the expense of a loss of performance/scalability. 
+.IP "\fBflushseenstate:\fR 1" 5
+Deprecated. No longer used 
 .IP "\fBfoolstupidclients:\fR 0" 5
+.RS 5
 If enabled, only list the personal namespace when a LIST "*" is performed
 (it changes the request to a LIST "INBOX*"). 
+.RE
 .IP "\fBforce_sasl_client_mech:\fR <none>" 5
+.RS 5
 Force preference of a given SASL mechanism for client side operations
 (e.g., murder environments).  This is separate from (and overridden by)
 the ability to use the <host shortname>_mechs option to set preferred
 mechanisms for a specific host 
+.RE
 .IP "\fBfulldirhash:\fR 0" 5
+.RS 5
 If enabled, uses an improved directory hashing scheme which hashes
 on the entire username instead of using just the first letter as
 the hash.  This changes hash algorithm used for quota and user
@@ -381,24 +694,36 @@ spool.
 Note that this option CANNOT be changed on a live system.  The
 server must be quiesced and then the directories moved with the
 \fBrehash\fR utility. 
+.RE
 .IP "\fBhashimapspool:\fR 0" 5
+.RS 5
 If enabled, the partitions will also be hashed, in addition to the
 hashing done on configuration directories.  This is recommended if
 one partition has a very bushy mailbox tree. 
+.RE
+.IP "\fBdebug:\fR 0" 5
+If enabled, allow syslog() to pass LOG_DEBUG messages. 
 .IP "\fBhostname_mechs:\fR <none>" 5
+.RS 5
 Force a particular list of SASL mechanisms to be used when authenticating
 to the backend server hostname (where hostname is the short hostname of
 the server in question). If it is not specified it will query the server
 for available mechanisms and pick one to use. - Cyrus Murder 
+.RE
 .IP "\fBhostname_password:\fR <none>" 5
+.RS 5
 The password to use for authentication to the backend server hostname
 (where hostname is the short hostname of the server) - Cyrus Murder 
+.RE
 .IP "\fBhttpallowcompress:\fR 1" 5
+.RS 5
 If enabled, the server will compress response payloads if the client
 indicates that it can accept them.  Note that the compressed data
 will appear in telemetry logs, leaving only the response headers as
 human-readable.
+.RE
 .IP "\fBhttpallowcors:\fR <none>" 5
+.RS 5
 A wildmat pattern specifying a list of origin URIs ( scheme "://"
 host [ ":" port ] ) that are allowed to make Cross-Origin Resource
 Sharing (CORS) requests on the server.  By default, CORS requests
@@ -408,11 +733,15 @@ Note that the scheme and host should both be lowercase, the port
 should be omitted if using the default for the scheme (80 for http,
 443 for https), and there should be no trailing '/' (e.g.:
 "http://www.example.com:8080", "https://example.org"). 
+.RE
 .IP "\fBhttpallowtrace:\fR 0" 5
+.RS 5
 Allow use of the TRACE method.
 .PP
 Note that sensitive data might be disclosed by the response. 
+.RE
 .IP "\fBhttpallowedurls:\fR <none>" 5
+.RS 5
 Space-separated list of relative URLs (paths) rooted at
 "httpdocroot" (see below) to be served by httpd.  If set, this
 option will limit served static content to only those paths specified
@@ -421,65 +750,89 @@ Otherwise, httpd will serve any content found in "httpdocroot".
 .PP
 Note that any path specified by "rss_feedlist_template" is an
 exception to this rule.
+.RE
 .IP "\fBhttpcontentmd5:\fR 0" 5
+.RS 5
 If enabled, HTTP responses will include a Content-MD5 header for
 the purpose of providing an end-to-end message integrity check
 (MIC) of the payload body.  Note that enabling this option will
 use additional CPU to generate the MD5 digest, which may be ignored
 by clients anyways. 
+.RE
 .IP "\fBhttpdocroot:\fR <none>" 5
+.RS 5
 If set, http will serve the static content (html/text/jpeg/gif
 files, etc) rooted at this directory.  Otherwise, httpd will not
 serve any static content. 
+.RE
 .IP "\fBhttpkeepalive:\fR 20" 5
+.RS 5
 Set the length of the HTTP server's keepalive heartbeat in seconds.
 The default is 20.  The minimum value is 0, which will disable the
 keepalive heartbeat.  When enabled, if a request takes longer than
 \fIhttpkeepalive\fR seconds to process, the server will send the client
 provisional responses every \fIhttpkeepalive\fR seconds until the
 final response can be sent 
+.RE
 .IP "\fBhttpmodules:\fR <empty string>" 5
+.RS 5
 Space-separated list of HTTP modules that will be enabled in
 httpd(8).  This option has no effect on modules that are disabled
 at compile time due to missing dependencies (e.g. libical). 
 
 Allowed values: \fIcaldav\fR, \fIcarddav\fR, \fIdomainkey\fR, \fIischedule\fR, \fIrss\fR, \fItimezone\fR
+.RE
 .IP "\fBhttpprettytelemetry:\fR 0" 5
+.RS 5
 If enabled, HTTP response payloads including server-generated
 markup languages (HTML, XML) will utilize line breaks and
 indentation to promote better human-readability in telemetry logs.
 Note that enabling this option will increase the amount of data
 sent across the wire. 
+.RE
 .IP "\fBhttptimeout:\fR 5" 5
+.RS 5
 Set the length of the HTTP server's inactivity autologout timer,    
 in minutes.  The default is 5.  The minimum value is 0, which will
 disable persistent connections. 
+.RE
 .IP "\fBidlesocket:\fR {configdirectory}/socket/idle" 5
 Unix domain socket that idled listens on. 
 .IP "\fBignorereference:\fR 0" 5
+.RS 5
 For backwards compatibility with Cyrus 1.5.10 and earlier -- ignore
 the reference argument in LIST or LSUB commands. 
+.RE
 .IP "\fBimapidlepoll:\fR 60" 5
+.RS 5
 The interval (in seconds) for polling for mailbox changes and
 ALERTs while running the IDLE command.  This option is used when
 idled is not enabled or cannot be contacted.  The minimum value is
 1.  A value of 0 will disable IDLE. 
+.RE
 .IP "\fBimapidresponse:\fR 1" 5
-If enabled, the server responds to an ID command with a parameter 
+.RS 5
+If enabled, the server responds to an ID command with a parameter
 list containing: version, vendor, support-url, os, os-version,
 command, arguments, environment.  Otherwise the server returns NIL. 
+.RE
 .IP "\fBimapmagicplus:\fR 0" 5
+.RS 5
 Only list a restricted set of mailboxes via IMAP by using
 userid+namespace syntax as the authentication/authorization id.
 Using userid+ (with an empty namespace) will list only subscribed
 mailboxes. 
+.RE
 .IP "\fBimplicit_owner_rights:\fR lkxa" 5
 The implicit Access Control List (ACL) for the owner of a mailbox. 
 .IP "\fB@include:\fR <none>" 5
+.RS 5
 Directive which includes the specified file as part of the
 configuration.  If the path to the file is not absolute, CYRUS_PATH
 is prepended. 
+.RE
 .IP "\fBimproved_mboxlist_sort:\fR 0" 5
+.RS 5
 If enabled, a special comparator will be used which will correctly
 sort mailbox names that contain characters such as ' ' and '-'.
 .PP
@@ -489,25 +842,45 @@ option is changed, removed, and then undumped after changing the
 option.  When not using flat files for the subscriptions databases
 the same has to be done (cyr_dbtool) for each subscription database
 See improved_mboxlist_sort.html.
+.RE
 .IP "\fBinternaldate_heuristic:\fR standard" 5
+.RS 5
 Mechanism to determine email internaldates on delivery/reconstruct.
 "standard" uses time() when delivering a message, mtime on reconstruct.
 "receivedheader" looks at the top most Received header
 or time/mtime otherwise 
 
 Allowed values: \fIstandard\fR, \fIreceivedheader\fR
+.RE
+.IP "\fBiolog:\fR 0" 5
+Should cyrus output I/O log entries 
 .IP "\fBldap_authz:\fR <none>" 5
 SASL authorization ID for the LDAP server 
 .IP "\fBldap_base:\fR <empty string>" 5
 Contains the LDAP base dn for the LDAP ptloader module 
 .IP "\fBldap_bind_dn:\fR <none>" 5
+.RS 5
 Bind DN for the connection to the LDAP server (simple bind).
 Do not use for anonymous simple binds 
+.RE
 .IP "\fBldap_deref:\fR never" 5
 Specify how aliases dereferencing is handled during search. 
 
 Allowed values: \fIsearch\fR, \fIfind\fR, \fIalways\fR, \fInever\fR
+.IP "\fBldap_domain_base_dn:\fR <empty string>" 5
+Base DN to search for domain name spaces. 
+.IP "\fBldap_domain_filter:\fR (&(objectclass=domainrelatedobject)(associateddomain=%s))" 5
+Filter to use searching for domains 
+.IP "\fBldap_domain_name_attribute:\fR associateddomain" 5
+The attribute name for domains. 
+.IP "\fBldap_domain_scope:\fR sub" 5
+Search scope 
+
+Allowed values: \fIsub\fR, \fIone\fR, \fIbase\fR
+.IP "\fBldap_domain_result_attribute:\fR inetdomainbasedn" 5
+Result attribute 
 .IP "\fBldap_filter:\fR (uid=%u)" 5
+.RS 5
 Specify a filter that searches user identifiers.  The following tokens can be
 used in the filter string:
 
@@ -520,11 +893,14 @@ used in the filter string:
 %1-9 = domain tokens (%1 = tld, %2 = domain when %d = domain.tld)
 
 ldap_filter is not used when ldap_sasl is enabled. 
+.RE
 .IP "\fBldap_group_base:\fR <empty string>" 5
 LDAP base dn for ldap_group_filter. 
 .IP "\fBldap_group_filter:\fR (cn=%u)" 5
+.RS 5
 Specify a filter that searches for group identifiers.
 See ldap_filter for more options. 
+.RE
 .IP "\fBldap_group_scope:\fR sub" 5
 Specify search scope for ldap_group_filter. 
 
@@ -533,35 +909,45 @@ Allowed values: \fIsub\fR, \fIone\fR, \fIbase\fR
 SASL authentication ID for the LDAP server 
 .IP "\fBldap_mech:\fR <none>" 5
 SASL mechanism for LDAP authentication 
+.IP "\fBldap_user_attribute:\fR <none>" 5
+Specify LDAP attribute to use as canonical user id 
 .IP "\fBldap_member_attribute:\fR <none>" 5
 See ldap_member_method. 
 .IP "\fBldap_member_base:\fR <empty string>" 5
 LDAP base dn for ldap_member_filter. 
 .IP "\fBldap_member_filter:\fR (member=%D)" 5
-Specify a filter for "ldap_member_method: filter".  
+.RS 5
+Specify a filter for "ldap_member_method: filter".
 See ldap_filter for more options. 
+.RE
 .IP "\fBldap_member_method:\fR attribute" 5
-Specify a group method.  The "attribute" method retrieves groups from 
-a multi-valued attribute specified in ldap_member_attribute.  
+.RS 5
+Specify a group method.  The "attribute" method retrieves groups from
+a multi-valued attribute specified in ldap_member_attribute.
 
 The "filter" method uses a filter, specified by ldap_member_filter, to find
 groups; ldap_member_attribute is a single-value attribute group name. 
 
 Allowed values: \fIattribute\fR, \fIfilter\fR
+.RE
 .IP "\fBldap_member_scope:\fR sub" 5
 Specify search scope for ldap_member_filter. 
 
 Allowed values: \fIsub\fR, \fIone\fR, \fIbase\fR
 .IP "\fBldap_password:\fR <none>" 5
-Password for the connection to the LDAP server (SASL and simple bind).  
+.RS 5
+Password for the connection to the LDAP server (SASL and simple bind).
 Do not use for anonymous simple binds 
+.RE
 .IP "\fBldap_realm:\fR <none>" 5
 SASL realm for LDAP authentication 
 .IP "\fBldap_referrals:\fR 0" 5
 Specify whether or not the client should follow referrals. 
 .IP "\fBldap_restart:\fR 1" 5
+.RS 5
 Specify whether or not LDAP I/O operations are automatically restarted
 if they abort prematurely. 
+.RE
 .IP "\fBldap_sasl:\fR 1" 5
 Use SASL for LDAP binds in the LDAP PTS module. 
 .IP "\fBldap_sasl_authc:\fR <none>" 5
@@ -583,115 +969,188 @@ Deprecated.  Use ldap_uri
 .IP "\fBldap_size_limit:\fR 1" 5
 Specify a number of entries for a search request to return. 
 .IP "\fBldap_start_tls:\fR 0" 5
-Use StartTLS extended operation.  Do not use ldaps: ldap_uri when
-this option is enabled. 
+.RS 5
+Use transport layer security for ldap:// using STARTTLS. Do not use
+ldaps:// in 'ldap_uri' with this option enabled. 
+.RE
 .IP "\fBldap_time_limit:\fR 5" 5
 Specify a number of seconds for a search request to complete. 
 .IP "\fBldap_timeout:\fR 5" 5
 Specify a number of seconds a search can take before timing out. 
-.IP "\fBldap_tls_cacert_dir:\fR <none>" 5
-Path to directory with CA (Certificate Authority) certificates. 
-.IP "\fBldap_tls_cacert_file:\fR <none>" 5
-File containing CA (Certificate Authority) certificate(s). 
-.IP "\fBldap_tls_cert:\fR <none>" 5
+.IP "\fBldap_ca_dir:\fR <none>" 5
+Path to a directory with CA (Certificate Authority) certificates. 
+.IP "\fBldap_ca_file:\fR <none>" 5
+Patch to a file containing CA (Certificate Authority) certificate(s). 
+.IP "\fBldap_client_cert:\fR <none>" 5
 File containing the client certificate. 
-.IP "\fBldap_tls_check_peer:\fR 0" 5
+.IP "\fBldap_verify_peer:\fR 0" 5
+.RS 5
 Require and verify server certificate.  If this option is yes,
-you must specify ldap_tls_cacert_file or ldap_tls_cacert_dir. 
-.IP "\fBldap_tls_ciphers:\fR <none>" 5
+you must specify ldap_ca_file or ldap_ca_dir. 
+.RE
+.IP "\fBldap_ciphers:\fR <none>" 5
+.RS 5
 List of SSL/TLS ciphers to allow.  The format of the string is
 described in ciphers(1). 
-.IP "\fBldap_tls_key:\fR <none>" 5
+.RE
+.IP "\fBldap_client_key:\fR <none>" 5
 File containing the private client key. 
+.IP "\fBldap_tls_cacert_dir:\fR <none>" 5
+Deprecated in favor of \fIldap_ca_dir\fR. 
+.IP "\fBldap_tls_cacert_file:\fR <none>" 5
+Deprecated in favor of \fIldap_ca_file\fR. 
+.IP "\fBldap_tls_cert:\fR <none>" 5
+Deprecated in favor of \fIldap_client_cert\fR. 
+.IP "\fBldap_tls_key:\fR <none>" 5
+Deprecated in favor of \fIldap_client_key\fR. 
+.IP "\fBldap_tls_check_peer:\fR <none>" 5
+Deprecated in favor of \fIldap_verify_peer\fR. 
+.IP "\fBldap_tls_ciphers:\fR <none>" 5
+Deprecated in favor of \fIldap_ciphers\fR. 
 .IP "\fBldap_uri:\fR <none>" 5
+.RS 5
 Contains a list of the URLs of all the LDAP servers when using the
 LDAP PTS module. 
+.RE
 .IP "\fBldap_version:\fR 3" 5
+.RS 5
 Specify the LDAP protocol version.  If ldap_start_tls and/or
 ldap_use_sasl are enabled, ldap_version will be automatically
 set to 3. 
-.IP "\fBlmtp_downcase_rcpt:\fR 0" 5
+.RE
+.IP "\fBlmtp_downcase_rcpt:\fR 1" 5
+.RS 5
 If enabled, lmtpd will convert the recipient addresses to lowercase
 (up to a '+' character, if present). 
+.RE
 .IP "\fBlmtp_fuzzy_mailbox_match:\fR 0" 5
+.RS 5
 If enabled, and the mailbox specified in the detail part of the
 recipient (everything after the '+') does not exist, lmtpd will try
 to find the closest match (ignoring case, ignoring whitespace,
 falling back to parent) to the specified mailbox name. 
+.RE
 .IP "\fBlmtp_over_quota_perm_failure:\fR 0" 5
+.RS 5
 If enabled, lmtpd returns a permanent failure code when a user's
 mailbox is over quota.  By default, the failure is temporary,
 causing the MTA to queue the message and retry later. 
+.RE
 .IP "\fBlmtp_strict_quota:\fR 0" 5
+.RS 5
 If enabled, lmtpd returns a failure code when the incoming message
 will cause the user's mailbox to exceed its quota.  By default, the
 failure won't occur until the mailbox is already over quota. 
+.RE
 .IP "\fBlmtp_strict_rfc2821:\fR 1" 5
+.RS 5
 By default, lmtpd will be strict (per RFC 2821) with regards to which
 envelope addresses are allowed.  If this option is set to false, 8bit
 characters in the local-part of envelope addresses are changed to 'X'
-instead.  This is useful to avoid generating backscatter with 
+instead.  This is useful to avoid generating backscatter with
 certain MTAs like Postfix or Exim which accept such messages. 
+.RE
 .IP "\fBlmtpsocket:\fR {configdirectory}/socket/lmtp" 5
+.RS 5
 Unix domain socket that lmtpd listens on, used by deliver(8). This should
 match the path specified in cyrus.conf(5). 
+.RE
 .IP "\fBlmtptxn_timeout:\fR 300" 5
+.RS 5
 Timeout (in seconds) used during a lmtp transaction to a remote backend
 (e.g. in a murder environment).  Can be used to prevent hung lmtpds
 on proxy hosts when a backend server becomes unresponsive during a
 lmtp transaction.  The default is 300 - change to zero for infinite. 
+.RE
 .IP "\fBloginrealms:\fR <empty string>" 5
+.RS 5
 The list of remote realms whose users may authenticate using cross-realm
 authentication identifiers.  Separate each realm name by a space.  (A
 cross-realm identity is considered any identity returned by SASL
 with an "@" in it.). 
+.RE
 .IP "\fBloginuseacl:\fR 0" 5
+.RS 5
 If enabled, any authentication identity which has \fBa\fR rights on a
 user's INBOX may log in as that user. 
+.RE
 .IP "\fBlogtimestamps:\fR 0" 5
+.RS 5
 Include notations in the protocol telemetry logs indicating the number of
 seconds since the last command or response. 
+.RE
 .IP "\fBmailbox_default_options:\fR 0" 5
+.RS 5
 Default "options" field for the mailbox on create.  You'll want to know
 what you're doing before setting this, but it can apply some default
 annotations like duplicate supression 
+.RE
+.IP "\fBmailbox_initial_flags:\fR <none>" 5
+.RS 5
+space-separated list of permanent flags which will be pre-set in every
+newly created mailbox.  If you know you will require particular
+flag names then this avoids a possible race condition against a client
+that fills the entire 128 available slots.  Default is NULL, which is
+no flags.  Example: $Label1 $Label2 $Label3 NotSpam Spam 
+.RE
 .IP "\fBmailnotifier:\fR <none>" 5
+.RS 5
 Notifyd(8) method to use for "MAIL" notifications.  If not set, "MAIL"
 notifications are disabled. 
+.RE
 .IP "\fBmaxheaderlines:\fR 1000" 5
+.RS 5
 Maximum number of lines of header that will be processed into cache
 records.  Default 1000.  If set to zero, it is unlimited.
 If a message hits the limit, an error will be logged and the rest of
 the lines in the header will be skipped.  This is to avoid malformed
 messages causing giant cache records 
+.RE
+.IP "\fBmaxlogins_per_host:\fR 0" 5
+.RS 5
+Maximum number of logged in sessions allowed per host,
+zero means no limit 
+.RE
+.IP "\fBmaxlogins_per_user:\fR 0" 5
+.RS 5
+Maximum number of logged in sessions allowed per user,
+zero means no limit 
+.RE
 .IP "\fBmaxmessagesize:\fR 0" 5
+.RS 5
 Maximum incoming LMTP message size.  If non-zero, lmtpd will reject
 messages larger than \fImaxmessagesize\fR bytes.  If set to 0, this
 will allow messages of any size (the default). 
+.RE
 .IP "\fBmaxquoted:\fR 131072" 5
 Maximum size of a single quoted string for the parser.  Default 128k 
 .IP "\fBmaxword:\fR 131072" 5
 Maximum size of a single word for the parser.  Default 128k 
-.IP "\fBmboxkey_db:\fR skiplist" 5
+.IP "\fBmboxkey_db:\fR twoskip" 5
 The cyrusdb backend to use for mailbox keys. 
 
-Allowed values: \fIberkeley\fR, \fIskiplist\fR
-.IP "\fBmboxlist_db:\fR skiplist" 5
+Allowed values: \fIberkeley\fR, \fIskiplist\fR, \fItwoskip\fR
+.IP "\fBmboxlist_db:\fR twoskip" 5
 The cyrusdb backend to use for the mailbox list. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR, \fItwoskip\fR
 .IP "\fBmboxlist_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the mailboxes db file.  If not specified
 will be confdir/mailboxes.db 
+.RE
 .IP "\fBmboxname_lockpath:\fR <none>" 5
 Path to mailbox name lock files (default $conf/lock) 
 .IP "\fBmetapartition_files:\fR <empty string>" 5
+.RS 5
 Space-separated list of metadata files to be stored on a
 \fImetapartition\fR rather than in the mailbox directory on a spool
 partition. 
 
-Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR, \fIlock\fR, \fIdav\fR
+Allowed values: \fIheader\fR, \fIindex\fR, \fIcache\fR, \fIexpunge\fR, \fIsquat\fR, \fIannotations\fR, \fIlock\fR, \fIdav\fR
+.RE
 .IP "\fBmetapartition-name:\fR <none>" 5
+.RS 5
 The pathname of the metadata partition \fIname\fR, corresponding to
 spool partition \fBpartition-name\fR.  For any mailbox residing in
 a directory on \fBpartition-name\fR, the metadata files listed in
@@ -700,10 +1159,14 @@ a directory on \fBpartition-name\fR, the metadata files listed in
 \fBpartition-name\fR option is required to have a corresponding
 \fBmetapartition-name\fR option, so that you can selectively choose
 which spool partitions will have separate metadata partitions. 
+.RE
 .IP "\fBmupdate_authname:\fR <none>" 5
+.RS 5
 The SASL username (Authentication Name) to use when authenticating to the
 mupdate server (if needed). 
+.RE
 .IP "\fBmupdate_config:\fR standard" 5
+.RS 5
 The configuration of the mupdate servers in the Cyrus Murder.
 The "standard" config is one in which there are discreet frontend
 (proxy) and backend servers.  The "unified" config is one in which
@@ -713,31 +1176,42 @@ mailspool, but each have their own "replicated" copy of
 mailboxes.db. 
 
 Allowed values: \fIstandard\fR, \fIunified\fR, \fIreplicated\fR
+.RE
 .IP "\fBmunge8bit:\fR 1" 5
+.RS 5
 If enabled, lmtpd munges messages with 8-bit characters in the
 headers.  The 8-bit characters are changed to `X'.  If
 \fBreject8bit\fR is enabled, setting \fBmunge8bit\fR has no effect.
 (A proper solution to non-ASCII characters in headers is offered by
 RFC 2047 and its predecessors.) 
+.RE
 .IP "\fBmupdate_connections_max:\fR 128" 5
+.RS 5
 The max number of connections that a mupdate process will allow, this
 is related to the number of file descriptors in the mupdate process.
 Beyond this number connections will be immediately issued a BYE response. 
+.RE
 .IP "\fBmupdate_password:\fR <none>" 5
+.RS 5
 The SASL password (if needed) to use when authenticating to the
 mupdate server. 
+.RE
 .IP "\fBmupdate_port:\fR 3905" 5
 The port of the mupdate server for the Cyrus Murder 
 .IP "\fBmupdate_realm:\fR <none>" 5
+.RS 5
 The SASL realm (if needed) to use when authenticating to the mupdate
 server. 
+.RE
 .IP "\fBmupdate_retry_delay:\fR 20" 5
 The base time to wait between connection retries to the mupdate server. 
 .IP "\fBmupdate_server:\fR <none>" 5
 The mupdate server for the Cyrus Murder 
 .IP "\fBmupdate_username:\fR <empty string>" 5
+.RS 5
 The SASL username (Authorization Name) to use when authenticating to
 the mupdate server 
+.RE
 .IP "\fBmupdate_workers_max:\fR 50" 5
 The maximum number of mupdate worker threads (overall) 
 .IP "\fBmupdate_workers_maxspare:\fR 10" 5
@@ -747,10 +1221,13 @@ The minimum number of idle mupdate worker threads
 .IP "\fBmupdate_workers_start:\fR 5" 5
 The number of mupdate worker threads to start 
 .IP "\fBnetscapeurl:\fR <none>" 5
+.RS 5
 If enabled at compile time, this specifies a URL to reply when
 Netscape asks the server where the mail administration HTTP server
 is.  Administrators should set this to a local resource. 
+.RE
 .IP "\fBnewsaddheaders:\fR to" 5
+.RS 5
 Space-separated list of headers to be added to incoming usenet
 articles.  Added \fITo:\fR headers will contain email
 delivery addresses corresponding to each newsgroup in the
@@ -765,22 +1242,28 @@ This option applies if and only if the \fBnewspostuser\fR option is
 set. 
 
 Allowed values: \fIto\fR, \fIreplyto\fR
+.RE
 .IP "\fBnewsgroups:\fR *" 5
+.RS 5
 A wildmat pattern specifying which mailbox hierarchies should be
 treated as newsgroups.  Only mailboxes matching the wildmat will
 accept and/or serve articles via NNTP.  If not set, a default
 wildmat of "*" (ALL shared mailboxes) will be used.  If the
 \fInewsprefix\fR option is also set, the default wildmat will be
 translated to "<newsprefix>.*" 
+.RE
 .IP "\fBnewsmaster:\fR news" 5
+.RS 5
 Userid that is used for checking access controls when executing
 Usenet control messages.  For instance, to allow articles to be
 automatically deleted by cancel messages, give the "news" user
-the 'd' right on the desired mailboxes.  To allow newsgroups to be 
+the 'd' right on the desired mailboxes.  To allow newsgroups to be
 automatically created, deleted and renamed by the corresponding
 control messages, give the "news" user the 'c' right on the desired
 mailbox hierarchies. 
+.RE
 .IP "\fBnewspeer:\fR <none>" 5
+.RS 5
 A list of whitespace-separated news server specifications to which
 articles should be fed.  Each server specification is a string of
 the form [user[:pass]@]host[:port][/wildmat] where 'host' is the fully
@@ -801,7 +1284,9 @@ the string "peer.example.com:*,!control.*,@local.*" would feed all
 groups except control messages and local groups to
 peer.example.com.  In the case of cross-posting to local groups,
 these articles would not be fed. 
+.RE
 .IP "\fBnewspostuser:\fR <none>" 5
+.RS 5
 Userid used to deliver usenet articles to newsgroup folders
 (usually via lmtp2nntp).  For example, if set to "post", email sent
 to "post+comp.mail.imap" would be delivered to the "comp.mail.imap"
@@ -813,18 +1298,26 @@ the \fBnewsaddheaders\fR option to each incoming usenet article.
 The added header(s) will contain email delivery addresses
 corresponding to each relevent newsgroup.  If not set, no headers
 are added to usenet articles. 
+.RE
 .IP "\fBnewsprefix:\fR <none>" 5
+.RS 5
 Prefix to be prepended to newsgroup names to make the corresponding
 IMAP mailbox names. 
+.RE
 .IP "\fBnewsrc_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the newsrc db file.  If not specified,
 will be confdir/fetchnews.db 
+.RE
 .IP "\fBnntptimeout:\fR 3" 5
-Set the length of the NNTP server's inactivity autologout timer,    
+.RS 5
+Set the length of the NNTP server's inactivity autologout timer,
 in minutes.  The minimum value is 3, the default. 
+.RE
 .IP "\fBnotifysocket:\fR {configdirectory}/socket/notify" 5
 Unix domain socket that the mail notification daemon listens on. 
 .IP "\fBnotify_external:\fR <none>" 5
+.RS 5
 Path to the external program that notifyd(8) will call to send mail
 notifications.
 .PP
@@ -841,53 +1334,109 @@ command line options:
 .PP
 And the notification message will be available on \fIstdin\fR.
 
+.RE
 .IP "\fBpartition-name:\fR <none>" 5
+.RS 5
 The pathname of the partition \fIname\fR.  At least one partition
 pathname MUST be specified.  If the \fBdefaultpartition\fR option is
 used, then its pathname MUST be specified.  For example, if the
 value of the \fBdefaultpartion\fR option is \fBdefault\fR, then the
 \fBpartition-default\fR field is required. 
+.RE
+.IP "\fBpartition_select_mode:\fR freespace-most" 5
+.RS 5
+Partition selection mode.
+.PP
+.IP \fIrandom\fR 5
+(pseudo-)random selection
+.IP \fIfreespace-most\fR 5
+partition with the most free space (KiB)
+.IP \fIfreespace-percent-most\fR 5
+partition with the most free space (%)
+.IP \fIfreespace-percent-weighted\fR 5
+each partition is weighted according to its free space (%); the more free space
+the partition has, the more chances it has to be selected
+.IP \fIfreespace-percent-weighted-delta\fR 5
+each partition is weighted according to its difference of free space (%)
+compared to the most used partition; the more the partition is lagging behind
+the most used
+partition, the more chances it has to be selected
+.PP
+Note that actually even the most used partition has a few chances to be
+selected, and those chances increase when other partitions get closer
+
+
+Allowed values: \fIrandom\fR, \fIfreespace-most\fR, \fIfreespace-percent-most\fR, \fIfreespace-percent-weighted\fR, \fIfreespace-percent-weighted-delta\fR
+.RE
+.IP "\fBpartition_select_exclude:\fR <none>" 5
+List of partitions to exclude from selection mode. 
+.IP "\fBpartition_select_usage_reinit:\fR 0" 5
+.RS 5
+For a given session, number of \fBoperations\fR (e.g. partition selection)
+for which partitions usage data are cached. 
+.RE
+.IP "\fBpartition_select_soft_usage_limit:\fR 0" 5
+.RS 5
+Limit of partition usage (%): if a partition is over that limit, it is
+automatically excluded from selection mode.
+.PP
+If all partitions are over that limit, this feature is not used anymore.
+
+.RE
 .IP "\fBplaintextloginpause:\fR 0" 5
+.RS 5
 Number of seconds to pause after a successful plaintext login.  For
-systems that support strong authentication, this permits users to  
+systems that support strong authentication, this permits users to
 perceive a cost of using plaintext passwords.  (This does not
 affect the use of PLAIN in SASL authentications.) 
+.RE
 .IP "\fBplaintextloginalert:\fR <none>" 5
 Message to send to client after a successful plaintext login. 
 .IP "\fBpopexpiretime:\fR -1" 5
+.RS 5
 The number of days advertised as being the minimum a message may be
 left on the POP server before it is deleted (via the CAPA command,
 defined in the POP3 Extension Mechanism, which some clients may
 support).  "NEVER", the default, may be specified with a negative
-number.  The Cyrus POP3 server never deletes mail, no matter what  
-the value of this parameter is.  However, if a site implements a 
+number.  The Cyrus POP3 server never deletes mail, no matter what
+the value of this parameter is.  However, if a site implements a
 less liberal policy, it needs to change this parameter
 accordingly. 
+.RE
 .IP "\fBpopminpoll:\fR 0" 5
+.RS 5
 Set the minimum amount of time the server forces users to wait
 between successive POP logins, in minutes. 
+.RE
 .IP "\fBpopsubfolders:\fR 0" 5
+.RS 5
 Allow access to subfolders of INBOX via POP3 by using
 userid+subfolder syntax as the authentication/authorization id. 
+.RE
 .IP "\fBpoppollpadding:\fR 1" 5
+.RS 5
 Create a softer minimum poll restriction.  Allows \fIpoppollpadding\fR
 connections before the minpoll restriction is triggered.  Additionally,
 one padding entry is recovered every \fIpopminpoll\fR minutes.
-This allows for the occasional polling rate faster than popminpoll, 
-(i.e., for clients that require a send/receive to send mail) but still 
+This allows for the occasional polling rate faster than popminpoll,
+(i.e., for clients that require a send/receive to send mail) but still
 enforces the rate long-term.  Default is 1 (disabled).
 .br
 .sp
 The easiest way to think of it is a queue of past connections, with one
-slot being filled for every connection, and one slot being cleared 
+slot being filled for every connection, and one slot being cleared
 every \fIpopminpoll\fR minutes. When the queue is full, the user
-will not be able to check mail again until a slot is cleared.  If the 
+will not be able to check mail again until a slot is cleared.  If the
 user waits a sufficient amount of time, they will get back many or all
 of the slots. 
+.RE
 .IP "\fBpoptimeout:\fR 10" 5
-Set the length of the POP server's inactivity autologout timer,    
+.RS 5
+Set the length of the POP server's inactivity autologout timer,
 in minutes.  The minimum value is 10, the default. 
+.RE
 .IP "\fBpopuseacl:\fR 0" 5
+.RS 5
 Enforce IMAP ACLs in the pop server.  Due to the nature of the POP3
 protocol, the only rights which are used by the pop server are 'r',
 't', and 's' for the owner of the mailbox.  The 'r' right allows the
@@ -895,116 +1444,172 @@ user to open the mailbox and list/retrieve messages.  The 't' right
 allows the user to delete messages.  The 's' right allows messages
 retrieved by the user to have the \\Seen flag set (only if
 \fIpopuseimapflags\fR is also enabled). 
+.RE
 .IP "\fBpopuseimapflags:\fR 0" 5
+.RS 5
 If enabled, the pop server will set and obey IMAP flags.  Messages
 having the \\Deleted flag are ignored as if they do not exist.
 Messages that are retrieved by the client will have the \\Seen flag
 set.  All messages will have the \\Recent flag unset. 
+.RE
 .IP "\fBpostmaster:\fR postmaster" 5
+.RS 5
 Username that is used as the 'From' address in rejection MDNs produced
 by sieve. 
+.RE
 .IP "\fBpostuser:\fR <empty string>" 5
+.RS 5
 Userid used to deliver messages to shared folders.  For example, if
 set to "bb", email sent to "bb+shared.blah" would be delivered to
 the "shared.blah" folder.  By default, an email address of
 "+shared.blah" would be used. 
+.RE
 .IP "\fBproc_path:\fR <none>" 5
+.RS 5
 Path to proc directory.  Default is NULL - must be an absolute path
 if specified.  If not specified, the path $confdir/proc/ will be 
 used. 
+.RE
 .IP "\fBproxy_authname:\fR proxy" 5
+.RS 5
 The authentication name to use when authenticating to a backend server
 in the Cyrus Murder. 
+.RE
 .IP "\fBproxy_compress:\fR 0" 5
+.RS 5
 Try to enable protocol-specific compression when performing a client
 connection to a backend server in the Cyrus Murder.
 .PP
 Note that this should only be necessary over slow network
 connections.  Also note that currently only IMAP and MUPDATE support
 compression. 
+.RE
 .IP "\fBproxy_password:\fR <none>" 5
+.RS 5
 The default password to use when authenticating to a backend server
 in the Cyrus Murder.  May be overridden on a host-specific basis using
 the hostname_password option. 
+.RE
 .IP "\fBproxy_realm:\fR <none>" 5
+.RS 5
 The authentication realm to use when authenticating to a backend server
 in the Cyrus Murder 
+.RE
 .IP "\fBproxyd_allow_status_referral:\fR 0" 5
+.RS 5
 Set to true to allow proxyd to issue referrals to clients that support it
 when answering the STATUS command.  This is disabled by default since
 some clients issue many STATUS commands in a row, and do not cache the
 connections that these referrals would cause, thus resulting in a higher
 authentication load on the respective backend server. 
+.RE
 .IP "\fBproxyd_disable_mailbox_referrals:\fR 0" 5
+.RS 5
 Set to true to disable the use of mailbox-referrals on the
 proxy servers. 
+.RE
 .IP "\fBproxyservers:\fR <none>" 5
+.RS 5
 A list of users and groups that are allowed to proxy for other
 users, separated by spaces.  Any user listed in this will be
-allowed to login for any other user: use with caution. 
+allowed to login for any other user: use with caution.
+In a standard murder this option should ONLY be set on backends.
+DO NOT SET on frontends or things won't work properly. 
+.RE
 .IP "\fBpts_module:\fR afskrb" 5
 The PTS module to use. 
 
 Allowed values: \fIafskrb\fR, \fIldap\fR
 .IP "\fBptloader_sock:\fR <none>" 5
+.RS 5
 Unix domain socket that ptloader listens on.
 (defaults to configdir/ptclient/ptsock) 
-.IP "\fBptscache_db:\fR skiplist" 5
+.RE
+.IP "\fBptscache_db:\fR twoskip" 5
 The cyrusdb backend to use for the pts cache. 
 
-Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+Allowed values: \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fItwoskip\fR
 .IP "\fBptscache_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the ptscache db file.  If not specified,
 will be confdir/ptscache.db 
+.RE
 .IP "\fBptscache_timeout:\fR 10800" 5
+.RS 5
 The timeout (in seconds) for the PTS cache database when using the
 auth_krb_pts authorization method (default: 3 hours). 
+.RE
 .IP "\fBptskrb5_convert524:\fR 1" 5
+.RS 5
 When using the AFSKRB ptloader module with Kerberos 5 canonicalization,
 do the final 524 conversion to get a n AFS style name (using '.' instead
 of '/', and using short names 
+.RE
 .IP "\fBptskrb5_strip_default_realm:\fR 1" 5
+.RS 5
 When using the AFSKRB ptloader module with Kerberos 5 canonicalization,
 strip the default realm from the userid (this does not affect the stripping
 of realms specified by the afspts_localrealms option) 
+.RE
 .IP "\fBqosmarking:\fR cs0" 5
+.RS 5
 This specifies the Class Selector or Differentiated Services Code Point
 designation on IP headers (in the ToS field). 
 
 Allowed values: \fIcs0\fR, \fIcs1\fR, \fIcs2\fR, \fIcs3\fR, \fIcs4\fR, \fIcs5\fR, \fIcs6\fR, \fIcs7\fR, \fIaf11\fR, \fIaf12\fR, \fIaf13\fR, \fIaf21\fR, \fIaf22\fR, \fIaf23\fR, \fIaf31\fR, \fIaf32\fR, \fIaf33\fR, \fIaf41\fR, \fIaf42\fR, \fIaf43\fR, \fIef\fR
+.RE
 .IP "\fBquota_db:\fR quotalegacy" 5
 The cyrusdb backend to use for quotas. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR, \fIquotalegacy\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR, \fIquotalegacy\fR, \fItwoskip\fR
 .IP "\fBquota_db_path:\fR <none>" 5
+.RS 5
 The absolute path for the quota database (if you choose a single-file
 quota DB type - or the base path if you choose quotalegacy).  If
 not specified will be confdir/quota.db or confdir/quota/ 
+.RE
 .IP "\fBquotawarn:\fR 90" 5
+.RS 5
 The percent of quota utilization over which the server generates
 warnings. 
+.RE
 .IP "\fBquotawarnkb:\fR 0" 5
+.RS 5
 The maximum amount of free space (in kB) at which to give a quota
 warning (if this value is 0, or if the quota is smaller than this
-amount, than warnings are always given). 
+amount, then warnings are always given). 
+.RE
+.IP "\fBquotawarnmsg:\fR 0" 5
+.RS 5
+The maximum amount of messages at which to give a quota warning
+(if this value is 0, or if the quota is smaller than this
+amount, then warnings are always given). 
+.RE
 .IP "\fBreject8bit:\fR 0" 5
+.RS 5
 If enabled, lmtpd rejects messages with 8-bit characters in the
 headers. 
+.RE
 .IP "\fBrfc2046_strict:\fR 0" 5
+.RS 5
 If enabled, imapd will be strict (per RFC 2046) when matching MIME
 boundary strings.  This means that boundaries containing other
 boundaries as substrings will be treated as identical.  Since
 enabling this option will break some messages created by Eudora 5.1
 (and earlier), it is recommended that it be left disabled unless
 there is good reason to do otherwise. 
+.RE
 .IP "\fBrfc3028_strict:\fR 1" 5
+.RS 5
 If enabled, Sieve will be strict (per RFC 3028) with regards to
 which headers are allowed to be used in address and envelope tests.
 This means that only those headers which are defined to contain addresses
 will be allowed in address tests and only "to" and "from" will be
 allowed in envelope tests.  When disabled, ANY grammatically correct header
 will be allowed. 
+.RE
 .IP "\fBrss_feedlist_template:\fR <none>" 5
+.RS 5
 File containing HTML that will be used as a template for displaying
 the list of available RSS feeds.  A single instance of the variable
 %RSS_FEEDLIST% should appear in the file, which will be replaced by
@@ -1013,58 +1618,136 @@ be tagged with an id of "feed" (<ul id='feed'>) which can be used
 by stylesheet(s) in your template.  The dynamically created list of
 feeds based on the HTML template will be accessible at the "/rss"
 URL on the server. 
+.RE
 .IP "\fBrss_feeds:\fR *" 5
+.RS 5
 A wildmat pattern specifying which mailbox hierarchies should be
 treated as RSS feeds.  Only mailboxes matching the wildmat will
 have their messages available via RSS.  If not set, a default
 wildmat of "*" (ALL mailboxes) will be used. 
+.RE
 .IP "\fBrss_maxage:\fR 0" 5
+.RS 5
 Maximum age (in days) of items to display in an RSS channel.  If
 non-zero, httpd will only display items received within the last
 \fIrss_maxage\fR days.  If set to 0, all available items will be
 displayed (the default). 
+.RE
 .IP "\fBrss_maxitems:\fR 0" 5
+.RS 5
 Maximum number of items to display in an RSS channel.  If non-zero,
 httpd will display no more than the \fIrss_maxitems\fR most recent
 items.  If set to 0, all available items will be displayed (the
 default). 
+.RE
 .IP "\fBrss_maxsynopsis:\fR 0" 5
+.RS 5
 Maximum RSS item synopsis length.  If non-zero, httpd will display
 no more than the first \fIrss_maxsynopsis\fR characters of an
 item's synopsis.  If set to 0, the entire synopsis will be
 displayed (the default). 
+.RE
 .IP "\fBrss_realm:\fR <none>" 5
+.RS 5
 The realm to present for HTTP authentication of RSS feeds.  If not
 set (the default), the value of the "servername" option will be
 used.
+.RE
 .IP "\fBsasl_auto_transition:\fR 0" 5
+.RS 5
 If enabled, the SASL library will automatically create authentication
 secrets when given a plaintext password.  See the SASL documentation. 
+.RE
 .IP "\fBsasl_maximum_layer:\fR 256" 5
+.RS 5
 Maximum SSF (security strength factor) that the server will allow a
 client to negotiate. 
+.RE
 .IP "\fBsasl_minimum_layer:\fR 0" 5
+.RS 5
 The minimum SSF that the server will allow a client to negotiate.
-A value of 1 requires integrity protection; any higher value  
+A value of 1 requires integrity protection; any higher value
 requires some amount of encryption. 
+.RE
 .IP "\fBsasl_option:\fR 0" 5
+.RS 5
 Any SASL option can be set by preceding it with "sasl_".  This
 file overrides the SASL configuration file. 
+.RE
 .IP "\fBsasl_pwcheck_method:\fR <none>" 5
-The mechanism used by the server to verify plaintext passwords. 
+.RS 5
+The mechanism used by the server to verify plaintext passwords.
 Possible values include "auxprop", "saslauthd", and "pwcheck". 
-.IP "\fBseenstate_db:\fR skiplist" 5
+.RE
+.IP "\fBsearch_skipdiacrit:\fR 1" 5
+.RS 5
+When searching, should diacriticals be stripped from the search
+terms.  The default is "true", a search for "hav" will match
+"Håvard".  This is not RFC5051 complient, but it backwards
+compatible, and may be preferred by some sites. 
+.RE
+.IP "\fBsearch_whitespace:\fR merge" 5
+.RS 5
+When searching, how whitespace should be handled.  Options are:
+"skip" (default in 2.3 and earlier series) - where a search for
+"equi" would match "the quick brown fox".  "merge" - the default,
+where "he  qu" would match "the quick   brownfox", and "keep",
+where whitespace must match exactly.  The default of "merge" is
+recommended for most cases - it's a good compromise which
+keeps words separate. 
+
+Allowed values: \fIskip\fR, \fImerge\fR, \fIkeep\fR
+.RE
+.IP "\fBseenstate_db:\fR twoskip" 5
 The cyrusdb backend to use for the seen state. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fItwoskip\fR
 .IP "\fBsendmail:\fR /usr/lib/sendmail" 5
+.RS 5
 The pathname of the sendmail executable.  Sieve invokes sendmail
 for sending rejections, redirects and vacation responses. 
+.RE
 .IP "\fBserverlist:\fR <none>" 5
+.RS 5
 Whitespace separated list of backend server names.  Used for
 finding server with the most available free space for proxying
 CREATE. 
+.RE
+.IP "\fBserverlist_select_mode:\fR freespace-most" 5
+.RS 5
+Server selection mode.
+.PP
+.IP \fIrandom\fR 5
+(pseudo-)random selection
+.IP \fIfreespace-most\fR 5
+backend with the most (total) free space (KiB)
+.IP \fIfreespace-percent-most\fR 5
+backend whose partition has the most free space (%)
+.IP \fIfreespace-percent-weighted\fR 5
+same as for partition selection, comparing the free space (%) of the least used
+partition of each backend
+.IP \fIfreespace-percent-weighted-delta\fR 5
+same as for partition selection, comparing the free space (%) of the least used
+partition of each backend
+
+
+Allowed values: \fIrandom\fR, \fIfreespace-most\fR, \fIfreespace-percent-most\fR, \fIfreespace-percent-weighted\fR, \fIfreespace-percent-weighted-delta\fR
+.RE
+.IP "\fBserverlist_select_usage_reinit:\fR 0" 5
+.RS 5
+For a given session, number of \fBoperations\fR (e.g. backend selection)
+for which backend usage data are cached. 
+.RE
+.IP "\fBserverlist_select_soft_usage_limit:\fR 0" 5
+.RS 5
+Limit of backend usage (%): if a backend is over that limit, it is
+automatically excluded from selection mode.
+.PP
+If all backends are over that limit, this feature is not used anymore.
+
+.RE
 .IP "\fBservername:\fR <none>" 5
+.RS 5
 This is the hostname visible in the greeting messages of the POP,
 IMAP and LMTP daemons. If it is unset, then the result returned
 from gethostname(2) is used.  This is also the value used by murder
@@ -1073,7 +1756,9 @@ DNS to the correct host, and unique within an active cluster.  If
 you are using low level replication (e.g. drbd) then it should be
 the same on each copy and the DNS name should also be moved to
 the new master on failover. 
+.RE
 .IP "\fBserverinfo:\fR on" 5
+.RS 5
 The server information to display in the greeting and capability
 responses. Information is displayed as follows:
 .IP
@@ -1085,14 +1770,20 @@ responses. Information is displayed as follows:
 product version in the capabilities 
 
 Allowed values: \fIoff\fR, \fImin\fR, \fIon\fR
+.RE
 .IP "\fBsharedprefix:\fR Shared Folders" 5
+.RS 5
 If using the alternate IMAP namespace, the prefix for the shared
 namespace.  The hierarchy delimiter will be automatically appended. 
+.RE
 .IP "\fBsieve_allowreferrals:\fR 1" 5
+.RS 5
 If enabled, timsieved will issue referrals to clients when the
 user's scripts reside on a remote server (in a Murder).
 Otherwise, timsieved will proxy traffic to the remote server. 
-.IP "\fBsieve_extensions:\fR fileinto reject vacation imapflags notify envelope relational regex subaddress copy" 5
+.RE
+.IP "\fBsieve_extensions:\fR fileinto reject vacation vacation-seconds imapflags notify envelope relational regex subaddress copy date index imap4flags" 5
+.RS 5
 Space-separated list of Sieve extensions allowed to be used in
 sieve scripts, enforced at submission by timsieved(8).  Any
 previously installed script will be unaffected by this option and
@@ -1100,50 +1791,98 @@ will continue to execute regardless of the extensions used.  This
 option has no effect on options that are disabled at compile time
 (e.g., "regex"). 
 
-Allowed values: \fIfileinto\fR, \fIreject\fR, \fIvacation\fR, \fIimapflags\fR, \fInotify\fR, \fIinclude\fR, \fIenvelope\fR, \fIbody\fR, \fIrelational\fR, \fIregex\fR, \fIsubaddress\fR, \fIcopy\fR
+Allowed values: \fIfileinto\fR, \fIreject\fR, \fIvacation\fR, \fIvacation-seconds\fR, \fIimapflags\fR, \fInotify\fR, \fIinclude\fR, \fIenvelope\fR, \fIbody\fR, \fIrelational\fR, \fIregex\fR, \fIsubaddress\fR, \fIcopy\fR, \fIdate\fR, \fIindex\fR, \fIimap4flags\fR
+.RE
 .IP "\fBsieve_maxscriptsize:\fR 32" 5
+.RS 5
 Maximum size (in kilobytes) any sieve script can be, enforced at
 submission by timsieved(8). 
+.RE
 .IP "\fBsieve_maxscripts:\fR 5" 5
+.RS 5
 Maximum number of sieve scripts any user may have, enforced at
 submission by timsieved(8). 
+.RE
 .IP "\fBsieve_utf8fileinto:\fR 0" 5
+.RS 5
 If enabled, the sieve engine expects folder names for the
 \fIfileinto\fR action in scripts to use UTF8 encoding.  Otherwise,
 modified UTF7 encoding should be used. 
+.RE
 .IP "\fBsieve_sasl_send_unsolicited_capability:\fR 0" 5
+.RS 5
 If enabled, timsieved will emit a capability response after a successful
 SASL authentication, per draft-martin-managesieve-12.txt . 
+.RE
+.IP "\fBsieve_vacation_min_response:\fR 259200 /* 3 days */" 5
+.RS 5
+Minimum time interval (in seconds) between consecutive vacation responses,
+per draft-ietf-vacation-seconds.txt . 
+.RE
+.IP "\fBsieve_vacation_max_response:\fR 7776000 /* 90 days */" 5
+.RS 5
+Maximum time interval (in seconds) between consecutive vacation responses,
+per draft-ietf-vacation-seconds.txt . 
+.RE
 .IP "\fBsievedir:\fR /usr/sieve" 5
+.RS 5
 If sieveusehomedir is false, this directory is searched for Sieve
 scripts. 
+.RE
 .IP "\fBsievenotifier:\fR <none>" 5
+.RS 5
 Notifyd(8) method to use for "SIEVE" notifications.  If not set, "SIEVE"
 notifications are disabled.
 .PP
 This method is only used when no method is specified in the script. 
+.RE
 .IP "\fBsieveusehomedir:\fR 0" 5
+.RS 5
 If enabled, lmtpd will look for Sieve scripts in user's home
 directories: ~user/.sieve. 
+.RE
+.IP "\fBanysievefolder:\fR 0" 5
+.RS 5
+It must be "yes" in order to permit the autocreation of any INBOX subfolder
+requested by a sieve filter, through the "fileinto" action. (default = no) 
+.RE
 .IP "\fBsingleinstancestore:\fR 1" 5
+.RS 5
 If enabled, imapd, lmtpd and nntpd attempt to only write one copy
 of a message per partition and create hard links, resulting in a
 potentially large disk savings. 
+.RE
 .IP "\fBskiplist_always_checkpoint:\fR 1" 5
+.RS 5
 If enabled, this option forces the skiplist cyrusdb backend to
 always checkpoint when doing a recovery.  This causes slightly
 more IO, but on the other hand leads to more efficient databases,
 and the entire file is already "hot". 
+.RE
 .IP "\fBskiplist_unsafe:\fR 0" 5
+.RS 5
 If enabled, this option forces the skiplist cyrusdb backend to
 not sync writes to the disk.  Enabling this option is NOT RECOMMENDED. 
+.RE
 .IP "\fBsoft_noauth:\fR 1" 5
+.RS 5
 If enabled, lmtpd returns temporary failures if the client does not
 successfully authenticate.  Otherwise lmtpd returns permanent failures
 (causing the mail to bounce immediately). 
+.RE
+.IP "\fBspecialuse_extra:\fR <none>" 5
+.RS 5
+Whitespace separated list of extra special-use attributes
+that can be set on a mailbox. RFC 6154 currently lists
+what special-use attributes can be set. This allows
+extending that list in the future or adding your own
+if needed. 
+.RE
 .IP "\fBspecialusealways:\fR 0" 5
+.RS 5
 If enabled, this option causes LIST and LSUB output to always include
-the XLIST "special-use" flags. See "xlist-*'"
+the XLIST "special-use" flags 
+.RE
 .IP "\fBsql_database:\fR <none>" 5
 Name of the database which contains the cyrusdb table(s). 
 .IP "\fBsql_engine:\fR <none>" 5
@@ -1159,151 +1898,282 @@ Username to use for authentication to the SQL server.
 .IP "\fBsql_usessl:\fR 0" 5
 If enabled, a secure connection will be made to the SQL server. 
 .IP "\fBsrvtab:\fR <empty string>" 5
+.RS 5
 The pathname of \fIsrvtab\fR file containing the server's private
 key.  This option is passed to the SASL library and overrides its
 default setting. 
+.RE
 .IP "\fBsubmitservers:\fR <none>" 5
+.RS 5
 A list of users and groups that are allowed to resolve "urlauth=submit+"
 IMAP URLs, separated by spaces.  Any user listed in this will be
 allowed to fetch the contents of any valid "urlauth=submit+" IMAP URL:
 use with caution. 
+.RE
 .IP "\fBsubscription_db:\fR flat" 5
 The cyrusdb backend to use for the subscriptions list. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fItwoskip\fR
 .IP "\fBsuppress_capabilities:\fR <none>" 5
+.RS 5
 Suppress the named capabilities from any capability response.  Use the
-exact case as it appears in the response, e.g. 
+exact case as it appears in the response, e.g.
 "suppress_capabilities: ESEARCH QRESYNC WITHIN XLIST LIST-EXTENDED"
 if you have a murder with 2.3.x backends and don't want clients being
 confused by new capabilities that some backends don't support. 
+.RE
 .IP "\fBstatuscache:\fR 0" 5
 Enable/disable the imap status cache. 
-.IP "\fBstatuscache_db:\fR skiplist" 5
+.IP "\fBstatuscache_db:\fR twoskip" 5
 The cyrusdb backend to use for the imap status cache. 
 
-Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR
+Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR, \fItwoskip\fR
 .IP "\fBstatuscache_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the statuscache db file.  If not specified,
 will be confdir/statuscache.db 
+.RE
 .IP "\fBsync_authname:\fR <none>" 5
+.RS 5
 The authentication name to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 
-.IP "\fBsync_compress:\fR 0" 5
-Enable compression on replication traffic.
-Prefix with a channel name to only apply for that channel 
+.RE
 .IP "\fBsync_host:\fR <none>" 5
+.RS 5
 Name of the host (replica running sync_server(8)) to which
 replication actions will be sent by sync_client(8).
 Prefix with a channel name to only apply for that channel 
+.RE
 .IP "\fBsync_log:\fR 0" 5
+.RS 5
 Enable replication action logging by lmtpd(8), imapd(8), pop3d(8),
 and nntpd(8).  The log {configdirectory}/sync/log is used by
 sync_client(8) for "rolling" replication. 
+.RE
 .IP "\fBsync_log_chain:\fR 0" 5
+.RS 5
 Enable replication action logging by sync_server as well, allowing
 chaining of replicas.  Use this on 'B' for A => B => C replication layout 
+.RE
 .IP "\fBsync_log_channels:\fR <none>" 5
+.RS 5
 If specified, log all events to multiple log files in directories
 specified by each "channel".  To run these log files, you need to pass
 the -n option to sync_client -r with the channel name.  Use this for
 a mesh style replication layout - every machine replicating to every
-other machine. 
+other machine. You can use "" (the two-character string U+22 U+22)
+to mean the default sync channel. 
+.RE
+.IP "\fBsync_log_unsuppressable_channels:\fR squatter" 5
+.RS 5
+If specified, the named channels are exempt from the effect of setting
+sync_log_chain:off, i.e. they are always logged to by the sync_server
+process.  This is only really useful to allow rolling search indexing
+on a replica. 
+.RE
 .IP "\fBsync_password:\fR <none>" 5
+.RS 5
 The default password to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 
-.IP "\fBsync_port:\fR <none>" 5
+.RE
+.IP "\fBsync_port:\fR csync" 5
+.RS 5
 Name of the service (or port number) of the replication service on
-replica host.  Prefix with a channel name to only apply for that
-channel.  If not specified, the replication client will first
-try "imap" (port 143) to check if imapd supports replication,
-otherwise it will default to "csync" (usually port 2005).  
+replica host.  The default is "csync" which is usally port 2005, but
+any service name or numeric port can be specified.
+Prefix with a channel name to only apply for that channel 
+.RE
 .IP "\fBsync_realm:\fR <none>" 5
+.RS 5
 The authentication realm to use when authenticating to a sync server.
 Prefix with a channel name to only apply for that channel 
+.RE
 .IP "\fBsync_repeat_interval:\fR 1" 5
+.RS 5
 Minimum interval (in seconds) between replication runs in rolling
 replication mode. If a replication run takes longer than this
 time, we repeat immediately.
 Prefix with a channel name to only apply for that channel 
+.RE
 .IP "\fBsync_shutdown_file:\fR <none>" 5
+.RS 5
 Simple latch used to tell sync_client(8) that it should shut down at the
 next opportunity. Safer than sending signals to running processes.
 Prefix with a channel name to only apply for that channel 
+.RE
+.IP "\fBsync_timeout:\fR 1800" 5
+.RS 5
+Number of seconds to wait for a response before returning a timeout
+failure when talking to a replication peer (client or server). 
+.RE
 .IP "\fBsyslog_prefix:\fR <none>" 5
 String to be prepended to the process name in syslog entries. 
+.IP "\fBsyslog_facility:\fR <none>" 5
+.RS 5
+Configure a syslog facility.  The default is whatever is compiled
+in.  Allowed values are: DAEMON, MAIL, NEWS, USER, and LOCAL0
+through to LOCAL7 
+.RE
 .IP "\fBtcp_keepalive:\fR 0" 5
 Enable keepalive on TCP connections 
 .IP "\fBtcp_keepalive_cnt:\fR 0" 5
-Number of TCP keepalive probes to send before declaring the 
+.RS 5
+Number of TCP keepalive probes to send before declaring the
 connection dead (0 == system default) 
+.RE
 .IP "\fBtcp_keepalive_idle:\fR 0" 5
+.RS 5
 Number of seconds a connection must be idle before keepalive
 probes are sent (0 == system default) 
+.RE
 .IP "\fBtcp_keepalive_intvl:\fR 0" 5
 Number of seconds between keepalive probes (0 == system default) 
 .IP "\fBtemp_path:\fR /tmp" 5
 The pathname to store temporary files in 
 .IP "\fBtimeout:\fR 30" 5
-The length of the IMAP server's inactivity autologout timer,       
+.RS 5
+The length of the IMAP server's inactivity autologout timer,
 in minutes.  The minimum value is 30, the default. 
-.IP "\fBtls_ca_file:\fR <none>" 5
-File containing one or more Certificate Authority (CA) certificates. 
-.IP "\fBtls_ca_path:\fR <none>" 5
-Path to directory with certificates of CAs.  This directory must
-have filenames with the hashed value of the certificates (see
-openssl(XXX)). 
-.IP "\fBtlscache_db:\fR skiplist" 5
-The cyrusdb backend to use for the TLS cache. 
-
-Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR
-.IP "\fBtlscache_db_path:\fR <none>" 5
-The absolute path to the tlscache db file.  If not specified,
-will be confdir/tls_sessions.db 
-.IP "\fBtls_cert_file:\fR <none>" 5
-File containing the certificate presented for server authentication
-during STARTTLS.  A value of "disabled" will disable SSL/TLS. 
+.RE
+.IP "\fBtls_ca_file:\fR DEFAULT" 5
+Deprecated in favor of \fItls_client_ca_file\fR. 
+.IP "\fBtls_ca_path:\fR DEFAULT" 5
+Deprecated in favor of \fItls_client_ca_dir\fR. 
+.IP "\fBtlscache_db:\fR DEFAULT" 5
+Deprecated in favor of \fItls_sessions_db\fR. 
+.IP "\fBtlscache_db_path:\fR DEFAULT" 5
+Deprecated in favor of \fItls_sessions_db_path\fR. 
+.IP "\fBtls_cert_file:\fR DEFAULT" 5
+Deprecated in favor of \fItls_server_cert\fR. 
 .IP "\fBtls_cipher_list:\fR DEFAULT" 5
+Deprecated in favor of \fItls_ciphers\fR. 
+.IP "\fBtls_ciphers:\fR DEFAULT" 5
+.RS 5
 The list of SSL/TLS ciphers to allow.  The format of the string is
 described in ciphers(1). 
-.IP "\fBtls_key_file:\fR <none>" 5
-File containing the private key belonging to the server
-certificate.  A value of "disabled" will disable SSL/TLS. 
-.IP "\fBtls_require_cert:\fR 0" 5
-Require a client certificate for ALL services (imap, pop3, lmtp, sieve). 
+.RE
+.IP "\fBtls_client_ca_dir:\fR <none>" 5
+.RS 5
+Path to a directory containing the CA certificates used to verify
+client SSL certificates used for authentication. 
+.RE
+.IP "\fBtls_client_ca_file:\fR <none>" 5
+.RS 5
+Path to a file containing the CA certificate(s) used to verify
+client SSL certificates used for authentication. 
+.RE
+.IP "\fBtls_client_cert:\fR <none>" 5
+.RS 5
+File containing the certificate presented to a server for authentication
+during STARTTLS. A value of "disabled" will disable this server's use
+of certificate-based authentication. 
+.RE
+.IP "\fBtls_client_certs:\fR optional" 5
+.RS 5
+Disable ("off"), allow ("optional", default) or require ("require") the
+use of SSL certificates by clients to authenticate themselves. 
+
+Allowed values: \fIoff\fR, \fIoptional\fR, \fIrequire\fR
+.RE
+.IP "\fBtls_client_key:\fR <none>" 5
+.RS 5
+File containing the private key belonging to the tls_client_cert
+certificate. A value of "disabled" will disable this server's use
+of certificate-based authentication. 
+.RE
+.IP "\fBtls_eccurve:\fR prime256v1" 5
+.RS 5
+The elliptic curve used for ECDHE. Default is NIST Suite B prime256.
+See 'openssl ecparam -list_curves' for possible values. 
+.RE
+.IP "\fBtls_key_file:\fR DEFAULT" 5
+Deprecated in favor of \fItls_server_key\fR. 
+.IP "\fBtls_required:\fR 0" 5
+.RS 5
+If enabled, require a TLS/SSL encryption layer to be negotiated
+prior to ANY authentication mechanisms being advertised or allowed. 
+.RE
+.IP "\fBtls_prefer_server_ciphers:\fR 0" 5
+Prefer the ciphers on the server side instead of client side. 
+.IP "\fBtls_server_ca_dir:\fR <none>" 5
+.RS 5
+Path to a directory with CA certificates used to verify certificates
+offered when this server connects to other servers. This directory must
+have filenames with the hashed value of the certificates (see
+openssl(1)). 
+.RE
+.IP "\fBtls_server_ca_file:\fR <none>" 5
+.RS 5
+Path to a file containing CA certificates used to verify certificates
+offered when this server connects to other servers. 
+.RE
+.IP "\fBtls_server_cert:\fR <none>" 5
+File containing the certificate presented to clients. 
+.IP "\fBtls_server_key:\fR <none>" 5
+.RS 5
+File containing the private key belonging to the certificate in
+tls_server_cert. 
+.RE
+.IP "\fBtls_sessions_db:\fR twoskip" 5
+The cyrusdb backend to use for the TLS cache. 
+
+Allowed values: \fIberkeley\fR, \fIberkeley-nosync\fR, \fIberkeley-hash\fR, \fIberkeley-hash-nosync\fR, \fIskiplist\fR, \fIsql\fR, \fItwoskip\fR
+.IP "\fBtls_sessions_db_path:\fR <none>" 5
+.RS 5
+The absolute path to the TLS sessions db file. If not specified,
+will be confdir/tls_sessions.db 
+.RE
 .IP "\fBtls_session_timeout:\fR 1440" 5
+.RS 5
 The length of time (in minutes) that a TLS session will be cached
 for later reuse.  The maximum value is 1440 (24 hours), the
 default.  A value of 0 will disable session caching. 
+.RE
+.IP "\fBtls_versions:\fR tls1_0 tls1_1 tls1_2" 5
+.RS 5
+A list of SSL/TLS versions to not disable. Cyrus IMAP SSL/TLS starts
+with all protocols, and substracts protocols not in this list. Newer
+versions of SSL/TLS will need to be added here to allow them to get
+disabled. 
+.RE
 .IP "\fBumask:\fR 077" 5
 The umask value used by various Cyrus IMAP programs. 
 .IP "\fBuserdeny_db:\fR flat" 5
 The cyrusdb backend to use for the user access list. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fIsql\fR, \fItwoskip\fR
 .IP "\fBuserdeny_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the userdeny db file.  If not specified,
 will be confdir/user_deny.db 
-.IP "\fBuser_folder_limit:\fR 0" 5
-Limit the number of folders a user can create in their INBOX.  
-Set to 0 (default) for no limit.  Only affects folders in user. 
+.RE
 .IP "\fBusername_tolower:\fR 1" 5
+.RS 5
 Convert usernames to all lowercase before login/authentication.  This
 is useful with authentication backends which ignore case during
 username lookups (such as LDAP).  
+.RE
 .IP "\fBuserprefix:\fR Other Users" 5
+.RS 5
 If using the alternate IMAP namespace, the prefix for the other users
 namespace.  The hierarchy delimiter will be automatically appended. 
+.RE
 .IP "\fBunix_group_enable:\fR 1" 5
+.RS 5
 Should we look up groups when using auth_unix (disable this if you are
 not using groups in ACLs for your IMAP server, and you are using auth_unix
 with a backend (such as LDAP) that can make getgrent() calls very
 slow) 
+.RE
 .IP "\fBunixhierarchysep:\fR 0" 5
+.RS 5
 Use the UNIX separator character '/' for delimiting levels of
-mailbox hierarchy.  The default is to use the netnews separator
-character '.'. 
+mailbox hierarchy.  Turn off to use the netnews separator
+character '.'. Note that with the newnews separator, no dots may
+occur in mailbox names. 
+.RE
 .IP "\fBvirtdomains:\fR off" 5
+.RS 5
 Enable virtual domain support.  If enabled, the user's domain will
 be determined by splitting a fully qualified userid at the last '@'
 or '%' symbol.  If the userid is unqualified, and the virtdomains
@@ -1313,26 +2183,22 @@ interface, otherwise the user is assumed to be in the default
 domain (if set). 
 
 Allowed values: \fIoff\fR, \fIuserid\fR, \fIon\fR
-.IP "\fBxlist-*:\fR <none>" 5
-Cyrus 2.4 ONLY - enable special use flags.  The valid names
-can be taken from GMail's XLIST documents or RFC 6154.
-Attribute name in the configuration key should be defined in
-lowercase. The attribute value is case sensitive, may contain
-whitespace and must be valid UTF7-IMAP string.  It must
-exactly match the name of the subfolder of a user's INBOX.
-
-Example: xlist-drafts: My Drafts
-
-Every user on your server with a 'INBOX.My Drafts' folder will get 
-the special use flag "\Drafts" added.  Later versions of Cyrus
-have a much more flexible RFC 6154 compatible system.  
-.IP "\fBzoneinfo_db:\fR skiplist" 5
+.RE
+.IP "\fBlmtp_catchall_mailbox:\fR <none>" 5
+.RS 5
+Mail sent to mailboxes which do not exist, will be delivered to
+this user.  NOTE: This must be an existing local user name with an
+INBOX, NOT an email address! 
+.RE
+.IP "\fBzoneinfo_db:\fR twoskip" 5
 The cyrusdb backend to use for zoneinfo. 
 
-Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR
+Allowed values: \fIflat\fR, \fIberkeley\fR, \fIberkeley-hash\fR, \fIskiplist\fR, \fItwoskip\fR
 .IP "\fBzoneinfo_db_path:\fR <none>" 5
+.RS 5
 The absolute path to the zoneinfo db file.  If not specified,
 will be confdir/zoneinfo.db 
+.RE
 
 .SH SEE ALSO
 .PP

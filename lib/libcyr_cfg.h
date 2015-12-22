@@ -38,17 +38,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: libcyr_cfg.h,v 1.14 2010/01/06 17:01:46 murch Exp $
  */
 
 #ifndef INCLUDED_LIBCYR_CFG_H
 #define INCLUDED_LIBCYR_CFG_H
 
-#include <config.h>
-
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -104,7 +99,7 @@ enum cyrus_opt {
     CYRUSOPT_DELETERIGHT,
     /* SQL database */
     CYRUSOPT_SQL_DATABASE,
-    /* SQL engine ("mysql") */
+    /* SQL engine */
     CYRUSOPT_SQL_ENGINE,
     /* SQL hostname(s) ("") */
     CYRUSOPT_SQL_HOSTNAMES,
@@ -145,7 +140,7 @@ void libcyrus_config_setswitch(enum cyrus_opt opt, int val);
 
 /* Start/Stop the Library */
 /* Should be done AFTER setting configuration options */
-void libcyrus_init();
-void libcyrus_done();
+void libcyrus_init(void);
+void libcyrus_done(void);
 
 #endif

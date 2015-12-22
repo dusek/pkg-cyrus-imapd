@@ -4,7 +4,6 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="revision" content="$Id: mailbox-format.html,v 1.9 2010/01/06 17:01:29 murch Exp $" />
 <meta name="author" content="Bron Gondwana" />
 
 <title>Mailbox API</title>
@@ -101,7 +100,7 @@ r = mailbox_lock_index(mailbox, LOCK_SHARED);
 r = mailbox_lock_index(mailbox, LOCK_EXCLUSIVE);
 </pre>
 
-<p>For example, <tt>mailbox_unlock_index</tt> and 
+<p>For example, <tt>mailbox_unlock_index</tt> and
 <tt>mailbox_lock_index</tt> are used extensively
 by the index module, allowing an imap client to
 maintain a long lived connection selected to a
@@ -176,7 +175,7 @@ the index header.  The interesting work is actualy done in
 <tt>mailbox_close</tt>.  See below under "delayed actions".</p>
 
 <p><tt>mailbox_delete</tt> requires an exclusive index lock, but
-can complete quite happily with only a shared namelock.
+can complete quite happily with only a shared namelock.</p>
 
 <h2>Reading and writing records</h2>
 
@@ -231,7 +230,7 @@ never be unexpunged, UIDs can't change, etc) and the internal
 tracking counts and quota data are updated as well.  They will
 be committed at unlock time, see "delayed actions"</p>
 
-<p>If you don't set the <tt>record.silent<tt> field to a true value
+<p>If you don't set the <tt>record.silent</tt> field to a true value
 before rewriting or appending, the <tt>record.modseq</tt> and
 <tt>record.last_updated</tt> values will be changed.  This allows
 condstore to work correctly.</p>
@@ -313,12 +312,6 @@ flag.  If this is set, then before the index gets unlocked:</p>
 
 
 <h3>then: close</h3>
-
-<p>First close looks to see if the first_expunged date is old
-(based on the configuration variable <tt>expunge_days</tt>),
-if so - and there's an exclusive index lock - then it will
-attempt an expunge cleanup.  This allows for "automatic"
-cleanup rather than running cyr_expire if wanted.</p>
 
 <p>next the index is unlocked (see above)</p>
 

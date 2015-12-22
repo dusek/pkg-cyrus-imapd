@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: notifytest.c,v 1.12 2010/01/06 17:01:54 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -49,7 +47,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <errno.h>
 #include <pwd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -61,6 +58,23 @@
 
 #define MAX_OPT 10
 #define MAXSIZE 8192
+
+
+/* generic fatal() routine for command line utilities
+   it is here, because libcyrus requires a global function fatal */
+EXPORTED void fatal(const char *message, int code)
+{
+  static int recurse_code = 0;
+
+  if (recurse_code) {
+    exit(code);
+  }
+
+  recurse_code = code;
+  fprintf(stderr, "fatal error: %s\n", message);
+  exit(code);
+}
+
 
 static int add_arg(char *buf, int max_size, const char *arg, int *buflen)
 {

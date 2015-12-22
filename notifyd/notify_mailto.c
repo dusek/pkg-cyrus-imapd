@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: notify_mailto.c,v 1.15 2010/01/06 17:01:54 murch Exp $
  */
 
 #include <config.h>
@@ -53,10 +51,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#include "global.h"
+#include "imap/global.h"
 #include "libconfig.h"
-#include "rfc822date.h"
-#include "sieve_interface.h"
+#include "sieve/sieve_interface.h"
+#include "times.h"
 
 static int contains_8bit(const char *msg);
 
@@ -70,11 +68,11 @@ char* notify_mailto(const char *class,
 		    const char *message)
 {
     FILE *sm;
-    const char *smbuf[10];
-    char outmsgid[8192];
+    const char *smbuf[7];
+    char outmsgid[256];
     int sm_stat;
     time_t t;
-    char datestr[80];
+    char datestr[RFC822_DATETIME_MAX+1];
     pid_t sm_pid;
     int fds[2];
 
@@ -116,7 +114,7 @@ char* notify_mailto(const char *class,
     
     fprintf(sm, "Message-ID: %s\r\n", outmsgid);
 
-    rfc822date_gen(datestr, sizeof(datestr), t);
+    time_to_rfc822(t, datestr, sizeof(datestr));
     fprintf(sm, "Date: %s\r\n", datestr);
     
     fprintf(sm, "X-Sieve: %s\r\n", SIEVE_VERSION);

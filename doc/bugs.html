@@ -1,9 +1,11 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML><HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Changes to the Cyrus IMAP Server</TITLE>
 <!-- Changed by: Larry Greenfield 15-Aug-1999 -->
 <!-- Changed by: Larry Greenfield 01-Jul-1999 -->
 <!-- Changed by: Tim Showalter 16-Jun-1997 -->
-<!-- $Id: bugs.html,v 1.29 2006/11/30 17:11:16 murch Exp $ -->
 </HEAD><BODY>
 <h1>                     Known bugs in the Cyrus IMAP Server</h1>
 
@@ -54,7 +56,7 @@ services.
 <h3>lmtpd, deliver, and sieve</h3>
 
 <ul>
-<li> 8-bit set characters are coerced to 'X', but not before the notify_zephyr 
+<li> 8-bit set characters are coerced to 'X', but not before the notify_zephyr
 code (if used) has had a chance to send them out.
 
 <li> Deliver does not handle messages containing NUL properly due to

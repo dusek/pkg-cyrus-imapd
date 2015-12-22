@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: nonblock_ioctl.c,v 1.13 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -51,17 +49,14 @@
 #include "xmalloc.h"
 #include "exitcodes.h"
 
-const char *nonblock_method_desc = "ioctl";
+EXPORTED const char *nonblock_method_desc = "ioctl";
 
 /*
  * Modifies the non-blocking mode on the file descriptor 'fd'.  If
  * 'mode' is nonzero, sets non-blocking mode, if 'mode' is zero
  * clears non-blocking mode.
  */
-void
-nonblock(fd, mode)
-int fd;
-int mode;
+EXPORTED void nonblock(int fd, int mode)
 {
     mode = mode ? 1 : 0;
 

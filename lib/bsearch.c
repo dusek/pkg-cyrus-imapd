@@ -38,15 +38,13 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: bsearch.c,v 1.24 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
 #include <string.h>
 
 #include "bsearch.h"
-#include "util.h"		/* TOLOWER and convert_to_lowercase */
+#include "util.h"
 
 /* Case-dependent comparison converter.
  * Treats \r and \t as end-of-string and treats '.' lower than
@@ -89,10 +87,9 @@ static unsigned char convert_to_compare[256] = {
 };
 
 /*
- * Search for a line starting with 'word'.  The search ignores case if
- * 'caseSensitive' is nonzero.  The search is performed in 'base',
- * which is of length 'len'.  'hint' gives a idea of where to start
- * looking.
+ * Search for a line starting with 'word'.  The search respects case.
+ * The search is performed in 'base', which is of length 'len'.
+ * 'hint' gives a idea of where to start looking.
  *
  * On success, the offset in 'base' of the found line is returned and
  * the length of the found line is put in the unsigned long pointed to
@@ -100,12 +97,11 @@ static unsigned char convert_to_compare[256] = {
  * be inserted is returned and zero is put in the unsigned long pointed to
  * by 'linelenp'.
  */
-int bsearch_mem(const char *word,
-		int caseSensitive,
-		const char *base,
-		unsigned long len,
-		unsigned long hint,
-		unsigned long *linelenp)
+HIDDEN int bsearch_mem_mbox(const char *word,
+		     const char *base,
+		     unsigned long len,
+		     unsigned long hint,
+		     unsigned long *linelenp)
 {
     int firstsearch = 1;
     unsigned long start = 0, end = len - 1, mid, offset;
@@ -148,29 +144,15 @@ int bsearch_mem(const char *word,
 	wordp = word;
 	p = base+offset;
 
-	if (caseSensitive) {
-	    while (n-- > 0 && (cmp = TOCOMPARE(*wordp) - TOCOMPARE(*p)) == 0) {
-		wordp++;
-		p++;
-	    }
-	    if (n >= 0 && !*wordp) {
-		cmp = TOCOMPARE('\t') - TOCOMPARE(*p);
-	    }
-	    else if (!cmp) {
-		cmp = 1;
-	    }
+	while (n-- > 0 && (cmp = TOCOMPARE(*wordp) - TOCOMPARE(*p)) == 0) {
+	    wordp++;
+	    p++;
 	}
-	else {
-	    while (n-- > 0 && (cmp = TOLOWER(*wordp) - TOLOWER(*p)) == 0) {
-		wordp++;
-		p++;
-	    }
-	    if (n >= 0 && !*wordp) {
-		cmp = TOLOWER('\t') - TOLOWER(*p);
-	    }
-	    else if (!cmp) {
-		cmp = 1;
-	    }
+	if (n >= 0 && !*wordp) {
+	    cmp = TOCOMPARE('\t') - TOCOMPARE(*p);
+	}
+	else if (!cmp) {
+	    cmp = 1;
 	}
 
 	if (!cmp) {
@@ -195,7 +177,7 @@ int bsearch_mem(const char *word,
     return p - base + 1;
 }
 
-int bsearch_compare(const char *s1, const char *s2)
+EXPORTED int bsearch_compare_mbox(const char *s1, const char *s2)
 {
     int cmp;
     char c2;
@@ -214,7 +196,7 @@ int bsearch_compare(const char *s1, const char *s2)
     }
 }
 
-int bsearch_ncompare(const char *s1, int l1, const char *s2, int l2)
+HIDDEN int bsearch_ncompare_mbox(const char *s1, int l1, const char *s2, int l2)
 {
     int min = l1 < l2 ? l1 : l2;
     int cmp = 0;
@@ -230,5 +212,45 @@ int bsearch_ncompare(const char *s1, int l1, const char *s2, int l2)
         else if (l1 > l2) return 1;
         else return 0;
     }
+}
+
+/* direct from the qsort manpage */
+EXPORTED int cmpstringp_raw(const void *p1, const void *p2)
+{
+    /* The actual arguments to this function are "pointers to
+    pointers to char", but strcmp(3) arguments are "pointers
+   to char", hence the following cast plus dereference */
+
+   return strcmpsafe(* (char * const *) p1, * (char * const *) p2);
+}
+
+EXPORTED int cmpstringp_mbox(const void *p1, const void *p2)
+{
+    const char *s1 = *((const char **)p1);
+    const char *s2 = *((const char **)p2);
+    int cmp = 0;
+
+    while (*s1 && *s2 && (cmp = TOCOMPARE(*s1) - TOCOMPARE(*s2)) == 0) {
+        s1++;
+        s2++;
+    }
+
+    return cmp;
+}
+
+
+HIDDEN int bsearch_ncompare_raw(const char *s1, int l1, const char *s2, int l2)
+{
+    int min = l1 < l2 ? l1 : l2;
+    int r = memcmp(s1, s2, min);
+
+    if (!r) {
+	if (l1 > l2)
+	    r = 1;
+	else if (l2 > l1)
+	    r = -1;
+    }
+
+    return r;
 }
 

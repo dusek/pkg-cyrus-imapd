@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: smtpclient.c,v 1.4 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -51,14 +49,13 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "xmalloc.h"
 #include "global.h"
 #include "exitcodes.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "smtpclient.h"
 
-extern void fatal(const char *buf, int code);
-
-pid_t open_sendmail(const char *argv[], FILE **sm)
+EXPORTED pid_t open_sendmail(const char *argv[], FILE **sm)
 {
     int fds[2];
     FILE *ret;
@@ -98,7 +95,7 @@ pid_t open_sendmail(const char *argv[], FILE **sm)
    the exit code from wait() from sendmail.
 
    not thread safe, but probably ok */
-char *sendmail_errstr(int sm_stat)
+EXPORTED char *sendmail_errstr(int sm_stat)
 {
     static char errstr[200];
 

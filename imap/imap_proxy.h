@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imap_proxy.h,v 1.7 2010/01/06 17:01:32 murch Exp $
  */
 
 #ifndef _IMAP_PROXY_H
@@ -48,6 +46,7 @@
 #include "annotate.h"
 #include "backend.h"
 #include "imapurl.h"
+#include "strarray.h"
 
 enum {
     PROXY_NOCONNECTION = -1,
@@ -63,7 +62,7 @@ enum {
     CAPA_MULTIAPPEND	= (1 << 5),
     CAPA_ACLRIGHTS	= (1 << 6),
     CAPA_LISTEXTENDED	= (1 << 7),
-    CAPA_REPLICATION	= (1 << 8)
+    CAPA_SASL_IR	= (1 << 8)
 };
 
 extern struct protocol_t imap_protocol;
@@ -85,9 +84,9 @@ int proxy_catenate_url(struct backend *s, struct imapurl *url, FILE *f,
 		       unsigned long *size, const char **parseerr);
 
 int annotate_fetch_proxy(const char *server, const char *mbox_pat,
-			 struct strlist *entry_pat,
-			 struct strlist *attribute_pat);
+			 const strarray_t *entry_pat,
+			 const strarray_t *attribute_pat);
 int annotate_store_proxy(const char *server, const char *mbox_pat,
 			 struct entryattlist *entryatts);
-char *find_free_server();
+char *find_free_server(void);
 #endif /* _IMAP_PROXY_H */

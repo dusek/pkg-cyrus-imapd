@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: xmalloc.h,v 1.29 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef INCLUDED_XMALLOC_H
@@ -52,9 +50,13 @@
 
 extern void *xmalloc (unsigned size);
 extern void *xzmalloc (unsigned size);
+extern void *xcalloc (unsigned nmemb, unsigned size);
 extern void *xrealloc (void *ptr, unsigned size);
 extern char *xstrdup (const char *str);
+extern char *xstrdupnull (const char *str);
+extern char *xstrdupsafe (const char *str);
 extern char *xstrndup (const char *str, unsigned len);
+extern void *xmemdup (const void *ptr, unsigned size);
 
 /* Functions using xmalloc.h must provide a function called fatal() conforming
    to the following: */

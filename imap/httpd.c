@@ -75,10 +75,12 @@
 #include "tls.h"
 #include "map.h"
 
+#include "acl.h"
 #include "exitcodes.h"
 #include "imapd.h"
 #include "imap_err.h"
 #include "http_err.h"
+#include "proc.h"
 #include "version.h"
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
@@ -89,7 +91,7 @@
 #include "userdeny.h"
 #include "message.h"
 #include "idle.h"
-#include "rfc822date.h"
+#include "times.h"
 #include "tok.h"
 #include "wildmat.h"
 #include "md5.h"
@@ -110,7 +112,7 @@
 static const char tls_message[] =
     HTML_DOCTYPE
     "<html>\n<head>\n<title>TLS Required</title>\n</head>\n" \
-    "<body>\n<h2>TLS is required to use Basic authentication</h2>\n" \
+    "<body>\n<h2>TLS is required prior to authentication</h2>\n" \
     "Use <a href=\"%s\">%s</a> instead.\n" \
     "</body>\n</html>\n";
 
@@ -176,7 +178,7 @@ static struct proxy_context httpd_proxyctx = {
 const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 /* current namespace */
-struct namespace httpd_namespace;
+HIDDEN struct namespace httpd_namespace;
 
 /* PROXY STUFF */
 /* we want a list of our outgoing connections here and which one we're
@@ -193,11 +195,6 @@ struct backend **backend_cached = NULL;
 static void starttls(int https);
 void usage(void);
 void shut_down(int code) __attribute__ ((noreturn));
-
-extern void setproctitle_init(int argc, char **argv, char **envp);
-extern int proc_register(const char *progname, const char *clienthost, 
-			 const char *userid, const char *mailbox);
-extern void proc_cleanup(void);
 
 /* Enable the resetting of a sasl_conn_t */
 static int reset_saslconn(sasl_conn_t **conn);
@@ -280,18 +277,17 @@ struct namespace_t namespace_default = {
 /* Array of different namespaces and features supported by the server */
 struct namespace_t *namespaces[] = {
 #ifdef WITH_DAV
+#ifdef WITH_JSON
+    &namespace_timezone,	/* MUST be before namespace_calendar!! */
+#endif /* WITH_JSON */
     &namespace_principal,
     &namespace_calendar,
     &namespace_addressbook,
     &namespace_ischedule,
     &namespace_domainkey,
-#ifdef WITH_JSON
-    &namespace_timezone,
-#endif
-#endif
-#ifdef WITH_RSS
+#endif /* WITH_DAV */
     &namespace_rss,
-#endif
+    &namespace_dblookup,
     &namespace_default,		/* MUST be present and be last!! */
     NULL,
 };
@@ -427,11 +423,10 @@ int service_init(int argc __attribute__((unused)),
 
     /* open the user deny db */
     denydb_init(0);
-    denydb_open(NULL);
+    denydb_open(/*create*/0);
 
     /* open annotations.db, we'll need it for collection properties */
-    annotatemore_init(0, NULL, NULL);
-    annotatemore_open(NULL);
+    annotatemore_open();
 
     /* setup for sending IMAP IDLE notifications */
     idle_enabled();
@@ -443,6 +438,11 @@ int service_init(int argc __attribute__((unused)),
     }
     /* External names are in URIs (UNIX sep) */
     httpd_namespace.hier_sep = '/';
+
+    /* open the mboxevent system */
+    mboxevent_init();
+
+    mboxevent_setnamespace(&httpd_namespace);
 
     while ((opt = getopt(argc, argv, "sp:")) != EOF) {
 	switch(opt) {
@@ -483,9 +483,9 @@ int service_init(int argc __attribute__((unused)),
     buf_printf(&serverinfo, " OpenSSL/%s", SHLIB_VERSION_NUMBER);
 #endif
 #ifdef HAVE_ZLIB
-    buf_printf(&serverinfo, " zlib/%s", ZLIB_VERSION);
+    buf_printf(&serverinfo, " Zlib/%s", ZLIB_VERSION);
 #endif
-    buf_printf(&serverinfo, " libxml/%s", LIBXML_DOTTED_VERSION);
+    buf_printf(&serverinfo, " LibXML%s", LIBXML_DOTTED_VERSION);
 
     /* Do any namespace specific initialization */
     config_httpmodules = config_getbitfield(IMAPOPT_HTTPMODULES);
@@ -602,9 +602,10 @@ int service_main(int argc __attribute__((unused)),
 	    }
 	}
     }
-    httpd_tls_required = !avail_auth_schemes;
+    httpd_tls_required =
+        config_getswitch(IMAPOPT_TLS_REQUIRED) || !avail_auth_schemes;
 
-    proc_register("httpd", httpd_clienthost, NULL, NULL);
+    proc_register("httpd", httpd_clienthost, NULL, NULL, NULL);
 
     /* Set inactivity timer */
     httpd_timeout = config_getint(IMAPOPT_HTTPTIMEOUT);
@@ -708,7 +709,6 @@ void shut_down(int code)
     denydb_done();
 
     annotatemore_close();
-    annotatemore_done();
 
     if (httpd_in) {
 	prot_NONBLOCK(httpd_in);
@@ -779,8 +779,7 @@ static void starttls(int https)
 
     result=tls_init_serverengine("http",
 				 5,        /* depth to verify */
-				 !https,   /* can client auth? */
-				 !https);  /* TLS only? */
+				 !https);  /* can client auth? */
 
     if (result == -1) {
 	syslog(LOG_ERR, "[httpd] error initializing TLS");
@@ -1207,14 +1206,20 @@ static void cmdloop(void)
 		txn.auth_chal.scheme = NULL;
 	    }
 
-	    /* Check the auth credentials */
-	    r = http_auth(hdr[0], &txn);
-	    if ((r < 0) || !txn.auth_chal.scheme) {
-		/* Auth failed - reinitialize */
-		syslog(LOG_DEBUG, "auth failed - reinit");
-		reset_saslconn(&httpd_saslconn);
-		txn.auth_chal.scheme = NULL;
-		ret = HTTP_UNAUTHORIZED;
+            if (httpd_tls_required) {
+                /* TLS required - redirect handled below */
+                ret = HTTP_UNAUTHORIZED;
+            }
+            else {
+		/* Check the auth credentials */
+		r = http_auth(hdr[0], &txn);
+		if ((r < 0) || !txn.auth_chal.scheme) {
+		    /* Auth failed - reinitialize */
+		    syslog(LOG_DEBUG, "auth failed - reinit");
+		    reset_saslconn(&httpd_saslconn);
+		    txn.auth_chal.scheme = NULL;
+		    ret = HTTP_UNAUTHORIZED;
+		}
 	    }
 	}
 	else if (!httpd_userid && txn.auth_chal.scheme) {
@@ -1343,7 +1348,8 @@ static void cmdloop(void)
 
 	    assert(!buf_len(&txn.buf));  /* Unescape buffer */
 
-	    tok_init(&tok, (char *) query, ";&=", TOK_TRIMLEFT|TOK_TRIMRIGHT);
+	    tok_init(&tok, (char *) query, ";&=",
+		     TOK_TRIMLEFT|TOK_TRIMRIGHT|TOK_EMPTY);
 	    while ((param = tok_next(&tok))) {
 		struct strlist *vals;
 		char *value = tok_next(&tok);
@@ -1456,7 +1462,7 @@ static void cmdloop(void)
 /****************************  Parsing Routines  ******************************/
 
 /* Parse URI, returning the path */
-xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
+EXPORTED xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
 		    const char **errstr)
 {
     xmlURIPtr p_uri;  /* parsed URI */
@@ -1509,7 +1515,7 @@ xmlURIPtr parse_uri(unsigned meth, const char *uri, unsigned path_reqd,
 
 
 /* Calculate compile time of a file for use as Last-Modified and/or ETag */
-time_t calc_compile_time(const char *time, const char *date)
+EXPORTED time_t calc_compile_time(const char *time, const char *date)
 {
     struct tm tm;
     char month[4];
@@ -1529,7 +1535,6 @@ time_t calc_compile_time(const char *time, const char *date)
 
     return mktime(&tm);
 }
-
 
 /* Parse Expect header(s) for interesting expectations */
 static int parse_expect(struct transaction_t *txn)
@@ -1665,7 +1670,7 @@ struct accept *parse_accept(const char **hdr)
 
 
 /* Create RFC3339 date ('buf' must be at least 21 characters) */
-char *rfc3339date_gen(char *buf, size_t len, time_t t)
+EXPORTED char *rfc3339date_gen(char *buf, size_t len, time_t t)
 {
     struct tm *tm = gmtime(&t);
 
@@ -1678,7 +1683,7 @@ char *rfc3339date_gen(char *buf, size_t len, time_t t)
 
 
 /* Create HTTP-date ('buf' must be at least 30 characters) */
-char *httpdate_gen(char *buf, size_t len, time_t t)
+EXPORTED char *httpdate_gen(char *buf, size_t len, time_t t)
 {
     static char *month[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 			     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
@@ -1696,7 +1701,7 @@ char *httpdate_gen(char *buf, size_t len, time_t t)
 
 
 /* Create an HTTP Status-Line given response code */
-const char *http_statusline(long code)
+EXPORTED const char *http_statusline(long code)
 {
     static struct buf statline = BUF_INITIALIZER;
     static unsigned tail = 0;
@@ -1726,7 +1731,7 @@ const char *http_statusline(long code)
 #define Access_Control_Expose(hdr)				\
     prot_puts(httpd_out, "Access-Control-Expose-Headers: " hdr "\r\n")
 
-void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags, ...)
+EXPORTED void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags, ...)
 {
     const char *sep = " ";
     va_list args;
@@ -1749,7 +1754,7 @@ void comma_list_hdr(const char *hdr, const char *vals[], unsigned flags, ...)
     va_end(args);
 }
 
-void allow_hdr(const char *hdr, unsigned allow)
+EXPORTED void allow_hdr(const char *hdr, unsigned allow)
 {
     const char *meths[] = {
 	"OPTIONS, GET, HEAD", "POST", "PUT", "DELETE", "TRACE", NULL
@@ -1774,7 +1779,7 @@ void allow_hdr(const char *hdr, unsigned allow)
 
 #define MD5_BASE64_LEN 25   /* ((MD5_DIGEST_LENGTH / 3) + 1) * 4 */
 
-void Content_MD5(const unsigned char *md5)
+EXPORTED void Content_MD5(const unsigned char *md5)
 {
     char base64[MD5_BASE64_LEN+1];
 
@@ -1784,7 +1789,7 @@ void Content_MD5(const unsigned char *md5)
 }
 
 
-void response_header(long code, struct transaction_t *txn)
+EXPORTED void response_header(long code, struct transaction_t *txn)
 {
     time_t now;
     char datestr[30];
@@ -1948,17 +1953,24 @@ void response_header(long code, struct transaction_t *txn)
 			    (txn->req_tgt.allow & ALLOW_WRITECOL) ?
 			    ", extended-mkcol" : "");
 		if (txn->req_tgt.allow & ALLOW_CAL) {
-		    prot_printf(httpd_out, "DAV: calendar-access%s%s\r\n",
+		    prot_printf(httpd_out, "DAV: calendar-access%s%s%s\r\n",
 				(txn->req_tgt.allow & ALLOW_CAL_AVAIL) ?
 				", calendar-availability" : "",
 				(txn->req_tgt.allow & ALLOW_CAL_SCHED) ?
-				", calendar-auto-schedule" : "");
+				", calendar-auto-schedule" : "",
+				(txn->req_tgt.allow & ALLOW_CAL_NOTZ) ?
+				", calendar-no-timezone" : "");
 
-		    /* Backwards compatibility with Apple VAV clients */
+		    /* Backwards compatibility with older Apple VAV clients */
 		    if ((txn->req_tgt.allow &
 			 (ALLOW_CAL_AVAIL | ALLOW_CAL_SCHED)) ==
-			(ALLOW_CAL_AVAIL | ALLOW_CAL_SCHED))
-			prot_printf(httpd_out, "DAV: inbox-availability\r\n");
+			(ALLOW_CAL_AVAIL | ALLOW_CAL_SCHED)) {
+			if ((hdr = spool_getheader(txn->req_hdrs, "User-Agent"))
+			    && strstr(hdr[0], "CalendarAgent/")) {
+			    prot_printf(httpd_out,
+					"DAV: inbox-availability\r\n");
+			}
+		    }
 		}
 		if (txn->req_tgt.allow & ALLOW_CARD) {
 		    prot_puts(httpd_out, "DAV: addressbook\r\n");
@@ -2239,7 +2251,7 @@ static void keep_alive(int sig)
  * All subsequent calls should have 'code' = 0 to output just a body part.
  * A final call with 'len' = 0 ends the multipart body.
  */
-void write_multipart_body(long code, struct transaction_t *txn,
+EXPORTED void write_multipart_body(long code, struct transaction_t *txn,
 			  const char *buf, unsigned len)
 {
     static char boundary[100];
@@ -2345,7 +2357,7 @@ static void multipart_byteranges(struct transaction_t *txn,
  * NOTE: HTTP/1.0 clients can't handle chunked encoding,
  *       so we use bare chunks and close the connection when done.
  */
-void write_body(long code, struct transaction_t *txn,
+EXPORTED void write_body(long code, struct transaction_t *txn,
 		const char *buf, unsigned len)
 {
     unsigned is_dynamic = code ? (txn->flags.te & TE_CHUNKED) : 1;
@@ -2508,7 +2520,7 @@ void write_body(long code, struct transaction_t *txn,
 
 
 /* Output an HTTP response with application/xml body */
-void xml_response(long code, struct transaction_t *txn, xmlDocPtr xml)
+EXPORTED void xml_response(long code, struct transaction_t *txn, xmlDocPtr xml)
 {
     xmlChar *buf;
     int bufsiz;
@@ -2546,7 +2558,7 @@ void xml_response(long code, struct transaction_t *txn, xmlDocPtr xml)
     }
 }
 
-void buf_printf_markup(struct buf *buf, unsigned level, const char *fmt, ...)
+EXPORTED void buf_printf_markup(struct buf *buf, unsigned level, const char *fmt, ...)
 {
     va_list args;
     const char *eol = "\n";
@@ -2567,7 +2579,7 @@ void buf_printf_markup(struct buf *buf, unsigned level, const char *fmt, ...)
 
 
 /* Output an HTTP error response with optional XML or HTML body */
-void error_response(long code, struct transaction_t *txn)
+EXPORTED void error_response(long code, struct transaction_t *txn)
 {
     struct buf *html = &txn->resp_body.payload;
 
@@ -2749,7 +2761,7 @@ static void auth_success(struct transaction_t *txn)
     struct auth_scheme_t *scheme = txn->auth_chal.scheme;
     int i;
 
-    proc_register("httpd", httpd_clienthost, httpd_userid, (char *)0);
+    proc_register("httpd", httpd_clienthost, httpd_userid, NULL, NULL);
 
     syslog(LOG_NOTICE, "login: %s %s %s%s %s SESSIONID=<%s>",
 	   httpd_clienthost, httpd_userid, scheme->name,
@@ -3055,7 +3067,7 @@ static int http_auth(const char *creds, struct transaction_t *txn)
 /* Compare an etag in a header to a resource etag.
  * Returns 0 if a match, non-zero otherwise.
  */
-int etagcmp(const char *hdr, const char *etag)
+EXPORTED int etagcmp(const char *hdr, const char *etag)
 {
     size_t len;
 
@@ -3229,7 +3241,7 @@ static int parse_ranges(const char *hdr, unsigned long len,
  * Interaction is complex and is documented in RFC 4918 and
  * Section 5 of HTTPbis, Part 4.
  */
-int check_precond(struct transaction_t *txn, const void *data,
+EXPORTED int check_precond(struct transaction_t *txn, const void *data,
 		  const char *etag, time_t lastmod)
 {
     const char *lock_token = NULL;
@@ -3302,9 +3314,8 @@ int check_precond(struct transaction_t *txn, const void *data,
 
     /* Step 2 */
     else if ((hdr = spool_getheader(hdrcache, "If-Unmodified-Since"))) {
-	since = message_parse_date((char *) hdr[0],
-				   PARSE_DATE|PARSE_TIME|PARSE_ZONE|
-				   PARSE_GMT|PARSE_NOCREATE);
+	if (time_from_rfc822(hdr[0], &since))
+	    return HTTP_BAD_REQUEST;
 
 	if (since && (lastmod > since)) return HTTP_PRECOND_FAILED;
 
@@ -3326,9 +3337,8 @@ int check_precond(struct transaction_t *txn, const void *data,
     /* Step 4 */
     else if ((txn->meth == METH_GET || txn->meth == METH_HEAD) &&
 	     (hdr = spool_getheader(hdrcache, "If-Modified-Since"))) {
-	since = message_parse_date((char *) hdr[0],
-				   PARSE_DATE|PARSE_TIME|PARSE_ZONE|
-				   PARSE_GMT|PARSE_NOCREATE);
+	if (time_from_rfc822(hdr[0], &since))
+	    return HTTP_BAD_REQUEST;
 
 	if (lastmod <= since) return HTTP_NOT_MODIFIED;
 
@@ -3340,9 +3350,7 @@ int check_precond(struct transaction_t *txn, const void *data,
 	txn->meth == METH_GET && (hdr = spool_getheader(hdrcache, "Range"))) {
 
 	if ((hdr = spool_getheader(hdrcache, "If-Range"))) {
-	    since = message_parse_date((char *) hdr[0],
-				       PARSE_DATE|PARSE_TIME|PARSE_ZONE|
-				       PARSE_GMT|PARSE_NOCREATE);
+	    time_from_rfc822(hdr[0], &since); /* error OK here, could be an etag */
 	}
 
 	/* Only process Range if If-Range isn't present or validator matches */
@@ -3626,7 +3634,7 @@ static int meth_get(struct transaction_t *txn,
 
 
 /* Perform an OPTIONS request */
-int meth_options(struct transaction_t *txn, void *params)
+EXPORTED int meth_options(struct transaction_t *txn, void *params)
 {
     parse_path_t parse_path = (parse_path_t) params;
     int r, i;
@@ -3741,7 +3749,7 @@ static void trace_cachehdr(const char *name, const char *contents, void *rock)
 }
 
 /* Perform an TRACE request */
-int meth_trace(struct transaction_t *txn, void *params)
+EXPORTED int meth_trace(struct transaction_t *txn, void *params)
 {
     parse_path_t parse_path = (parse_path_t) params;
     const char **hdr;
@@ -3767,9 +3775,9 @@ int meth_trace(struct transaction_t *txn, void *params)
 
 	if (*txn->req_tgt.mboxname) {
 	    /* Locate the mailbox */
-	    char *server;
+	    mbentry_t *mbentry = NULL;
 
-	    r = http_mlookup(txn->req_tgt.mboxname, &server, NULL, NULL);
+	    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
 	    if (r) {
 		syslog(LOG_ERR, "mlookup(%s) failed: %s",
 		       txn->req_tgt.mboxname, error_message(r));
@@ -3782,16 +3790,19 @@ int meth_trace(struct transaction_t *txn, void *params)
 		}
 	    }
 
-	    if (server) {
+	    if (mbentry->server) {
 		/* Remote mailbox */
 		struct backend *be;
 
-		be = proxy_findserver(server, &http_protocol, proxy_userid,
+		be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				      &backend_cached, NULL, NULL, httpd_in);
+		mboxlist_entry_free(&mbentry);
 		if (!be) return HTTP_UNAVAILABLE;
 
 		return http_pipe_req_resp(be, txn);
 	    }
+
+	    mboxlist_entry_free(&mbentry);
 
 	    /* Local mailbox */
 	}
@@ -3813,4 +3824,12 @@ int meth_trace(struct transaction_t *txn, void *params)
     write_body(HTTP_OK, txn, buf_cstring(msg), buf_len(msg));
 
     return 0;
+}
+
+/* simple wrapper to implicity add READFB if we have the READ ACL */
+EXPORTED int httpd_myrights(struct auth_state *authstate, const char *acl)
+{
+    int rights = acl ? cyrus_acl_myrights(authstate, acl) : 0;
+    if ((rights & DACL_READ) == DACL_READ) rights |= DACL_READFB;
+    return rights;
 }

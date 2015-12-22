@@ -41,8 +41,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: ipurge.c,v 1.35 2010/01/06 17:01:35 murch Exp $
  */
 
 #include <config.h>
@@ -58,17 +56,13 @@
 
 /* cyrus includes */
 #include "global.h"
-#include "sysexits.h"
 #include "exitcodes.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "mailbox.h"
 #include "xmalloc.h"
 #include "mboxlist.h"
 #include "util.h"
 #include "sync_log.h"
-
-/* config.c stuff */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 /* globals for getopt routines */
 extern char *optarg;
@@ -77,14 +71,13 @@ extern int  opterr;
 extern int  optopt;
 
 /* globals for callback functions */
-int days = -1;
-int size = -1;
-int exact = -1;
-int pattern = -1;
-int skipflagged = 0;
-int onlydeleted = 0;
-int use_sentdate = 1;
-int invertmatch = 0;
+static int days = -1;
+static int size = -1;
+static int exact = -1;
+static int skipflagged = 0;
+static int onlydeleted = 0;
+static int use_sentdate = 1;
+static int invertmatch = 0;
 
 /* for statistical purposes */
 typedef struct mbox_stats_s {
@@ -99,15 +92,15 @@ typedef struct mbox_stats_s {
 /* current namespace */
 static struct namespace purge_namespace;
 
-int verbose = 1;
-int forceall = 0;
+static int verbose = 1;
+static int forceall = 0;
 
-int purge_me(char *, int, int);
-unsigned purge_check(struct mailbox *mailbox,
+static int purge_me(char *, int, int, void *);
+static unsigned purge_check(struct mailbox *mailbox,
 		     struct index_record *record,
 		     void *rock);
-int usage(char *name);
-void print_stats(mbox_stats_t *stats);
+static int usage(const char *name);
+static void print_stats(mbox_stats_t *stats);
 
 int main (int argc, char *argv[]) {
   int option;		/* getopt() returns an int */
@@ -115,7 +108,7 @@ int main (int argc, char *argv[]) {
   char *alt_config = NULL;
   int r;
 
-  if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+  if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
       fatal("must run as the Cyrus user", EC_USAGE);
   }
 
@@ -175,13 +168,18 @@ int main (int argc, char *argv[]) {
     usage(argv[0]);
   }
 
-  cyrus_init(alt_config, "ipurge", 0);
+  cyrus_init(alt_config, "ipurge", 0, CONFIG_NEED_PARTITION_DATA);
+
+  /* setup for mailbox event notifications */
+  mboxevent_init();
 
   /* Set namespace -- force standard (internal) */
   if ((r = mboxname_init_namespace(&purge_namespace, 1)) != 0) {
       syslog(LOG_ERR, "%s", error_message(r));
       fatal(error_message(r), EC_CONFIG);
   }
+
+  mboxevent_setnamespace(&purge_namespace);
 
   mboxlist_init(0);
   mboxlist_open(NULL);
@@ -217,12 +215,12 @@ int main (int argc, char *argv[]) {
   mboxlist_done();
 
   cyrus_done();
-  
+
   return 0;
 }
 
-int
-usage(char *name) {
+static int usage(const char *name)
+{
   printf("usage: %s [-f] [-s] [-C <alt_config>] [-x] [-X] [-i] [-o] {-d days | -b bytes|-k Kbytes|-m Mbytes}\n\t[mboxpattern1 ... [mboxpatternN]]\n", name);
   printf("\tthere are no defaults and at least one of -d, -b, -k, -m\n\tmust be specified\n");
   printf("\tif no mboxpattern is given %s works on all mailboxes\n", name);
@@ -236,8 +234,10 @@ usage(char *name) {
 }
 
 /* we don't check what comes in on matchlen and maycreate, should we? */
-int purge_me(char *name, int matchlen __attribute__((unused)),
-	     int maycreate __attribute__((unused))) {
+static int purge_me(char *name, int matchlen __attribute__((unused)),
+		    int maycreate __attribute__((unused)),
+		    void *rock __attribute__((unused)))
+{
   struct mailbox *mailbox = NULL;
   int r;
   mbox_stats_t stats;
@@ -265,7 +265,7 @@ int purge_me(char *name, int matchlen __attribute__((unused)),
     return r;
   }
 
-  mailbox_expunge(mailbox, purge_check, &stats, NULL);
+  mailbox_expunge(mailbox, purge_check, &stats, NULL, EVENT_MESSAGE_EXPUNGE);
 
   mailbox_close(&mailbox);
 
@@ -274,7 +274,7 @@ int purge_me(char *name, int matchlen __attribute__((unused)),
   return 0;
 }
 
-void deleteit(bit32 msgsize, mbox_stats_t *stats)
+static void deleteit(bit32 msgsize, mbox_stats_t *stats)
 {
     stats->deleted++;
     stats->deleted_bytes += msgsize;
@@ -282,7 +282,7 @@ void deleteit(bit32 msgsize, mbox_stats_t *stats)
 
 /* thumbs up routine, checks date & size and returns yes or no for deletion */
 /* 0 = no, 1 = yes */
-unsigned purge_check(struct mailbox *mailbox __attribute__((unused)),
+static unsigned purge_check(struct mailbox *mailbox __attribute__((unused)),
 		     struct index_record *record,
 		     void *deciderock)
 {
@@ -355,7 +355,7 @@ unsigned purge_check(struct mailbox *mailbox __attribute__((unused)),
   }
 }
 
-void print_stats(mbox_stats_t *stats)
+static void print_stats(mbox_stats_t *stats)
 {
     printf("total messages    \t\t %d\n",stats->total);
     printf("total bytes       \t\t %d\n",stats->total_bytes);

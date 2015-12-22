@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: global.h,v 1.16 2010/06/28 12:03:42 brong Exp $
  */
 
 #ifndef INCLUDED_GLOBAL_H
@@ -57,7 +55,8 @@
 
 /* Flags for cyrus_init() */
 enum {
-    CYRUSINIT_NODB =	(1<<0)
+    CYRUSINIT_NODB =	(1<<0),
+    CYRUSINIT_PERROR =	(1<<1)
 };
 
 /* Startup the configuration subsystem */
@@ -65,12 +64,12 @@ enum {
  * for any libimap/libcyrus process, and should be called fairly early
  * (and needs an associated cyrus_done call) */
 extern int cyrus_init(const char *alt_config, const char *ident,
-		      unsigned flags);
+		      unsigned flags, int config_need_data);
 extern void global_sasl_init(int client, int server,
 			     const sasl_callback_t *callbacks);
 
 /* Shutdown a cyrus process */
-extern void cyrus_done();
+extern void cyrus_done(void);
 
 /* sasl configuration */
 extern int mysasl_config(void *context,
@@ -83,7 +82,8 @@ extern sasl_security_properties_t *mysasl_secprops(int flags);
 typedef int (mysasl_cb_ft)(void);
 
 /* user canonification */
-extern char *canonify_userid(char *user, char *loginid, int *domain_from_ip);
+extern const char *canonify_userid(char *user, const char *loginid,
+				   int *domain_from_ip);
 
 extern int is_userid_anonymous(const char *user);
 
@@ -121,52 +121,76 @@ struct proxy_context {
 /* imap parsing functions (imapparse.c) */
 int getword(struct protstream *in, struct buf *buf);
 
+/* Flags for getxstring() */
 /* IMAP_BIN_ASTRING is an IMAP_ASTRING that does not perform the
  * does-not-contain-a-NULL check (in the case of a literal) */
-enum string_types { IMAP_ASTRING,
-		    IMAP_BIN_ASTRING,
-		    IMAP_NSTRING,
-		    IMAP_QSTRING,
-		    IMAP_STRING };
+enum getxstring_flags {
+    GXS_ATOM	= (1<<0),   /* result may be a bare atom */
+    GXS_QUOTED	= (1<<1),   /* result may be "quoted" */
+    GXS_LITERAL	= (1<<2),   /* result may be {N}literal */
+    GXS_NIL	= (1<<3),   /* result may be the special atom NIL */
+    GXS_BINARY	= (1<<4),   /* result may contain embedded NULs */
+
+    IMAP_ASTRING = GXS_ATOM|GXS_QUOTED|GXS_LITERAL,
+    IMAP_BIN_ASTRING = IMAP_ASTRING|GXS_BINARY,
+    IMAP_NSTRING = GXS_NIL|GXS_QUOTED|GXS_LITERAL,
+    IMAP_BIN_NSTRING = IMAP_NSTRING|GXS_BINARY,
+    IMAP_QSTRING = GXS_QUOTED,
+    IMAP_STRING = GXS_QUOTED|GXS_LITERAL,
+
+    /* note: there's some consistency issues here... the special
+     * value "NIL" must be quoted to get returned as a string */
+    IMAP_NASTRING = GXS_NIL|GXS_ATOM|GXS_QUOTED|GXS_LITERAL,
+};
 
 int getxstring(struct protstream *pin, struct protstream *pout,
-	       struct buf *buf, int type);
+	       struct buf *buf, enum getxstring_flags);
 #define getastring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_ASTRING)
 #define getbastring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_BIN_ASTRING)
 #define getnstring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_NSTRING)
+#define getbnstring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_BIN_NSTRING)
 #define getqstring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_QSTRING)
 #define getstring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_STRING)
+#define getnastring(pin, pout, buf) getxstring((pin), (pout), (buf), IMAP_NASTRING)
 int getint32(struct protstream *pin, int *num);
+int getsint32(struct protstream *pin, int *num);
 int getuint32(struct protstream *pin, unsigned int *num);
+int getint64(struct protstream *pin, int64_t *num);
+int getsint64(struct protstream *pin, int64_t *num);
+int getuint64(struct protstream *pin, uint64_t *num);
+int getmodseq(struct protstream *pin, modseq_t *num);
 
 void eatline(struct protstream *pin, int c);
 
 /* Misc utils */
-extern void cyrus_ctime(time_t date, char *datebuf);
 extern int shutdown_file(char *buf, int size);
-extern char *find_free_partition(unsigned long *tavail);
+extern char *find_msgid(char *, char **);
+#define UNIX_SOCKET "[unix socket]"
+extern const char *get_clienthost(int s,
+				  const char **localip, const char **remoteip);
 
 /* Misc globals */
 extern int in_shutdown;
 extern int config_fulldirhash;
 extern int config_implicitrights;
 extern unsigned long config_metapartition_files;
-extern struct cyrusdb_backend *config_mboxlist_db;
-extern struct cyrusdb_backend *config_quota_db;
-extern struct cyrusdb_backend *config_subscription_db;
-extern struct cyrusdb_backend *config_annotation_db;
-extern struct cyrusdb_backend *config_seenstate_db;
-extern struct cyrusdb_backend *config_mboxkey_db;
-extern struct cyrusdb_backend *config_duplicate_db;
-extern struct cyrusdb_backend *config_tlscache_db;
-extern struct cyrusdb_backend *config_ptscache_db;
-extern struct cyrusdb_backend *config_statuscache_db;
-extern struct cyrusdb_backend *config_userdeny_db;
-extern struct cyrusdb_backend *config_zoneinfo_db;
+extern const char *config_mboxlist_db;
+extern const char *config_quota_db;
+extern const char *config_subscription_db;
+extern const char *config_annotation_db;
+extern const char *config_seenstate_db;
+extern const char *config_mboxkey_db;
+extern const char *config_duplicate_db;
+extern const char *config_tls_sessions_db;
+extern const char *config_ptscache_db;
+extern const char *config_statuscache_db;
+extern const char *config_userdeny_db;
+extern const char *config_zoneinfo_db;
+extern int charset_flags;
 
 /* Session ID */
-extern void session_new_id();
-extern const char *session_id();
+extern void session_new_id(void);
+extern const char *session_id(void);
 extern void parse_sessionid(const char *str, char *sessionid);
 
 /* Capability suppression */

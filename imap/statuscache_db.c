@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: statuscache_db.c,v 1.8 2010/01/06 17:01:41 murch Exp $
  */
 
 #include <config.h>
@@ -50,20 +48,17 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <syslog.h>
 
 #include "assert.h"
 #include "cyrusdb.h"
-#include "exitcodes.h"
 #include "imapd.h"
 #include "global.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "mboxlist.h"
 #include "mailbox.h"
 #include "seen.h"
@@ -75,11 +70,12 @@
 
 #define DB config_statuscache_db
 
-struct db *statuscachedb;
+static struct db *statuscachedb;
 static int statuscache_dbopen = 0;
 
-void statuscache_open(const char *fname)
+EXPORTED void statuscache_open(void)
 {
+    const char *fname = NULL;
     int ret;
     char *tofree = NULL;
 
@@ -92,25 +88,25 @@ void statuscache_open(const char *fname)
 	fname = tofree;
     }
 
-    ret = DB->open(fname, CYRUSDB_CREATE, &statuscachedb);
+    ret = cyrusdb_open(DB, fname, CYRUSDB_CREATE, &statuscachedb);
     if (ret != 0) {
 	syslog(LOG_ERR, "DBERROR: opening %s: %s", fname,
 	       cyrusdb_strerror(ret));
 	syslog(LOG_ERR, "statuscache in degraded mode");
 	return;
-    }
+    }    
 
     free(tofree);
 
     statuscache_dbopen = 1;
 }
 
-void statuscache_close(void)
+EXPORTED void statuscache_close(void)
 {
     int r;
 
     if (statuscache_dbopen) {
-	r = DB->close(statuscachedb);
+	r = cyrusdb_close(statuscachedb);
 	if (r) {
 	    syslog(LOG_ERR, "DBERROR: error closing statuscache: %s",
 		   cyrusdb_strerror(r));
@@ -119,7 +115,7 @@ void statuscache_close(void)
     }
 }
 
-void statuscache_fill(struct statusdata *sdata, const char *userid,
+HIDDEN void statuscache_fill(struct statusdata *sdata, const char *userid,
 		      struct mailbox *mailbox, unsigned statusitems,
 		      unsigned numrecent, unsigned numunseen)
 {
@@ -137,16 +133,16 @@ void statuscache_fill(struct statusdata *sdata, const char *userid,
     sdata->highestmodseq = mailbox->i.highestmodseq;
 }
 
-void statuscache_done(void)
+EXPORTED void statuscache_done(void)
 {
     /* DB->done() handled by cyrus_done() */
 }
 
 static char *statuscache_buildkey(const char *mailboxname, const char *userid,
-				  int *keylen)
+				  size_t *keylen)
 {
     static char key[MAX_MAILBOX_BUFFER];
-    int len;
+    size_t len;
 
     /* Build statuscache key */
     len = strlcpy(key, mailboxname, sizeof(key));
@@ -164,7 +160,7 @@ static char *statuscache_buildkey(const char *mailboxname, const char *userid,
 /*
  * Performs a STATUS command - note: state MAY be NULL here.
  */
-int status_lookup(const char *mboxname, const char *userid,
+EXPORTED int status_lookup(const char *mboxname, const char *userid,
 		  unsigned statusitems, struct statusdata *sdata)
 {
     struct mailbox *mailbox = NULL;
@@ -263,10 +259,11 @@ int status_lookup(const char *mboxname, const char *userid,
     return r;
 }
 
-int statuscache_lookup(const char *mboxname, const char *userid,
+EXPORTED int statuscache_lookup(const char *mboxname, const char *userid,
 		       unsigned statusitems, struct statusdata *sdata)
 {
-    int keylen, datalen, r = 0;
+    size_t keylen, datalen;
+    int r = 0;
     const char *data = NULL, *dend;
     char *p, *key = statuscache_buildkey(mboxname, userid, &keylen);
     unsigned version;
@@ -279,7 +276,7 @@ int statuscache_lookup(const char *mboxname, const char *userid,
 
     /* Check if there is an entry in the database */
     do {
-	r = DB->fetch(statuscachedb, key, keylen, &data, &datalen, NULL);
+	r = cyrusdb_fetch(statuscachedb, key, keylen, &data, &datalen, NULL);
     } while (r == CYRUSDB_AGAIN);
 
     if (r || !data || ((size_t) datalen < sizeof(unsigned))) {
@@ -300,11 +297,7 @@ int statuscache_lookup(const char *mboxname, const char *userid,
     if (p < dend) sdata->uidnext = strtoul(p, &p, 10);
     if (p < dend) sdata->uidvalidity = strtoul(p, &p, 10);
     if (p < dend) sdata->unseen = strtoul(p, &p, 10);
-#ifdef HAVE_LONG_LONG_INT
     if (p < dend) sdata->highestmodseq = strtoull(p, &p, 10);
-#else
-    if (p < dend) sdata->highestmodseq = strtoul(p, &p, 10);
-#endif
 
     /* Sanity check the data */
     if (!sdata->statusitems || !sdata->uidnext || !sdata->uidvalidity) {
@@ -319,12 +312,12 @@ int statuscache_lookup(const char *mboxname, const char *userid,
     return 0;
 }
 
-static int statuscache_update_txn(const char *mboxname,
-				  struct statusdata *sdata,
-				  struct txn **tidptr)
+static int statuscache_store(const char *mboxname,
+			     struct statusdata *sdata,
+			     struct txn **tidptr)
 {
     char data[250];  /* enough room for 11*(UULONG + SP) */
-    int keylen, datalen;
+    size_t keylen, datalen;
     char *key = statuscache_buildkey(mboxname, sdata->userid, &keylen);
     int r;
 
@@ -344,7 +337,7 @@ static int statuscache_update_txn(const char *mboxname,
 		       sdata->uidvalidity, sdata->unseen,
 		       sdata->highestmodseq);
 
-    r = DB->store(statuscachedb, key, keylen, data, datalen, tidptr);
+    r = cyrusdb_store(statuscachedb, key, keylen, data, datalen, tidptr);
 
     if (r != CYRUSDB_OK) {
 	syslog(LOG_ERR, "DBERROR: error updating database: %s (%s)",
@@ -354,21 +347,15 @@ static int statuscache_update_txn(const char *mboxname,
     return r;
 }
 
-int statuscache_update(const char *mboxname, struct statusdata *sdata)
-{
-    statuscache_update_txn(mboxname, sdata, NULL);
-    return 0; 
-}
-
 struct statuscache_deleterock {
     struct db *db;
     struct txn *tid;
 };
 
 static int delete_cb(void *rockp,
-                     const char *key, int keylen,
+                     const char *key, size_t keylen,
                      const char *data __attribute__((unused)),
-                     int datalen __attribute__((unused))) 
+                     size_t datalen __attribute__((unused))) 
 {
     int r;
     char buf[4096];
@@ -383,7 +370,7 @@ static int delete_cb(void *rockp,
     memcpy(buf, key, keylen);
 
     /* Delete db entry */
-    r = DB->delete(rp->db, buf, keylen, &rp->tid, 1);
+    r = cyrusdb_delete(rp->db, buf, keylen, &rp->tid, 1);
     if (r != CYRUSDB_OK) {
 	syslog(LOG_ERR, "DBERROR: error deleting from database: %s", 
 	       cyrusdb_strerror(r));
@@ -392,10 +379,11 @@ static int delete_cb(void *rockp,
     return 0;
 }
 
-int statuscache_invalidate(const char *mboxname, struct statusdata *sdata)
+HIDDEN int statuscache_invalidate(const char *mboxname, struct statusdata *sdata)
 {
-    int keylen, r;
+    size_t keylen;
     char *key;
+    int r;
     int doclose = 0;
     struct statuscache_deleterock drock;
 
@@ -405,7 +393,7 @@ int statuscache_invalidate(const char *mboxname, struct statusdata *sdata)
 
     /* Open DB if it hasn't been opened */
     if (!statuscache_dbopen) {
-	statuscache_open(NULL);
+	statuscache_open();
 	doclose = 1;
     }
 
@@ -414,21 +402,25 @@ int statuscache_invalidate(const char *mboxname, struct statusdata *sdata)
 
     key = statuscache_buildkey(mboxname, /*userid*/NULL, &keylen);
 
-    r = DB->foreach(drock.db, key, keylen, NULL, delete_cb,
+    r = cyrusdb_foreach(drock.db, key, keylen, NULL, delete_cb,
 		    &drock, &drock.tid);
+
     if (r != CYRUSDB_OK) {
 	syslog(LOG_ERR, "DBERROR: error invalidating: %s (%s)",
 	       mboxname, cyrusdb_strerror(r));
     }
 
     if (!r && sdata) {
-	r = statuscache_update_txn(mboxname, sdata, &drock.tid);
+	r = statuscache_store(mboxname, sdata, &drock.tid);
     }
 
-    if (r != CYRUSDB_OK)
-	DB->abort(drock.db, drock.tid);
-    else
-	DB->commit(drock.db, drock.tid);
+    if (r == CYRUSDB_OK) {
+	cyrusdb_commit(drock.db, drock.tid);
+    }
+    else {
+	syslog(LOG_NOTICE, "DBERROR: failed to store statuscace data for %s", mboxname);
+	if (drock.tid) cyrusdb_abort(drock.db, drock.tid);
+    }
 
     if (doclose)
 	statuscache_close();

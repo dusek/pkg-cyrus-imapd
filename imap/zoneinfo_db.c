@@ -69,7 +69,7 @@ struct db *zoneinfodb;
 static int zoneinfo_dbopen = 0;
 static struct buf databuf = BUF_INITIALIZER;
 
-int zoneinfo_open(const char *fname)
+EXPORTED int zoneinfo_open(const char *fname)
 {
     int ret;
     char *tofree = NULL;
@@ -82,7 +82,7 @@ int zoneinfo_open(const char *fname)
 	fname = tofree;
     }
 
-    ret = DB->open(fname, CYRUSDB_CREATE, &zoneinfodb);
+    ret = cyrusdb_open(DB, fname, CYRUSDB_CREATE, &zoneinfodb);
     if (ret != 0) {
 	syslog(LOG_ERR, "DBERROR: opening %s: %s", fname,
 	       cyrusdb_strerror(ret));
@@ -94,19 +94,19 @@ int zoneinfo_open(const char *fname)
     return ret;
 }
 
-void zoneinfo_close(struct txn *tid)
+EXPORTED void zoneinfo_close(struct txn *tid)
 {
     if (zoneinfo_dbopen) {
 	int r;
 
 	if (tid) {
-	    r = DB->commit(zoneinfodb, tid);
+	    r = cyrusdb_commit(zoneinfodb, tid);
 	    if (r) {
 		syslog(LOG_ERR, "DBERROR: error committing zoneinfo: %s",
 		       cyrusdb_strerror(r));
 	    }
 	}
-	r = DB->close(zoneinfodb);
+	r = cyrusdb_close(zoneinfodb);
 	if (r) {
 	    syslog(LOG_ERR, "DBERROR: error closing zoneinfo: %s",
 		   cyrusdb_strerror(r));
@@ -152,10 +152,11 @@ static int parse_zoneinfo(const char *data, int datalen,
     return 0;
 }
 
-int zoneinfo_lookup(const char *tzid, struct zoneinfo *zi)
+EXPORTED int zoneinfo_lookup(const char *tzid, struct zoneinfo *zi)
 {
-    int r, datalen;
     const char *data = NULL;
+    size_t datalen;
+    int r;
 
     /* Don't access DB if it hasn't been opened */
     if (!zoneinfo_dbopen) return CYRUSDB_INTERNAL;
@@ -164,15 +165,17 @@ int zoneinfo_lookup(const char *tzid, struct zoneinfo *zi)
 
     /* Check if there is an entry in the database */
     do {
-	r = DB->fetch(zoneinfodb, tzid, strlen(tzid), &data, &datalen, NULL);
+	r = cyrusdb_fetch(zoneinfodb, tzid, strlen(tzid), &data, &datalen, NULL);
     } while (r == CYRUSDB_AGAIN);
 
     if (r || !data || (datalen < 6)) return r ? r : CYRUSDB_IOERROR;
 
+    if (!zi) return 0;
+
     return parse_zoneinfo(data, datalen, zi, 1);
 }
 
-int zoneinfo_store(const char *tzid, struct zoneinfo *zi, struct txn **tid)
+EXPORTED int zoneinfo_store(const char *tzid, struct zoneinfo *zi, struct txn **tid)
 {
     struct strlist *sl;
     const char *sep;
@@ -189,7 +192,7 @@ int zoneinfo_store(const char *tzid, struct zoneinfo *zi, struct txn **tid)
     for (sl = zi->data, sep = ""; sl; sl = sl->next, sep = "\t")
 	buf_printf(&databuf, "%s%s", sep, sl->s);
 
-    r = DB->store(zoneinfodb, tzid, strlen(tzid),
+    r = cyrusdb_store(zoneinfodb, tzid, strlen(tzid),
 		  buf_cstring(&databuf), buf_len(&databuf), tid);
 
     if (r != CYRUSDB_OK) {
@@ -244,8 +247,9 @@ struct findrock {
     void *rock;
 };
 
-static int find_p(void *rock, const char *tzid, int tzidlen,
-		  const char *data, int datalen)
+static int find_p(void *rock,
+		  const char *tzid, size_t tzidlen,
+		  const char *data, size_t datalen)
 {
     struct findrock *frock = (struct findrock *) rock;
     struct zoneinfo zi;
@@ -265,13 +269,13 @@ static int find_p(void *rock, const char *tzid, int tzidlen,
     }
 
     if (!frock->find) return 1;
-    else if (frock->tzid_only) return (tzidlen == (int) strlen(frock->find));
-    else return tzmatch(tzid, frock->find);
+    if (frock->tzid_only) return (tzidlen == strlen(frock->find));
+    return tzmatch(tzid, frock->find);
 }
 
 static int find_cb(void *rock,
-		   const char *tzid, int tzidlen,
-		   const char *data, int datalen)
+		   const char *tzid, size_t tzidlen,
+		   const char *data, size_t datalen)
 {
     struct findrock *frock = (struct findrock *) rock;
     struct zoneinfo zi;
@@ -297,7 +301,7 @@ static int find_cb(void *rock,
     return r;
 }
 
-int zoneinfo_find(const char *find, int tzid_only, time_t changedsince,
+EXPORTED int zoneinfo_find(const char *find, int tzid_only, time_t changedsince,
 		  int (*proc)(), void *rock)
 {
     struct findrock frock;
@@ -316,6 +320,6 @@ int zoneinfo_find(const char *find, int tzid_only, time_t changedsince,
     if (!find || !tzid_only) find = "";
 
     /* process each matching entry in our database */
-    return DB->foreach(zoneinfodb, (char *) find, strlen(find),
-		       &find_p, &find_cb, &frock, NULL);
+    return cyrusdb_foreach(zoneinfodb, (char *) find, strlen(find),
+			   &find_p, &find_cb, &frock, NULL);
 }

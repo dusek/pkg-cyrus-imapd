@@ -38,18 +38,16 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imapd.h,v 1.72 2010/01/06 17:01:34 murch Exp $
  */
 
 #ifndef INCLUDED_IMAPD_H
 #define INCLUDED_IMAPD_H
 
 #include "annotate.h"
-#include "charset.h"
 #include "hash.h"
 #include "mailbox.h"
 #include "prot.h"
+#include "strarray.h"
 
 /* Userid client has logged in as */
 extern char *imapd_userid;
@@ -60,10 +58,22 @@ extern struct auth_state *imapd_authstate;
 /* Client capabilities (via ENABLE) */
 extern unsigned imapd_client_capa;
 
+struct octetinfo
+{
+    int start_octet;
+    int octet_count;
+};
+
+struct section {
+    char *name;
+    struct octetinfo octetinfo;
+    struct section *next;
+};
+
 /* List of HEADER.FIELDS[.NOT] fetch specifications */
 struct fieldlist {
     char *section;		/* First part of BODY[x] value */
-    struct strlist *fields;	/* List of field-names */
+    strarray_t *fields;		/* Array of field-names */
     char *trail;		/* Last part of BODY[x] value */
     void *rock;
     struct fieldlist *next;
@@ -72,12 +82,12 @@ struct fieldlist {
 /* Items that may be fetched */
 struct fetchargs {
     int fetchitems;		  /* Bitmask */
-    struct strlist *binsections;  /* BINARY[x]<x> values */
-    struct strlist *sizesections; /* BINARY.SIZE[x] values */
-    struct strlist *bodysections; /* BODY[x]<x> values */
+    struct section *binsections;  /* BINARY[x]<x> values */
+    struct section *sizesections; /* BINARY.SIZE[x] values */
+    struct section *bodysections; /* BODY[x]<x> values */
     struct fieldlist *fsections;  /* BODY[xHEADER.FIELDSx]<x> values */
-    struct strlist *headers;	  /* RFC822.HEADER.LINES */
-    struct strlist *headers_not;  /* RFC822.HEADER.LINES.NOT */
+    strarray_t headers;		  /* RFC822.HEADER.LINES */
+    strarray_t headers_not;	  /* RFC822.HEADER.LINES.NOT */
     int start_octet;              /* start_octet for partial fetch */
     int octet_count;              /* octet_count for partial fetch, or 0 */
     modseq_t changedsince;        /* changed since modseq, or 0 */
@@ -87,12 +97,12 @@ struct fetchargs {
 
     bit32 cache_atleast;          /* to do headers we need atleast this
 				   * cache version */
-};
-
-struct octetinfo 
-{
-    int start_octet;
-    int octet_count;
+    struct namespace *namespace; 
+    const char *userid;
+    strarray_t entries;		  /* for FETCH_ANNOTATION */
+    strarray_t attribs;
+    int isadmin;
+    struct auth_state *authstate;
 };
 
 /* Bitmasks for fetchitems */
@@ -110,7 +120,8 @@ enum {
     FETCH_SETSEEN =             (1<<10),
 /*     FETCH_UNCACHEDHEADER =      (1<<11) -- obsolete */
     FETCH_IS_PARTIAL =          (1<<12), /* this is the PARTIAL command */
-    FETCH_MODSEQ =		(1<<13)
+    FETCH_MODSEQ =		(1<<13),
+    FETCH_ANNOTATION =		(1<<14)
 };
 
 enum {
@@ -122,24 +133,48 @@ enum {
 /* Arguments to Store functions */
 struct storeargs {
     int operation;
+    int usinguid;
     modseq_t unchangedsince; /* unchanged since modseq, or ULLONG_MAX */
     int silent;
     int seen;
-    bit32 system_flags;
+    /* for STORE_*_FLAGS */
+    uint32_t system_flags;
+    /* Note that we must pass the user flags as names because the
+     * lookup of user flag names must proceed under the index lock */
+    strarray_t flags;
+    /* for STORE_ANNOTATION */
+    struct entryattlist *entryatts;
+    struct namespace *namespace;
+    int isadmin;
+    const char *userid;
+    struct auth_state *authstate;
     /* private to index.c */
     bit32 user_flags[MAX_USER_FLAGS/32];
     time_t update_time;
-    int usinguid;
     /* private to index_storeflag() */
     unsigned last_msgno;
     unsigned last_found;
+    /* returned to caller */
+    struct seqset *modified;
 };
 
 /* values for operation */
 enum {
-    STORE_ADD = 1,
-    STORE_REMOVE = 2,
-    STORE_REPLACE = 3
+    STORE_ADD_FLAGS = 1,
+    STORE_REMOVE_FLAGS,
+    STORE_REPLACE_FLAGS,
+    STORE_ANNOTATION
+};
+
+struct searchannot {
+    struct searchannot *next;
+    char *entry;
+    char *attrib;
+    struct namespace *namespace;
+    int isadmin;
+    const char *userid;
+    struct auth_state *auth_state;
+    struct buf value;
 };
 
 struct searchsub {
@@ -192,6 +227,7 @@ struct searchargs {
     struct strlist *header_name, *header;
     struct searchsub *sublist;
     modseq_t modseq;
+    struct searchannot *annotations;
 
     bit32 cache_atleast;
 
@@ -207,7 +243,7 @@ struct sortcrit {
     union {			/* argument(s) to the sort key */
 	struct {
 	    char *entry;
-	    char *attrib;
+	    char *userid;
 	} annot;
     } args;
 };
@@ -225,7 +261,8 @@ enum {
     SORT_SUBJECT,
     SORT_TO,
     SORT_ANNOTATION,
-    SORT_MODSEQ
+    SORT_MODSEQ,
+    SORT_UID
     /* values > 255 are reserved for internal use */
 };
 
@@ -248,9 +285,10 @@ struct listargs {
     unsigned sel;		/* Selection options */
     unsigned ret;		/* Return options */
     const char *ref;		/* Reference name */
-    struct strlist *pat;	/* Mailbox pattern(s) */
+    strarray_t pat;		/* Mailbox pattern(s) */
     const char *scan;		/* SCAN content */
     hash_table server_table;	/* for proxying SCAN */
+    unsigned statusitems;       /* for RETURN STATUS */
 };
 
 /* Value for List command variant */
@@ -265,13 +303,17 @@ enum {
 enum {
     LIST_SEL_SUBSCRIBED =	(1<<0),
     LIST_SEL_REMOTE =		(1<<1),
-    LIST_SEL_RECURSIVEMATCH =	(1<<2)
+    LIST_SEL_RECURSIVEMATCH =	(1<<2),
+    LIST_SEL_SPECIALUSE =	(1<<3)
 };
 
 /* Bitmask for List return options */
 enum {
     LIST_RET_SUBSCRIBED =	(1<<0),
-    LIST_RET_CHILDREN =		(1<<1)
+    LIST_RET_CHILDREN =		(1<<1),
+    LIST_RET_SPECIALUSE =	(1<<2),
+    LIST_RET_STATUS =		(1<<3),
+    LIST_RET_MYRIGHTS =		(1<<4)
 };
 
 /* Bitmask for List name attributes */
@@ -294,7 +336,7 @@ enum {
 /* Bitmask for client capabilities */
 enum {
     CAPA_CONDSTORE =	(1<<0),
-    CAPA_QRESYNC = 	(1<<1)
+    CAPA_QRESYNC =	(1<<1)
 };
 
 /* Bitmask for urlfetch params */

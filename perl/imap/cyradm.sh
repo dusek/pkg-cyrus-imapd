@@ -1,4 +1,6 @@
 #! /bin/sh
+exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
+#!perl
 #
 # Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
 #
@@ -39,20 +41,9 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: cyradm.sh,v 1.21 2010/01/06 17:01:55 murch Exp $
 
-INCS=
-SITEARCH="@INSTALLSITEARCH@"
-if [ -n "$SITEARCH" -a -d "$SITEARCH" ]; then
-    INCS="-I$SITEARCH"
-fi
-
-case "x$BASH_VERSION" in
-x) exec perl $INCS -MCyrus::IMAP::Shell -e shell -- ${1+"$@"} ;;
-*) exec perl $INCS -MCyrus::IMAP::Shell -e shell -- "$@" ;;
-esac
-echo "$0: how did I get here?" >&2
-exit 1
+use Cyrus::IMAP::Shell;
+shell;
 
 =head1 NAME
 
@@ -62,6 +53,7 @@ cyradm - Cyrus administration shell, alter ego of Cyrus::IMAP::Shell
 
   $ cyradm [--user user] [--[no]rc] [--systemrc file] [--userrc file] \
   > [--port n] [--auth mechanism] [--tlskey keyfile] [--notls] \
+  > [--cafile cacertfile] [--cadir cacertdir] \
   > [--server] server
 
 but possibly
@@ -84,11 +76,11 @@ forms and GNU-style long option forms.
 
 =over 4
 
-=item C<authenticate> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<authenticate> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
-=item C<auth> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<auth> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
-=item C<login> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<login> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
 Authenticate to server.  You must already be connected to a server and
 Cyrus imapd will refuse to allow you to re-authenticate once you have
@@ -101,20 +93,19 @@ authenticated once.
 Change directory.  A C<pwd> builtin is not provided, but the default command
 action will run C<pwd> from a shell if invoked.
 
-=item C<createmailbox> [C<--partition> I<partition>] I<mailbox>
+=item C<createmailbox> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<createmailbox> I<mailbox> I<partition>
+=item C<create> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<create> [C<--partition> I<partition>] I<mailbox>
+=item C<create> [C<--specialuse> I<specialuse>] I<mailbox> I<partition>
 
-=item C<create> I<mailbox> I<partition>
+=item C<cm> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<cm> [C<--partition> I<partition>] I<mailbox>
-
-=item C<cm> I<mailbox> I<partition>
+=item C<cm> [C<--specialuse> I<specialuse>] I<mailbox> I<partition>
 
 Create a mailbox on the default or a specified partition.  Both old-style
 and getopt-style usages are accepted (combining them will produce an error).
+Optionally assign a special use to the mailbox.
 
 =item C<deleteaclmailbox> I<mailbox> I<id> [...]
 
@@ -171,15 +162,15 @@ Display the mailbox/server metadata.
 
 List ACLs on the specified mailbox.
 
-=item C<listmailbox> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<listmailbox> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-=item C<list> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<list> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-=item C<lm> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<lm> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-List all, or all subscribed, mailboxes matching the specified pattern.
-The pattern may have embedded wildcards C<'*'> or C<'%'>, which match
-anything or anything except the separator character, respectively.
+List all, or all subscribed or special-use, mailboxes matching the specified
+pattern.  The pattern may have embedded wildcards C<'*'> or C<'%'>, which
+match anything or anything except the separator character, respectively.
 
 Mailboxes returned will be relative to the specified reference if one
 is specified.  This allows a mailbox list to be limited to a particular
@@ -206,11 +197,13 @@ find the quota root for a mailbox.
 
 show quota roots and quotas for mailbox
 
-=item C<mboxconfig> I<mailbox> I<attribute> I<value>
+=item C<mboxconfig> [C<--private>] I<mailbox> I<attribute> I<value>
 
-=item C<mboxcfg> I<mailbox> I<attribute> I<value>
+=item C<mboxcfg> [C<--private>] I<mailbox> I<attribute> I<value>
 
-Set mailbox metadata.  A value of "none" will remove the attribute.
+Set mailbox metadata, optionally set the private instead of the shared
+version of the metadata. A value of "none" will remove the attribute.
+
 The currently supported attributes are:
 
 =over 4
@@ -227,6 +220,12 @@ Sets the number of days after which messages will be expired from the mailbox.
 
 Sets an email address to which messages injected into the server via NNTP 
 will be sent.
+
+=item C<pop3showafter>
+
+Sets a time (in RFC3501 format, for example "6-Jan-2011 11:45:32 +1100")
+which specifies a cutoff date such that POP3 fetching of the folder does
+not see messages whose internaldate is before or equal to the date.
 
 =item C<sharedseen>
 
@@ -277,7 +276,7 @@ server.  It will prompt for automatic login unless the C<--noauthenticate>
 option is specified.  (This may change; in particular, either automatic
 authentication will be removed or all C<authenticate> options will be added.)
 
-When connected to a server, B<cyradm>'s prompt changes from C<cyradmE<gt>> to
+When connected to a server, the B<cyradm> prompt changes from C<cyradmE<gt>> to
 C<servernameE<gt>>, where I<servername> is the fully qualified domain name
 of the connected server.
 
@@ -289,7 +288,7 @@ of the connected server.
 
 Set ACLs on a mailbox.  The ACL may be one of the special strings C<none>,
 C<read> (C<lrs>), C<post> (C<lrsp>), C<append> (C<lrsip>), C<write>
-(C<lrswipkxte>), C<delete> (C<lrxte>), or C<all> (C<lrswipkxte>), or
+(C<lrswipkxten>), C<delete> (C<lrxten>), or C<all> (C<lrswipkxten>), or
 any combinations of the ACL codes:
 
 =over 4
@@ -339,6 +338,10 @@ Perform EXPUNGE and expunge as part of CLOSE
 =item a
 
 Administer (SETACL/DELETEACL/GETACL/LISTRIGHTS)
+
+=item n
+
+Add, delete or modify annotations
 
 =back
 

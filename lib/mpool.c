@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mpool.c,v 1.19 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -50,13 +48,9 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <syslog.h>
-#include <errno.h>
 
-#include "assert.h"
 #include "mpool.h"
 #include "xmalloc.h"
 #include "exitcodes.h"
@@ -88,7 +82,7 @@ static struct mpool_blob *new_mpool_blob(size_t size)
 }
 
 /* Create a new pool */
-struct mpool *new_mpool(size_t size) 
+EXPORTED struct mpool *new_mpool(size_t size)
 {
     struct mpool *ret = xmalloc(sizeof(struct mpool));
 
@@ -98,7 +92,7 @@ struct mpool *new_mpool(size_t size)
 }
 
 /* Free a pool */
-void free_mpool(struct mpool *pool) 
+EXPORTED void free_mpool(struct mpool *pool)
 {
     struct mpool_blob *p, *p_next;
 
@@ -129,7 +123,7 @@ void free_mpool(struct mpool *pool)
 #define ROUNDUP(num) (((num) + 15) & (~((unsigned long) 0x0) ^ 0xF))
 
 /* Allocate from a pool */
-void *mpool_malloc(struct mpool *pool, size_t size) 
+EXPORTED void *mpool_malloc(struct mpool *pool, size_t size)
 {
     void *ret = NULL;
     struct mpool_blob *p;
@@ -171,7 +165,7 @@ void *mpool_malloc(struct mpool *pool, size_t size)
     return ret;
 }
 
-char *mpool_strndup(struct mpool *pool, const char *str, size_t n) 
+EXPORTED char *mpool_strndup(struct mpool *pool, const char *str, size_t n)
 {
     char *ret;
     
@@ -185,7 +179,7 @@ char *mpool_strndup(struct mpool *pool, const char *str, size_t n)
 }
 
 
-char *mpool_strdup(struct mpool *pool, const char *str) 
+EXPORTED char *mpool_strdup(struct mpool *pool, const char *str)
 {
     size_t len;
     

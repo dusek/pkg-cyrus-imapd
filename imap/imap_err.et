@@ -38,8 +38,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
-# $Id: imap_err.et,v 1.56 2010/01/06 17:01:32 murch Exp $
 
 error_table imap
 
@@ -48,6 +46,9 @@ ec IMAP_INTERNAL,
 
 ec IMAP_IOERROR,
    "System I/O error"
+
+ec IMAP_NOTFOUND,
+   "Item does not exist"
 
 ec IMAP_SYS_ERROR,
    "Operating System Error"
@@ -73,7 +74,10 @@ ec IMAP_NAMESPACE_BADPREFIX,
 ec IMAP_MAILBOX_BADFORMAT,
    "Mailbox has an invalid format"
 
-ec IMAP_MAILBOX_CRC,
+ec IMAP_SYNC_CHECKSUM,
+   "Replication inconsistency detected"
+
+ec IMAP_MAILBOX_CHECKSUM,
    "Mailbox format corruption detected"
 
 ec IMAP_MAILBOX_NOTSUPPORTED,
@@ -99,6 +103,9 @@ ec IMAP_MAILBOX_RESERVED,
 
 ec IMAP_MAILBOX_LOCKED,
    "Mailbox is locked"
+
+ec IMAP_MAILBOX_DISABLED,
+   "Delivery to mailbox is disabled"
 
 ec IMAP_PARTITION_UNKNOWN,
    "Unknown/invalid partition"
@@ -195,10 +202,10 @@ ec IMAP_SASL_PROTERR,
 # Following used for internationalization of untagged OK/NO responses
 
 ec IMAP_NO_OVERQUOTA,
-   "Mailbox is over quota"
+   "Mailbox is over %s quota"
 
 ec IMAP_NO_CLOSEQUOTA,
-   "Mailbox is at %d%% of quota"
+   "Mailbox is at %d%% of %s quota"
 
 ec IMAP_NO_MSGGONE,
    "Message %d no longer exists"

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: notify.c,v 1.17 2010/01/06 17:01:38 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -47,7 +45,6 @@
 #endif
 
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
@@ -60,7 +57,6 @@
 
 #include "global.h"
 #include "notify.h"
-#include "xmalloc.h"
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
 
@@ -81,14 +77,14 @@ static int add_arg(char *buf, int max_size, const char *arg, int *buflen)
     return 0;
 }
 
-void notify(const char *method,
+EXPORTED void notify(const char *method,
 	    const char *class, const char *priority,
 	    const char *user, const char *mailbox,
 	    int nopt, const char **options,
 	    const char *message)
 {
     const char *notify_sock;
-    int soc;
+    int soc = -1;
     struct sockaddr_un sun_data;
     char buf[NOTIFY_MAXSIZE] = "", noptstr[20];
     int buflen = 0;
@@ -97,7 +93,7 @@ void notify(const char *method,
     soc = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (soc == -1) {
 	syslog(LOG_ERR, "unable to create notify socket(): %m");
-	return;
+	goto out;
     }
 
     memset((char *)&sun_data, 0, sizeof(sun_data));
@@ -137,18 +133,22 @@ void notify(const char *method,
     if (r) {
         syslog(LOG_ERR, "notify datagram too large, %s, %s",
 	       user, mailbox);
-	close(soc);
-	return;
+	goto out;
     }
 
     r = sendto(soc, buf, buflen, 0,
 	       (struct sockaddr *)&sun_data, sizeof(sun_data));
-    if (r < buflen) {
+
+    if (r < 0) {
 	syslog(LOG_ERR, "unable to sendto() notify socket: %m");
-	return;
+	goto out;
+    }
+    if (r < buflen) {
+	syslog(LOG_ERR, "short write to notify socket");
+	goto out;
     }
 
-    close(soc);
-
+out:
+    xclose(soc);
     return;
 }

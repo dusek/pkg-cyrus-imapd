@@ -40,8 +40,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: readconfig.c,v 1.11 2010/01/06 17:01:54 murch Exp $
  */
 
 /*   Copyright 1991 Rich Salz.
@@ -71,7 +69,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "macros.h"
 
@@ -460,6 +457,7 @@ callback_list(struct imclient *imclient,
 	      void *rock,
 	      struct imclient_reply *reply)
 {
+    (void)imclient; (void)rock;
     char *s, *end;
     char *mailbox, *attributes, *separator;
     int c;
@@ -486,6 +484,7 @@ callback_list(struct imclient *imclient,
 	if (*s != '\"') return;
 	*s++ = '\0';
     }
+    (void)separator;
 
     if (*s++ != ' ') return;
     c = imparse_astring(&s, &mailbox);

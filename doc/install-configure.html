@@ -1,14 +1,15 @@
-<!-- $Id: install-configure.html,v 1.36 2010/01/06 17:01:29 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Installing and configuring the IMAP Server
 </title>
 </head>
-<h1>Installing and configuring the IMAP Server
-</h1>
 <body>
+<h1>Installing and configuring the IMAP Server</h1>
 
-This section describes the shell scripts to run and the configuration 
+This section describes the shell scripts to run and the configuration
 files to modify once "<tt>configure</tt>" and "<tt>make</tt>" have run.
 
 <ol> <li>Create a user and group for the Cyrus subsystem.  The
@@ -42,7 +43,7 @@ it does not, replace the system "<tt>syslogd</tt>" and
    mv syslog.conf /etc/syslog.conf
 </kbd></pre>
 
-If you do not copy the "<tt>syslog/syslog.conf</tt>" file to the 
+If you do not copy the "<tt>syslog/syslog.conf</tt>" file to the
 "<tt>/etc</tt>" directory, be sure to add support for
 "<tt>local6.debug</tt>".  The file should include a line like:
 
@@ -115,7 +116,7 @@ cyrus user and group and should not permit access to other users.
 <li>Create the default partition directories specified in the
 "<tt>/etc/imapd.conf</tt>" file.
 
-<p>This document uses a default partition directory of 
+<p>This document uses a default partition directory of
 "<tt>/var/spool/imap</tt>" in the following example:
 
 <pre>
@@ -180,7 +181,7 @@ synchronously.  The following example is for sendmail:
 <p><li>To enable STARTTLS support, see <a href="#openssl">how to
 configure OpenSSL</a> below.
 
-<p><li>Add the following lines to the "<tt>/etc/services</tt>" file if they 
+<p><li>Add the following lines to the "<tt>/etc/services</tt>" file if they
 aren't already there.
 
 <pre>
@@ -193,8 +194,8 @@ aren't already there.
    imaps     993/tcp
    pop3s     995/tcp
    kpop      1109/tcp
-   sieve     2000/tcp
    lmtp      2003/tcp
+   sieve     4190/tcp
    fud       4201/udp
 </pre>
 
@@ -205,7 +206,7 @@ removed from <tt>/etc/[x]inetd.conf</tt> and [x]inetd needs to be
 restarted.
 </ol>
 
-<a name="master"><h3>Configuring the Master Process</h3></a>
+<h3><a name="master">Configuring the Master Process</a></h3>
 
 <ol>
 <li> Choose a configuration from the <tt>master/conf</tt> directory:
@@ -280,7 +281,7 @@ specific signal numbers - check your own system before using this):
 </pre>
 </ol>
 
-<a name="mta"><h3>Configuring the Mail Transfer Agent</h3></a>
+<h3><a name="mta">Configuring the Mail Transfer Agent</a></h3>
 
 <p>In order to deliver mail to the Cyrus system, you'll have to
 configure your MTA (Sendmail, Postfix, Exim, etc.) to use LMTP.
@@ -310,11 +311,11 @@ If you wish to change the name of the UNIX socket or switch to TCP,
 define <tt>CYRUSV2_MAILER_ARGS</tt> appropriately as described in
 <TT>cf/README</TT>.</li>
 
-<p><li> For Sendmail 8.10 - 8.12.3, use the <a
+<li> For Sendmail 8.10 - 8.12.3, use the <a
 href="cyrusv2.mc">cyrusv2.mc</a> file as a template to create a
 Sendmail configuration file.</li>
 
-<p><li> For Sendmail 8.9.x and earlier, use the <tt>cyrus</tt> mailer
+<li> For Sendmail 8.9.x and earlier, use the <tt>cyrus</tt> mailer
 definition in the Sendmail distribution:
 
 <pre>
@@ -353,7 +354,7 @@ to select a different GID for Cyrus.  See the Cyrus configure options
 was more crucial when the use of Cyrus' "<tt>deliver</tt>" was more
 prevalent, but it is still a good idea to follow this policy.)
 
-<p>Another thing to note is the location of your "<tt>sendmail</tt>"  
+<p>Another thing to note is the location of your "<tt>sendmail</tt>"
 command.  On some platforms this will be "<tt>/usr/sbin/sendmail</tt>",
 on others, "<tt>/usr/lib/sendmail</tt>".  Cyrus will need to know where
 this command is.  See <a href="install-sieve.html">Installing Sieve</a>
@@ -387,12 +388,12 @@ message store capability of Cyrus.  The concurrency limit can be
 used to control how many simultaneous LMTP sessions will be
 permitted to the Cyrus message store.
 
-<p>Additional examples are included in the Postfix 
+<p>Additional examples are included in the Postfix
 file "<tt>README_FILES/LMTP_README</tt>".
 
 <h4>Configuring <a href="http://www.exim.org/">Exim 4</a></h4>
 
-Generate an Exim configuration file which delivers local mail to the
+<p>Generate an Exim configuration file which delivers local mail to the
 IMAP server.  See the Exim documentation for information on how to
 create a complete configuration file.
 
@@ -400,20 +401,18 @@ create a complete configuration file.
 are usually no local user accounts.  As a result, you must define the
 following "router":
 
-<ul>
 <pre>
 localuser:
   driver = accept
   transport = local_delivery
 </pre>
-</ul>
 
 <p>The following "transports" assume that you are using either the
 <tt>lmtpunix</tt> or <tt>lmtp</tt> service from one of the sample
 <tt>cyrus.conf</tt> files discussed above.
 
 <ul>
-<p><li> Using <tt>lmtpunix</tt> (UNIX socket):
+<li> Using <tt>lmtpunix</tt> (UNIX socket):
 
 <pre>
 local_delivery:
@@ -424,7 +423,7 @@ local_delivery:
 </pre>
 </li>
 
-<p><li> Using <tt>lmtp</tt> (TCP socket -- Exim and Cyrus on same host):
+<li> Using <tt>lmtp</tt> (TCP socket -- Exim and Cyrus on same host):
 
 <pre>
 local_delivery:
@@ -442,9 +441,9 @@ consult the Exim documentation and sample configurations.
 <h3>Exporting Netnews via IMAP</h3>
 
 If you wish to use export Netnews via IMAP, consult <a
-href=install-netnews.html>install-netnews.html</a>.
+href="install-netnews.html">install-netnews.html</a>.
 
-<a name="openssl"><h2>SSL, TLS, and OpenSSL</h2></a>
+<h2><a name="openssl">SSL, TLS, and OpenSSL</a></h2>
 
 <p>Transport Layer Security (TLS), is a standardized version of the Secure
 Sockets Layer (SSL v3) standard.  IMAP can make use of two different
@@ -471,7 +470,7 @@ authenticate the client.</p>
 <li><p>OpenSSL requires the certificate and key in PEM format.  You can
 create the server's private key and certificate yourself using
 OpenSSL.  Here, we create a self-signed  key for the machine
-"<tt>foobar.andrew.cmu.edu</tt>" and put both the certificate and key 
+"<tt>foobar.andrew.cmu.edu</tt>" and put both the certificate and key
 in the file "<tt>/var/imap/server.pem</tt>".</p>
 
 <p>Please do not blindly enter in the information to OpenSSL
@@ -509,15 +508,15 @@ example: <kbd>chown cyrus /var/imap/server.pem</kbd>
 <li>Add the following to <tt>/etc/imapd.conf</tt> to tell the server
 where to find the certificate and key files (used for ALL services):
 
-<pre>tls_cert_file: /var/imap/server.pem
-tls_key_file: /var/imap/server.pem
+<pre>server_cert_file: /var/imap/server.cert
+server_key_file: /var/imap/server.key
 </pre>
 
 Optionally, you can use separate certificates and key files for each
 service:
 
-<pre>[servicename]_tls_cert_file: /var/imap/imap-server.pem
-[servicename]_tls_key_file: /var/imap/imap-server.pem
+<pre>[servicename]_server_cert_file: /var/imap/imap-server.cert
+[servicename]_server_key_file: /var/imap/imap-server.key
 </pre>
 
 &quot;servicename&quot; here refers to the name of the service as specified
@@ -565,12 +564,12 @@ client certificates.  To do this, try the following:</p>
 authenticate DN (distinguished name) to a SASL authentication
 name.</p>
 
-<a name="altnamespace"><h2>Alternate Namespace and UNIX Hierarchy
-Convention</h2></a>
+<h2><a name="altnamespace">Alternate Namespace and UNIX Hierarchy
+Convention</a></h2>
 
 If you wish to use the alternate namespace and/or the UNIX hierarchy
 convention, consult <a
-href=altnamespace.html#altnameconfig>altnamespace.html</a>.
+href="altnamespace.html#altnameconfig">altnamespace.html</a>.
 
 <P><HR>
 last modified: $Date: 2010/01/06 17:01:29 $

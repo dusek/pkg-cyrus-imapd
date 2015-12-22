@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: gmtoff_gmtime.c,v 1.13 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
@@ -47,9 +45,7 @@
 /*
  * Returns the GMT offset of the struct tm 'tm', obtained from 'time'.
  */
-int gmtoff_of(tm, time)
-struct tm *tm;
-time_t time;
+EXPORTED int gmtoff_of(struct tm *tm, time_t time)
 {
     struct tm local, gmt;
     struct tm *gtm;

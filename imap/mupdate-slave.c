@@ -38,24 +38,16 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mupdate-slave.c,v 1.33 2010/07/27 19:22:54 wescraig Exp $
  */
 
 #include <config.h>
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
 #include <signal.h>
-#include <ctype.h>
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
 #include <syslog.h>
-#ifdef HAVE_STDARG_H
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -73,15 +65,12 @@
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
 #include "global.h"
-#include "assert.h"
-#include "imparse.h"
-#include "iptostring.h"
 #include "mpool.h"
 #include "mupdate.h"
 #include "exitcodes.h"
 
 /* Returns file descriptor of kick socket (or does not return) */
-static int open_kick_socket() 
+static int open_kick_socket(void)
 {
     int r,s,len;
     char fnamebuf[2048];

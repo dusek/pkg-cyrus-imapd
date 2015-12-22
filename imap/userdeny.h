@@ -38,26 +38,26 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: userdeny.h,v 1.1 2010/04/23 19:48:52 murch Exp $
  */
 
 #ifndef INCLUDED_USERDENY_H
 #define INCLUDED_USERDENY_H
 
-#include "cyrusdb.h"
 #include <config.h>
-
-#define FNAME_USERDENYDB "/user_deny.db"
-#define USERDENY_VERSION 2
-
-extern struct db *denydb;
 
 extern int userdeny(const char *user, const char *service,
 		    char *msgbuf, size_t bufsiz);
+extern int denydb_set(const char *user, const char *service,
+		    const char *msg);
+extern int denydb_delete(const char *user);
+
+/* iterate the user deny db */
+typedef int (*denydb_proc_t)(const char *user, const char *services,
+			     const char *message, void *rock);
+extern int denydb_foreach(denydb_proc_t, void *rock);
 
 /* open the user deny db */
-void denydb_open(const char *fname);
+int denydb_open(int create);
 
 /* close the database */
 void denydb_close(void);

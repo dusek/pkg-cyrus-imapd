@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: arbitron.c,v 1.48 2010/01/06 17:01:30 murch Exp $
  */
 
 #include <config.h>
@@ -50,31 +48,23 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <dirent.h>
-#include <errno.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
 
-#include "assert.h"
 #include "global.h"
 #include "exitcodes.h"
 #include "hash.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "mailbox.h"
 #include "mpool.h"
 #include "mboxlist.h"
-#include "convert_code.h"
 #include "seen.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
-
-/* config.c stuff */
-const int config_need_data = 0;
 
 #define DB (config_seenstate_db)
 #define SUBDB (config_subscription_db)
@@ -96,20 +86,19 @@ struct arb_mailbox_data {
     struct user_list *subscribers;
 };
 
-struct mpool *arb_pool;
-hash_table mailbox_table, mboxname_table;
+static struct mpool *arb_pool;
+static hash_table mailbox_table, mboxname_table;
 
-time_t report_start_time = -1, report_end_time, prune_time = 0;
-int code = 0;
-int dosubs = 1;
-int dousers = 0;
-int long_report = 0;
+static time_t report_start_time = -1, report_end_time, prune_time = 0;
+static int dosubs = 1;
+static int dousers = 0;
+static int long_report = 0;
 
 /* current namespace */
 static struct namespace arb_namespace;
 
 /* forward declarations */
-static void usage(void);
+static void usage(void) __attribute__((noreturn));
 static void run_users(void);
 static void make_report(const char *key, void *data, void *rock);
 static void process_seen(const char *path, const char *user);
@@ -127,7 +116,7 @@ int main(int argc,char **argv)
 
     strcpy(pattern, "*");
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -146,7 +135,7 @@ int main(int argc,char **argv)
 	    break;
 
 	case 'D': {
-	    unsigned  month, day, year;
+	    unsigned  month = 0, day = 0, year = 0;
 	    struct tm date;
 
 	    if (strlen(optarg) < 8 ||
@@ -196,7 +185,7 @@ int main(int argc,char **argv)
     }
 
     /* Init Cyrus Backend Foo */
-    cyrus_init(alt_config, "arbitron", 0);
+    cyrus_init(alt_config, "arbitron", 0, 0);
 
     mboxlist_init(0);
     mboxlist_open(NULL);
@@ -248,7 +237,7 @@ int main(int argc,char **argv)
 
     cyrus_done();
 
-    return code;
+    return 0;
 }
 
 static void usage(void)
@@ -355,14 +344,14 @@ static void run_users(void)
 }
 
 static int process_user_cb(void *rockp,
-			   const char *key, int keylen,
+			   const char *key, size_t keylen,
 			   const char *tmpdata __attribute__((unused)),
-			   int tmpdatalen __attribute__((unused))) 
+			   size_t tmpdatalen __attribute__((unused))) 
 {
     /* Only called to do deletes */
 /*    printf("pruning entry\n"); */
     
-    DB->delete((struct db *)rockp, key, keylen, NULL, 0);    
+    cyrusdb_delete((struct db *)rockp, key, keylen, NULL, 0);    
 
     return 0;    
 }
@@ -370,9 +359,9 @@ static int process_user_cb(void *rockp,
 /* We can cheat and do all we need to in this function */
 static int process_user_p(void *rockp,
 			  const char *key,
-			  int keylen,
+			  size_t keylen,
 			  const char *data,
-			  int datalen __attribute__((unused))) 
+			  size_t datalen __attribute__((unused))) 
 {
     int ret = 0;    
     long version, lastread;
@@ -383,6 +372,7 @@ static int process_user_p(void *rockp,
 
     /* remember that 'data' may not be null terminated ! */
     version = strtol(data, &p, 10); data = p;
+    if (version < 0) abort();
     /* xxx not checking version */
     lastread = strtol(data, &p, 10); data = p;
     
@@ -419,29 +409,29 @@ static void process_seen(const char *path, const char *user)
     int r;    
     struct db *tmp = NULL;
 
-    r = (DB->open)(path, 0, &tmp);
+    r = cyrusdb_open(DB, path, 0, &tmp);
     if(r) goto done;
     
-    DB->foreach(tmp, "", 0, process_user_p, process_user_cb,
+    cyrusdb_foreach(tmp, "", 0, process_user_p, process_user_cb,
 		(void *) user, NULL);
 
  done:
-    if(tmp) (DB->close)(tmp);
+    if(tmp) cyrusdb_close(tmp);
 }
 
 static int process_subs_cb(void *rockp __attribute__((unused)),
 			   const char *key __attribute__((unused)),
-			   int keylen __attribute__((unused)),
+			   size_t keylen __attribute__((unused)),
 			   const char *tmpdata __attribute__((unused)),
-			   int tmpdatalen __attribute__((unused))) 
+			   size_t tmpdatalen __attribute__((unused))) 
 {
     return 0;
 }
 
 static int process_subs_p(void *rockp,
-			  const char *key, int keylen,
+			  const char *key, size_t keylen,
 			  const char *tmpdata __attribute__((unused)),
-			  int tmpdatalen __attribute__((unused))) 
+			  size_t tmpdatalen __attribute__((unused))) 
 {
     struct arb_mailbox_data *mbox;
     char buf[MAX_MAILBOX_BUFFER];
@@ -475,17 +465,17 @@ static void process_subs(const char *path, const char *user)
     int r;    
     struct db *tmp = NULL;
 
-    r = (SUBDB->open)(path, 0, &tmp);
+    r = cyrusdb_open(SUBDB, path, 0, &tmp);
     if(r) goto done;
     
-    SUBDB->foreach(tmp, "", 0, process_subs_p, process_subs_cb,
+    cyrusdb_foreach(tmp, "", 0, process_subs_p, process_subs_cb,
 		   (void *) user, NULL);
 
  done:
-    if(tmp) (SUBDB->close)(tmp);
+    if(tmp) cyrusdb_close(tmp);
 }
 
-void report_users(struct user_list *u)
+static void report_users(struct user_list *u)
 {
     char sep = ':';
 
@@ -496,7 +486,7 @@ void report_users(struct user_list *u)
     }
 }
 
-void long_report_users(struct user_list *u, const char *mbox, char type)
+static void long_report_users(struct user_list *u, const char *mbox, char type)
 {
     char buf[100];
     struct tm *tm;

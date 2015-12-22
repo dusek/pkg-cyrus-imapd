@@ -38,14 +38,13 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth_pts.c,v 1.16 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -54,18 +53,15 @@
 #include <sys/un.h>
 #include <sys/uio.h>
 
-#include "auth.h"
 #include "auth_pts.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "libcyr_cfg.h"
-#include "cyr_lock.h"
 #include "retry.h"
 #include "strhash.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 
 static char *canonuser_id = NULL;
 static struct auth_state *canonuser_cache = NULL;
@@ -77,8 +73,8 @@ static struct auth_state *canonuser_cache = NULL;
 #define TS_WRITE 2
 #define TS_RW 3
 
-static int
-timeout_select (int sock, int op, int sec) {
+static int timeout_select(int sock, int op, int sec)
+{
   struct timeval tv;
   int r;
   fd_set rfds, wfds, *rp, *wp;
@@ -123,8 +119,8 @@ timeout_select (int sock, int op, int sec) {
 }
 
 
-static int
-nb_connect(int s, struct sockaddr *sa, socklen_t slen, int sec) {
+static int nb_connect(int s, struct sockaddr *sa, socklen_t slen, int sec)
+{
   int flags, r, rc=0;
 
   if ((flags = fcntl(s, F_GETFL,0)) == -1) {
@@ -226,7 +222,7 @@ static int mymemberof(struct auth_state *auth_state,
  * Returns a pointer to a static buffer containing the canonical form
  * or NULL if 'identifier' is invalid.
  */
-static char *mycanonifyid(const char *identifier,
+static const char *mycanonifyid(const char *identifier,
 		      size_t len __attribute__((unused)))
 {
     static char retbuf[PTS_DB_KEYSIZE];
@@ -328,7 +324,7 @@ static struct auth_state *mynewstate(const char *identifier)
     return output;
 }
 
-static struct cyrusdb_backend *the_ptscache_db = NULL;
+static const char *the_ptscache_db = NULL;
 
 /* Returns 0 on success */
 static int ptload(const char *identifier, struct auth_state **state) 
@@ -336,7 +332,7 @@ static int ptload(const char *identifier, struct auth_state **state)
     struct auth_state *fetched = NULL;
     size_t id_len;
     const char *data = NULL;
-    int dsize;
+    size_t dsize;
     const char *fname = NULL;
     char *tofree = NULL;
     struct db *ptdb;
@@ -352,8 +348,7 @@ static int ptload(const char *identifier, struct auth_state **state)
 
     /* xxx this sucks, but it seems to be the only way to satisfy the linker */
     if(the_ptscache_db == NULL) {
-	the_ptscache_db =
-	    cyrusdb_fromname(libcyrus_config_getstring(CYRUSOPT_PTSCACHE_DB));
+	the_ptscache_db = libcyrus_config_getstring(CYRUSOPT_PTSCACHE_DB);
     }
 
     if(!state || *state) {
@@ -366,7 +361,7 @@ static int ptload(const char *identifier, struct auth_state **state)
 	tofree = strconcat(config_dir, PTS_DBFIL, (char *)NULL);
 	fname = tofree;
     }
-    r = (the_ptscache_db->open)(fname, CYRUSDB_CREATE, &ptdb);
+    r = cyrusdb_open(the_ptscache_db, fname, CYRUSDB_CREATE, &ptdb);
     if (r != 0) {
 	syslog(LOG_ERR, "DBERROR: opening %s: %s", fname,
 	       cyrusdb_strerror(ret));
@@ -385,7 +380,7 @@ static int ptload(const char *identifier, struct auth_state **state)
     }
       
     /* fetch the current record for the user */
-    r = the_ptscache_db->fetch(ptdb, identifier, id_len,
+    r = cyrusdb_fetch(ptdb, identifier, id_len,
 			       &data, &dsize, NULL);
     if (r && r != CYRUSDB_NOTFOUND) {
         syslog(LOG_ERR, "auth_newstate: error fetching record: %s",
@@ -483,7 +478,7 @@ static int ptload(const char *identifier, struct auth_state **state)
     }
 
     /* fetch the current record for the user */
-    r = the_ptscache_db->fetch(ptdb, identifier, id_len, 
+    r = cyrusdb_fetch(ptdb, identifier, id_len, 
 			       &data, &dsize, NULL);
     if (r != 0 || !data) {
 	syslog(LOG_ERR, "ptload(): error fetching record: %s"
@@ -511,7 +506,7 @@ static int ptload(const char *identifier, struct auth_state **state)
     }
 
     /* close and unlock the database */
-    (the_ptscache_db->close)(ptdb);
+    (cyrusdb_close)(ptdb);
 
     return rc;
 }
@@ -521,7 +516,7 @@ static void myfreestate(struct auth_state *auth_state)
     free(auth_state);
 }
 
-struct auth_mech auth_pts = 
+HIDDEN struct auth_mech auth_pts =
 {
     "pts",		/* name */
 

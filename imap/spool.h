@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: spool.h,v 1.7 2010/01/06 17:01:40 murch Exp $
  */
 
 #ifndef INCLUDED_SPOOL_H
@@ -47,11 +45,14 @@
 
 #include <stdio.h>
 #include "prot.h"
+#include "hash.h"
 
-typedef struct Header **hdrcache_t;
+typedef hash_table *hdrcache_t;
 
-hdrcache_t spool_new_hdrcache();
+hdrcache_t spool_new_hdrcache(void);
 void spool_cache_header(char *name, char *body, hdrcache_t cache);
+void spool_replace_header(char *name, char *newvalue,
+			  hdrcache_t cache);
 int spool_fill_hdrcache(struct protstream *fin, FILE *fout, hdrcache_t cache,
 			const char **skipheaders);
 const char **spool_getheader(hdrcache_t cache, const char *phead);

@@ -40,55 +40,46 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imtest.c,v 1.129 2010/01/06 17:01:43 murch Exp $
  */
 
 #include "config.h"
 
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <sys/stat.h>
 #include <fcntl.h>
-
+#include <limits.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <pwd.h>
+#include <signal.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <signal.h>
-#ifdef HAVE_STDARG_H
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-#include <limits.h>
-#include <unistd.h>
-
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <netdb.h>
-#include <sys/socket.h>
 #include <sys/file.h>
-#include <netinet/in.h>
-#include <netdb.h>
+#include <sys/msg.h>
+#include <sys/ipc.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <ctype.h>
 
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
 
-#include <pwd.h>
-
-#include "prot.h"
 #include "hash.h"
 #include "imparse.h"
 #include "iptostring.h"
+#include "md5.h"
+#include "prot.h"
+#include "retry.h"
+#include "strarray.h"
 #include "stristr.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcat.h"
 #include "xstrlcpy.h"
-#include "md5.h"
 
 #ifdef HAVE_SSL
 #include <openssl/ssl.h>
@@ -110,12 +101,12 @@ typedef enum {
 } imt_stat;
 
 /* global vars */
-sasl_conn_t *conn;
-int sock; /* socket descriptor */
+static sasl_conn_t *conn;
+static int sock; /* socket descriptor */
 
-int verbose=0;
+static int verbose=0;
 
-struct protstream *pout, *pin;
+static struct protstream *pout, *pin;
 
 static char *authname = NULL;
 static char *username = NULL;
@@ -129,25 +120,19 @@ static ino_t output_socket_ino = 0;
 #define CONFIGHASHSIZE 30 /* relatively small */
 
 static struct hash_table confighash;
-int mysasl_config(void*, const char*, const char*, const char**, unsigned*);
+static int mysasl_config(void*, const char*, const char*, const char**, unsigned*);
 
 extern int _sasl_debug;
 extern char *optarg;
 
-struct stringlist 
-{
-    char *str;
-    struct stringlist *next;
-};
-
-struct stringlist *strlist_head = NULL;
+static strarray_t stashed_strings = STRARRAY_INITIALIZER;
 
 /* callbacks we support */
 static sasl_callback_t callbacks[] = {
     {
-	SASL_CB_ECHOPROMPT, NULL, NULL    
+	SASL_CB_ECHOPROMPT, NULL, NULL
     }, {
-	SASL_CB_NOECHOPROMPT, NULL, NULL    
+	SASL_CB_NOECHOPROMPT, NULL, NULL
     }, {
 #ifdef SASL_CB_GETREALM
 	SASL_CB_GETREALM, NULL, NULL
@@ -159,7 +144,7 @@ static sasl_callback_t callbacks[] = {
     }, {
 	SASL_CB_PASS, NULL, NULL    
     }, {
-	SASL_CB_GETOPT, &mysasl_config, NULL    
+      SASL_CB_GETOPT, (int (*)(void))&mysasl_config, NULL
     }, {
 	SASL_CB_LIST_END, NULL, NULL
     }
@@ -253,8 +238,8 @@ struct protocol_t {
 };
 
 
-void imtest_fatal(const char *msg, ...) __attribute__((noreturn));
-void imtest_fatal(const char *msg, ...)
+static void imtest_fatal(const char *msg, ...) __attribute__((noreturn));
+static void imtest_fatal(const char *msg, ...)
 {
     struct stat sbuf;
     if (output_socket && output_socket_opened &&
@@ -274,7 +259,7 @@ void imtest_fatal(const char *msg, ...)
 }
 
 /* libcyrus makes us define this */
-void fatal(const char *msg, int code __attribute__((unused)))
+EXPORTED void fatal(const char *msg, int code __attribute__((unused)))
 {
     imtest_fatal(msg);
 }
@@ -320,13 +305,13 @@ static int do_dump = 0;
 static char peer_CN[CCERT_BUFSIZ];
 static char issuer_CN[CCERT_BUFSIZ];
 
-char   *tls_peer_CN = NULL;
-char   *tls_issuer_CN = NULL;
+static char   *tls_peer_CN = NULL;
+static char   *tls_issuer_CN = NULL;
 
-const char *tls_protocol = NULL;
-const char *tls_cipher_name = NULL;
-int	tls_cipher_usebits = 0;
-int	tls_cipher_algbits = 0;
+static const char *tls_protocol = NULL;
+static const char *tls_cipher_name = NULL;
+static int	tls_cipher_usebits = 0;
+static int	tls_cipher_algbits = 0;
 
 /*
  * Set up the cert things on the server side. We do need both the
@@ -428,7 +413,7 @@ static RSA *tmp_rsa_cb(SSL * s __attribute__((unused)),
  * tim - this seems to just be giving logging messages
  */
 
-static void apps_ssl_info_callback(SSL * s, int where, int ret)
+static void apps_ssl_info_callback(const SSL * s, int where, int ret)
 {
     char   *str;
     int     w;
@@ -478,8 +463,8 @@ static int tls_rand_init(void)
 }
 
 
-char *var_tls_CAfile="";
-char *var_tls_CApath="";
+static char *var_tls_CAfile="";
+static char *var_tls_CApath="";
 /*
  * This is the setup routine for the SSL client. 
  *
@@ -505,15 +490,22 @@ static int tls_init_clientengine(int verifydepth, char *var_tls_cert_file, char 
 	printf("TLS engine: cannot seed PRNG\n");
 	return IMTEST_FAIL;
     }
-    
-    tls_ctx = SSL_CTX_new(TLSv1_client_method());
+
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    tls_ctx = SSL_CTX_new(TLS_client_method());
+#else
+    tls_ctx = SSL_CTX_new(SSLv23_client_method());
+#endif
     if (tls_ctx == NULL) {
 	return IMTEST_FAIL;
     };
-    
-    off |= SSL_OP_ALL;		/* Work around all known bugs */
+
+    off |= SSL_OP_ALL;            /* Work around all known bugs */
+    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
+    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
+    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
     SSL_CTX_set_options(tls_ctx, off);
-    SSL_CTX_set_info_callback(tls_ctx, (void (*)()) apps_ssl_info_callback);
+    SSL_CTX_set_info_callback(tls_ctx, apps_ssl_info_callback);
     
     if (strlen(var_tls_CAfile) == 0)
 	CAfile = NULL;
@@ -541,7 +533,7 @@ static int tls_init_clientengine(int verifydepth, char *var_tls_cert_file, char 
     
     if (c_cert_file || c_key_file)
 	if (!set_cert_stuff(tls_ctx, c_cert_file, c_key_file)) {
-	    printf("TLS engine: cannot load cert/key data\n");
+            printf("TLS engine: cannot load cert/key data, may be a cert/key mismatch?\n");
 	    return IMTEST_FAIL;
 	}
     SSL_CTX_set_tmp_rsa_callback(tls_ctx, tmp_rsa_cb);
@@ -649,7 +641,7 @@ static long bio_dump_cb(BIO * bio, int cmd, const char *argp, int argi,
     return (ret);
 }
 
-int tls_start_clienttls(unsigned *layer, char **authid)
+static int tls_start_clienttls(unsigned *layer, char **authid)
 {
     int     sts;
     const SSL_CIPHER *cipher;
@@ -741,7 +733,7 @@ int tls_start_clienttls(unsigned *layer, char **authid)
     return IMTEST_OK;
 }
 
-void do_starttls(int ssl, char *keyfile, unsigned *ssf)
+static void do_starttls(int ssl, char *keyfile, unsigned *ssf)
 {
     int result;
     char *auth_id;
@@ -852,7 +844,7 @@ static int init_sasl(char *service, char *serverFQDN, int minssf, int maxssf,
 
 #define BUFSIZE 16384
 
-imt_stat getauthline(struct sasl_cmd_t *sasl_cmd, char **line, int *linelen)
+static imt_stat getauthline(struct sasl_cmd_t *sasl_cmd, char **line, int *linelen)
 {
     char buf[BUFSIZE];
     int saslresult;
@@ -925,29 +917,18 @@ imt_stat getauthline(struct sasl_cmd_t *sasl_cmd, char **line, int *linelen)
     return ret;
 }
 
-void interaction (int id, const char *challenge, const char *prompt,
+static void interaction (int id, const char *challenge, const char *prompt,
 		  char **tresult, unsigned int *tlen)
 {
+    char *s;
     char result[1024];
-    
-    struct stringlist *cur;
-    
-    cur = malloc(sizeof(struct stringlist));
-    if(!cur) {
-	*tlen=0;
-	*tresult=NULL;
-	return;
-    }
-    
-    cur->str = NULL;
-    cur->next = strlist_head;
-    strlist_head = cur;
-    
+
     if (id==SASL_CB_PASS && !cmdline_password) {
 	printf("%s: ", prompt);
-	cur->str=strdup(cyrus_getpass(""));
-	*tlen=strlen(cur->str);
-	*tresult = cur->str;
+	s = xstrdup(cyrus_getpass(""));
+	strarray_appendm(&stashed_strings, s);
+	*tlen = strlen(s);
+	*tresult = s;
 	return;
     } else if (id==SASL_CB_PASS && cmdline_password) {
 	strcpy(result, cmdline_password);
@@ -970,7 +951,7 @@ void interaction (int id, const char *challenge, const char *prompt,
     } else {
 	int c;
 	
-	if (((id==SASL_CB_ECHOPROMPT) || (id=SASL_CB_NOECHOPROMPT)) &&
+	if (((id==SASL_CB_ECHOPROMPT) || (id==SASL_CB_NOECHOPROMPT)) &&
 	    (challenge != NULL)) {
 	    printf("Server challenge: %s\n", challenge);
 	}
@@ -978,24 +959,21 @@ void interaction (int id, const char *challenge, const char *prompt,
 	if (id==SASL_CB_NOECHOPROMPT) {
 	    strcpy(result, cyrus_getpass(""));
 	} else {
-	    fgets(result, sizeof(result) - 1, stdin);
-	    c = strlen(result);
-	    result[c - 1] = '\0';
+	    result[0] = '\0';
+	    if (fgets(result, sizeof(result) - 1, stdin) != NULL) {
+		c = strlen(result);
+		result[c - 1] = '\0';
+	    }
 	}
     }
-    
-    *tlen = strlen(result);
-    cur->str = (char *) malloc(*tlen+1);
-    if(!cur->str) {
-	*tresult = NULL;
-	return;
-    }
-    memset(cur->str, 0, *tlen+1);
-    memcpy(cur->str, result, *tlen);
-    *tresult = cur->str;
+
+    s = xstrdup(result);
+    strarray_appendm(&stashed_strings, s);
+    *tlen = strlen(s);
+    *tresult = s;
 }
 
-void fillin_interactions(sasl_interact_t *tlist)
+static void fillin_interactions(sasl_interact_t *tlist)
 {
     while (tlist->id!=SASL_CB_LIST_END)
 	{
@@ -1022,7 +1000,7 @@ static char *waitfor(char *tag, char *tag2, int echo)
     return str;
 }
 
-int auth_sasl(struct sasl_cmd_t *sasl_cmd, char *mechlist)
+static int auth_sasl(struct sasl_cmd_t *sasl_cmd, char *mechlist)
 {
     sasl_interact_t *client_interact = NULL;
     int saslresult;
@@ -1034,11 +1012,12 @@ int auth_sasl(struct sasl_cmd_t *sasl_cmd, char *mechlist)
     char inbase64[4096];
     int inbase64len;
     char cmdbuf[40];
-    int sendliteral = sasl_cmd->quote;
+    int sendliteral;
     int initial_response = 1;
     imt_stat status;
     
     if (!sasl_cmd || !sasl_cmd->cmd) return IMTEST_FAIL;
+    sendliteral = sasl_cmd->quote;
     
     do { /* start authentication */
 	saslresult = sasl_client_start(conn, mechlist, &client_interact,
@@ -1256,7 +1235,7 @@ static void interactive(struct protocol_t *protocol, char *filename)
 	
 	/* can't have this and a file for input */
 	sunsock.sun_family = AF_UNIX;
-	strcpy(sunsock.sun_path, output_socket);
+	strlcpy(sunsock.sun_path, output_socket, sizeof(sunsock.sun_path));
 	unlink(output_socket);
 
 	listen_sock = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -1376,7 +1355,7 @@ static void interactive(struct protocol_t *protocol, char *filename)
 		    imtest_fatal("prot_read");
 		}
 		if(output_socket)
-		    write(fd_out, buf, count);
+		    retry_write(fd_out, buf, count);
 		else {
 		    /* use the stream API */
 		    buf[count] = '\0';
@@ -1418,7 +1397,7 @@ static void interactive(struct protocol_t *protocol, char *filename)
 	    } else {
 		if (!output_socket) {
 		    /* echo for the user - if not in socket mode */
-		    write(1, buf, numr);
+		    retry_write(1, buf, numr);
 		} 
 
 		if (output_socket && protocol->pipe) {
@@ -1536,7 +1515,8 @@ static char *ask_capability(struct protocol_t *prot,
 	/* check for auth */
 	if (prot->capa_cmd.auth &&
 	    (tmp = strstr(str, prot->capa_cmd.auth)) != NULL) {
-	    free(ret); /* avoid memory leak if duplicate mechlists */
+	    if (ret) free(ret);
+
 	    if (prot->capa_cmd.parse_mechlist)
 		ret = prot->capa_cmd.parse_mechlist(str, prot);
 	    else
@@ -2111,7 +2091,7 @@ static int nntp_do_auth(struct sasl_cmd_t *sasl_cmd,
 		printf("[Server did not advertise AUTHINFO USER]\n");
 		result = IMTEST_FAIL;
 	    } else {
-		result = auth_nntp(user_enabled);
+		result = auth_nntp();
 	    }
 	} else if (!mechlist || !stristr(mechlist, mech)) {
 	    printf("[Server did not advertise SASL %s]\n", ucase(mech));
@@ -2245,7 +2225,7 @@ static char *sieve_parse_success(char *str)
 /*****************************************************************************/
 
 /* didn't give correct parameters; let's exit */
-void usage(char *prog, char *prot)
+static void usage(char *prog, char *prot)
 {
     printf("Usage: %s [options] hostname\n", prog);
     printf("  -p port  : port to use (default=standard port for protocol)\n");
@@ -2403,9 +2383,7 @@ int main(int argc, char **argv)
     int reauth = 1;
     int dochallenge = 0, noinitresp = 0;
     char *val;
-    
-    struct stringlist *cur, *cur_next;
-    
+
     if (!construct_hash_table(&confighash, CONFIGHASHSIZE, 1)) {
 	imtest_fatal("could not construct config hash table");
     }
@@ -2750,13 +2728,7 @@ int main(int argc, char **argv)
 	} else {
 	    const char *s = sasl_errstring(result, NULL, NULL);
 	    
-	    fprintf(stderr, "Authentication failed. %s\n", s);
-
-	    if (output_socket) {
-		/* send LOGOUT and exit */
-		logout(&protocol->logout_cmd, 0);
-		exit(1);
-	    }
+	    printf("Authentication failed. %s\n", s);
 	}
 	
 	result = sasl_getprop(conn, SASL_SSF, &ssfp);
@@ -2811,14 +2783,10 @@ int main(int argc, char **argv)
 	   pipe in a filename if applicable */
 	interactive(protocol, filename);
     }
-    
-    for (cur = strlist_head; cur; cur = cur_next) {
-	cur_next = cur->next;
-	free(cur->str);
-	free(cur);
-    }
 
+    while (stashed_strings.count)
+	free(strarray_pop(&stashed_strings));
     free_hash_table(&confighash, free);
-    
+
     exit(0);
 }

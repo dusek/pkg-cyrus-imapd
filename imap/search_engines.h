@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: search_engines.h,v 1.4 2010/01/06 17:01:40 murch Exp $
  */
 
 #ifndef INCLUDED_SEARCH_ENGINES_H
@@ -53,6 +51,6 @@
  */
 extern int search_prefilter_messages(unsigned* msg_list,
 				     struct index_state *state,
-				     struct searchargs *searchargs);
+				     const struct searchargs *searchargs);
 
 #endif

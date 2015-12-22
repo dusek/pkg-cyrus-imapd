@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imparse.h,v 1.9 2010/01/06 17:01:45 murch Exp $
  */
 
 #ifndef INCLUDED_IMPARSE_H
@@ -47,6 +45,7 @@
 
 extern int imparse_word (char **s, char **retval);
 extern int imparse_astring (char **s, char **retval);
+extern int imparse_isnatom (const char *s, int len);
 extern int imparse_isatom (const char *s);
 extern int imparse_issequence (const char *s);
 extern int imparse_isnumber (const char *s);

@@ -40,8 +40,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: actions.h,v 1.14 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifndef _ACTIONS_H_
@@ -49,7 +47,9 @@
 
 
 #include "prot.h"
-#include "mystring.h"
+#include "util.h"
+
+extern int sieved_tls_required;
 
 /*
  * Get the list of capabilities
@@ -57,36 +57,36 @@
  */
 
 int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
-		 int starttls_done, int authenticated, sasl_ssf_t sasl_ssf);
+                 int starttls_done, int authenticated, sasl_ssf_t sasl_ssf);
 
 /*
- * Get a sieve scripe with name "name" and output it's contents
+ * Get a sieve script with name "name" and output it's contents
  *
  */
 
-int getscript(struct protstream *conn, mystring_t *name);
+int getscript(struct protstream *conn, const struct buf *name);
 
 /*
  * Put a scripts in the server with 'name' whose contents should be 'data'
  *
  */
 
-int putscript(struct protstream *conn, mystring_t *name, mystring_t *data,
-	      int verify_only);
+int putscript(struct protstream *conn, const struct buf *name,
+              const struct buf *data, int verify_only);
 
 /*
  * Delete the script with name 'name'
  *
  */
 
-int deletescript(struct protstream *conn, mystring_t *name);
+int deletescript(struct protstream *conn, const struct buf *name);
 
 /*
  * Is there space for this script?
  *
  */
 
-int cmd_havespace(struct protstream *sieved_out, mystring_t *sieve_name, unsigned long num);
+int cmd_havespace(struct protstream *sieved_out, const struct buf *sieve_name, unsigned long num);
 
 /*
  * List all the scripts for the user. place a '*' next to the active one
@@ -101,7 +101,7 @@ int listscripts(struct protstream *conn);
  *
  */
 
-int setactive(struct protstream *conn, mystring_t *name);
+int setactive(struct protstream *conn, const struct buf *name);
 
 /*
  * Initialize
@@ -116,7 +116,5 @@ int actions_init(void);
  */
 
 int actions_setuser(const char *userid);
-
-
 
 #endif

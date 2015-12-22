@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: user.h,v 1.8 2010/01/06 17:01:42 murch Exp $
  */
 
 #ifndef INCLUDED_USER_H
@@ -55,8 +53,7 @@ const char *user_sieve_path(const char *user);
  *
  * wipe-user says to delete seen state also (remove the user from the murder)
  */
-int user_deletedata(char *user, char *userid, struct auth_state *authstate,
-		    int wipe_user);
+int user_deletedata(const char *userid, int wipe_user);
 
 /* Rename/copy user meta-data (seen state, subscriptions, sieve scripts)
  * from 'olduser' to 'newuser'.
@@ -65,7 +62,8 @@ int user_renamedata(char *olduser, char *newuser, char *userid,
 		    struct auth_state *authstate);
 
 /* Rename ACL for 'olduser' to 'newuser' on mailbox 'name'. */
-int user_renameacl(char *name, char *olduser, char *newuser);
+int user_renameacl(struct namespace *namespace, char *name,
+		   char *olduser, char *newuser);
 
 /* Copy a quotaroot from mailbox 'oldname' to 'newname' */
 int user_copyquotaroot(char *oldname, char *newname);

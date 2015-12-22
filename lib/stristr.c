@@ -1,6 +1,4 @@
 /* +++Date last modified: 05-Jul-1997 */
-/* $Id: stristr.c,v 1.3 2002/05/25 19:57:47 leg Exp $ */
-
 /*
 ** Designation:  StriStr
 **
@@ -23,6 +21,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "config.h"
+
 #ifndef _AIX
 typedef unsigned int uint;
 #endif
@@ -31,7 +31,7 @@ typedef unsigned int uint;
  extern "C" {
 #endif
 
-char *stristr(const char *String, const char *Pattern)
+EXPORTED char *stristr(const char *String, const char *Pattern)
 {
       char *pptr, *sptr, *start;
       uint  slen, plen;

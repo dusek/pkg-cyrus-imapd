@@ -38,17 +38,21 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: signals.h,v 1.3 2008/03/24 17:09:19 murch Exp $
  */
 
 #ifndef INCLUDED_SIGNALS_H
 #define INCLUDED_SIGNALS_H
 
+#include <sys/select.h>
+#include <unistd.h>
+
 typedef void shutdownfn(int);
 
 void signals_add_handlers(int alarm);
+void signals_reset_sighup_handler(int restartable);
 void signals_set_shutdown(shutdownfn *s);
 int signals_poll(void);
+int signals_select(int nfds, fd_set *rfds, fd_set *wfds,
+		   fd_set *efds, struct timeval *tout);
 
 #endif /* INCLUDED_SIGNALS_H */

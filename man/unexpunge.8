@@ -26,7 +26,7 @@
 .\"      Pittsburgh, PA  15213
 .\"      (412) 268-7393, fax: (412) 268-7395
 .\"      innovation@andrew.cmu.edu
- *
+.\"
 .\" 4. Redistributions of any form whatsoever must retain the following
 .\"    acknowledgment:
 .\"    "This product includes software developed by Computing Services
@@ -39,8 +39,6 @@
 .\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-.\"
-.\" $Id: unexpunge.8,v 1.5 2010/01/06 17:01:53 murch Exp $
 .SH NAME
 unexpunge \- restore expunged (but yet unremoved) messages
 .SH SYNOPSIS
@@ -64,6 +62,10 @@ unexpunge \- restore expunged (but yet unremoved) messages
 [
 .B \-v
 ]
+[
+.B \-f 
+.I flagname
+]
 .I mailbox
 .br
 .B unexpunge
@@ -78,6 +80,10 @@ unexpunge \- restore expunged (but yet unremoved) messages
 [
 .B \-v
 ]
+[
+.B \-f
+.I flagname
+]
 .I mailbox
 .br
 .B unexpunge
@@ -91,6 +97,10 @@ unexpunge \- restore expunged (but yet unremoved) messages
 ]
 [
 .B \-v
+]
+[
+.B \-f
+.I flagname
 ]
 .IR "mailbox uid" ...
 .SH DESCRIPTION
@@ -125,6 +135,12 @@ mailbox.
 .TP
 .B \-d
 Unset the \fI\\Deleted\fR flag on any restored messages.
+.TP
+.BI \-f " flagname"
+Set the user flag 
+.I flagname
+on any restored messages.  This can make it easy to batch operate on
+just the restored messages afterwards.
 .TP
 .B \-v
 Enable verbose output/logging.

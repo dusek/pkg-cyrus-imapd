@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: notifyd.h,v 1.4 2010/01/06 17:01:54 murch Exp $
  */
 
 #include <config.h>
@@ -60,7 +58,7 @@ typedef struct {
 } notifymethod_t;
 
 /* array of supported notification methods */
-notifymethod_t methods[] = {
+static notifymethod_t methods[] = {
     { "null",	notify_null },		/* do nothing */
     { "log",	notify_log },		/* use syslog (for testing) */
     { "mailto",	notify_mailto },	/* send an email */

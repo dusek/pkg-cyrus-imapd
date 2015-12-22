@@ -1,11 +1,10 @@
 dnl look for the (ucd|net)snmp libraries
-dnl $Id: ucdsnmp.m4,v 1.13 2010/01/06 17:01:28 murch Exp $
 
 AC_DEFUN([CMU_UCDSNMP], [
 AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
   AC_REQUIRE([CMU_SOCKETS])
   AC_ARG_WITH(snmp, 
-              [  --with-snmp=DIR         use ucd|net snmp (rooted in DIR) [yes] ],
+              [AS_HELP_STRING([--with-snmp=DIR], [use ucd|net snmp (rooted in DIR) [yes]])],
               with_snmp=$withval, with_snmp=yes)
 
   dnl

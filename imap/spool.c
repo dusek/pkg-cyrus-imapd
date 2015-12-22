@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: spool.c,v 1.16 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -49,55 +47,19 @@
 #endif
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "assert.h"
 #include "spool.h"
-#include "prot.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "exitcodes.h"
-#include "imap_err.h"
-#include "nntp_err.h"
+#include "imap/imap_err.h"
 #include "global.h"
+#include "strarray.h"
 
-#define HEADERCACHESIZE 4009
-
-typedef struct Header header_t;
-
-/* data per message */
-struct Header {
-    char *name;
-    int ncontents;
-    char *contents[1];
-};
-
-hdrcache_t spool_new_hdrcache()
+hdrcache_t spool_new_hdrcache(void)
 {
-    int i;
-    hdrcache_t cache;
-
-    cache = (hdrcache_t) xmalloc(HEADERCACHESIZE * sizeof(header_t*));
-    if (!cache) return NULL;
-
-    for (i = 0; i < HEADERCACHESIZE; i++)
-	cache[i] = NULL;
-
-    return cache;
-}
-
-/* hash function used for header cache in struct msg */
-static int hashheader(char *header)
-{
-    int x = 0;
-    /* any CHAR except ' ', :, or a ctrl char */
-    for (; !Uiscntrl(*header) && (*header != ' ') && (*header != ':'); 
-	 header++) {
-	x *= 256;
-	x += *header;
-	x %= HEADERCACHESIZE;
-    }
-    return x;
+    hash_table *ht = xmalloc(sizeof(*ht));
+    return construct_hash_table(ht, 4000, 0);
 }
 
 /* take a list of headers, pull the first one out and return it in
@@ -114,11 +76,6 @@ typedef enum {
     BODY
 } state;
 
-enum {
-    NAMEINC = 128,
-    BODYINC = 1024
-};
-
 /* we don't have to worry about dotstuffing here, since it's illegal
    for a header to begin with a dot!
 
@@ -133,23 +90,16 @@ static int parseheader(struct protstream *fin, FILE *fout,
 		       const char **skipheaders)
 {
     int c;
-    static char *name = NULL, *body = NULL;
-    static int namelen = 0, bodylen = 0;
-    int off = 0;
+    static struct buf name = BUF_INITIALIZER;
+    static struct buf body = BUF_INITIALIZER;
     state s = NAME_START;
     int r = 0;
     int reject8bit = config_getswitch(IMAPOPT_REJECT8BIT);
     int munge8bit = config_getswitch(IMAPOPT_MUNGE8BIT);
     const char **skip = NULL;
 
-    if (namelen == 0) {
-	namelen += NAMEINC;
-	name = (char *) xrealloc(name, namelen * sizeof(char));
-    }
-    if (bodylen == 0) {
-	bodylen += BODYINC;
-	body = (char *) xrealloc(body, bodylen * sizeof(char));
-    }
+    buf_reset(&name);
+    buf_reset(&body);
 
     /* there are two ways out of this loop, both via gotos:
        either we successfully read a header (got_header)
@@ -190,20 +140,19 @@ static int parseheader(struct protstream *fin, FILE *fout,
 		r = IMAP_MESSAGE_BADHEADER;
 		goto ph_error;
 	    }
-	    name[0] = c;
-	    off = 1;
+	    buf_putc(&name, c);
 	    s = NAME;
 	    break;
 
 	case NAME:
 	    if (c == ' ' || c == '\t' || c == ':') {
-		name[off] = '\0';
+		buf_cstring(&name);
 		/* see if this header is in our skip list */
 		for (skip = skipheaders;
-		     skip && *skip && strcasecmp(name, *skip); skip++);
+		     skip && *skip && strcasecmp(name.s, *skip); skip++);
 		if (!skip || !*skip) {
 		    /* write the header name to the output */
-		    if (fout) fputs(name, fout);
+		    if (fout) fputs(name.s, fout);
 		    skip = NULL;
 		}
 		s = (c == ':' ? BODY_START : COLON);
@@ -213,11 +162,7 @@ static int parseheader(struct protstream *fin, FILE *fout,
 		r = IMAP_MESSAGE_BADHEADER;
 		goto ph_error;
 	    }
-	    name[off++] = c;
-	    if (off >= namelen - 3) {
-		namelen += NAMEINC;
-		name = (char *) xrealloc(name, namelen);
-	    }
+	    buf_putc(&name, c);
 	    break;
 	
 	case COLON:
@@ -237,7 +182,7 @@ static int parseheader(struct protstream *fin, FILE *fout,
 	case BODY_START:
 	    if (c == ' ' || c == '\t') /* eat the whitespace */
 		break;
-	    off = 0;
+	    buf_reset(&body);
 	    s = BODY;
 	    /* falls through! */
 	case BODY:
@@ -259,7 +204,7 @@ static int parseheader(struct protstream *fin, FILE *fout,
 		}
 		if (c != ' ' && c != '\t') {
 		    /* this is the end of the header */
-		    body[off] = '\0';
+		    buf_cstring(&body);
 		    prot_ungetc(c, fin);
 		    goto got_header;
 		}
@@ -277,11 +222,7 @@ static int parseheader(struct protstream *fin, FILE *fout,
 		}
 	    }
 	    /* just an ordinary character */
-	    body[off++] = c;
-	    if (off >= bodylen - 3) {
-		bodylen += BODYINC;
-		body = (char *) xrealloc(body, bodylen);
-	    }
+	    buf_putc(&body, c);
 	}
 
 	/* copy this to the output */
@@ -301,52 +242,44 @@ static int parseheader(struct protstream *fin, FILE *fout,
     return r;
 
  got_header:
-    if (headname != NULL) *headname = xstrdup(name);
-    if (contents != NULL) *contents = xstrdup(body);
+    /* Note: xstrdup()ing the string ensures we return
+     * a minimal length string with no allocation slack
+     * at the end */
+    if (headname != NULL) *headname = xstrdup(name.s);
+    if (contents != NULL) *contents = xstrdup(body.s);
 
     return 0;
 }
 
-void spool_cache_header(char *name, char *body, hdrcache_t cache)
+EXPORTED void spool_cache_header(char *name, char *body, hdrcache_t cache)
 {
-    int cl, clinit;
+    strarray_t *contents;
 
     lcase(name);
-    clinit = cl = hashheader(name);
-    while (cache[cl] != NULL && strcmp(name, cache[cl]->name)) {
-	cl++;		/* resolve collisions linearly */
-	cl %= HEADERCACHESIZE;
-	if (cl == clinit) break; /* gone all the way around, so bail */
-    }
 
-    /* found where to put it, so insert it into a list */
-    if (cache[cl]) {
-	/* add this body on */
-	cache[cl]->contents[cache[cl]->ncontents++] = body;
-
-	/* whoops, won't have room for the null at the end! */
-	if (!(cache[cl]->ncontents % 8)) {
-	    /* increase the size */
-	    cache[cl] = (header_t *)
-		xrealloc(cache[cl],sizeof(header_t) +
-			 ((8 + cache[cl]->ncontents) * sizeof(char *)));
-	}
-
-	/* have no need of this */
-	free(name);
-    } else {
-	/* create a new entry in the hash table */
-	cache[cl] = (header_t *) xmalloc(sizeof(header_t) + 8 * sizeof(char*));
-	cache[cl]->name = name;
-	cache[cl]->contents[0] = body;
-	cache[cl]->ncontents = 1;
-    }
-
-    /* we always want a NULL at the end */
-    cache[cl]->contents[cache[cl]->ncontents] = NULL;
+    contents = (strarray_t *)hash_lookup(name, cache);
+    if (!contents)
+	contents = hash_insert(name, strarray_new(), cache);
+    strarray_appendm(contents, body);
+    free(name);
 }
 
-int spool_fill_hdrcache(struct protstream *fin, FILE *fout, hdrcache_t cache,
+EXPORTED void spool_replace_header(char *name, char *body, hdrcache_t cache)
+{
+    strarray_t *contents;
+
+    lcase(name);
+
+    contents = (strarray_t *)hash_lookup(name, cache);
+    if (!contents)
+	contents = hash_insert(name, strarray_new(), cache);
+    else
+	strarray_truncate(contents, 0);
+    strarray_appendm(contents, body);
+    free(name);
+}
+
+EXPORTED int spool_fill_hdrcache(struct protstream *fin, FILE *fout, hdrcache_t cache,
 			const char **skipheaders)
 {
     int r = 0;
@@ -371,11 +304,10 @@ int spool_fill_hdrcache(struct protstream *fin, FILE *fout, hdrcache_t cache,
     return r;
 }
 
-const char **spool_getheader(hdrcache_t cache, const char *phead)
+EXPORTED const char **spool_getheader(hdrcache_t cache, const char *phead)
 {
     char *head;
-    const char **ret = NULL;
-    int clinit, cl;
+    strarray_t *contents;
 
     assert(cache && phead);
 
@@ -383,55 +315,50 @@ const char **spool_getheader(hdrcache_t cache, const char *phead)
     lcase(head);
 
     /* check the cache */
-    clinit = cl = hashheader(head);
-    while (cache[cl] != NULL) {
-	if (!strcmp(head, cache[cl]->name)) {
-	    ret = (const char **) cache[cl]->contents;
-	    break;
-	}
-	cl++; /* try next hash bin */
-	cl %= HEADERCACHESIZE;
-	if (cl == clinit) break; /* gone all the way around */
-    }
+    contents = (strarray_t *)hash_lookup(head, cache);
 
     free(head);
 
-    return ret;
+    return contents ? (const char **)contents->data : NULL;
 }
 
-void spool_free_hdrcache(hdrcache_t cache)
+EXPORTED void spool_free_hdrcache(hdrcache_t cache)
 {
-    int i, j;
-
     if (!cache) return;
 
-    for (i = 0; i < HEADERCACHESIZE; i++) {
-	if (cache[i]) {
-	    free(cache[i]->name);
-	    for (j = 0; j < cache[i]->ncontents; j++) {
-		free(cache[i]->contents[j]);
-	    }
-	    free(cache[i]);
-	}
-    }
+    free_hash_table(cache, (void (*)(void *))strarray_free);
     free(cache);
 }
 
-void spool_enum_hdrcache(hdrcache_t cache,
+struct spool_enum_rock {
+    void (*proc)(const char *, const char *, void *);
+    void *rock;
+};
+
+static void spool_enum_cb(const char *key, void *data, void *rock)
+{
+    struct spool_enum_rock *c = (struct spool_enum_rock *)rock;
+    strarray_t *d = (strarray_t *)data;
+    int i;
+
+    for (i = 0; i < d->count; i++) {
+	const char *val = strarray_nth(d, i);
+	c->proc(key, val, c->rock);
+    }
+}
+
+EXPORTED void spool_enum_hdrcache(hdrcache_t cache,
 			 void (*proc)(const char *, const char *, void *),
 			 void *rock)
 {
-    int i, j;
+    struct spool_enum_rock cbrock;
 
     if (!cache) return;
 
-    for (i = 0; i < HEADERCACHESIZE; i++) {
-	if (cache[i]) {
-	    for (j = 0; j < cache[i]->ncontents; j++) {
-		(*proc)(cache[i]->name, cache[i]->contents[j], rock);
-	    }
-	}
-    }
+    cbrock.proc = proc;
+    cbrock.rock = rock;
+
+    hash_enumerate(cache, spool_enum_cb, &cbrock);
 }
 
 /* copies the message from fin to fout, massaging accordingly: 
@@ -440,7 +367,7 @@ void spool_enum_hdrcache(hdrcache_t cache,
    . embedded NULs are rejected
    . bare \r are removed
 */
-int spool_copy_msg(struct protstream *fin, FILE *fout)
+EXPORTED int spool_copy_msg(struct protstream *fin, FILE *fout)
 {
     char buf[8192], *p;
     int r = 0;

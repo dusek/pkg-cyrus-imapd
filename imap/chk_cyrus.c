@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: chk_cyrus.c,v 1.20 2010/01/06 17:01:30 murch Exp $
  */
 
 #include <config.h>
@@ -52,9 +50,6 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <syslog.h>
-#include <errno.h>
-#include <ctype.h>
 #include <limits.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -67,19 +62,14 @@
 #include "mailbox.h"
 #include "map.h"
 #include "xmalloc.h"
-#include "xstrlcpy.h"
-#include "xstrlcat.h"
 
-/* config.c stuff */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
-
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr, "chk_cyrus [-C <altconfig>] partition\n");
     exit(-1);
 }
 
-const char *check_part = NULL; /* partition we are checking */
+static const char *check_part = NULL; /* partition we are checking */
 
 static int chkmbox(char *name,
 		   int matchlen __attribute__((unused)),
@@ -87,7 +77,7 @@ static int chkmbox(char *name,
 		   void *rock __attribute__((unused))) 
 {
     int r;
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
 
     r = mboxlist_lookup(name, &mbentry, NULL);
 
@@ -99,12 +89,16 @@ static int chkmbox(char *name,
     }
 
     /* are we on the partition we are checking? */
-    if (check_part && strcmp(mbentry.partition, check_part))
+    if (check_part && strcmp(mbentry->partition, check_part)) {
+	mboxlist_entry_free(&mbentry);
 	return 0;
+    }
 
     fprintf(stderr, "checking: %s\n", name);
 
     mailbox_reconstruct(name, 0); /* no changes allowed */
+
+    mboxlist_entry_free(&mbentry);
 
     return 0;
 }
@@ -146,7 +140,7 @@ int main(int argc, char **argv)
 	}
     }
 
-    cyrus_init(alt_config, "chk_cyrus", 0);
+    cyrus_init(alt_config, "chk_cyrus", 0, CONFIG_NEED_PARTITION_DATA);
 
     mboxlist_init(0);
     mboxlist_open(NULL);

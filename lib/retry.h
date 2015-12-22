@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: retry.h,v 1.15 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef INCLUDED_RETRY_H
@@ -53,20 +51,19 @@
 #endif
 #endif
 
+#include <sys/types.h>
 #include <sys/uio.h>
-#include "xmalloc.h"
 
-extern int retry_read P((int fd, void *buf, size_t nbyte));
-extern int retry_write P((int fd, const void *buf, size_t nbyte));
-extern int retry_writev P((int fd, struct iovec *iov, int iovcnt));
+extern ssize_t retry_read P((int fd, void *buf, size_t nbyte));
+extern ssize_t retry_write P((int fd, const void *buf, size_t nbyte));
+extern ssize_t retry_writev P((int fd, const struct iovec *iov, int iovcnt));
 
 /* add a buffer 's' of length 'len' to iovec 'iov' */
 #define WRITEV_ADD_TO_IOVEC(iov, num_iov, s, len) \
-    do { (iov)[(num_iov)].iov_base = (s); \
+    do { (iov)[(num_iov)].iov_base = (char *)(s); \
          (iov)[(num_iov)++].iov_len = (len); } while (0)
 
 /* add a string 's' to iovec 'iov' */
 #define WRITEV_ADDSTR_TO_IOVEC(iov, num_iov, s) WRITEV_ADD_TO_IOVEC(iov, num_iov, s, strlen(s))
-                
 
 #endif /* INCLUDED_RETRY_H */

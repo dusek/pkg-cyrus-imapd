@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imapparse.c,v 1.20 2010/01/06 17:01:34 murch Exp $
  */
 
 #include <config.h>
@@ -57,8 +55,7 @@
  * Parse a word
  * (token not containing whitespace, parens, or double quotes)
  */
-#define BUFGROWSIZE 100
-int getword(struct protstream *in, struct buf *buf)
+EXPORTED int getword(struct protstream *in, struct buf *buf)
 {
     int c;
 
@@ -80,8 +77,8 @@ int getword(struct protstream *in, struct buf *buf)
  * Parse an xstring
  * (astring, nstring or string based on type)
  */
-int getxstring(struct protstream *pin, struct protstream *pout,
-	       struct buf *buf, int type)
+EXPORTED int getxstring(struct protstream *pin, struct protstream *pout,
+	       struct buf *buf, enum getxstring_flags flags)
 {
     int c;
     int i;
@@ -99,12 +96,14 @@ int getxstring(struct protstream *pin, struct protstream *pout,
     case '\r':
     case '\n':
 	/* Invalid starting character */
-	buf_reset(buf);
-	buf_cstring(buf);
-	if (c != EOF) prot_ungetc(c, pin);
-	return EOF;
+	goto fail;
 
     case '\"':
+	if (!(flags & GXS_QUOTED)) {
+	    /* Invalid starting character */
+	    goto fail;
+	}
+
 	/*
 	 * Quoted-string.  Server is liberal in accepting qspecials
 	 * other than double-quote, CR, and LF.
@@ -130,11 +129,9 @@ int getxstring(struct protstream *pin, struct protstream *pout,
 	}
 
     case '{':
-	if (type == IMAP_QSTRING) {
+	if (!(flags & GXS_LITERAL)) {
 	    /* Invalid starting character */
-	    buf_cstring(buf);
-	    if (c != EOF) prot_ungetc(c, pin);
-	    return EOF;
+	    goto fail;
 	}
 
 	/* Literal */
@@ -176,14 +173,12 @@ int getxstring(struct protstream *pin, struct protstream *pout,
 	    buf_putc(buf, c);
 	}
 	buf_cstring(buf);
-	if (type != IMAP_BIN_ASTRING && strlen(buf_cstring(buf)) != (unsigned)buf_len(buf))
-	    return EOF; /* Disallow imbedded NUL for non IMAP_BIN_ASTRING */
+	if (!(flags & GXS_BINARY) && strlen(buf_cstring(buf)) != (unsigned)buf_len(buf))
+	    return EOF; /* Disallow imbedded NUL */
 	return prot_getc(pin);
 
     default:
-	switch (type) {
-	case IMAP_BIN_ASTRING:   /* binary-allowed ASTRING */
-	case IMAP_ASTRING:	 /* atom, quoted-string or literal */
+	if ((flags & GXS_ATOM)) {
 	    /*
 	     * Atom -- server is liberal in accepting specials other
 	     * than whitespace, parens, or double quotes
@@ -191,42 +186,45 @@ int getxstring(struct protstream *pin, struct protstream *pout,
 	    for (;;) {
 		if (c == EOF || isspace(c) || c == '(' || 
 		          c == ')' || c == '\"') {
-		    buf_cstring(buf);
+		    /* gotta handle NIL here too */
+		    if ((flags & GXS_NIL) && buf->len == 3 && !memcmp(buf->s, "NIL", 3))
+			buf_free(buf);
+		    else
+			buf_cstring(buf);
 		    return c;
 		}
 		buf_putc(buf, c);
 		c = prot_getc(pin);
 	    }
 	    /* never gets here */
-	    break;
-
-	case IMAP_NSTRING:	 /* "NIL", quoted-string or literal */
+	}
+	else if ((flags & GXS_NIL)) {
 	    /*
 	     * Look for "NIL"
 	     */
 	    if (c == 'N') {
 		prot_ungetc(c, pin);
 		c = getword(pin, buf);
-		if (!strcmp(buf_cstring(buf), "NIL"))
+		if (buf->len == 3 && !memcmp(buf->s, "NIL", 3)) {
+		    /* indicated NIL with a NULL buf.s pointer */
+		    buf_free(buf);
 		    return c;
+		}
+		return EOF;
 	    }
-	    if (c != EOF) prot_ungetc(c, pin);
-	    return EOF;
-	    break;
-
-	case IMAP_QSTRING:	 /* quoted-string */
-	case IMAP_STRING:	 /* quoted-string or literal */
-	    /* atoms aren't acceptable */
-	    if (c != EOF) prot_ungetc(c, pin);
-	    return EOF;
-	    break;
 	}
+	goto fail;
     }
 
     return EOF;
+
+fail:
+    buf_cstring(buf);
+    if (c != EOF) prot_ungetc(c, pin);
+    return EOF;
 }
 
-int getint32(struct protstream *pin, int32_t *num)
+EXPORTED int getint32(struct protstream *pin, int32_t *num)
 {
     int32_t result = 0;
     char c;
@@ -248,8 +246,36 @@ int getint32(struct protstream *pin, int32_t *num)
     return c;
 }
 
+/* Like getint32() but explicitly signed, i.e. negative numbers
+ * are accepted */
+EXPORTED int getsint32(struct protstream *pin, int32_t *num)
+{
+    int c;
+    int sgn = 1;
+
+    c = prot_getc(pin);
+    if (c == EOF)
+	return EOF;
+
+    if (c == '-')
+	sgn = -1;
+    else if (c == '+')
+	sgn = 1;
+    else
+	prot_ungetc(c, pin);
+
+    c = getint32(pin, num);
+    if (c == EOF)
+	return EOF;
+    /* this is slightly buggy: the number INT_MIN = -2147483648
+     * is a valid signed 32b int but is not accepted */
+    if (sgn < 0)
+	*num = - (*num);
+    return c;
+}
+
 /* can't flag with -1 if there is no number here, so return EOF */
-int getuint32(struct protstream *pin, uint32_t *num)
+EXPORTED int getuint32(struct protstream *pin, uint32_t *num)
 {
     uint32_t result = 0;
     char c;
@@ -271,11 +297,109 @@ int getuint32(struct protstream *pin, uint32_t *num)
     return c;
 }
 
+EXPORTED int getint64(struct protstream *pin, int64_t *num)
+{
+    int64_t result = 0;
+    char c;
+    int gotchar = 0;
+
+    /* LLONG_MAX == 9223372036854775807LL */
+    while ((c = prot_getc(pin)) != EOF && cyrus_isdigit(c)) {
+	if (result > 922337203685477580LL || (result == 922337203685477580LL && (c > '7')))
+	    fatal("num too big", EC_IOERR);
+	result = result * 10 + c - '0';
+	gotchar = 1;
+    }
+
+    if (!gotchar)
+	return EOF;
+
+    *num = result;
+
+    return c;
+}
+
+/* Like getint64() but explicitly signed, i.e. negative numbers
+ * are accepted */
+EXPORTED int getsint64(struct protstream *pin, int64_t *num)
+{
+    int c;
+    int sgn = 1;
+
+    c = prot_getc(pin);
+    if (c == EOF)
+	return EOF;
+
+    if (c == '-')
+	sgn = -1;
+    else if (c == '+')
+	sgn = 1;
+    else
+	prot_ungetc(c, pin);
+
+    c = getint64(pin, num);
+    if (c == EOF)
+	return EOF;
+    /* this is slightly buggy: the number LLONG_MIN == -9223372036854775808LL
+     * is a valid signed 64b int but is not accepted */
+    if (sgn < 0)
+	*num = - (*num);
+    return c;
+}
+
+/* can't flag with -1 if there is no number here, so return EOF */
+EXPORTED int getuint64(struct protstream *pin, uint64_t *num)
+{
+    uint64_t result = 0;
+    char c;
+    int gotchar = 0;
+
+    /* ULLONG_MAX == 18446744073709551615ULL */
+    while ((c = prot_getc(pin)) != EOF && cyrus_isdigit(c)) {
+	if (result > 1844674407370955161ULL || (result == 1844674407370955161ULL && (c > '5')))
+	    fatal("num too big", EC_IOERR);
+	result = result * 10 + c - '0';
+	gotchar = 1;
+    }
+
+    if (!gotchar)
+	return EOF;
+
+    *num = result;
+
+    return c;
+}
+
+/* This would call getuint64() if
+ * all were right with the world */
+EXPORTED int getmodseq(struct protstream *pin, modseq_t *num)
+{
+    int c;
+    unsigned int i = 0;
+    char buf[32];
+    int gotchar = 0;
+
+    while (i < sizeof(buf) &&
+	   (c = prot_getc(pin)) != EOF &&
+	   cyrus_isdigit(c)) {
+	buf[i++] = c;
+	gotchar = 1;
+    }
+
+    if (!gotchar || i == sizeof(buf))
+	return EOF;
+
+    buf[i] = '\0';
+    *num = strtoull(buf, NULL, 10);
+
+    return c;
+}
+
 /*
  * Eat characters up to and including the next newline
  * Also look for and eat non-synchronizing literals.
  */
-void eatline(struct protstream *pin, int c)
+EXPORTED void eatline(struct protstream *pin, int c)
 {
     int state = 0;
     char *statediagram = " {+}\r";

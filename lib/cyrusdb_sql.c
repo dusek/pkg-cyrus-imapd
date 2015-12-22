@@ -39,17 +39,15 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb_sql.c,v 1.3 2010/01/06 17:01:45 murch Exp $ */
-
 #include <config.h>
 
 #include <syslog.h>
-#include <assert.h>
 #include <string.h>
-#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "assert.h"
+#include "bsearch.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "libcyr_cfg.h"
@@ -59,8 +57,8 @@
 extern void fatal(const char *, int);
 
 typedef int exec_cb(void *rock,
-		    const char *key, int keylen,
-		    const char *data, int datalen);
+		    const char *key, size_t keylen,
+		    const char *data, size_t datalen);
 
 typedef struct sql_engine {
     const char *name;
@@ -77,7 +75,7 @@ typedef struct sql_engine {
     void (*sql_close)(void *conn);
 } sql_engine_t;
 
-struct db {
+struct dbengine {
     void *conn;     /* connection to database */
     char *table;    /* table that we are operating on */
     char *esc_key;  /* allocated buffer for escaped key */
@@ -121,6 +119,7 @@ static char *_mysql_escape(void *conn, char **to,
     *to = xrealloc(*to, 2 * fromlen + 1); /* +1 for NUL */
 
     tolen = mysql_real_escape_string(conn, *to, from, fromlen);
+    (void)tolen;
 
     return *to;
 }
@@ -206,26 +205,19 @@ static void *_pgsql_open(char *host, char *port, int usessl,
 			 const char *database)
 {
     PGconn *conn = NULL;
-    char *conninfo, *p;
+    struct buf conninfo = BUF_INITIALIZER;
 
     /* create the connection info string */
-    /* The 64 represents the number of characters taken by
-     * the keyword tokens, plus a small pad
-     */
-    p = conninfo = xzmalloc(64 + sql_len(host) + sql_len(port)
-			   + sql_len(user) + sql_len(password)
-			   + sql_len(database));
-
     /* add each term that exists */
-    if (sql_exists(host)) p += sprintf(p, " host='%s'", host);
-    if (sql_exists(port)) p += sprintf(p, " port='%s'", port);
-    if (sql_exists(user)) p += sprintf(p, " user='%s'", user);
-    if (sql_exists(password)) p += sprintf(p, " password='%s'", password);
-    if (sql_exists(database)) p += sprintf(p, " dbname='%s'", database);
-    p += sprintf(p, " requiressl='%d'", usessl);
+    if (sql_exists(host)) buf_printf(&conninfo, " host='%s'", host);
+    if (sql_exists(port)) buf_printf(&conninfo, " port='%s'", port);
+    if (sql_exists(user)) buf_printf(&conninfo, " user='%s'", user);
+    if (sql_exists(password)) buf_printf(&conninfo, " password='%s'", password);
+    if (sql_exists(database)) buf_printf(&conninfo, " dbname='%s'", database);
+    buf_printf(&conninfo, " requiressl='%d'", usessl);
 
-    conn = PQconnectdb(conninfo);
-    free(conninfo);
+    conn = PQconnectdb(buf_cstring(&conninfo));
+    buf_free(&conninfo);
 
     if ((PQstatus(conn) != CONNECTION_OK)) {
 	syslog(LOG_ERR, "DBERROR: SQL backend: %s", PQerrorMessage(conn));
@@ -470,24 +462,16 @@ static int done(void)
     return 0;
 }
 
-static int mysync(void)
-{
-    return 0;
-}
-
-static int myarchive(const char **fnames __attribute__((unused)),
-		     const char *dirname __attribute__((unused)))
-{
-    return 0;
-}
-
-static int myopen(const char *fname, int flags, struct db **ret)
+static int myopen(const char *fname, int flags, struct dbengine **ret)
 {
     const char *database, *hostnames, *user, *passwd;
     char *host_ptr, *host, *cur_host, *cur_port;
     int usessl;
     void *conn = NULL;
     char *p, *table, cmd[1024];
+
+    assert(fname);
+    assert(ret);
 
     /* make a connection to the database */
     database = libcyrus_config_getstring(CYRUSOPT_SQL_DATABASE);
@@ -501,6 +485,9 @@ static int myopen(const char *fname, int flags, struct db **ret)
     
     /* create a working version of the hostnames */
     host_ptr = hostnames ? xstrdup(hostnames) : NULL;
+
+    /* make sqlite clever */
+    if (!database) database = fname;
 
     cur_host = host = host_ptr;
     while (cur_host != NULL) {
@@ -548,26 +535,31 @@ static int myopen(const char *fname, int flags, struct db **ret)
     /* check if the table exists */
     /* XXX is this the best way to do this? */
     snprintf(cmd, sizeof(cmd), "SELECT * FROM %s LIMIT 0;", table);
-    if (dbengine->sql_exec(conn, cmd, NULL, NULL) &&
-	(flags & CYRUSDB_CREATE)) {
-	/* create the table */
-	snprintf(cmd, sizeof(cmd),
-		 "CREATE TABLE %s (dbkey %s NOT NULL, data %s);",
-		 table, dbengine->binary_type, dbengine->binary_type);
-	if (dbengine->sql_exec(conn, cmd, NULL, NULL)) {
-	    syslog(LOG_ERR, "DBERROR: SQL failed: %s", cmd);
-	    dbengine->sql_close(conn);
-	    return CYRUSDB_INTERNAL;
+    if (dbengine->sql_exec(conn, cmd, NULL, NULL)) {
+	if (flags & CYRUSDB_CREATE) {
+	    /* create the table */
+	    snprintf(cmd, sizeof(cmd),
+		     "CREATE TABLE %s (dbkey %s NOT NULL, data %s);",
+		     table, dbengine->binary_type, dbengine->binary_type);
+	    if (dbengine->sql_exec(conn, cmd, NULL, NULL)) {
+		syslog(LOG_ERR, "DBERROR: SQL failed: %s", cmd);
+		dbengine->sql_close(conn);
+		return CYRUSDB_INTERNAL;
+	    }
+	}
+	else {
+	    return CYRUSDB_NOTFOUND;
 	}
     }
 
-    *ret = (struct db *) xzmalloc(sizeof(struct db));
+    *ret = (struct dbengine *) xzmalloc(sizeof(struct dbengine));
     (*ret)->conn = conn;
     (*ret)->table = table;
 
     return 0;
 }
-static int myclose(struct db *db)
+
+static int myclose(struct dbengine *db)
 {
     assert(db);
 
@@ -581,7 +573,7 @@ static int myclose(struct db *db)
     return 0;
 }
 
-static struct txn *start_txn(struct db *db)
+static struct txn *start_txn(struct dbengine *db)
 {
     /* start a transaction */
     if (dbengine->sql_begin_txn(db->conn)) {
@@ -601,8 +593,8 @@ struct select_rock {
 };
 
 static int select_cb(void *rock,
-		     const char *key, int keylen,
-		     const char *data, int datalen)
+		     const char *key, size_t keylen,
+		     const char *data, size_t datalen)
 {
     struct select_rock *srock = (struct select_rock *) rock;
     int r = CYRUSDB_OK;
@@ -629,13 +621,13 @@ static int select_cb(void *rock,
 
 struct fetch_rock {
     char **data;
-    int *datalen;
+    size_t *datalen;
 };
 
 static int fetch_cb(void *rock,
 		    const char *key __attribute__((unused)),
-		    int keylen __attribute__((unused)),
-		    const char *data, int datalen)
+		    size_t keylen __attribute__((unused)),
+		    const char *data, size_t datalen)
 {
     struct fetch_rock *frock = (struct fetch_rock *) rock;
 
@@ -648,15 +640,21 @@ static int fetch_cb(void *rock,
     return 0;
 }
 
-static int fetch(struct db *db, 
-		 const char *key, int keylen,
-		 const char **data, int *datalen,
+static int fetch(struct dbengine *db, 
+		 const char *key, size_t keylen,
+		 const char **data, size_t *datalen,
 		 struct txn **tid)
 {
     char cmd[1024], *esc_key;
-    struct fetch_rock frock = { &db->data, datalen };
+    size_t len = 0;
+    struct fetch_rock frock = { &db->data, &len };
     struct select_rock srock = { 0, NULL, NULL, &fetch_cb, &frock };
     int r;
+
+    assert(db);
+    assert(key);
+    assert(keylen);
+    if (datalen) assert(data);
 
     if (data) *data = NULL;
     if (datalen) *datalen = 0;
@@ -682,12 +680,13 @@ static int fetch(struct db *db,
     if (!srock.found) return CYRUSDB_NOTFOUND;
 
     if (data) *data = db->data;
+    if (datalen) *datalen = len;
 
     return 0;
 }
 
-static int foreach(struct db *db,
-		   char *prefix, int prefixlen,
+static int foreach(struct dbengine *db,
+		   const char *prefix, size_t prefixlen,
 		   foreach_p *goodp,
 		   foreach_cb *cb, void *rock, 
 		   struct txn **tid)
@@ -695,6 +694,10 @@ static int foreach(struct db *db,
     char cmd[1024], *esc_key = NULL;
     struct select_rock srock = { 0, NULL, goodp, cb, rock };
     int r;
+
+    assert(db);
+    assert(cb);
+    if (prefixlen) assert(prefix);
 
     if (tid) {
 	if (!*tid && !(*tid = start_txn(db))) return CYRUSDB_INTERNAL;
@@ -720,21 +723,30 @@ static int foreach(struct db *db,
     return 0;
 }
 
-static int mystore(struct db *db, 
+static int mystore(struct dbengine *db, 
 		   const char *key, int keylen,
 		   const char *data, int datalen,
-		   struct txn **tid, int overwrite)
+		   struct txn **tid, int overwrite,
+		   int isdelete)
 {
     char cmd[1024], *esc_key;
     int free_esc_key = 0;
+    const char dummy = 0;
     int r = 0;
+
+    assert(db);
+    assert(key);
+    assert(keylen);
+    if (datalen) assert(data);
+
+    if (!data) data = &dummy;
 
     if (tid && !*tid && !(*tid = start_txn(db))) return CYRUSDB_INTERNAL;
 
     esc_key = dbengine->sql_escape(db->conn, &db->esc_key, key, keylen);
     free_esc_key = (esc_key != db->esc_key);
 
-    if (!data) {
+    if (isdelete) {
 	/* DELETE the entry */
 	snprintf(cmd, sizeof(cmd), "DELETE FROM %s WHERE dbkey = '%s';",
 		 db->table, esc_key);
@@ -807,31 +819,31 @@ static int mystore(struct db *db,
     return 0;
 }
 
-static int create(struct db *db, 
-		  const char *key, int keylen,
-		  const char *data, int datalen,
+static int create(struct dbengine *db, 
+		  const char *key, size_t keylen,
+		  const char *data, size_t datalen,
 		  struct txn **tid)
 {
-    return mystore(db, key, keylen, data, datalen, tid, 0);
+    return mystore(db, key, keylen, data, datalen, tid, 0, 0);
 }
 
-static int store(struct db *db, 
-		 const char *key, int keylen,
-		 const char *data, int datalen,
+static int store(struct dbengine *db, 
+		 const char *key, size_t keylen,
+		 const char *data, size_t datalen,
 		 struct txn **tid)
 {
-    return mystore(db, key, keylen, data, datalen, tid, 1);
+    return mystore(db, key, keylen, data, datalen, tid, 1, 0);
 }
 
-static int delete(struct db *db, 
-		  const char *key, int keylen,
+static int delete(struct dbengine *db, 
+		  const char *key, size_t keylen,
 		  struct txn **tid,
 		  int force __attribute__((unused)))
 {
-    return mystore(db, key, keylen, NULL, 0, tid, 1);
+    return mystore(db, key, keylen, NULL, 0, tid, 1, 1);
 }
 
-static int finish_txn(struct db *db, struct txn *tid, int commit)
+static int finish_txn(struct dbengine *db, struct txn *tid, int commit)
 {
     if (tid) {
 	int rc = commit ? dbengine->sql_commit_txn(db->conn) :
@@ -850,30 +862,48 @@ static int finish_txn(struct db *db, struct txn *tid, int commit)
     return 0;
 }
 
-static int commit_txn(struct db *db, struct txn *tid)
+static int commit_txn(struct dbengine *db, struct txn *tid)
 {
+    assert(db);
+    assert(tid);
+
     return finish_txn(db, tid, 1);
 }
 
-static int abort_txn(struct db *db, struct txn *tid)
+static int abort_txn(struct dbengine *db, struct txn *tid)
 {
+    assert(db);
+    assert(tid);
+
     return finish_txn(db, tid, 0);
 }
 
-struct cyrusdb_backend cyrusdb_sql = 
+/* SQL databases have all sorts of evil collations - we can't
+ * make any assumptions though, so just assume raw */
+static int mycompar(struct dbengine *db __attribute__((unused)),
+		    const char *a, int alen,
+		    const char *b, int blen)
+{
+    (void)db;
+    return bsearch_ncompare_raw(a, alen, b, blen);
+}
+
+HIDDEN struct cyrusdb_backend cyrusdb_sql =
 {
     "sql",			/* name */
 
     &init,
     &done,
-    &mysync,
-    &myarchive,
+    &cyrusdb_generic_sync,
+    &cyrusdb_generic_noarchive,
 
     &myopen,
     &myclose,
 
     &fetch,
     &fetch,
+    NULL,
+
     &foreach,
     &create,
     &store,
@@ -883,5 +913,7 @@ struct cyrusdb_backend cyrusdb_sql =
     &abort_txn,
 
     NULL,
-    NULL
+    NULL,
+    NULL,
+    &mycompar
 };

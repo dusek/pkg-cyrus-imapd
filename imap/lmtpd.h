@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lmtpd.h,v 1.6 2010/01/06 17:01:35 murch Exp $
  */
 
 #ifndef LMTPD_H
@@ -72,17 +70,15 @@ typedef struct deliver_data {
 
 /* forward declarations */
 extern int deliver_local(deliver_data_t *mydata,
-			 char **flag,
-			 int nflags,
-			 const char *username,
+			 const strarray_t *flags,
+			 char *username,
 			 const char *mailboxname);
 
 extern int deliver_mailbox(FILE *f,
 			   struct message_content *content,
 			   struct stagemsg *stage,
 			   unsigned size,
-			   char **flag,
-			   int nflags,
+			   const strarray_t *flags,
 			   char *authuser,
 			   struct auth_state *authstate,
 			   char *id,
@@ -92,7 +88,5 @@ extern int deliver_mailbox(FILE *f,
 			   char *date,
 			   int quotaoverride,
 			   int acloverride);
-
-extern int fuzzy_match(char *mboxname);
 
 #endif /* LMTPD_H */

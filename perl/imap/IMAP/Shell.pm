@@ -38,8 +38,6 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Shell.pm,v 1.44 2010/01/06 17:01:55 murch Exp $
-#
 # A shell framework for Cyrus::IMAP::Admin
 #
 # run(*FH|'FH')
@@ -82,7 +80,7 @@ my %builtins = (exit =>
 		listaclmailbox => 'listacl',
 		lm => 'listmailbox',
 		listmailbox =>
-		  [\&_sc_list, '[-subscribed] [pattern [base]]',
+		  [\&_sc_list, '[-subscribed] [-specialuse] [pattern [base]]',
 		   'list mailboxes'],
 		server =>
 		  [\&_sc_server, '[-noauthenticate] [server]',
@@ -91,7 +89,7 @@ my %builtins = (exit =>
 		connect => 'server',
 		authenticate =>
 		  [\&_sc_auth,
-		   '[-minssf N] [-maxssf N] [-mechanisms list] [user]',
+		   '[-minssf N] [-maxssf N] [-mechanisms list] [-service name] [-tlskey keyfile] [-notls] [-cafile cacertfile] [-capath cacertdir] [user]',
 		   'authenticate to server'],
 		auth => 'authenticate',
 		login => 'authenticate',
@@ -110,7 +108,7 @@ my %builtins = (exit =>
 		  [\&_sc_chdir, 'directory', 'change current directory'],
 		cd => 'chdir',
 		createmailbox =>
-		  [\&_sc_create, '[--partition partition] mailbox [partition]',
+		  [\&_sc_create, '[--partition partition] [--specialuse specialuse] mailbox [partition]',
 		   'create mailbox'],
 		create => 'createmailbox',
 		cm => 'createmailbox',
@@ -123,11 +121,15 @@ my %builtins = (exit =>
 		  [\&_sc_delete, 'mailbox [host]', 'delete mailbox'],
 		delete => 'deletemailbox',
 		dm => 'deletemailbox',
+		getmetadata =>
+		  [\&_sc_getmetadata, '[mailbox]',
+		   'display mailbox/server metadata'],
+		getmd => 'getmetadata',
 		info =>
 		  [\&_sc_info, '[mailbox]',
-		   'display mailbox/server metadata'],
+		   'display mailbox/server annotations'],
 		mboxcfg =>
-		  [\&_sc_mboxcfg, 'mailbox [comment|expire|news2mail|sieve|squat|/<explicit annotation>] value',
+		  [\&_sc_mboxcfg, '[--private] mailbox [comment|expire|news2mail|sieve|squat|/<explicit annotation>] value',
 		   'configure mailbox'],
 		mboxconfig => 'mboxcfg',
 		reconstruct =>
@@ -146,6 +148,10 @@ my %builtins = (exit =>
 		setinfo =>
 		  [\&_sc_setinfo, '[motd|comment|admin|shutdown|expire|squat] text',
 		   'set server metadata'],
+		setmetadata =>
+		  [\&_sc_setmetadata, '[--private] mailbox [comment|expire|news2mail|pop3showafter|sharedseen|sieve|specialuse|squat|/<explicit annotation>] value',
+		   'set metadata to mailbox'],
+		setmd => 'setmetadata',
 		setquota =>
 		  [\&_sc_setquota,
 		   'mailbox resource value [resource value ...]',
@@ -438,9 +444,9 @@ sub run {
 # programs, as opposed to things expected from within a program.)
 sub shell {
   my ($server, $port, $authz, $auth, $systemrc, $userrc, $dorc, $mech, $pw,
-      $tlskey, $notls) =
+      $tlskey, $notls, $cacert, $capath) =
     ('', 143, undef, $ENV{USER} || $ENV{LOGNAME}, '/usr/local/etc/cyradmrc.pl',
-     "$ENV{HOME}/.cyradmrc.pl", 1, undef, undef, undef, undef);
+     "$ENV{HOME}/.cyradmrc.pl", 1, undef, undef, undef, undef, undef, undef);
   GetOptions('user|u=s' => \$auth,
 	     'authz|z=s' => \$authz,
 	     'rc|r!' => \$dorc,
@@ -450,9 +456,13 @@ sub shell {
 	     'port|p=i' => \$port,
 	     'auth|a=s' => \$mech,
 	     'password|w=s' => \$pw,
-  	     'tlskey|t:s' => \$tlskey,
-  	     'notls' => \$notls,
-	     'help|h' => sub { cyradm_usage(); exit(0); }
+	     'tlskey|t:s' => \$tlskey,
+	     'notls' => \$notls,
+	     'cafile=s' => \$cacert,
+	     'cadir=s' => \$capath,
+	     'capath=s' => \$capath,
+	     'help|h' => sub { cyradm_usage(); exit(0); },
+	     'version|v' => sub { cyradm_version(); exit(0); }
 	    );
   if ($server ne '' && @ARGV) {
     die "cyradm: may not specify server both with --server and bare arg\n";
@@ -471,7 +481,8 @@ sub shell {
 			  -rock => \$cyradm});
     $cyradm->authenticate(-authz => $authz, -user => $auth,
 			  -mechanism => $mech, -password => $pw,
-			  -tlskey => $tlskey, -notls => $notls)
+			  -tlskey => $tlskey, -notls => $notls,
+			  -cafile => $cacert, -capath => $capath)
       or die "cyradm: cannot authenticate to server with $mech as $auth\n";
   }
   my $fstk = [*STDIN, *STDOUT, *STDERR];
@@ -500,10 +511,22 @@ Usage: cyradm [args] server
   --userrc <file>       Use user configuration <file>
   --port <port>         Connect to server on <port>
   --auth <mechanism>    Authenticate with <mechanism>
+  --tlskey <keyfile>    Use certicate with keyfile to authenticate with server
+  --notls               Disable StartTLS negotiation
+  --cafile <cacertfile> Use CA certificate file to validate server certificate
+  --cadir <cacertdirectory> Use CA certificate directory to validate
+                            server certificate
+  --help                This help message
+  --version             The version of Cyrus IMAP this utility is a part of
 
 Defaults to interactive mode. Please see man cyradm(1) and the 'help' command
 in the cyradm-shell for details.
 END_OF_HELP
+}
+
+# show cyradm version
+sub cyradm_version {
+  print "version: Cyrus IMAP $VERSION\n";
 }
 
 # help display
@@ -594,27 +617,45 @@ sub _sc_exit {
 sub _sc_list {
   my ($cyrref, $name, $fh, $lfh, @argv) = @_;
   my $cmd = 'listmailbox';
-  my (@nargv, $opt);
+  my (@nargv, $opt, %opts, $subscribed);
   shift(@argv);
   while (defined ($opt = shift(@argv))) {
     # gack.  bloody tcl.
     last if $opt eq '--';
     if ($opt ne '' && '-subscribed' =~ /^\Q$opt/ || $opt eq '--subscribed') {
-      $cmd = 'listsubscribed';
+      $subscribed = 1;
+    } elsif ($opt ne '' && '-specialuse' =~ /^\Q$opt/ || $opt eq '--specialuse') {
+      $opts{'-sel-special-use'} = 1;
+    } elsif ($opt ne '' && '-recursivematch' =~ /^\Q$opt/ || $opt eq '--recursivematch') {
+      $opts{'-sel-recursivematch'} = 1;
     }
     elsif ($opt =~ /^-/) {
-      die "usage: listmailbox [-subscribed] [pattern [base]]\n";
+      die "usage: listmailbox [-subscribed] [-specialuse] [pattern [base]]\n";
     }
     else {
       push(@nargv, $opt);
       last;
     }
   }
+
+  if ($subscribed) {
+    if (scalar (keys %opts) > 0 ) {
+      # LIST + LIST-EXTENED
+      $opts{'-sel-subscribed'} = 1;
+    } else {
+      # LSUB
+      $cmd = 'listsubscribed';
+      # undef %opts;
+    }
+  }
+
   push(@nargv, @argv);
   if (@nargv > 2) {
-    die "usage: listmailbox [-subscribed] [pattern [base]]\n";
+    die "usage: listmailbox [-subscribed] [-specialuse] [pattern [base]]\n";
   }
   push(@nargv, '*') if !@nargv;
+  push(@nargv, undef) if scalar (@nargv) < 2; # no ref
+  push(@nargv, \%opts);
   if (!$cyrref || !$$cyrref) {
     die "listmailbox: no connection to server\n";
   }
@@ -628,6 +669,9 @@ sub _sc_list {
     $l = $mbx->[0];
     if ($mbx->[1] ne '') {
       $l .= ' (' . $mbx->[1] . ')';
+    }
+    if (defined ($mbx->[3])) {
+      $l .= ' (' . $mbx->[3] . ')';
     }
     if (length($l) + 1 > $w) {
       $w = length($l) + 1;
@@ -799,9 +843,23 @@ sub _sc_auth {
 	$want = '-notls';
 	next;
       }
+      if ($opt ne '' && '-cafile' =~ /^\Q$opt/ || $opt eq '--cafile') {
+	$want = '-cafile';
+	next;
+      }
+      if ($opt ne '' && '-cadir' =~ /^\Q$opt/ || $opt eq '--cadir') {
+	$want = '-capath';
+	next;
+      }
+      if ($opt ne '' && '-capath' =~ /^\Q$opt/ || $opt eq '--capath') {
+	$want = '-capath';
+	next;
+      }
       if ($opt =~ /^-/) {
 	die "usage: authenticate [-minssf N] [-maxssf N] [-mechanisms STR]\n".
-	    "                    [-service name] [-tlskey keyfile] [-notls] [user]\n";
+	    "                    [-service name] [-tlskey keyfile] [-notls]\n".
+	    "                    [-cafile cacertfile] [-capath cacertdir]\n".
+	    "                    [user]\n";
       }
     }
     if ($opt =~ /^-/) {
@@ -817,7 +875,9 @@ sub _sc_auth {
   if (@nargv > 1) {
     if (Cyrus::IMAP::havetls()) {
       die "usage: authenticate [-minssf N] [-maxssf N] [-mechanisms STR]\n".
-          "                    [-service name] [-tlskey keyfile] [-notls] [user]\n";
+          "                    [-service name] [-tlskey keyfile] [-notls]\n".
+          "                    [-cafile cacertfile] [-capath cacertdir]\n".
+          "                    [user]\n";
     } else {
       die "usage: authenticate [-minssf N] [-maxssf N] [-mechanisms STR]\n".
           "                    [-service name] [user]\n";
@@ -958,21 +1018,29 @@ sub _sc_chdir {
 
 sub _sc_create {
   my ($cyrref, $name, $fh, $lfh, @argv) = @_;
-  my (@nargv, $opt, $part, $want);
+  my (@nargv, $opt, $part, $want, %opts);
   shift(@argv);
   while (defined ($opt = shift(@argv))) {
     if ($want) {
-      $part = $opt;
+      if ($want eq '-partition') {
+        $part = $opt;
+      } else {
+        $opts{$want} = $opt;
+      }
       $want = undef;
       next;
     }
     if ($opt ne '' && '-partition' =~ /^\Q$opt/ || $opt eq '--partition') {
-      $want = 1;
+      $want = '-partition';
+      next;
+    }
+    if ($opt ne '' && '-specialuse' =~ /^\Q$opt/ || $opt eq '--specialuse') {
+      $want = '-specialuse';
       next;
     }
     last if $opt eq '--';
     if ($opt =~ /^-/) {
-      die "usage: createmailbox [--partition partition] mailbox [partition]\n";
+      die "usage: createmailbox [--partition partition] [--specialuse specialuse] mailbox [partition]\n";
     }
     else {
       push(@nargv, $opt);
@@ -983,9 +1051,9 @@ sub _sc_create {
   if (!@nargv || @nargv > 2) {
     die "usage: createmailbox [--partition partition] mailbox [partition]\n";
   }
-  if (defined($part)) {
-      push(@nargv, $part)
-  }
+  push(@nargv, $part) if (defined ($part));
+  push(@nargv, undef) if (@nargv < 2);
+  push(@nargv, \%opts);
   if (!$cyrref || !$$cyrref) {
     die "createmailbox: no connection to server\n";
   }
@@ -1378,25 +1446,126 @@ sub _sc_info {
     return 1;
   }
 
-  # keep track of what mailboxes we've printed a header for already
-  my %section = ();
-  foreach my $attrib (sort keys %info) {
-    $attrib =~ /(\{.*\})/;
-    my $sect = $1;
-    if(!defined($sect)) {
-	$sect = "Server Wide";
+  foreach my $mailbox (sort keys %info) {
+      if($mailbox eq "") {
+        print "{Server Wide}\n";
+      } else {
+        print "{$mailbox}:\n";
+      }
+
+    my %attribname = ();
+    foreach my $attribname (sort keys %{$info{$mailbox}}) {
+      foreach my $attrib (sort keys %{$info{$mailbox}->{$attribname}}) {
+        if(!exists $attribname{$attribname}) {
+	  $attribname{$attribname} = 'x';
+	  print "  $attribname:\n";
+        }
+        $attrib =~ /([^\/]*)$/;
+        my $attrname = $1;
+
+        $lfh->[1]->print("    ", $attrname, ": ", $info{$mailbox}->{$attribname}->{$attrib}, "\n");
+      }
     }
-
-    if(!exists $section{$sect}) {
-	$section{$sect} = 'x';
-	print "$sect:\n";
-    }
-
-    $attrib =~ /([^\/]*)$/;
-    my $attrname = $1;
-
-    $lfh->[1]->print("  ", $attrname, ": ", $info{$attrib}, "\n");
   }
+  0;
+}
+
+sub _sc_getmetadata {
+  my ($cyrref, $name, $fh, $lfh, @argv) = @_;
+  my (@nargv, $opt);
+  shift(@argv);
+  while (defined ($opt = shift(@argv))) {
+    # gack.  bloody tcl.
+    last if $opt eq '--';
+    if ($opt =~ /^-/) {
+      die "usage: getmetadata [mailbox]\n";
+    }
+    else {
+      push(@nargv, $opt);
+      last;
+    }
+  }
+  while (defined ($opt = shift(@argv))) {
+    if ($opt eq 'comment') {
+       push(@nargv, '/private/comment');
+    } elsif ($opt eq 'expire') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/expire');
+    } elsif ($opt eq 'news2mail') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/news2mail');
+    } elsif ($opt eq 'pop3showafter') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/pop3showafter');
+    } elsif ($opt eq 'sharedseen') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/sharedseen');
+    } elsif ($opt eq 'sieve') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/sieve');
+    } elsif ($opt eq 'specialuse') {
+       push(@nargv, '/private/specialuse');
+    } elsif ($opt eq 'squat') {
+       push(@nargv, '/shared/vendor/cmu/cyrus-imapd/squat');
+    } else {
+      push(@nargv, $opt);
+    }
+  }
+  if (!$cyrref || !$$cyrref) {
+    die "info: no connection to server\n";
+  }
+  my %info = $$cyrref->getmetadata(@nargv);
+  if (defined $$cyrref->error) {
+    $lfh->[2]->print($$cyrref->error, "\n");
+    return 1;
+  }
+
+  foreach my $mailbox (sort keys %info) {
+      if($mailbox eq "") {
+        print "{Server Wide}\n";
+      } else {
+        print "{$mailbox}:\n";
+      }
+
+    my %attribname = ();
+    foreach my $attribname (sort keys %{$info{$mailbox}}) {
+      foreach my $attrib (sort keys %{$info{$mailbox}->{$attribname}}) {
+        if(!exists $attribname{$attribname}) {
+	  $attribname{$attribname} = 'x';
+	  print "  $attribname:\n";
+        }
+        $attrib =~ /([^\/]*)$/;
+        my $attrname = $1;
+
+        $lfh->[1]->print("    ", $attrname, ": ", $info{$mailbox}->{$attribname}->{$attrib}, "\n");
+      }
+    }
+  }
+  0;
+}
+
+sub _sc_setmetadata {
+  my ($cyrref, $name, $fh, $lfh, @argv) = @_;
+  my (@nargv, $opt, $private);
+  shift(@argv);
+  while (defined ($opt = shift(@argv))) {
+    last if $opt eq '--';
+    if ($opt ne '' && '-private' =~ /^\Q$opt/ || $opt eq '--private') {
+      $private = 1;
+    } elsif ($opt =~ /^-/) {
+      die "usage: setmetadata [--private] mailbox [comment|expire|news2mail|pop3showafter|sharedseen|sieve|specialuse|squat|/<explicit metadata>] value\n";
+    }
+    else {
+      push(@nargv, $opt);
+      last;
+    }
+  }
+  push(@nargv, @argv);
+  if (@nargv < 2) {
+    die "usage: setmetadata [--private] mailbox [comment|expire|news2mail|pop3showafter|sharedseen|sieve|specialuse|squat|/<explicit metadata>] value\n";
+  }
+  if (defined ($private)) {
+    push(@nargv, $private);
+  }
+  if (!$cyrref || !$$cyrref) {
+    die "setmetadata: no connection to server\n";
+  }
+  $$cyrref->setmetadata(@nargv) || die "setmetadata: " . $$cyrref->error . "\n";
   0;
 }
 
@@ -1456,12 +1625,14 @@ sub _sc_unsubscribe {
 
 sub _sc_mboxcfg {
   my ($cyrref, $name, $fh, $lfh, @argv) = @_;
-  my (@nargv, $opt);
+  my (@nargv, $opt, $private);
   shift(@argv);
   while (defined ($opt = shift(@argv))) {
     last if $opt eq '--';
-    if ($opt =~ /^-/) {
-      die "usage: mboxconfig mailbox [comment|expire|news2mail|sharedseen|sieve|squat|/<explicit annotation>] value\n";
+    if ($opt ne '' && '-private' =~ /^\Q$opt/ || $opt eq '--private') {
+      $private = 1;
+    } elsif ($opt =~ /^-/) {
+      die "usage: mboxconfig [--private] mailbox [comment|expire|news2mail|pop3showafter|sharedseen|sieve|squat|/<explicit annotation>] value\n";
     }
     else {
       push(@nargv, $opt);
@@ -1470,7 +1641,10 @@ sub _sc_mboxcfg {
   }
   push(@nargv, @argv);
   if (@nargv < 2) {
-    die "usage: mboxconfig mailbox [comment|expire|news2mail|sharedseen|sieve|squat|/<explicit annotation>] value\n";
+    die "usage: mboxconfig [--private] mailbox [comment|expire|news2mail|pop3showafter|sharedseen|sieve|squat|/<explicit annotation>] value\n";
+  }
+  if (defined ($private)) {
+    push(@nargv, $private);
   }
   if (!$cyrref || !$$cyrref) {
     die "mboxconfig: no connection to server\n";
@@ -1565,11 +1739,11 @@ forms and GNU-style long option forms.
 
 =over 4
 
-=item C<authenticate> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<authenticate> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
-=item C<auth> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<auth> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
-=item C<login> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [I<user>]
+=item C<login> [C<--minssf> I<N>] [C<--maxssf> I<N>] [C<--mechanisms> I<list>] [C<--service> I<name>] [C<--tlskey> I<keyfile>] [C<--notls>] [C<--cafile> I<cacertfile>] [C<--capath> I<cacertdir>] [I<user>]
 
 Authenticate to server.  You must already be connected to a server and
 Cyrus imapd will refuse to allow you to re-authenticate once you have
@@ -1582,20 +1756,21 @@ authenticated once.
 Change directory.  A C<pwd> builtin is not provided, but the default command
 action will run C<pwd> from a shell if invoked.
 
-=item C<createmailbox> [C<--partition> I<partition>] I<mailbox>
+=item C<createmailbox> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<createmailbox> I<mailbox> I<partition>
+=item C<createmailbox> [C<--specialuse> I<specialuse>] I<mailbox> I<partition>
 
-=item C<create> [C<--partition> I<partition>] I<mailbox>
+=item C<create> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<create> I<mailbox> I<partition>
+=item C<create> [C<--specialuse> I<specialuse>] I<mailbox> I<partition>
 
-=item C<cm> [C<--partition> I<partition>] I<mailbox>
+=item C<cm> [C<--partition> I<partition>] [C<--specialuse> I<specialuse>] I<mailbox>
 
-=item C<cm> I<mailbox> I<partition>
+=item C<cm> [C<--specialuse> I<specialuse>] I<mailbox> I<partition>
 
 Create a mailbox on the default or a specified partition.  Both old-style
 and getopt-style usages are accepted (combining them will produce an error).
+Optionally assign a special use to the mailbox.
 
 =item C<deleteaclmailbox> I<mailbox> I<id> [...]
 
@@ -1652,15 +1827,15 @@ Display the mailbox/server metadata.
 
 List ACLs on the specified mailbox.
 
-=item C<listmailbox> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<listmailbox> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-=item C<list> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<list> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-=item C<lm> [C<--subscribed>] [I<pattern> [I<reference>]]
+=item C<lm> [C<--subscribed>] [C<--specialuse>] [I<pattern> [I<reference>]]
 
-List all, or all subscribed, mailboxes matching the specified pattern.
-The pattern may have embedded wildcards C<'*'> or C<'%'>, which match
-anything or anything except the separator character, respectively.
+List all, or all subscribed or special-use, mailboxes matching the specified
+pattern.  The pattern may have embedded wildcards C<'*'> or C<'%'>, which
+match anything or anything except the separator character, respectively.
 
 Mailboxes returned will be relative to the specified reference if one
 is specified.  This allows a mailbox list to be limited to a particular
@@ -1687,12 +1862,14 @@ find the quota root for a mailbox.
 
 show quota roots and quotas for mailbox
 
-=item C<mboxconfig> I<mailbox> I<attribute> I<value>
+=item C<mboxconfig> [C<--private>] I<mailbox> I<attribute> I<value>
 
-=item C<mboxcfg> I<mailbox> I<attribute> I<value>
+=item C<mboxcfg> [C<--private>] I<mailbox> I<attribute> I<value>
 
-Set mailbox metadata.  A value of "none" will remove the attribute.
-The currently supported attributes are: 
+Set mailbox metadata, optionally set the private instead of the shared
+version of the metadata. A value of "none" will remove the attribute.
+
+The currently supported attributes are:
 
 =over 4
 
@@ -1708,6 +1885,12 @@ Sets the number of days after which messages will be expired from the mailbox.
 
 Sets an email address to which messages injected into the server via NNTP 
 will be sent.
+
+=item C<pop3showafter>
+
+Sets a time (in RFC3501 format, for example "6-Jan-2011 11:45:32 +1100")
+which specifies a cutoff date such that POP3 fetching of the folder does
+not see messages whose internaldate is before or equal to the date.
 
 =item C<sharedseen>
 

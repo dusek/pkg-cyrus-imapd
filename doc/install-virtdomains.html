@@ -1,6 +1,8 @@
-<!-- $Id: install-virtdomains.html,v 1.6 2010/01/06 17:01:29 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Configuring Virtual Domains
 </title>
 </head>
@@ -96,7 +98,7 @@ then set <tt>defaultdomain</tt> to 'xxx.yyy.zzz'.
 
 <p>Even for new installations, it is <i>recommended</i> that the
 "real" domain of the server (domain of its primary hostname), be set
-to the <tt>defaultdomain</tt>.  See <a href=#admins>Administrators</a>
+to the <tt>defaultdomain</tt>.  See <a href="#admins">Administrators</a>
 below for further discussion.
 
 <p>Here is a sample <tt>imapd.conf</tt> with a minimal set of configuration
@@ -148,7 +150,7 @@ qualified with the correct domain.</p>
 
 <h4>Configuring Sendmail</h4>
 
-<p>In general, follow the basic <a href=install-configure.html>configuration
+<p>In general, follow the basic <a href="install-configure.html">configuration
 instructions</a>.  Here are a few caveats:</p>
 
 <ul>
@@ -178,7 +180,7 @@ form of userid is also supported.  Users in the default domain will not
 need to reconfigure their clients (as unqualified userids are assumed to
 be in the default domain).</p>
 
-<a name="admins"><h3>Administration</h3></a>
+<h3><a name="admins">Administration</a></h3>
 
 <p>The Cyrus virtual domains implementation supports per-domain
 administrators as well as "global" (inter-domain) administrators.
@@ -213,7 +215,7 @@ specifying mailboxes outside of the <tt>defaultdomain</tt>.  Examples
    cm user.test@example.com
 </kbd></pre>
 
-To list all mailboxes in domain 'example.com':</p>
+<p>To list all mailboxes in domain 'example.com':</p>
 
 <pre><kbd>
    lm *@example.com

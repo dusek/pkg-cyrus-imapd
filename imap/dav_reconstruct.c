@@ -49,12 +49,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <syslog.h>
 #include <time.h>
 
 #include <libical/ical.h>
 
 #include "annotate.h"
 #include "caldav_db.h"
+#include "carddav_db.h"
+#include "exitcodes.h"
 #include "global.h"
 #include "http_dav.h"
 #include "imap_err.h"
@@ -63,6 +66,7 @@
 #include "message_guid.h"
 #include "mboxname.h"
 #include "mboxlist.h"
+#include "util.h"
 #include "xmalloc.h"
 #include "xstrlcat.h"
 
@@ -76,7 +80,11 @@ static struct namespace recon_namespace;
 const int config_need_data = 0;
 
 /* forward declarations */
-int do_reconstruct(char *name, int matchlen, int maycreate, void *rock);
+static int do_reconstruct(void *rock,
+			  const char *key,
+			  size_t keylen,
+			  const char *data,
+			  size_t datalen);
 void usage(void);
 void shut_down(int code);
 
@@ -84,25 +92,42 @@ static int code = 0;
 static struct caldav_db *caldavdb = NULL;
 
 
+static int do_user(const char *userid, void *rock __attribute__((unused)))
+{
+    struct buf fnamebuf = BUF_INITIALIZER;
+
+    printf("Reconstructing DAV DB for %s...\n", userid);
+
+    /* remove existing database entirely */
+    /* XXX - build a new file and rename into place? */
+    dav_getpath_byuserid(&fnamebuf, userid);
+    if (buf_len(&fnamebuf))
+	unlink(buf_cstring(&fnamebuf));
+    buf_free(&fnamebuf);
+
+    mboxlist_allusermbox(userid, do_reconstruct, NULL, 0);
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     int opt, r;
-    char buf[MAX_MAILBOX_PATH+1];
-    char *alt_config = NULL, *userid;
-    struct mailbox mailbox;
+    char *alt_config = NULL;
+    int allusers = 0;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
-    /* Ensure we're up-to-date on the index file format */
-    assert(INDEX_HEADER_SIZE == (OFFSET_HEADER_CRC+4));
-    assert(INDEX_RECORD_SIZE == (OFFSET_RECORD_CRC+4));
-
-    while ((opt = getopt(argc, argv, "C:")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:a")) != EOF) {
 	switch (opt) {
 	case 'C': /* alt config file */
 	    alt_config = optarg;
+	    break;
+
+	case 'a':
+	    allusers = 1;
 	    break;
 
 	default:
@@ -110,7 +135,7 @@ int main(int argc, char **argv)
 	}
     }
 
-    cyrus_init(alt_config, "dav_reconstruct", 0);
+    cyrus_init(alt_config, "dav_reconstruct", 0, 0);
 
     /* Set namespace -- force standard (internal) */
     if ((r = mboxname_init_namespace(&recon_namespace, 1)) != 0) {
@@ -121,36 +146,28 @@ int main(int argc, char **argv)
     mboxlist_init(0);
     mboxlist_open(NULL);
 
-    /* open annotations.db, we'll need it for collection properties */
-    annotatemore_init(0, NULL, NULL);
-    annotatemore_open(NULL);
-
     signals_set_shutdown(&shut_down);
     signals_add_handlers(0);
 
-    if (optind == argc) usage();
-
-    userid = argv[optind];
-
-    printf("Reconstructing DAV DB for %s...\n", userid);
     caldav_init();
+    carddav_init();
 
-    /* Generate mailboxname of calendar-home-set */
-    caldav_mboxname(NULL, userid, buf);
-
-    /* Open DAV DB corresponding to userid */
-    mailbox.name = buf;
-    caldavdb = caldav_open(&mailbox, CALDAV_CREATE | CALDAV_TRUNC);
-
-    strlcat(buf, ".*", sizeof(buf));
-    (*recon_namespace.mboxlist_findall)(&recon_namespace, buf, 1, 0, 0,
-					do_reconstruct, NULL);
+    if (allusers) {
+	mboxlist_alluser(do_user, NULL);
+    }
+    else if (optind == argc) {
+	 usage();
+    }
+    else {
+	int i;
+	for (i = optind; i < argc; i++)
+	    do_user(argv[i], NULL);
+    }
 
     caldav_close(caldavdb);
-    caldav_done();
 
-    annotatemore_close();
-    annotatemore_done();
+    carddav_done();
+    caldav_done();
 
     mboxlist_close();
     mboxlist_done();
@@ -166,98 +183,43 @@ void usage(void)
     exit(EC_USAGE);
 }
 
-
 /*
  * mboxlist_findall() callback function to create DAV DB entries for a mailbox
  */
-int do_reconstruct(char *mboxname,
-		   int matchlen __attribute__((unused)),
-		   int maycreate __attribute__((unused)),
-		   void *rock __attribute__((unused)))
+static int do_reconstruct(void *rock __attribute__((unused)),
+			  const char *key,
+			  size_t keylen,
+			  const char *data __attribute__((unused)),
+			  size_t datalen __attribute__((unused)))
 {
     int r = 0;
-    unsigned recno;
     char ext_name_buf[MAX_MAILBOX_PATH+1];
+    mbentry_t *mbentry = NULL;
     struct mailbox *mailbox = NULL;
-    struct index_record record;
-    struct caldav_data cdata;
-    
+    char *name = xstrndup(key, keylen);
+
     signals_poll();
 
+    r = mboxlist_lookup(name, &mbentry, NULL);
+    if (r) goto done;
+
     /* Convert internal name to external */
-    (*recon_namespace.mboxname_toexternal)(&recon_namespace, mboxname,
+    (*recon_namespace.mboxname_toexternal)(&recon_namespace, mbentry->name,
 					   "cyrus", ext_name_buf);
-    printf("Inserting DAV DB entries for %s...\n", ext_name_buf);
 
-    /* Open/lock header */
-    r = mailbox_open_irl(mboxname, &mailbox);
-    if (r) return r;
+#ifdef WITH_DAV
+    if (mbentry->mbtype & (MBTYPE_CALENDAR|MBTYPE_ADDRESSBOOK)) {
+	printf("Inserting DAV DB entries for %s...\n", ext_name_buf);
 
-    if (chdir(mailbox_datapath(mailbox)) == -1) {
-	r = IMAP_IOERROR;
-	goto done;
+	/* Open/lock header */
+	r = mailbox_open_irl(mbentry->name, &mailbox);
+	if (!r) r = mailbox_add_dav(mailbox);
+	mailbox_close(&mailbox);
     }
+#endif
 
-    printf(" Mailbox Header Info:\n");
-    printf("  Path to mailbox: %s\n", mailbox_datapath(mailbox));
-
-    printf("\n Index Header Info:\n");
-    printf("  Number of Messages: %u  Mailbox Size: " UQUOTA_T_FMT " bytes\n",
-	   mailbox->i.exists, mailbox->i.quota_mailbox_used);
-
-    printf("\n Message Info:\n");
-
-    /* Begin new transaction for each mailbox */
-    caldav_begin(caldavdb);
-
-    for (recno = 1; recno <= mailbox->i.num_records; recno++) {
-	struct body *body;
-	struct param *param;
-	const char *msg_base = NULL;
-	unsigned long msg_size = 0;
-	icalcomponent *ical = NULL;
-
-	if (mailbox_read_index_record(mailbox, recno, &record)) continue;
-
-	if (record.system_flags & FLAG_EXPUNGED) continue;
-
-	if (mailbox_cacherecord(mailbox, &record)) continue;
-
-	/* Load message containing the resource and parse iCal data */
-	mailbox_map_message(mailbox, record.uid, &msg_base, &msg_size);
-	ical = icalparser_parse_string(msg_base + record.header_size);
-	mailbox_unmap_message(mailbox, record.uid, &msg_base, &msg_size);
-	if (!ical) continue;
-
-	memset(&cdata, 0, sizeof(struct caldav_data));
-	cdata.dav.creationdate = time(NULL);
-	cdata.dav.mailbox = mboxname;
-	cdata.dav.imap_uid = record.uid;
-
-	/* Get resource URL from filename param in Content-Disposition header */
-	message_read_bodystructure(&record, &body);
-	for (param = body->disposition_params; param; param = param->next) {
-	    if (!strcmp(param->attribute, "FILENAME")) {
-		cdata.dav.resource = param->value;
-	    }
-	    else if (!strcmp(param->attribute, "SCHEDULE-TAG")) {
-		cdata.sched_tag = param->value;
-	    }
-	}
-
-	caldav_make_entry(ical, &cdata);
-
-	caldav_write(caldavdb, &cdata, 0);
-
-	message_free_body(body); free(body);
-	icalcomponent_free(ical);
-    }
-
-    caldav_commit(caldavdb);
-
- done:
-    mailbox_close(&mailbox);
-
+done:
+    mboxlist_entry_free(&mbentry);
     return r;
 }
 

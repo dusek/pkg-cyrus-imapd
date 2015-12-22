@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mupdate.h,v 1.22 2010/07/27 19:22:54 wescraig Exp $
  */
 
 #ifndef INCLUDED_MUPDATE_H
@@ -58,7 +56,7 @@
 #include "mailbox.h"
 #include "mpool.h"
 #include "mupdate-client.h"
-#include "mupdate_err.h"
+#include "imap/mupdate_err.h"
 #include "global.h"
 
 struct mupdate_handle_s {
@@ -72,9 +70,8 @@ struct mupdate_handle_s {
 
     /* For client side mupdate_find calls */
     char mailbox_buf[MAX_MAILBOX_BUFFER];
-    char server_buf[MAX_MAILBOX_BUFFER];
-    char *acl_buf;
-    size_t acl_buf_len;
+    char location_buf[MAX_MAILBOX_BUFFER];
+    char *acl;
     struct mupdate_mailboxdata mailboxdata_buf;
 
     int saslcompleted;
@@ -91,7 +88,7 @@ enum settype {
 /* acl MUST be last, since it is what causes the variable size */
 struct mbent {
     char *mailbox;
-    char *server;
+    char *location;
     enum settype t;
     struct mbent *next; /* used for queue */
     char acl[1];

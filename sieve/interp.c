@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: interp.c,v 1.27 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -56,11 +54,12 @@
 #include "sieve_interface.h"
 #include "interp.h"
 #include "libconfig.h"
+#include "times.h"
 
 #define EXT_LEN 4096
 
 /* build a sieve interpretor */
-int sieve_interp_alloc(sieve_interp_t **interp, void *interp_context)
+EXPORTED sieve_interp_t *sieve_interp_alloc(void *interp_context)
 {
     sieve_interp_t *i;
     static int initonce;
@@ -70,11 +69,7 @@ int sieve_interp_alloc(sieve_interp_t **interp, void *interp_context)
 	initonce = 1;
     }
 
-    *interp = NULL;
     i = (sieve_interp_t *) xmalloc(sizeof(sieve_interp_t));
-    if (i == NULL) {
-	return SIEVE_NOMEM;
-    }
 
     i->redirect = i->discard = i->reject = i->fileinto = i->keep = NULL;
     i->getsize = NULL;
@@ -89,171 +84,168 @@ int sieve_interp_alloc(sieve_interp_t **interp, void *interp_context)
 
     i->interp_context = interp_context;
     i->err = NULL;
+    i->lastitem = NULL;
+    i->extensions[0] = '\0';
 
-    *interp = i;
-    return SIEVE_OK;
+    i->time = time(NULL);
+
+    return i;
 }
 
-const char *sieve_listextensions(sieve_interp_t *i)
+EXPORTED const char *sieve_listextensions(sieve_interp_t *i)
 {
-    static int done = 0;
-    static char extensions[EXT_LEN] = "";
-
-    if (!done++) {
+    if (i->extensions[0] == '\0') {
 	unsigned long config_sieve_extensions =
 	    config_getbitfield(IMAPOPT_SIEVE_EXTENSIONS);
 
 	/* add comparators */
-	strlcat(extensions, "comparator-i;ascii-numeric", EXT_LEN);
+	strlcat(i->extensions, "comparator-i;ascii-numeric", EXT_LEN);
 
 	/* add actions */
 	if (i->fileinto &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_FILEINTO))
-	    strlcat(extensions, " fileinto", EXT_LEN);
+	    strlcat(i->extensions, " fileinto", EXT_LEN);
 	if (i->reject &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_REJECT))
-	    strlcat(extensions, " reject", EXT_LEN);
+	    strlcat(i->extensions, " reject", EXT_LEN);
 	if (i->vacation &&
+	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_VACATION_SECONDS))
+	    strlcat(i->extensions, " vacation vacation-seconds", EXT_LEN);
+	else if (i->vacation &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_VACATION))
-	    strlcat(extensions, " vacation", EXT_LEN);
+	    strlcat(i->extensions, " vacation", EXT_LEN);
 	if (i->markflags &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_IMAPFLAGS))
-	    strlcat(extensions, " imapflags", EXT_LEN);
+	    strlcat(i->extensions, " imapflags", EXT_LEN);
 	if (i->notify &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_NOTIFY))
-	    strlcat(extensions, " notify", EXT_LEN);
+	    strlcat(i->extensions, " notify", EXT_LEN);
 	if (i->getinclude &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_INCLUDE))
-	    strlcat(extensions, " include", EXT_LEN);
+	    strlcat(i->extensions, " include", EXT_LEN);
 
 	/* add tests */
 	if (i->getenvelope &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_ENVELOPE))
-	    strlcat(extensions, " envelope", EXT_LEN);
+	    strlcat(i->extensions, " envelope", EXT_LEN);
 	if (i->getbody &&
 	    (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_BODY))
-	    strlcat(extensions, " body", EXT_LEN);
+	    strlcat(i->extensions, " body", EXT_LEN);
+	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_IMAP4FLAGS)
+	    strlcat(i->extensions, " imap4flags", EXT_LEN);
 
 	/* add match-types */
 	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_RELATIONAL)
-	    strlcat(extensions, " relational", EXT_LEN);
+	    strlcat(i->extensions, " relational", EXT_LEN);
 #ifdef ENABLE_REGEX
 	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_REGEX)
-	    strlcat(extensions, " regex", EXT_LEN);
+	    strlcat(i->extensions, " regex", EXT_LEN);
 #endif
 
 	/* add misc extensions */
 	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_SUBADDRESS)
-	    strlcat(extensions, " subaddress", EXT_LEN);
+	    strlcat(i->extensions, " subaddress", EXT_LEN);
 	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_COPY)
-	    strlcat(extensions, " copy", EXT_LEN);
+	    strlcat(i->extensions, " copy", EXT_LEN);
+
+	if (config_sieve_extensions & IMAP_ENUM_SIEVE_EXTENSIONS_DATE)
+	    strlcat(i->extensions, " date", EXT_LEN);
     }
 
-    return extensions;
+    return i->extensions;
 }
 
-int sieve_interp_free(sieve_interp_t **interp)
+EXPORTED int sieve_interp_free(sieve_interp_t **interp)
 {
-    free(*interp);
-    
+    if (*interp) {
+	free((*interp)->lastitem);
+	free(*interp);
+	*interp = NULL;
+    }
+
     return SIEVE_OK;
 }
 
 /* add the callbacks */
-int sieve_register_redirect(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_redirect(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->redirect = f;
-
-    return SIEVE_OK;
 }
 
-int sieve_register_discard(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_discard(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->discard = f;
-
-    return SIEVE_OK;
 }
 
-int sieve_register_reject(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_reject(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->reject = f;
-
-    return SIEVE_OK;
 }
 
-int sieve_register_fileinto(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_fileinto(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->fileinto = f;
-
-    return SIEVE_OK;
 }
 
-int sieve_register_keep(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_keep(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->keep = f;
- 
-    return SIEVE_OK;
 }
 
-static char *default_markflags[] = { "\\flagged" };
-static sieve_imapflags_t default_mark = { default_markflags, 1 };
-
-int sieve_register_imapflags(sieve_interp_t *interp, sieve_imapflags_t *mark)
+EXPORTED void sieve_register_imapflags(sieve_interp_t *interp, const strarray_t *mark)
 {
-    interp->markflags =
-	(mark && mark->flag && mark->nflags) ? mark : &default_mark;
+    static strarray_t default_mark = STRARRAY_INITIALIZER;
 
-    return SIEVE_OK;
+    if (!default_mark.count)
+	strarray_append(&default_mark, "\\flagged");
+
+    interp->markflags =
+	(mark && mark->data && mark->count) ? mark : &default_mark;
 }
 
-int sieve_register_notify(sieve_interp_t *interp, sieve_callback *f)
+EXPORTED void sieve_register_notify(sieve_interp_t *interp, sieve_callback *f)
 {
     interp->notify = f;
- 
-    return SIEVE_OK;
 }
 
 /* add the callbacks for messages. again, undefined if used after
    sieve_script_parse */
-int sieve_register_size(sieve_interp_t *interp, sieve_get_size *f)
+EXPORTED void sieve_register_size(sieve_interp_t *interp, sieve_get_size *f)
 {
     interp->getsize = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_header(sieve_interp_t *interp, sieve_get_header *f)
+EXPORTED void sieve_register_header(sieve_interp_t *interp, sieve_get_header *f)
 {
     interp->getheader = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_envelope(sieve_interp_t *interp, sieve_get_envelope *f)
+EXPORTED void sieve_register_envelope(sieve_interp_t *interp, sieve_get_envelope *f)
 {
     interp->getenvelope = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_include(sieve_interp_t *interp, sieve_get_include *f)
+EXPORTED void sieve_register_include(sieve_interp_t *interp, sieve_get_include *f)
 {
     interp->getinclude = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_body(sieve_interp_t *interp, sieve_get_body *f)
+EXPORTED void sieve_register_body(sieve_interp_t *interp, sieve_get_body *f)
 {
     interp->getbody = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_vacation(sieve_interp_t *interp, sieve_vacation_t *v)
+EXPORTED int sieve_register_vacation(sieve_interp_t *interp, sieve_vacation_t *v)
 {
     if (!interp->getenvelope) {
 	return SIEVE_NOT_FINALIZED; /* we need envelope for vacation! */
     }
 
-    if (v->min_response == 0) v->min_response = 3;
-    if (v->max_response == 0) v->max_response = 90;
-    if (v->min_response < 0 || v->max_response < 7 || !v->autorespond
+    if (v->min_response == 0)
+	v->min_response = config_getint(IMAPOPT_SIEVE_VACATION_MIN_RESPONSE);
+    if (v->max_response == 0)
+	v->max_response = config_getint(IMAPOPT_SIEVE_VACATION_MAX_RESPONSE);
+    if (v->min_response < 0 || v->max_response < 7 * DAY2SEC || !v->autorespond
 	|| !v->send_response) {
 	return SIEVE_FAIL;
     }
@@ -262,16 +254,14 @@ int sieve_register_vacation(sieve_interp_t *interp, sieve_vacation_t *v)
     return SIEVE_OK;
 }
 
-int sieve_register_parse_error(sieve_interp_t *interp, sieve_parse_error *f)
+EXPORTED void sieve_register_parse_error(sieve_interp_t *interp, sieve_parse_error *f)
 {
     interp->err = f;
-    return SIEVE_OK;
 }
 
-int sieve_register_execute_error(sieve_interp_t *interp, sieve_execute_error *f)
+EXPORTED void sieve_register_execute_error(sieve_interp_t *interp, sieve_execute_error *f)
 {
     interp->execute_err = f;
-    return SIEVE_OK;
 }
 
 int interp_verify(sieve_interp_t *i)

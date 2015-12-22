@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lock.h,v 1.9 2010/01/06 17:01:46 murch Exp $
  */
 
 #ifndef INCLUDED_LOCK_H
@@ -57,12 +55,12 @@
 
 extern const char *lock_method_desc;
 
-extern int lock_reopen P((int fd, const char *filename,
-			   struct stat *sbuf, const char **failaction));
+extern int lock_reopen (int fd, const char *filename,
+			struct stat *sbuf, const char **failaction);
 
-extern int lock_blocking P((int fd));
-extern int lock_shared P((int fd));
-extern int lock_nonblocking P((int fd));
-extern int lock_unlock P((int fd));
+extern int lock_blocking (int fd, const char *filename);
+extern int lock_shared (int fd, const char *filename);
+extern int lock_nonblocking(int fd, const char *filename);
+extern int lock_unlock (int fd, const char *filename);
 
 #endif /* INCLUDED_LOCK_H */

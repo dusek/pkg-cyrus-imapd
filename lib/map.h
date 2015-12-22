@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: map.h,v 1.14 2010/01/06 17:01:46 murch Exp $
  */
 
 #ifndef INCLUDED_MAP_H
@@ -63,12 +61,12 @@ extern const char *map_method_desc;
  * 	of the applicable mailbox (if any), and may be NULL
  */
 extern void map_refresh(int fd, int onceonly, const char **base,
-			unsigned long *len, unsigned long newlen,
+			size_t *len, size_t newlen,
 			const char *name, const char *mboxname);
 
 /* map_free will free a memory map allocated by map_refresh
  *
  * base and len are the same values that were passed to map_refresh */
-extern void map_free(const char **base, unsigned long *len);
+extern void map_free(const char **base, size_t *len);
 
 #endif /* INCLUDED_MAP_H */

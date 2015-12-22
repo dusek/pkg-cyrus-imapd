@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: cvt_cyrusdb.c,v 1.20 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -50,35 +48,25 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <syslog.h>
 
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#include "acl.h"
-#include "assert.h"
-#include "auth.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
-#include "glob.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "global.h"
 #include "mailbox.h"
 #include "util.h"
 #include "xmalloc.h"
 
-/* config.c stuff */
-const int config_need_data = 0;
-
 int main(int argc, char *argv[])
 {
-    struct cyrusdb_backend *DB_OLD = NULL, *DB_NEW = NULL;
+    const char *OLDDB = NULL, *NEWDB = NULL;
     const char *old_db, *new_db;
     int i;
     int opt;
@@ -91,23 +79,20 @@ int main(int argc, char *argv[])
 	    break;
 	}
     }
-	
-    if((argc - optind) != 4) {
+
+    if ((argc - optind) != 4) {
+	strarray_t *backends = cyrusdb_backends();
+	char sep;
+
 	fprintf(stderr, "Usage: %s [-C altconfig] <old db> <old db backend> <new db> <new db backend>\n", argv[0]);
 	fprintf(stderr, "Usable Backends:  ");
 
-	/* The following is commented out because its an over-paranoid
-	   check (cyrusdb_backends[] is statically defined to be non-empty)
-	   and causes a compiler warning
+	for(i=0, sep = ':'; i < backends->count; i++) {
+	    fprintf(stderr, "%c %s", sep, strarray_nth(backends, i));
+	    sep = ',';
+	}
+	strarray_free(backends);
 
-	if(!cyrusdb_backends || !cyrusdb_backends[0])
-	    fatal("we don't seem to have any db backends available", EC_OSERR);
-	*/
-
-	fprintf(stderr, "%s", cyrusdb_backends[0]->name);
-	for(i=1; cyrusdb_backends[i]; i++)
-	    fprintf(stderr, ", %s", cyrusdb_backends[i]->name);
-	
 	fprintf(stderr, "\n");
 	exit(-1);
     }
@@ -115,7 +100,7 @@ int main(int argc, char *argv[])
     old_db = argv[optind];
     new_db = argv[optind+2];
 
-    if(old_db[0] != '/' || new_db[0] != '/') {
+    if (old_db[0] != '/' || new_db[0] != '/') {
 	printf("\nSorry, you cannot use this tool with relative path names.\n"
 	       "This is because some database backends (mainly berkeley) do not\n"
 	       "always do what you would expect with them.\n"
@@ -123,34 +108,19 @@ int main(int argc, char *argv[])
 	exit(EC_OSERR);
     }
 
-    for(i=0; cyrusdb_backends[i]; i++) {
-	if(!strcmp(cyrusdb_backends[i]->name, argv[optind+1])) {
-	    DB_OLD = cyrusdb_backends[i]; break;
-	}
-    }
-    if(!cyrusdb_backends[i]) {
-	fatal("unknown old backend", EC_TEMPFAIL);
-    }   
+    OLDDB = argv[optind+1];
+    NEWDB = argv[optind+3];
 
-    for(i=0; cyrusdb_backends[i]; i++) {
-	if(!strcmp(cyrusdb_backends[i]->name, argv[optind+3])) {
-	    DB_NEW = cyrusdb_backends[i]; break;
-	}
-    }
-    if(!cyrusdb_backends[i]) {
-	fatal("unknown new backend", EC_TEMPFAIL);
-    }
-
-    if(DB_NEW == DB_OLD) {
+    if (NEWDB == OLDDB) {
 	fatal("no conversion required", EC_TEMPFAIL);
     }
 
-    cyrus_init(alt_config, "cvt_cyrusdb", 0);
+    cyrus_init(alt_config, "cvt_cyrusdb", 0, 0);
 
-    printf("Converting from %s (%s) to %s (%s)\n", old_db, DB_OLD->name,
-	   new_db, DB_NEW->name);
+    printf("Converting from %s (%s) to %s (%s)\n", old_db, OLDDB,
+	   new_db, NEWDB);
 
-    cyrusdb_convert(old_db, new_db, DB_OLD, DB_NEW);
+    cyrusdb_convert(old_db, new_db, OLDDB, NEWDB);
 
     cyrus_done();
 

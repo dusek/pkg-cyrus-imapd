@@ -1,12 +1,13 @@
-<!-- $Id: install-testing.html,v 1.5 2010/01/06 17:01:29 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Testing the IMAP Server
 </title>
 </head>
-<h1>Testing the IMAP Server
-</h1>
 <body>
+<h1>Testing the IMAP Server</h1>
 
 To test the IMAP server, reboot and perform the following steps (all
 of these samples use "<tt>foobar</tt>" as the IMAP server name).  A
@@ -56,11 +57,11 @@ If your server is running, you'll get the following message:
    <kbd>% /usr/local/bin/imtest -m login foobar</kbd>
    S: * OK mail1.andrew.cmu.edu Cyrus IMAP4 v2.0.0 server ready
    C: C01 CAPABILITY
-   S: * CAPABILITY IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS 
-   X-NON-HIERARCHICAL-RENAME NO_ATOMIC_RENAME AUTH=GSSAPI AUTH=ANONYMOUS 
+   S: * CAPABILITY IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS
+   X-NON-HIERARCHICAL-RENAME NO_ATOMIC_RENAME AUTH=GSSAPI AUTH=ANONYMOUS
    AUTH=KERBEROS_V4 UNSELECT
    S: C01 OK Completed
-   Password: 
+   Password:
    + go ahead
    L01 OK User logged in
    Authenticated.
@@ -77,7 +78,7 @@ authentication mechanisms you have installed. The supported mechanisms
 are listed in the CAPABILITY line:
 
 <pre>
-  * CAPABILITY IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS 
+  * CAPABILITY IMAP4 IMAP4rev1 ACL QUOTA LITERAL+ NAMESPACE UIDPLUS
   X-NON-HIERARCHICAL-RENAME NO_ATOMIC_RENAME AUTH=ANONYMOUS
   AUTH=KERBEROS_V4 AUTH=DIGEST-MD5 AUTH=CRAM-MD5 UNSELECT
   . OK Completed

@@ -1,12 +1,13 @@
-<!-- $Id: install-netnews.html,v 1.7 2006/11/30 17:11:16 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Cyrus and Netnews
 </title>
 </head>
-<h1>Cyrus and Netnews
-</h1>
 <body>
+<h1>Cyrus and Netnews</h1>
 
 <b><i>Note that the NNTP support in Cyrus is still relatively young in
 the grand scheme of things, and has not been tested under a heavy
@@ -24,7 +25,7 @@ your Cyrus IMAP server.  If you have not already done so, please refer
 to the rest of the documentation.  This document also assumes that you
 are familiar with Usenet and shared IMAP mailboxes.
 
-<p>There is a <a href=netnews.png>diagram</a> that shows the interactions of
+<p>There is a <a href="netnews.png">diagram</a> that shows the interactions of
 the various components of the NNTP support in Cyrus which may be
 helpful in understanding the "big picture".<p>
 
@@ -77,7 +78,7 @@ You will probably want to configure <tt>fetchnews</tt> as an EVENT in
 15 minutes, etc).
 
 <p>As an alternative to <tt>fetchnews</tt>, you can also use the
- <a href=http://home.comcast.net/~bobyetman/><tt>suck</tt></a> program
+ <a href="http://home.comcast.net/~bobyetman/"><tt>suck</tt></a> program
  to pull articles from your peer.
 
 <h4>imapfeed</h4>
@@ -149,7 +150,7 @@ posting and replying to articles.
 <p>In order for these email messages to be fed into your news server
 (and subsequently to the outside world) you need to use an email to
 news gateway, such as <a
-href=http://www.ossp.org/pkg/tool/lmtp2nntp/><tt>lmtp2nntp</tt></a>.  You need
+href="http://www.ossp.org/pkg/tool/lmtp2nntp/"><tt>lmtp2nntp</tt></a>.  You need
 to configure your MTA (Sendmail, Postfix, etc) so that
 <tt>lmtp2nntp</tt> is used as the local mailer whenever it receives a
 news article.  A simple rule for doing this in Sendmail is shown

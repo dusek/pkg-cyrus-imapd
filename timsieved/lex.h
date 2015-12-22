@@ -40,15 +40,13 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lex.h,v 1.13 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifndef _LEX_H_
 #define _LEX_H_
 
 #include "prot.h"
-#include "mystring.h"
+#include "util.h"
 
 #define LEXER_STATE_RECOVER     61
 #define LEXER_STATE_RECOVER_CR  62
@@ -81,11 +79,13 @@
 #define STARTTLS     409
 #define NOOP         410
 #define UNAUTHENTICATE 411
+#define CHECKSCRIPT  412
+#define RENAMESCRIPT 413
 
 
 int lex_init(void);
 
-int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *stream);
+int timlex(struct buf *outstr, unsigned long *outnum,  struct protstream *stream);
 
 void lex_setrecovering(void);
 

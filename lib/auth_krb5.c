@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth_krb5.c,v 1.8 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
@@ -59,8 +57,6 @@
 
 #include <krb5.h>
 
-#include "auth.h"
-
 struct auth_state {
     char *userid; /* Canonified Userid */
 };
@@ -75,7 +71,7 @@ struct auth_state {
  */
 static int mymemberof(struct auth_state *auth_state, const char *identifier)
 {
-    char *ident;
+    const char *ident;
     int ret=0;
 
     if (strcmp(identifier,"anyone") == 0) return 1;
@@ -86,7 +82,7 @@ static int mymemberof(struct auth_state *auth_state, const char *identifier)
 
     ident = auth_canonifyid(identifier,0);
 
-    if(!strcmp(ident, auth_state->userid)) {
+    if (!strcmp(ident, auth_state->userid)) {
 	ret = 3;
     }
     
@@ -98,7 +94,7 @@ static int mymemberof(struct auth_state *auth_state, const char *identifier)
  * Returns a pointer to a static buffer containing the canonical form
  * or NULL if 'identifier' is invalid.
  */
-static char *mycanonifyid(const char *identifier, size_t len)
+static const char *mycanonifyid(const char *identifier, size_t len)
 {
     static char *retbuf = NULL;
     krb5_context context;
@@ -181,7 +177,8 @@ static char *mycanonifyid(const char *identifier, size_t len)
 static struct auth_state *mynewstate(const char *identifier)
 {
     struct auth_state *newstate;
-    char *ident;
+    const char *ident;
+
     ident = auth_canonifyid(identifier, 0);
     if (!ident) return NULL;
 
@@ -209,7 +206,7 @@ static int mymemberof(
 	return 0;
 }
 
-static char *mycanonifyid(
+static const char *mycanonifyid(
     const char *identifier __attribute__((unused)), 
     size_t len __attribute__((unused)))
 {
@@ -232,7 +229,7 @@ static void myfreestate(
 
 #endif
 
-struct auth_mech auth_krb5 = 
+HIDDEN struct auth_mech auth_krb5 =
 {
     "krb5",		/* name */
 

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: unexpunge.c,v 1.15 2010/01/06 17:01:42 murch Exp $
  */
 
 #include <config.h>
@@ -50,52 +48,42 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <syslog.h>
-#include <errno.h>
 #include <signal.h>
 
 #include "annotate.h"
-#include "cyrusdb.h"
-#include "duplicate.h"
 #include "exitcodes.h"
 #include "global.h"
-#include "hash.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "index.h"
 #include "libcyr_cfg.h"
-#include "cyr_lock.h"
 #include "map.h"
 #include "mailbox.h"
 #include "mboxlist.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "xstrlcpy.h"
-#include "xstrlcat.h"
 #include "sync_log.h"
-
-/* global state */
-const int config_need_data = 0;
 
 /* current namespace */
 static struct namespace unex_namespace;
 
-int verbose = 0;
-int unsetdeleted = 0;
+static int verbose = 0;
+static int unsetdeleted = 0;
+static const char *addflag = NULL;
 
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr,
 	    "unexpunge [-C <altconfig>] -l <mailbox>\n"
-            "unexpunge [-C <altconfig>] -t time-interval [ -d ] [ -v ] mailbox\n"
-	    "unexpunge [-C <altconfig>] -a [-d] [-v] <mailbox>\n"
-	    "unexpunge [-C <altconfig>] -u [-d] [-v] <mailbox> <uid>...\n");
+            "unexpunge [-C <altconfig>] -t time-interval [-d] [-v] [-f flag] mailbox\n"
+	    "unexpunge [-C <altconfig>] -a [-d] [-v] [-f flag] <mailbox>\n"
+	    "unexpunge [-C <altconfig>] -u [-d] [-v] [-f flag] <mailbox> <uid>...\n");
     exit(-1);
 }
 
-int compare_uid(const void *a, const void *b)
+static int compare_uid(const void *a, const void *b)
 {
     return *((unsigned long *) a) - *((unsigned long *) b);
 }
@@ -108,7 +96,7 @@ enum {
     MODE_UID
 };
 
-void list_expunged(const char *mboxname)
+static void list_expunged(const char *mboxname)
 {
     struct mailbox *mailbox = NULL;
     struct index_record *records = NULL;
@@ -181,23 +169,25 @@ void list_expunged(const char *mboxname)
     mailbox_close(&mailbox);
 }
 
-int restore_expunged(struct mailbox *mailbox, int mode, unsigned long *uids,
+static int restore_expunged(struct mailbox *mailbox, int mode, unsigned long *uids,
 		     unsigned nuids, time_t time_since, unsigned *numrestored,
 		     const char *mboxname)
 {
     uint32_t recno;
-    uint32_t olduid;
     struct index_record record;
+    struct index_record newrecord;
+    annotate_state_t *astate = NULL;
     unsigned uidnum = 0;
     char oldfname[MAX_MAILBOX_PATH];
     const char *fname;
+    const char *userid = mboxname_to_userid(mailbox->name);
     int r = 0;
 
     *numrestored = 0;
 
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {
 	r = mailbox_read_index_record(mailbox, recno, &record);
-	if (r) return r;
+	if (r) goto done;
 
 	/* still active */
 	if (!(record.system_flags & FLAG_EXPUNGED))
@@ -221,38 +211,62 @@ int restore_expunged(struct mailbox *mailbox, int mode, unsigned long *uids,
 	    /* otherwise we want this one */
 	}
 
-	/* mark the old one unlinked so we don't see it again */
-	olduid = record.uid;
-	record.system_flags |= FLAG_UNLINKED;
-	r = mailbox_rewrite_index_record(mailbox, &record);
-	if (r) return r;
+	/* work on a copy */
+	newrecord = record;
 
 	/* duplicate the old filename */
-	fname = mailbox_message_fname(mailbox, olduid);
-	strncpy(oldfname, fname, MAX_MAILBOX_PATH);
+	fname = mailbox_message_fname(mailbox, record.uid);
+	xstrncpy(oldfname, fname, MAX_MAILBOX_PATH);
 
 	/* bump the UID, strip the flags */
-	record.uid = mailbox->i.last_uid + 1;
-	record.system_flags &= ~(FLAG_UNLINKED|FLAG_EXPUNGED);
+	newrecord.uid = mailbox->i.last_uid + 1;
+	newrecord.system_flags &= ~FLAG_EXPUNGED;
 	if (unsetdeleted)
-	    record.system_flags &= ~FLAG_DELETED;
+	    newrecord.system_flags &= ~FLAG_DELETED;
 
 	/* copy the message file */
-	fname = mailbox_message_fname(mailbox, record.uid);
+	fname = mailbox_message_fname(mailbox, newrecord.uid);
 	r = mailbox_copyfile(oldfname, fname, 0);
-	if (r) return r;
+	if (r) goto done;
+
+	/* add the flag if requested */
+	if (addflag) {
+	    int userflag = 0;
+	    r = mailbox_user_flag(mailbox, addflag, &userflag, 1);
+	    if (r) goto done;
+	    newrecord.user_flags[userflag/32] |= 1<<(userflag&31);
+	}
 
 	/* and append the new record */
-	mailbox_append_index_record(mailbox, &record);
+	r = mailbox_append_index_record(mailbox, &newrecord);
+	if (r) goto done;
+
+	/* ensure we have an astate connected to the destination
+	 * mailbox, so that the annotation txn will be committed
+	 * when we close the mailbox */
+	r = mailbox_get_annotate_state(mailbox, newrecord.uid, &astate);
+	if (r) goto done;
+
+	/* and copy over any annotations */
+	r = annotate_msg_copy(mailbox, record.uid,
+			      mailbox, newrecord.uid,
+			      userid);
+	if (r) goto done;
 
 	if (verbose)
 	    printf("Unexpunged %s: %u => %u\n",
-		   mboxname, olduid, record.uid);
+		   mboxname, record.uid, newrecord.uid);
+
+	/* mark the old one unlinked so we don't see it again */
+	record.system_flags |= FLAG_UNLINKED;
+	r = mailbox_rewrite_index_record(mailbox, &record);
+	if (r) goto done;
 
 	(*numrestored)++;
     }
 
-    return 0;
+done:
+    return r;
 }
 
 int main(int argc, char *argv[])
@@ -270,11 +284,11 @@ int main(int argc, char *argv[])
     unsigned nuids = 0;
     char *mboxname = NULL;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
-    while ((opt = getopt(argc, argv, "C:laudt:v")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:laudt:f:v")) != EOF) {
 	switch (opt) {
 	case 'C': /* alt config file */
 	    alt_config = optarg;
@@ -325,6 +339,10 @@ int main(int argc, char *argv[])
 	    unsetdeleted = 1;
 	    break;
 
+	case 'f':
+	    addflag = optarg;
+	    break;
+
 	case 'v':
 	    verbose = 1;
 	    break;
@@ -339,7 +357,8 @@ int main(int argc, char *argv[])
     if (mode == MODE_UNKNOWN ||
 	(optind + (mode == MODE_UID ? 1 : 0)) >= argc) usage();
 
-    cyrus_init(alt_config, "unexpunge", 0);
+
+    cyrus_init(alt_config, "unexpunge", 0, 0);
 
     mboxlist_init(0);
     mboxlist_open(NULL);
@@ -348,6 +367,11 @@ int main(int argc, char *argv[])
     quotadb_open(NULL);
 
     sync_log_init();
+
+    if (addflag && addflag[0] == '\\') {
+	syslog(LOG_ERR, "can't set a system flag");
+	fatal("can't set a system flag", EC_SOFTWARE);
+    }
 
     /* Set namespace -- force standard (internal) */
     if ((r = mboxname_init_namespace(&unex_namespace, 1)) != 0) {

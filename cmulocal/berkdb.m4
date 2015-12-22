@@ -1,5 +1,3 @@
-dnl $Id: berkdb.m4,v 1.24 2010/01/06 17:01:27 murch Exp $
-
 AC_DEFUN([CMU_DB_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$saved_CPPFLAGS -I$1"
@@ -217,7 +215,7 @@ AC_DEFUN([CYRUS_BERKELEY_DB_CHK_LIB],
 	        db-5.3 db5.3 db53 \
 	        db-5.2 db5.2 db52 \
 	        db-5.1 db5.2 db51 \
-	        db-5.0 db5.2 db50 \
+	        db-5.0 db5.2 db50 db-5 db5 \
 	        db-4.8 db4.8 db48 \
 	        db-4.7 db4.7 db47 \
 	        db-4.6 db4.6 db46 \
@@ -245,7 +243,7 @@ AC_DEFUN([CYRUS_BERKELEY_DB_CHK_LIB],
 	    LIBS="$saved_LIBS -ldb"
 	    AC_TRY_LINK([#include <stdio.h>
 #include <db.h>],
-	    [db_open(NULL, 0, 0, 0, NULL, NULL, NULL);],
+	    [db_create(NULL, NULL, 0);],
 	    BDB_LIBADD="$BDB_LIBADD -ldb"; dblib="berkeley"; dbname=db,
             dblib="no")
         fi

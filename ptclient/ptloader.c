@@ -38,16 +38,15 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: ptloader.c,v 1.50 2010/01/06 17:01:58 murch Exp $
  */
 
 #include <config.h>
 
+#include <signal.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
+#include <syslog.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/param.h>
@@ -59,13 +58,12 @@
 #include "auth_pts.h"
 #include "cyrusdb.h"
 #include "exitcodes.h"
-#include "hash.h"
-#include "global.h"
+#include "imap/global.h"
 #include "libconfig.h"
-#include "cyr_lock.h"
 #include "retry.h"
 #include "xmalloc.h"
 #include "ptloader.h"
+#include "xversion.h"
 
 struct pts_module *pts_modules[] = {
 #ifdef HAVE_LDAP
@@ -141,7 +139,7 @@ int service_init(int argc, char *argv[], char **envp __attribute__((unused)))
     /* set signal handlers */
     signal(SIGPIPE, SIG_IGN);
 
-    syslog(LOG_NOTICE, "starting: $Id: ptloader.c,v 1.50 2010/01/06 17:01:58 murch Exp $");
+    syslog(LOG_NOTICE, "starting: ptloader.c,v " _CYRUS_VERSION " " CYRUS_GITVERSION);
 
     while ((opt = getopt(argc, argv, "d:")) != EOF) {
 	switch (opt) {
@@ -160,7 +158,7 @@ int service_init(int argc, char *argv[], char **envp __attribute__((unused)))
 
     strcpy(fnamebuf, config_dir);
     strcat(fnamebuf, PTS_DBFIL);
-    r = (DB->open)(fnamebuf, CYRUSDB_CREATE, &ptsdb);
+    r = cyrusdb_open(DB, fnamebuf, CYRUSDB_CREATE, &ptsdb);
     if (r != 0) {
 	syslog(LOG_ERR, "DBERROR: opening %s: %s", fnamebuf,
 	       cyrusdb_strerror(ret));
@@ -177,17 +175,13 @@ void service_abort(int error)
 {
     int r;
 
-    r = (DB->close)(ptsdb);
+    r = cyrusdb_close(ptsdb);
     if (r) {
 	syslog(LOG_ERR, "DBERROR: error closing ptsdb: %s",
 	       cyrusdb_strerror(r));
     }
 
-    r = DB->done();
-    if (r) {
-	syslog(LOG_ERR, "DBERROR: error exiting application: %s",
-	       cyrusdb_strerror(r));
-    }
+    cyrusdb_done();
 
     exit(error);
 }
@@ -213,7 +207,7 @@ int service_main_fd(int c, int argc __attribute__((unused)),
 
     if (size > PTS_DB_KEYSIZE)  {
 	syslog(LOG_ERR, "size sent %d is greater than buffer size %d", 
-	       size, PTS_DB_KEYSIZE);
+	       (int)size, PTS_DB_KEYSIZE);
 	reply = "Error: invalid request size";
 	goto sendreply;
     }
@@ -226,7 +220,7 @@ int service_main_fd(int c, int argc __attribute__((unused)),
 
     memset(&user, 0, sizeof(user));
     if (read(c, &user, size) < 0) {
-        syslog(LOG_ERR, "socket(user; size = %d): %m", size);
+	syslog(LOG_ERR, "socket(user; size = %d): %m", (int)size);
         reply = "Error reading request (user)";
         goto sendreply;
     }
@@ -239,7 +233,8 @@ int service_main_fd(int c, int argc __attribute__((unused)),
 
     if(newstate) {
 	/* Success! */
-	rc = DB->store(ptsdb, user, size, (void *)newstate, dsize, NULL);
+	rc = cyrusdb_store(ptsdb, user, size, (void *)newstate, dsize, NULL);
+	(void)rc;
         free(newstate);
 	
 	/* and we're done */
@@ -260,18 +255,12 @@ int service_main_fd(int c, int argc __attribute__((unused)),
     return 0;
 }
 
-/* we need to have this function here 'cause libcyrus.a 
+/* we need to have this function here 'cause libcyrus.la
  * makes calls to this function. 
  */
-void fatal(const char *msg, int exitcode)
+EXPORTED void fatal(const char *msg, int exitcode)
 {
     syslog(LOG_ERR, "%s", msg);
     exit(exitcode);
 }
 
-void printstring(const char *s __attribute__((unused)))
-{
-    /* needed to link against annotate.o */
-    fatal("printstring() executed, but its not used for PTLOADER!",
-	  EC_SOFTWARE);
-}

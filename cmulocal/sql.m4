@@ -1,5 +1,3 @@
-dnl $Id: sql.m4,v 1.2 2010/01/06 17:01:28 murch Exp $
-
 dnl These are the Cyrus MySQL macros.
 
 dnl They are here so that they can be shared between Cyrus IMAPd
@@ -43,11 +41,11 @@ AC_DEFUN([CYRUS_MYSQL_CHK_LIB],
 AC_DEFUN([CYRUS_MYSQL_OPTS],
 [
 AC_ARG_WITH(mysql-libdir,
-	[  --with-mysql-libdir=DIR   MySQL lib files are in DIR],
+	[AS_HELP_STRING([--with-mysql-libdir=DIR], [MySQL lib files are in DIR])],
 	with_mysql_lib=$withval,
 	[ test "${with_mysql_lib+set}" = set || with_mysql_lib=none])
 AC_ARG_WITH(mysql-incdir,
-	[  --with-mysql-incdir=DIR   MySQL include files are in DIR],
+	[AS_HELP_STRING([--with-mysql-incdir=DIR], [MySQL include files are in DIR])],
 	with_mysql_inc=$withval,
 	[ test "${with_mysql_inc+set}" = set || with_mysql_inc=none ])
 ])
@@ -117,11 +115,11 @@ AC_DEFUN([CYRUS_PGSQL_CHK_LIB],
 AC_DEFUN([CYRUS_PGSQL_OPTS],
 [
 AC_ARG_WITH(pgsql-libdir,
-	[  --with-pgsql-libdir=DIR   Pgsql lib files are in DIR],
+	[AS_HELP_STRING([--with-pgsql-libdir=DIR], [Pgsql lib files are in DIR])],
 	with_pgsql_lib=$withval,
 	[ test "${with_pgsql_lib+set}" = set || with_pgsql_lib=none])
 AC_ARG_WITH(pgsql-incdir,
-	[  --with-pgsql-incdir=DIR   Pgsql include files are in DIR],
+	[AS_HELP_STRING([--with-pgsql-incdir=DIR], [Pgsql include files are in DIR])],
 	with_pgsql_inc=$withval,
 	[ test "${with_pgsql_inc+set}" = set || with_pgsql_inc=none ])
 ])
@@ -191,11 +189,11 @@ AC_DEFUN([CYRUS_SQLITE_CHK_LIB],
 AC_DEFUN([CYRUS_SQLITE_OPTS],
 [
 AC_ARG_WITH(sqlite-libdir,
-	[  --with-sqlite-libdir=DIR   SQLite lib files are in DIR],
+	[AS_HELP_STRING([--with-sqlite-libdir=DIR], [SQLite lib files are in DIR])],
 	with_sqlite_lib=$withval,
 	[ test "${with_sqlite_lib+set}" = set || with_sqlite_lib=none])
 AC_ARG_WITH(sqlite-incdir,
-	[  --with-sqlite-incdir=DIR   SQLite include files are in DIR],
+	[AS_HELP_STRING([--with-sqlite-incdir=DIR], [SQLite include files are in DIR])],
 	with_sqlite_inc=$withval,
 	[ test "${with_sqlite_inc+set}" = set || with_sqlite_inc=none ])
 ])

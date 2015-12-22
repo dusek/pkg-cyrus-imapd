@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: byteorder64.h,v 1.5 2010/01/06 17:01:44 murch Exp $
  */
 
 #ifndef _BYTEORDER64_H
@@ -47,25 +45,42 @@
 
 #include <config.h>
 
-#ifdef HAVE_LONG_LONG_INT
+/* http://stackoverflow.com/a/4410728/94253 */
+
+#if defined(__linux__)
+#  include <endian.h>
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
+#  include <sys/endian.h>
+#elif defined(__OpenBSD__)
+#  include <sys/types.h>
+#  define be16toh(x) betoh16(x)
+#  define be32toh(x) betoh32(x)
+#  define be64toh(x) betoh64(x)
+#endif
 
 /* 64-bit host/network byte-order swap macros */
-#ifdef WORDS_BIGENDIAN
-#define htonll(x) (x)
-#define ntohll(x) (x)
-#else
-#define htonll(x) _htonll(x)
-#define ntohll(x) _ntohll(x)
 
+#if defined (WORDS_BIGENDIAN)
+#  define htonll(x) (x)
+#  define ntohll(x) (x)
+#else
+#  if defined (be64toh) && defined(htobe64)
+#    define htonll(x) htobe64(x)
+#    define ntohll(x) be64toh(x)
+#  else
 /* little-endian 64-bit host/network byte-order swap functions */
+#    define CYRUS_BYTESWAP
 extern unsigned long long _htonll(unsigned long long);
 extern unsigned long long _ntohll(unsigned long long);
+#    define htonll(x) _htonll(x)
+#    define ntohll(x) _ntohll(x)
+#  endif
+#endif
 
-#endif /* WORDS_BIGENDIAN */
+
 
 /* 64-bit host/network byte-order swap functions to/from non-aligned buffers */
 extern void *align_htonll(void *dst, unsigned long long src);
 extern unsigned long long align_ntohll(const void *src);
 
-#endif /* HAVE_LONG_LONG_INT */
 #endif /* _BYTEORDER64_H */

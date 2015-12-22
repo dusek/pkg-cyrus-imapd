@@ -38,32 +38,38 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: parseaddr.h,v 1.10 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef INCLUDED_PARSEADDR_H
 #define INCLUDED_PARSEADDR_H
 
-#ifndef P
-#ifdef __STDC__
-#define P(x) x
-#else
-#define P(x) ()
-#endif
-#endif
-
 struct address {
-    char *name;
-    char *route;
-    char *mailbox;
-    char *domain;
+    const char *name;
+    const char *route;
+    const char *mailbox;
+    const char *domain;
     struct address *next;
     char *freeme;		/* If non-nil, free */
 };
 
-extern void parseaddr_list P((const char *s, struct address **addrp));
-extern void parseaddr_free P((struct address *addr));
+struct address_itr {
+    struct address *addrlist;
+    struct address *anext;
+};
 
+extern void parseaddr_list(const char *s, struct address **addrp);
+extern void parseaddr_free(struct address *addr);
+
+extern char *address_get_all(const struct address *, int canon_domain);
+extern char *address_get_localpart(const struct address *);
+extern char *address_get_domain(const struct address *, int canon_domain);
+extern char *address_get_user(const struct address *);
+extern char *address_get_detail(const struct address *);
+
+extern void address_itr_init(struct address_itr *ai, const char *str);
+extern const struct address *address_itr_next(struct address_itr *ai);
+extern void address_itr_fini(struct address_itr *ai);
+
+extern char *address_canonicalise(const char *str);
 
 #endif /* INCLUDED_PARSEADDR_H */

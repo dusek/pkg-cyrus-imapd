@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sync_log.h,v 1.7 2010/01/06 17:01:41 murch Exp $
- *
  * Original version written by David Carter <dpc22@cam.ac.uk>
  * Rewritten and integrated into Cyrus by Ken Murchison <ken@oceana.com>
  */
@@ -55,15 +53,22 @@ void sync_log_suppress(void);
 void sync_log_done(void);
 
 void sync_log(const char *fmt, ...);
+void sync_log_channel(const char *channel, const char *fmt, ...);
 
 #define sync_log_user(user) \
     sync_log("USER %s\n", user)
+
+#define sync_log_unuser(user) \
+    sync_log("UNUSER %s\n", user)
 
 #define sync_log_sieve(user) \
     sync_log("META %s\n", user)
 
 #define sync_log_mailbox(name) \
     sync_log("MAILBOX %s\n", name)
+
+#define sync_log_unmailbox(name) \
+    sync_log("UNMAILBOX %s\n", name)
 
 #define sync_log_mailbox_double(name1, name2) \
     sync_log("MAILBOX %s\nMAILBOX %s\n", name1, name2)
@@ -80,32 +85,16 @@ void sync_log(const char *fmt, ...);
 #define sync_log_subscribe(user, name) \
     sync_log("SUB %s %s\n", user, name)
 
-char *sync_log_fname(const char *channel);
-void sync_log_suppress_channel(const char *channel);
-void sync_log_channel(const char *channel, const char *fmt, ...);
+/* read-side sync log code */
+typedef struct sync_log_reader sync_log_reader_t;
 
-#define sync_log_user_channel(channel, user) \
-    sync_log_channel(channel, "USER %s\n", user)
-
-#define sync_log_sieve_channel(channel, user) \
-    sync_log_channel(channel, "META %s\n", user)
-
-#define sync_log_mailbox_channel(channel, name) \
-    sync_log_channel(channel, "MAILBOX %s\n", name)
-
-#define sync_log_mailbox_double_channel(channel, name1, name2) \
-    sync_log_channel(channel, "MAILBOX %s\nMAILBOX %s\n", name1, name2)
-
-#define sync_log_quota_channel(channel, name) \
-    sync_log_channel(channel, "QUOTA %s\n", name)
-
-#define sync_log_annotation_channel(channel, name) \
-    sync_log_channel(channel, "ANNOTATION %s\n", name)
-
-#define sync_log_seen_channel(channel, user, name) \
-    sync_log_channel(channel, "SEEN %s %s\n", user, name)
-
-#define sync_log_subscribe_channel(channel, user, name) \
-    sync_log_channel(channel, "SUB %s %s\n", user, name)
+sync_log_reader_t *sync_log_reader_create_with_channel(const char *channel);
+sync_log_reader_t *sync_log_reader_create_with_filename(const char *filename);
+sync_log_reader_t *sync_log_reader_create_with_fd(int fd);
+void sync_log_reader_free(sync_log_reader_t *slr);
+int sync_log_reader_begin(sync_log_reader_t *slr);
+const char *sync_log_reader_get_file_name(const sync_log_reader_t *slr);
+int sync_log_reader_end(sync_log_reader_t *slr);
+int sync_log_reader_getitem(sync_log_reader_t *slr, const char *args[3]);
 
 #endif /* INCLUDED_SYNC_LOG_H */

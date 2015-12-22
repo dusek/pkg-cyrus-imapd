@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: message.h,v 1.13 2010/01/06 17:01:37 murch Exp $
  */
 
 #ifndef INCLUDED_MESSAGE_H
@@ -57,11 +55,7 @@
 
 #include "prot.h"
 #include "mailbox.h"
-
-/* cyrus.cache file item buffer */
-struct ibuf {
-    char *start, *end, *last;
-};
+#include "util.h"
 
 /*
  * Parsed form of a body-part
@@ -109,12 +103,13 @@ struct body {
     struct address *bcc;
     char *in_reply_to;
     char *message_id;
+    char *references;
     char *received_date;
 
     /*
      * Cached headers.  Only filled in at top-level
      */
-    struct ibuf cacheheaders;
+    struct buf cacheheaders;
 
     /*
      * decoded body.  Filled in as needed.
@@ -134,23 +129,13 @@ struct param {
 extern int message_copy_strict P((struct protstream *from, FILE *to,
 				  unsigned size, int allow_null));
 
-extern int message_parse(const char *fname, struct index_record *record);
-
-/* Flags for parsing message date/time - to be bitwise OR'd */
-#define PARSE_DATE	(1<<0)  /* Default (always parsed) */
-#define PARSE_TIME	(1<<1)
-#define PARSE_ZONE	(1<<2)
-#define PARSE_GMT	(1<<3) /* Output time in GMT rather than local timezone */
-#define PARSE_NOCREATE	(1<<15) /* Don't create one if its missing/invalid */
-
-extern time_t message_parse_date P((char *hdr, unsigned flags));
-
-/* declare this here so it can be used externally, but remain opaque */
-struct body;
+extern int message_parse2(const char *fname, struct index_record *record,
+			  struct body **bodyp);
+#define message_parse(fname, record) message_parse2((fname), (record), NULL)
 
 struct message_content {
     const char *base;  /* memory mapped file */
-    unsigned long len;
+    size_t len;
     struct body *body; /* parsed body structure */
 };
 
@@ -160,8 +145,6 @@ struct bodypart {
     const char *decoded_body;
 };
 
-/* Calculate the number of entries in a vector */
-#define VECTOR_SIZE(vector) (sizeof(vector)/sizeof(vector[0]))
 
 extern void parse_cached_envelope P((char *env, char *tokens[], int tokens_size));
 
@@ -169,16 +152,27 @@ extern int message_parse_mapped P((const char *msg_base, unsigned long msg_len,
 				   struct body *body));
 extern int message_parse_binary_file P((FILE *infile, struct body **body));
 extern int message_parse_file P((FILE *infile,
-				 const char **msg_base, unsigned long *msg_len,
+				 const char **msg_base, size_t *msg_len,
 				 struct body **body));
 extern void message_fetch_part P((struct message_content *msg,
 				  const char **content_types,
 				  struct bodypart ***parts));
-extern int message_write_cache P((struct index_record *record, struct body *body));
+extern void message_write_nstring(struct buf *buf, const char *s);
+extern void message_write_nstring_map(struct buf *buf, const char *s, unsigned int len);
+extern void message_write_body(struct buf *buf, const struct body *body,
+				  int newformat);
+extern void message_write_xdrstring(struct buf *buf, const struct buf *s);
+extern int message_write_cache P((struct index_record *record, const struct body *body));
 
 extern int message_create_record P((struct index_record *message_index,
-				    struct body *body));
+				    const struct body *body));
 extern void message_free_body P((struct body *body));
+
+/* NOTE - scribbles on its input */
+extern void message_parse_env_address(char *str, struct address *addr);
+
+extern char *parse_nstring(char **str);
+
 extern void message_read_bodystructure(struct index_record *record,
 				       struct body **body);
 

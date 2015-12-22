@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imclient.h,v 1.31 2010/01/06 17:01:45 murch Exp $
  */
 
 #ifndef INCLUDED_IMCLIENT_H
@@ -96,7 +94,7 @@ extern int imclient_starttls(struct imclient *imclient,
                              char *CAfile,
                              char *CApath);
 
-extern void imclient_write (struct imclient *imclient,
+void imclient_write (struct imclient *imclient,
 			    const char *s, size_t len);
 
 #endif /* INCLUDED_IMCLIENT_H */

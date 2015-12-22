@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: remotepurge.c,v 1.21 2010/01/06 17:01:54 murch Exp $
  */
 
 #include <config.h>
@@ -49,7 +47,6 @@
 #include <sys/msg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <ctype.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -64,15 +61,12 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/file.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <syslog.h>
 
 #include <pwd.h>
 
 #include "prot.h"
 
-#include "imparse.h"
 #include "imclient.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -107,27 +101,25 @@ typedef struct uid_list_s {
 } uid_list_t;
 
 /* globals for callback functions */
-int days = -1;
+static int days = -1;
 int size = -1;
-int exact = -1;
-int pattern = -1;
 
-int current_mbox_exists = 0;
+static int current_mbox_exists = 0;
 
-int verbose = 0;
+static int verbose = 0;
 static int noop = 0;
-char *username = NULL;
-char *authname = NULL;
-char *realm = NULL;
+static char *username = NULL;
+//char *authname = NULL;
+static char *realm = NULL;
 
-struct imclient *imclient_conn;
+static struct imclient *imclient_conn;
 
 static int cmd_done;
 static char *cmd_resp = NULL;
 
-FILE *configstream;
+static FILE *configstream;
 
-void spew(int level, const char *fmt, ...)
+static void spew(int level, const char *fmt, ...)
 {
     va_list ap;
     char buf[1024];
@@ -145,7 +137,7 @@ void spew(int level, const char *fmt, ...)
 }
 
 /* libcyrus makes us define this */
-void fatal(const char *s, int code)
+EXPORTED void fatal(const char *s, int code)
 {
     if (cmd_resp) {
 	syslog(LOG_ERR, "fatal error: %s (%s)", s, cmd_resp);
@@ -227,6 +219,7 @@ static void callback_capability(struct imclient *imclient,
 				struct imclient_reply *reply)
 
 {
+    (void)imclient;
     char *s;
     capabilities_t **caps = (capabilities_t **) rock;
     
@@ -243,6 +236,7 @@ callback_finish(struct imclient *imclient,
 		void *rock,
 		struct imclient_reply *reply)
 {
+    (void)imclient; (void)rock;
     if (!strcmp(reply->keyword, "OK")) {
 	cmd_done = IMAP_OK;
     } else if (!strcmp(reply->keyword, "NO")) {
@@ -271,7 +265,7 @@ callback_list(struct imclient *imclient,
 	      void *rock,
 	      struct imclient_reply *reply);
 
-
+/*
 void print_stats(mbox_stats_t *stats)
 {
     syslog(LOG_INFO, "total messages considered %d deleted %d",
@@ -280,12 +274,14 @@ void print_stats(mbox_stats_t *stats)
     printf("deleted messages  \t\t %d\n",stats->deleted);
     printf("remaining messages\t\t %d\n\n",stats->total - stats->deleted);
 }
+*/
 
 static void
 callback_exists(struct imclient *imclient,
 	       void *rock,
 	       struct imclient_reply *reply)
 {
+    (void)imclient; (void)rock;
     current_mbox_exists = reply->msgno;
 }
 
@@ -294,6 +290,7 @@ callback_search(struct imclient *imclient,
 	       void *rock,
 	       struct imclient_reply *reply)
 {
+    (void)imclient;
     uid_list_t *uids = (uid_list_t *) rock;
     const char *s;
     uint32_t num;
@@ -337,7 +334,7 @@ static int send_delete(const char *mbox, const char *uidlist)
     else fatal("marking message deleted", EC_TEMPFAIL);
 }
 
-void mark_all_deleted(const char *mbox, uid_list_t *list, mbox_stats_t *stats)
+static void mark_all_deleted(const char *mbox, uid_list_t *list, mbox_stats_t *stats)
 {
     int i;
     char buf[1024];
@@ -416,7 +413,7 @@ static char *month_string(int mon)
 }
 
 /* we don't check what comes in on matchlen and maycreate, should we? */
-int purge_me(char *name, time_t when)
+static int purge_me(char *name, time_t when)
 {
     mbox_stats_t   stats;
     char search_string[200];
@@ -522,7 +519,7 @@ int purge_me(char *name, time_t when)
 
 
 
-int purge_all(void)
+static int purge_all(void)
 {
     int num = 0;
     int ret = 0;
@@ -539,7 +536,7 @@ int purge_all(void)
     return 0;
 }
 
-void do_list(char *matchstr)
+static void do_list(char *matchstr)
 {
     imclient_send(imclient_conn, callback_finish, (void *)imclient_conn,
 		  "%a %s %s", "LIST", "*",
@@ -576,7 +573,7 @@ static char *parseconfigpath(char *str)
     return str;
 }
 
-void remote_purge(char *configpath, char **matches)
+static void remote_purge(char *configpath, char **matches)
 {
     char *name;
 
@@ -617,7 +614,7 @@ void remote_purge(char *configpath, char **matches)
 }
 
 /* didn't give correct parameters; let's exit */
-void usage(void)
+static void usage(void)
 {
   printf("Usage: remotepurge [options] hostname [[match1] ... ]\n");
   printf("  -p port  : port to use\n");
@@ -646,7 +643,7 @@ int main(int argc, char **argv)
     int minssf = 0;
     char c;
 
-    char *tls_keyfile="";
+    char *tls_keyfile="";(void)tls_keyfile;
     char *port = "imap";
     int dotls=0;
     int r;
@@ -695,6 +692,7 @@ int main(int argc, char **argv)
 	    break;
 	}
 
+    (void)dotls;(void)mechanism;
     if (optind >= argc) usage();
 
 

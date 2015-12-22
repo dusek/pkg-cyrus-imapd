@@ -44,14 +44,15 @@
 #ifndef HTTP_DAV_H
 #define HTTP_DAV_H
 
+#include <stdint.h>
+#include <libical/ical.h>
+#include <libxml/tree.h>
+
+#include "annotate.h"
 #include "caldav_db.h"
 #include "httpd.h"
 #include "spool.h"
 #include "quota.h"
-
-#include <libical/ical.h>
-#include <libxml/tree.h>
-
 
 #define NULL_ETAG	"da39a3ee5e6b4b0d3255bfef95601890afd80709"
 			/* SHA1("") */
@@ -71,6 +72,8 @@
 #define XML_NS_ISCHED	"urn:ietf:params:xml:ns:ischedule"
 #define XML_NS_CS	"http://calendarserver.org/ns/"
 #define XML_NS_CYRUS	"http://cyrusimap.org/ns/"
+#define XML_NS_USERFLAG	"http://cyrusimap.org/ns/userflag/"
+#define XML_NS_SYSFLAG	"http://cyrusimap.org/ns/sysflag/"
 
 /* Index into known namespace array */
 enum {
@@ -87,7 +90,7 @@ enum {
 #define DACL_MKCOL	ACL_CREATE	/* CY:make-collection */
 #define DACL_ADDRSRC	ACL_POST	/* CY:add-resource */
 #define DACL_RMCOL	ACL_DELETEMBOX	/* CY:remove-collection */
-#define DACL_RMRSRC	ACL_DELETEMSG	/* CY:remove-resource */
+#define DACL_RMRSRC	(ACL_DELETEMSG|ACL_EXPUNGE)	/* CY:remove-resource */
 #define DACL_ADMIN	ACL_ADMIN	/* CY:admin (aggregates
 					   DAV:read-acl, write-acl, unlock) */
 
@@ -193,6 +196,9 @@ enum {
     /* RSCALE (draft-daboo-icalendar-rscale) preconditions */
     CALDAV_SUPP_RSCALE,
 
+    /* TZ by Ref (draft-ietf-tzdist-caldav-timezone-ref) preconditions */
+    CALDAV_VALID_TIMEZONE,
+
     /* CalDAV Scheduling (RFC 6638) preconditions */
     CALDAV_VALID_SCHED,
     CALDAV_VALID_ORGANIZER,
@@ -255,8 +261,8 @@ struct propfind_ctx {
     unsigned mode;	    		/* none, allprop, propname, prop */
     unsigned depth;	    		/* 0 = root, 1 = calendar, 2 = resrc */
     unsigned prefer;			/* bitmask of client preferences */
+    hdrcache_t req_hdrs;    		/* Cached HTTP headers */
     const char *userid;			/* userid client has logged in as */
-    const char *int_userid;		/* internal userid */
     int userisadmin;			/* is userid an admin */
     struct auth_state *authstate;	/* authorization state for userid */
     void *davdb;			/* DAV DB corresponding to collection */
@@ -264,8 +270,7 @@ struct propfind_ctx {
     struct quota quota;			/* quota info for collection */
     struct index_record *record;	/* cyrus.index record for resource */
     void *data;				/* DAV record for resource */
-    const char *msg_base;		/* base of mmap()'d resource file */
-    unsigned long msg_size;		/* size of mmap()'d resource file */
+    struct buf msg_buf;			/* mmap()'d resource file */
     unsigned long reqd_privs;		/* privileges req'd on collections */
     int (*filter)(struct propfind_ctx *,
 		  void *data);		/* callback to filter resources */
@@ -293,7 +298,8 @@ struct propfind_ctx {
 struct proppatch_ctx {
     struct request_target_t *req_tgt;	/* parsed request target URL */
     unsigned meth;	    		/* requested Method */
-    const char *mailboxname;		/* mailbox correspondng to collection */
+    struct mailbox *mailbox;		/* mailbox related to the collection */
+    struct index_record *record;	/* record of the specific resource */
     const struct prop_entry *lprops;	/* Array of known "live" properties */
     xmlNodePtr root;			/* root node to add to XML tree */
     xmlNsPtr *ns;			/* Array of our supported namespaces */
@@ -346,6 +352,7 @@ enum {
     PROP_RESOURCE =	(1<<2),		/* Returned for resource */
     PROP_PRESCREEN =	(1<<3),		/* Prescreen property using callback */
     PROP_NEEDPROP =	(1<<4),		/* Pass property node into callback */
+    PROP_EXPAND =	(1<<5)		/* Property is expandable (href) */
 };
 
 
@@ -434,6 +441,7 @@ typedef int (*report_proc_t)(struct transaction_t *txn, xmlNodePtr inroot,
 
 struct report_type_t {
     const char *name;			/* report name */
+    unsigned ns;			/* report namespace */
     const char *resp_root;		/* name of XML root element in resp */
     report_proc_t proc;			/* function to generate the report */
     unsigned long reqd_privs;		/* privileges required to run report */
@@ -465,9 +473,11 @@ struct meth_params {
     post_proc_t post;			/* special POST handling (optional) */
     struct put_params put;		/* params for putting a resource */
     const struct prop_entry *lprops;	/* array of "live" properties */
-    struct report_type_t reports[];	/* array of reports & proc functions */
+    const struct report_type_t *reports;/* array of reports & proc functions */
 };
 
+int report_expand_prop(struct transaction_t *txn, xmlNodePtr inroot,
+		       struct propfind_ctx *fctx);
 int report_sync_col(struct transaction_t *txn, xmlNodePtr inroot,
 		    struct propfind_ctx *fctx);
 
@@ -498,6 +508,10 @@ int xml_add_response(struct propfind_ctx *fctx, long code, unsigned precond);
 int propfind_by_resource(void *rock, void *data);
 int propfind_by_collection(char *mboxname, int matchlen,
 			   int maycreate, void *rock);
+int expand_property(xmlNodePtr inroot, struct propfind_ctx *fctx,
+		    const char *href, parse_path_t parse_path,
+		    const struct prop_entry *lprops,
+		    xmlNodePtr root, int depth);
 
 /* DAV method processing functions */
 int meth_acl(struct transaction_t *txn, void *params);
@@ -545,6 +559,10 @@ int propfind_suplock(const xmlChar *name, xmlNsPtr ns,
 		     struct propfind_ctx *fctx, xmlNodePtr resp,
 		     struct propstat propstat[], void *rock);
 
+int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
+		       struct propfind_ctx *fctx, xmlNodePtr resp,
+		       struct propstat propstat[], void *rock);
+
 int propfind_owner(const xmlChar *name, xmlNsPtr ns,
 		   struct propfind_ctx *fctx, xmlNodePtr resp,
 		   struct propstat propstat[], void *rock);
@@ -580,18 +598,24 @@ int propfind_sync_token(const xmlChar *name, xmlNsPtr ns,
 			struct propfind_ctx *fctx, xmlNodePtr resp,
 			struct propstat propstat[], void *rock);
 
-int propfind_calurl(const xmlChar *name, xmlNsPtr ns,
-		    struct propfind_ctx *fctx, xmlNodePtr resp,
-		    struct propstat propstat[], void *rock);
+int propfind_calhome(const xmlChar *name, xmlNsPtr ns,
+		     struct propfind_ctx *fctx, xmlNodePtr resp,
+		     struct propstat propstat[], void *rock);
+int propfind_schedinbox(const xmlChar *name, xmlNsPtr ns,
+			struct propfind_ctx *fctx, xmlNodePtr resp,
+			struct propstat propstat[], void *rock);
+int propfind_schedoutbox(const xmlChar *name, xmlNsPtr ns,
+			 struct propfind_ctx *fctx, xmlNodePtr resp,
+			 struct propstat propstat[], void *rock);
 int propfind_caluseraddr(const xmlChar *name, xmlNsPtr ns,
 			 struct propfind_ctx *fctx, xmlNodePtr resp,
 			 struct propstat propstat[], void *rock);
 int propfind_calusertype(const xmlChar *name, xmlNsPtr ns,
 			 struct propfind_ctx *fctx, xmlNodePtr resp,
 			 struct propstat propstat[], void *rock);
-int propfind_abookurl(const xmlChar *name, xmlNsPtr ns,
-		      struct propfind_ctx *fctx, xmlNodePtr resp,
-		      struct propstat propstat[], void *rock);
+int propfind_abookhome(const xmlChar *name, xmlNsPtr ns,
+		       struct propfind_ctx *fctx, xmlNodePtr resp,
+		       struct propstat propstat[], void *rock);
 
 /* PROPPATCH callbacks */
 int proppatch_todb(xmlNodePtr prop, unsigned set, struct proppatch_ctx *pctx,

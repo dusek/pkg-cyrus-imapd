@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: saslclient.c,v 1.20 2010/01/06 17:01:39 murch Exp $
  */
 
 #include <config.h>
@@ -49,11 +47,9 @@
 #include <string.h>
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
-#include <syslog.h>
 
 #include "xmalloc.h"
-#include "prot.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "saslclient.h"
 #include "global.h"
 
@@ -111,7 +107,7 @@ static int mysasl_getsecret_cb(sasl_conn_t *conn,
     return SASL_OK;
 }
 
-sasl_callback_t *mysasl_callbacks(const char *username,
+EXPORTED sasl_callback_t *mysasl_callbacks(const char *username,
 				  const char *authname,
 				  const char *realm,
 				  const char *password)
@@ -146,16 +142,11 @@ sasl_callback_t *mysasl_callbacks(const char *username,
     if (password) {
 	sasl_secret_t *secret;
 	size_t len = strlen(password);
-	
-	secret = (sasl_secret_t *)xmalloc(sizeof(sasl_secret_t) + len);
-	if(!secret) {
-	    free(ret);
-	    return NULL;
-	}
 
+	secret = (sasl_secret_t *)xmalloc(sizeof(sasl_secret_t) + len);
 	strcpy((char *) secret->data, password);
 	secret->len = len;
-		
+
 	/* password */
 	ret[n].id = SASL_CB_PASS;
 	ret[n].proc = (mysasl_cb_ft *) &mysasl_getsecret_cb;
@@ -170,7 +161,7 @@ sasl_callback_t *mysasl_callbacks(const char *username,
     return ret;
 }
 
-void free_callbacks(sasl_callback_t *in) 
+EXPORTED void free_callbacks(sasl_callback_t *in)
 {
     int i;
     if(!in) return;
@@ -185,7 +176,7 @@ void free_callbacks(sasl_callback_t *in)
 #define BASE64_BUF_SIZE	21848	/* per RFC 2222bis: ((16K / 3) + 1) * 4  */
 #define AUTH_BUF_SIZE	BASE64_BUF_SIZE+50	/* data + response overhead */
 
-int saslclient(sasl_conn_t *conn, struct sasl_cmd_t *sasl_cmd,
+HIDDEN int saslclient(sasl_conn_t *conn, struct sasl_cmd_t *sasl_cmd,
 	       const char *mechlist,
                struct protstream *pin, struct protstream *pout,
 	       int *sasl_result, const char **status)

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: global.c,v 1.35 2010/04/22 17:29:53 murch Exp $
  */
 
 #include <config.h>
@@ -54,22 +52,26 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_SSL
+#include <openssl/rand.h>
+#endif
+
 #if HAVE_UNISTD_H
 # include <unistd.h>
 #endif
-#include <errno.h>
 
 #include "acl.h"
-#include "cyrusdb.h"
+#include "assert.h"
+#include "charset.h"
 #include "exitcodes.h"
 #include "gmtoff.h"
-#include "hash.h"
-#include "imap_err.h"
+#include "iptostring.h"
+#include "imap/imap_err.h"
 #include "global.h"
 #include "libconfig.h"
 #include "libcyr_cfg.h"
 #include "mboxlist.h"
-#include "mupdate_err.h"
+#include "imap/mupdate_err.h"
 #include "mutex.h"
 #include "prot.h" /* for PROT_BUFSIZE */
 #include "strarray.h"
@@ -77,7 +79,6 @@
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 
 static enum {
     NOT_RUNNING = 0,
@@ -87,38 +88,76 @@ static enum {
 
 static int cyrus_init_nodb = 0;
 
-int in_shutdown = 0;
+EXPORTED int in_shutdown = 0;
 
-int config_fulldirhash;				/* 0 */
-int config_implicitrights;			/* "lkxa" */
-unsigned long config_metapartition_files;	/* 0 */
-struct cyrusdb_backend *config_mboxlist_db;
-struct cyrusdb_backend *config_quota_db;
-struct cyrusdb_backend *config_subscription_db;
-struct cyrusdb_backend *config_annotation_db;
-struct cyrusdb_backend *config_seenstate_db;
-struct cyrusdb_backend *config_mboxkey_db;
-struct cyrusdb_backend *config_duplicate_db;
-struct cyrusdb_backend *config_tlscache_db;
-struct cyrusdb_backend *config_ptscache_db;
-struct cyrusdb_backend *config_statuscache_db;
-struct cyrusdb_backend *config_userdeny_db;
-struct cyrusdb_backend *config_zoneinfo_db;
+EXPORTED int config_fulldirhash;				/* 0 */
+EXPORTED int config_implicitrights;			/* "lkxa" */
+EXPORTED unsigned long config_metapartition_files;	/* 0 */
+EXPORTED const char *config_mboxlist_db;
+EXPORTED const char *config_quota_db;
+EXPORTED const char *config_subscription_db;
+EXPORTED const char *config_annotation_db;
+EXPORTED const char *config_seenstate_db;
+HIDDEN const char *config_mboxkey_db;
+EXPORTED const char *config_duplicate_db;
+EXPORTED const char *config_tls_sessions_db;
+EXPORTED const char *config_ptscache_db;
+EXPORTED const char *config_statuscache_db;
+HIDDEN const char *config_userdeny_db;
+EXPORTED const char *config_zoneinfo_db;
+EXPORTED int charset_flags;
 
-char session_id_buf[MAX_SESSIONID_SIZE];
-int session_id_time = 0;
-int session_id_count = 0;
+static char session_id_buf[MAX_SESSIONID_SIZE];
+static int session_id_time = 0;
+static int session_id_count = 0;
 
-strarray_t *suppressed_capabilities = NULL;
+static strarray_t *suppressed_capabilities = NULL;
+
+static int get_facility(const char *name)
+{
+    if (!strcasecmp(name, "DAEMON"))
+	return LOG_DAEMON;
+    if (!strcasecmp(name, "MAIL"))
+	return LOG_MAIL;
+    if (!strcasecmp(name, "NEWS"))
+	return LOG_NEWS;
+    if (!strcasecmp(name, "USER"))
+	return LOG_USER;
+    if (!strcasecmp(name, "LOCAL0"))
+	return LOG_LOCAL0;
+    if (!strcasecmp(name, "LOCAL1"))
+	return LOG_LOCAL1;
+    if (!strcasecmp(name, "LOCAL2"))
+	return LOG_LOCAL2;
+    if (!strcasecmp(name, "LOCAL3"))
+	return LOG_LOCAL3;
+    if (!strcasecmp(name, "LOCAL4"))
+	return LOG_LOCAL4;
+    if (!strcasecmp(name, "LOCAL5"))
+	return LOG_LOCAL5;
+    if (!strcasecmp(name, "LOCAL6"))
+	return LOG_LOCAL6;
+    if (!strcasecmp(name, "LOCAL7"))
+	return LOG_LOCAL7;
+
+    /* fall back to the default.  This will work because we already have
+       this log open when we call out */
+
+    syslog(LOG_ERR, "config error: syslog name %s not recognised", name);
+
+    return SYSLOG_FACILITY;
+}
 
 /* Called before a cyrus application starts (but after command line parameters
  * are read) */
-int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
+EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flags, int config_need_data)
 {
     char *p;
     const char *val;
     const char *prefix;
     int umaskval = 0;
+    int syslog_opts = LOG_PID;
+    const char *facility;
 
     if(cyrus_init_run != NOT_RUNNING) {
 	fatal("cyrus_init called twice!", EC_CONFIG);
@@ -127,6 +166,10 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
     }
 
     cyrus_init_nodb = (flags & CYRUSINIT_NODB);
+#ifdef LOG_PERROR
+    if ((flags & CYRUSINIT_PERROR))
+	syslog_opts |= LOG_PERROR;
+#endif
 
     initialize_imap_error_table();
     initialize_mupd_error_table();
@@ -138,27 +181,33 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
     
     /* xxx we lose here since we can't have the prefix until we load the
      * config file */
-    openlog(config_ident, LOG_PID, SYSLOG_FACILITY);
+    openlog(config_ident, syslog_opts, SYSLOG_FACILITY);
 
     /* Load configuration file.  This will set config_dir when it finds it */
-    config_read(alt_config);
+    config_read(alt_config, config_need_data);
 
     prefix = config_getstring(IMAPOPT_SYSLOG_PREFIX);
+    facility = config_getstring(IMAPOPT_SYSLOG_FACILITY);
 
-    /* Reopen the log with the new prefix, if needed  */    
-    if(prefix) {
-	int size = strlen(prefix) + 1 + strlen(ident) + 1;
-	char *ident_buf = xmalloc(size);
-	
-	strlcpy(ident_buf, prefix, size);
-	strlcat(ident_buf, "/", size);
-	strlcat(ident_buf, ident, size);
+    /* Reopen the log with the new prefix, if needed  */
+    if (prefix || facility) {
+	char *ident_buf;
+	int facnum = facility ? get_facility(facility) : SYSLOG_FACILITY;
+
+	if (prefix)
+	    ident_buf = strconcat(prefix, "/", ident, (char *)NULL);
+	else
+	    ident_buf = xstrdup(ident);
 
 	closelog();
-	openlog(ident_buf, LOG_PID, SYSLOG_FACILITY);
+	openlog(ident_buf, syslog_opts, facnum);
 
 	/* don't free the openlog() string! */
     }
+
+    /* allow debug logging */
+    if (!config_debug)
+	setlogmask(~LOG_MASK(LOG_DEBUG));
 
     /* Look up default partition */
     config_defpartition = config_getstring(IMAPOPT_DEFAULTPARTITION);
@@ -187,34 +236,35 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
 
     val = config_getstring(IMAPOPT_SUPPRESS_CAPABILITIES);
     if (val)
-	suppressed_capabilities = strarray_split(val, NULL);
+	suppressed_capabilities = strarray_split(val, NULL, 0);
+    if (config_getswitch(IMAPOPT_SEARCH_SKIPDIACRIT))
+	charset_flags |= CHARSET_SKIPDIACRIT;
+
+    switch (config_getenum(IMAPOPT_SEARCH_WHITESPACE)) {
+	case IMAP_ENUM_SEARCH_WHITESPACE_MERGE:
+	    charset_flags |= CHARSET_MERGESPACE;
+	    break;
+	case IMAP_ENUM_SEARCH_WHITESPACE_SKIP:
+	    charset_flags |= CHARSET_SKIPSPACE;
+	    break;
+	default:
+	    break;
+    }
 
     if (!cyrus_init_nodb) {
 	/* lookup the database backends */
-	config_mboxlist_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_MBOXLIST_DB));
-	config_quota_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_QUOTA_DB));
-	config_subscription_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_SUBSCRIPTION_DB));
-	config_annotation_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_ANNOTATION_DB));
-	config_seenstate_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_SEENSTATE_DB));
-	config_mboxkey_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_MBOXKEY_DB));
-	config_duplicate_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_DUPLICATE_DB));
-	config_tlscache_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_TLSCACHE_DB));
-	config_ptscache_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_PTSCACHE_DB));
-	config_statuscache_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_STATUSCACHE_DB));
-	config_userdeny_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_USERDENY_DB));
-	config_zoneinfo_db =
-	    cyrusdb_fromname(config_getstring(IMAPOPT_ZONEINFO_DB));
+	config_mboxlist_db = config_getstring(IMAPOPT_MBOXLIST_DB);
+	config_quota_db = config_getstring(IMAPOPT_QUOTA_DB);
+	config_subscription_db = config_getstring(IMAPOPT_SUBSCRIPTION_DB);
+	config_annotation_db = config_getstring(IMAPOPT_ANNOTATION_DB);
+	config_seenstate_db = config_getstring(IMAPOPT_SEENSTATE_DB);
+	config_mboxkey_db = config_getstring(IMAPOPT_MBOXKEY_DB);
+	config_duplicate_db = config_getstring(IMAPOPT_DUPLICATE_DB);
+	config_tls_sessions_db = config_getstring(IMAPOPT_TLS_SESSIONS_DB);
+	config_ptscache_db = config_getstring(IMAPOPT_PTSCACHE_DB);
+	config_statuscache_db = config_getstring(IMAPOPT_STATUSCACHE_DB);
+	config_userdeny_db = config_getstring(IMAPOPT_USERDENY_DB);
+	config_zoneinfo_db = config_getstring(IMAPOPT_ZONEINFO_DB);
 
 	/* configure libcyrus as needed */
 	libcyrus_config_setstring(CYRUSOPT_CONFIG_DIR, config_dir);
@@ -260,6 +310,8 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
 				  config_getstring(IMAPOPT_SQL_PASSWD));
 	libcyrus_config_setswitch(CYRUSOPT_SQL_USESSL,
 				  config_getswitch(IMAPOPT_SQL_USESSL));
+	libcyrus_config_setswitch(CYRUSOPT_SKIPLIST_ALWAYS_CHECKPOINT,
+				  config_getswitch(IMAPOPT_SKIPLIST_ALWAYS_CHECKPOINT));
 
 	/* Not until all configuration parameters are set! */
 	libcyrus_init();
@@ -268,7 +320,7 @@ int cyrus_init(const char *alt_config, const char *ident, unsigned flags)
     return 0;
 }
 
-void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
+EXPORTED void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
 {
     static int called_already = 0;
     
@@ -278,9 +330,9 @@ void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
     called_already = 1;
 
     /* set the SASL allocation functions */
-    sasl_set_alloc((sasl_malloc_t *) &xmalloc, 
-		   (sasl_calloc_t *) &calloc, 
-		   (sasl_realloc_t *) &xrealloc, 
+    sasl_set_alloc((sasl_malloc_t *) &xmalloc,
+		   (sasl_calloc_t *) &xcalloc,
+		   (sasl_realloc_t *) &xrealloc,
 		   (sasl_free_t *) &free);
 
     /* set the SASL mutex functions */
@@ -299,15 +351,13 @@ void global_sasl_init(int client, int server, const sasl_callback_t *callbacks)
 }
 
 /* this is a wrapper to call the cyrus configuration from SASL */
-int mysasl_config(void *context __attribute__((unused)), 
+EXPORTED int mysasl_config(void *context __attribute__((unused)),
 		  const char *plugin_name,
 		  const char *option,
 		  const char **result,
 		  unsigned *len)
 {
-    char opt[1024];
-
-    if (!strcmp(option, "srvtab")) { 
+    if (!strcmp(option, "srvtab")) {
 	/* we don't transform srvtab! */
 	*result = config_getstring(IMAPOPT_SRVTAB);
     } else {
@@ -315,18 +365,16 @@ int mysasl_config(void *context __attribute__((unused)),
 
 	if (plugin_name) {
 	    /* first try it with the plugin name */
-	    strlcpy(opt, "sasl_", sizeof(opt));
-	    strlcat(opt, plugin_name, sizeof(opt));
-	    strlcat(opt, "_", sizeof(opt));
-	    strlcat(opt, option, sizeof(opt));
+	    char *opt = strconcat("sasl_", plugin_name, "_", option, (char*)NULL);
 	    *result = config_getoverflowstring(opt, NULL);
+	    free(opt);
 	}
 
 	if (*result == NULL) {
 	    /* try without the plugin name */
-	    strlcpy(opt, "sasl_", sizeof(opt));
-	    strlcat(opt, option, sizeof(opt));
+	    char *opt = strconcat("sasl_", option, (char *)NULL);
 	    *result = config_getoverflowstring(opt, NULL);
+	    free(opt);
 	}
     }
 
@@ -334,14 +382,14 @@ int mysasl_config(void *context __attribute__((unused)),
 	if (len) { *len = strlen(*result); }
 	return SASL_OK;
     }
-   
+
     return SASL_FAIL;
 }
 
 /* This creates a structure that defines the allowable
  *   security properties 
  */
-sasl_security_properties_t *mysasl_secprops(int flags)
+EXPORTED sasl_security_properties_t *mysasl_secprops(int flags)
 {
     static sasl_security_properties_t ret;
 
@@ -365,7 +413,7 @@ sasl_security_properties_t *mysasl_secprops(int flags)
 }
 
 /* true if 'authstate' is in 'opt' */
-int global_authisa(struct auth_state *authstate, enum imapopt opt)
+EXPORTED int global_authisa(struct auth_state *authstate, enum imapopt opt)
 {
     char buf[1024];
     const char *val = config_getstring(opt);
@@ -396,7 +444,8 @@ int global_authisa(struct auth_state *authstate, enum imapopt opt)
 
 /* Note: This function is not idempotent! Only call it once for a given ID
  * or you will be unhappy (think IP hosting). */
-char *canonify_userid(char *user, char *loginid, int *domain_from_ip)
+EXPORTED const char *canonify_userid(char *user, const char *loginid,
+			    int *domain_from_ip)
 {
     char *domain = NULL;
     int len = strlen(user);
@@ -456,7 +505,7 @@ char *canonify_userid(char *user, char *loginid, int *domain_from_ip)
     return auth_canonifyid(user, 0);
 }
 
-int mysasl_canon_user(sasl_conn_t *conn,
+EXPORTED int mysasl_canon_user(sasl_conn_t *conn,
 		      void *context,
 		      const char *user, unsigned ulen,
 		      unsigned flags __attribute__((unused)),
@@ -464,13 +513,19 @@ int mysasl_canon_user(sasl_conn_t *conn,
 		      char *out,
 		      unsigned out_max, unsigned *out_ulen)
 {
-    char *canonuser = NULL;
+    const char *canonuser = NULL;
 
     if (ulen+1 > out_max) {
 	sasl_seterror(conn, 0, "buffer overflow while canonicalizing");
 	return SASL_BUFOVER;
     }
-    memmove(out, user, ulen);
+    if (out != user) {
+	/* There are some paths through libsasl which result in our
+	 * being called with parameters 'user' and 'out' being the
+	 * same buffer.  We can handle that case just fine, but this
+	 * memcpy() is redundant and causes a warning in Valgrind. */
+	memcpy(out, user, ulen);
+    }
     out[ulen] = '\0';
 
     canonuser = canonify_userid(out, NULL, (int*) context);
@@ -489,7 +544,7 @@ int mysasl_canon_user(sasl_conn_t *conn,
     return SASL_OK;
 }
 
-int is_userid_anonymous(const char *user) 
+EXPORTED int is_userid_anonymous(const char *user)
 {
     int len = strlen(user);
     const char *domain;
@@ -518,7 +573,7 @@ int is_userid_anonymous(const char *user)
 static int acl_ok(const char *user, struct auth_state *authstate)
 {
     struct namespace namespace;
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
     char bufuser[MAX_MAILBOX_BUFFER], inboxname[MAX_MAILBOX_BUFFER];
     int r;
 
@@ -527,7 +582,7 @@ static int acl_ok(const char *user, struct auth_state *authstate)
 	syslog(LOG_ERR, "%s", error_message(r));
 	fatal(error_message(r), EC_CONFIG);
     }
-    
+
     strlcpy(bufuser, user, sizeof(bufuser));
 
     /* Translate any separators in userid */
@@ -544,14 +599,15 @@ static int acl_ok(const char *user, struct auth_state *authstate)
 	r = 0;  /* Failed so assume no proxy access */
     }
     else {
-	r = (cyrus_acl_myrights(authstate, mbentry.acl) & ACL_ADMIN) != 0;
+	r = (cyrus_acl_myrights(authstate, mbentry->acl) & ACL_ADMIN) != 0;
     }
+    mboxlist_entry_free(&mbentry);
     return r;
 }
 
 /* should we allow users to proxy?  return SASL_OK if yes,
    SASL_BADAUTH otherwise */
-int mysasl_proxy_policy(sasl_conn_t *conn,
+EXPORTED int mysasl_proxy_policy(sasl_conn_t *conn,
 			void *context,
 			const char *requested_user, unsigned rlen,
 			const char *auth_identity, unsigned alen,
@@ -655,51 +711,28 @@ int mysasl_proxy_policy(sasl_conn_t *conn,
     return SASL_OK;
 }
 
-/* covert a time_t date to an IMAP-style date
- * datebuf needs to be >= 30 bytes */
-void cyrus_ctime(time_t date, char *datebuf) 
-{
-    struct tm *tm = localtime(&date);
-    long gmtoff = gmtoff_of(tm, date);
-    int gmtnegative = 0;
-    static const char *monthname[] = {
-	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
-	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-
-    if (date == 0 || tm->tm_year < 69) {
-	abort();
-    }
-
-    if (gmtoff < 0) {
-	gmtoff = -gmtoff;
-	gmtnegative = 1;
-    }
-    gmtoff /= 60;
-    sprintf(datebuf,
-	    "%2u-%s-%u %.2u:%.2u:%.2u %c%.2lu%.2lu",
-	    tm->tm_mday, monthname[tm->tm_mon], tm->tm_year+1900,
-	    tm->tm_hour, tm->tm_min, tm->tm_sec,
-	    gmtnegative ? '-' : '+', gmtoff/60, gmtoff%60);
-}
 
 /* call before a cyrus application exits */
-void cyrus_done() 
+EXPORTED void cyrus_done(void)
 {
-    if(cyrus_init_run != RUNNING) return;
+    if (cyrus_init_run != RUNNING)
+	return;
     cyrus_init_run = DONE;
-    
-    if (!cyrus_init_nodb) libcyrus_done();
+
+    if (!cyrus_init_nodb)
+	libcyrus_done();
 }
 
 /*
  * Returns 1 if we have a shutdown file, with the first line in buf.
  * Otherwise returns 0, and the contents of buf is undefined.
  */
-int shutdown_file(char *buf, int size)
+EXPORTED int shutdown_file(char *buf, int size)
 {
     FILE *f;
     static char shutdownfilename[1024] = "";
     char *p;
+    char tmpbuf[1024];
     
     if (!shutdownfilename[0])
 	snprintf(shutdownfilename, sizeof(shutdownfilename), 
@@ -707,6 +740,11 @@ int shutdown_file(char *buf, int size)
 
     f = fopen(shutdownfilename, "r");
     if (!f) return 0;
+
+    if (!buf) {
+	buf = tmpbuf;
+	size = sizeof(tmpbuf);
+    }
 
     if (!fgets(buf, size, f)) {
 	*buf = '\0';
@@ -725,85 +763,33 @@ int shutdown_file(char *buf, int size)
     return 1;
 }
 
-struct part_stats {
-    char name[MAX_PARTITION_LEN+1]; /* name of part with most space */
-    unsigned long avail;	/* 1k free blocks on freeest part */
-    unsigned long tavail;	/* total 1k free blocks on server */
-    unsigned long fsid[512];	/* array of file system IDs */
-    unsigned nfsid;		/* number of file system IDs */
-};
-
-/*
- * config_foreachoverflowstring() callback which finds spool partition
- * with the most available space and totals the space available on
- * all partitions.
- */
-static void get_part_stats(const char *key, const char *val, void *rock)
-{
-    struct part_stats *stats = (struct part_stats *) rock;
-    struct statvfs s;
-    unsigned long avail;
-    unsigned i;
-
-    /* not a partition-* config option */
-    if (strncmp("partition-", key, 10)) return;
-
-    /* can't stat the given path */
-    if (statvfs(val, &s)) return;
-
-    /* eliminate duplicate filesystems */
-    for (i = 0; i < stats->nfsid; i++) {
-	if (s.f_fsid == stats->fsid[i]) return;
-    }
-    stats->fsid[stats->nfsid++] = s.f_fsid;
-
-    /* calculate avail space in 1k blocks */
-    avail = (unsigned long) (s.f_bavail * (s.f_frsize / 1024.0));
-
-    /* add to total */
-    stats->tavail += avail;
-
-    if (avail > stats->avail) {
-	/* this part has the most avail space */
-	stats->avail = avail;
-	strlcpy(stats->name, key+10, MAX_PARTITION_LEN);
-    }
-}
-
-/*
- * Returns the name of the spool partition with the most available space.
- * Optionally returns the total amount of available space on the server
- * (all partitions) in 1k blocks.
- */
-char *find_free_partition(unsigned long *tavail)
-{
-    static struct part_stats stats;
-
-    memset(&stats, 0, sizeof(struct part_stats));
-    config_foreachoverflowstring(get_part_stats, &stats);
-
-    if (tavail) *tavail = stats.tavail;
-    return stats.name;
-}
-
 /* Set up the Session ID Buffer */
-void session_new_id()
+EXPORTED void session_new_id(void)
 {
     const char *base;
+    unsigned char random[8];
     int now = time(NULL);
     if (now != session_id_time) {
         session_id_time = now;
         session_id_count = 0;
     }
+    #ifdef HAVE_SSL
+    RAND_bytes(random, sizeof(random));
+    #endif
     ++session_id_count;
     base = config_getstring(IMAPOPT_SYSLOG_PREFIX);
     if (!base) base = config_servername;
+    #ifdef HAVE_SSL
+    snprintf(session_id_buf, MAX_SESSIONID_SIZE, "%.128s-%d-%d-%d-%llu",
+             base, getpid(), session_id_time, session_id_count, (unsigned long long)(*((uint64_t *)random)));
+    #else
     snprintf(session_id_buf, MAX_SESSIONID_SIZE, "%.128s-%d-%d-%d",
              base, getpid(), session_id_time, session_id_count);
+    #endif
 }
 
 /* Return the session id */
-const char *session_id()
+EXPORTED const char *session_id(void)
 {
     if (!session_id_count) 
         session_new_id();
@@ -811,7 +797,7 @@ const char *session_id()
 }
 
 /* parse sessionid out of protocol answers */
-void parse_sessionid(const char *str, char *sessionid)
+EXPORTED void parse_sessionid(const char *str, char *sessionid)
 {
     char *sp, *ep;
     int len;
@@ -833,9 +819,171 @@ void parse_sessionid(const char *str, char *sessionid)
 	strcpy(sessionid, "unknown");
 }
 
-int capa_is_disabled(const char *str)
+EXPORTED int capa_is_disabled(const char *str)
 {
     if (!suppressed_capabilities) return 0;
 
     return (strarray_find_case(suppressed_capabilities, str, 0) >= 0);
+}
+
+
+/* Find a message-id looking thingy in a string.  Returns a pointer to the
+ * alloc'd id and the remaining string is returned in the **loc parameter.
+ *
+ * This is a poor-man's way of finding the message-id.  We simply look for
+ * any string having the format "< ... @ ... >" and assume that the mail
+ * client created a properly formatted message-id.
+ */
+#define MSGID_SPECIALS "<> @\\"
+
+EXPORTED char *find_msgid(char *str, char **rem)
+{
+    char *msgid, *src, *dst, *cp;
+
+    if (!str) return NULL;
+
+    msgid = NULL;
+    src = str;
+
+    /* find the start of a msgid (don't go past the end of the header) */
+    while ((cp = src = strpbrk(src, "<\r")) != NULL) {
+
+	/* check for fold or end of header
+	 *
+	 * Per RFC 2822 section 2.2.3, a long header may be folded by
+	 * inserting CRLF before any WSP (SP and HTAB, per section 2.2.2).
+	 * Any other CRLF is the end of the header.
+	 */
+	if (*cp++ == '\r') {
+	    if (*cp++ == '\n' && !(*cp == ' ' || *cp == '\t')) {
+		/* end of header, we're done */
+		break;
+	    }
+
+	    /* skip fold (or junk) */
+	    src++;
+	    continue;
+	}
+
+	/* see if we have (and skip) a quoted localpart */
+	if (*cp == '\"') {
+	    /* find the endquote, making sure it isn't escaped */
+	    do {
+		++cp; cp = strchr(cp, '\"');
+	    } while (cp && *(cp-1) == '\\');
+
+	    /* no endquote, so bail */
+	    if (!cp) {
+		src++;
+		continue;
+	    }
+	}
+
+	/* find the end of the msgid */
+	if ((cp = strchr(cp, '>')) == NULL)
+	    return NULL;
+
+	/* alloc space for the msgid */
+	dst = msgid = (char*) xrealloc(msgid, cp - src + 2);
+
+	*dst++ = *src++;
+
+	/* quoted string */
+	if (*src == '\"') {
+	    src++;
+	    while (*src != '\"') {
+		if (*src == '\\') {
+		    src++;
+		}
+		*dst++ = *src++;
+	    }
+	    src++;
+	}
+	/* atom */
+	else {
+	    while (!strchr(MSGID_SPECIALS, *src))
+		*dst++ = *src++;
+	}
+
+	if (*src != '@' || *(dst-1) == '<') continue;
+	*dst++ = *src++;
+
+	/* domain atom */
+	while (!strchr(MSGID_SPECIALS, *src))
+	    *dst++ = *src++;
+
+	if (*src != '>' || *(dst-1) == '@') continue;
+	*dst++ = *src++;
+	*dst = '\0';
+
+	if (rem) *rem = src;
+	return msgid;
+    }
+
+    if (msgid) free(msgid);
+    return NULL;
+}
+
+/*
+ * Get name of client host on socket 's'.
+ * Also returns local IP port and remote IP port on inet connections.
+ */
+EXPORTED const char *get_clienthost(int s, const char **localip, const char **remoteip)
+{
+#define IPBUF_SIZE (NI_MAXHOST+NI_MAXSERV+2)
+    socklen_t salen;
+    struct sockaddr_storage localaddr, remoteaddr;
+    struct sockaddr *localsock = (struct sockaddr *)&localaddr;
+    struct sockaddr *remotesock = (struct sockaddr *)&remoteaddr;
+    static struct buf clientbuf = BUF_INITIALIZER;
+    static char lipbuf[IPBUF_SIZE], ripbuf[IPBUF_SIZE];
+    char hbuf[NI_MAXHOST];
+    int niflags;
+
+    buf_reset(&clientbuf);
+    *localip = *remoteip = NULL;
+
+    /* determine who we're talking to */
+
+    salen = sizeof(struct sockaddr_storage);
+    if (getpeername(s, remotesock, &salen) == 0 &&
+	(remotesock->sa_family == AF_INET ||
+	 remotesock->sa_family == AF_INET6)) {
+	/* connected to an internet socket */
+	if (getnameinfo(remotesock, salen,
+			hbuf, sizeof(hbuf), NULL, 0, NI_NAMEREQD) == 0) {
+	    buf_printf(&clientbuf, "%s ", hbuf);
+	}
+
+	niflags = NI_NUMERICHOST;
+#ifdef NI_WITHSCOPEID
+	if (remotesock->sa_family == AF_INET6)
+	    niflags |= NI_WITHSCOPEID;
+#endif
+	if (getnameinfo(remotesock, salen,
+			hbuf, sizeof(hbuf), NULL, 0, niflags) != 0) {
+	    strlcpy(hbuf, "unknown", sizeof(hbuf));
+	}
+	buf_printf(&clientbuf, "[%s]", hbuf);
+
+	salen = sizeof(struct sockaddr_storage);
+	if (getsockname(s, localsock, &salen) == 0) {
+	    /* set the ip addresses here */
+	    if (iptostring(localsock, salen,
+			  lipbuf, sizeof(lipbuf)) == 0) {
+		*localip = lipbuf;
+            }
+            if (iptostring(remotesock, salen,
+			  ripbuf, sizeof(ripbuf)) == 0) {
+		*remoteip = ripbuf;
+            }
+	} else {
+	    fatal("can't get local addr", EC_SOFTWARE);
+	}
+    } else {
+	/* we're not connected to a internet socket! */
+	buf_setcstr(&clientbuf, UNIX_SOCKET);
+    }
+
+    return buf_cstring(&clientbuf);
 }

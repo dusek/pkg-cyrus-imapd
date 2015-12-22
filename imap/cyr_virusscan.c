@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: cyr_virusscan.c,v 1.9 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -55,10 +53,9 @@
 
 /* cyrus includes */
 #include "global.h"
-#include "sysexits.h"
 #include "exitcodes.h"
 #include "append.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "index.h"
 #include "mailbox.h"
 #include "xmalloc.h"
@@ -66,10 +63,7 @@
 #include "prot.h"
 #include "util.h"
 #include "sync_log.h"
-#include "rfc822date.h"
-
-/* config.c stuff */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
+#include "times.h"
 
 struct infected_msg {
     char *mboxname;
@@ -124,7 +118,6 @@ struct scan_engine {
 
 struct clamav_state {
     struct cl_engine *av_engine;
-    struct cl_limits av_limits;
 };
 
 void *clamav_init()
@@ -133,9 +126,17 @@ void *clamav_init()
     int r;
 
     struct clamav_state *st = xzmalloc(sizeof(struct clamav_state));
+    if (st == NULL) {
+      fatal("memory allocation failed", EC_SOFTWARE);
+    }
 
+    st->av_engine = cl_engine_new();
+    if ( ! st->av_engine ) {
+      fatal("Failed to initialize AV engine", EC_SOFTWARE);
+    }
+    
     /* load all available databases from default directory */
-    if ((r = cl_load(cl_retdbdir(), &st->av_engine, &sigs, CL_DB_STDOPT))) {
+    if ((r = cl_load(cl_retdbdir(), st->av_engine, &sigs, CL_DB_STDOPT))) {
 	syslog(LOG_ERR, "cl_load: %s", cl_strerror(r));
 	fatal(cl_strerror(r), EC_SOFTWARE);
     }
@@ -143,25 +144,26 @@ void *clamav_init()
     if (verbose) printf("Loaded %d virus signatures.\n", sigs);
 
     /* build av_engine */
-    if((r = cl_build(st->av_engine))) {
+    if((r = cl_engine_compile(st->av_engine))) {
 	syslog(LOG_ERR,
 	       "Database initialization error: %s", cl_strerror(r));
-	cl_free(st->av_engine);
+	cl_engine_free(st->av_engine);
 	fatal(cl_strerror(r), EC_SOFTWARE);
     }
 
     /* set up archive av_limits */
-    st->av_limits.maxfiles = 10000; /* max files */
-    st->av_limits.maxscansize = 100 * 1048576; /* during the scanning of
-						* archives
-						* this size (100 MB) will never
-						* be exceeded
-						*/
-    st->av_limits.maxfilesize = 10 * 1048576; /* compressed files will only be
-					       * decompressed and scanned up to
-					       * this size (10 MB)
-					       */
-    st->av_limits.maxreclevel = 16; /* maximum recursion level for archives */
+    /* max files */
+    cl_engine_set_num(st->av_engine, CL_ENGINE_MAX_FILES, 10000);
+    /* during the scanning of archives, this size (100 MB) will
+     * never be exceeded
+     */
+    cl_engine_set_num(st->av_engine, CL_ENGINE_MAX_SCANSIZE, 100 * 1048576);
+    /* compressed files will only be decompressed and scanned up to 
+     * this size (10 MB)
+     */
+    cl_engine_set_num(st->av_engine, CL_ENGINE_MAX_FILESIZE, 10 * 1048576);
+    /* maximum recursion level for archives */
+    cl_engine_set_num(st->av_engine, CL_ENGINE_MAX_RECURSION, 16);
 
     return (void *) st;
 }
@@ -174,7 +176,7 @@ int clamav_scanfile(void *state, const char *fname,
     int r;
 
     /* scan file */
-    r = cl_scanfile(fname, virname, NULL, st->av_engine, &st->av_limits,
+    r = cl_scanfile(fname, virname, NULL, st->av_engine,
 		    CL_SCAN_STDOPT);
 
     switch (r) {
@@ -200,7 +202,7 @@ void clamav_destroy(void *state)
 
     if (st->av_engine) {
 	/* free memory */
-	cl_free(st->av_engine);
+	cl_engine_free(st->av_engine);
     }
     free(st);
 }
@@ -232,7 +234,7 @@ int main (int argc, char *argv[]) {
     char *alt_config = NULL;
     int r;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -255,7 +257,7 @@ int main (int argc, char *argv[]) {
 	}
     }
 
-    cyrus_init(alt_config, "cyr_virusscan", 0);
+    cyrus_init(alt_config, "cyr_virusscan", 0, CONFIG_NEED_PARTITION_DATA);
 
     if (!engine.name) {
 	fatal("no virus scanner configured", EC_SOFTWARE);
@@ -279,6 +281,10 @@ int main (int argc, char *argv[]) {
     quotadb_open(NULL);
 
     sync_log_init();
+
+    /* setup for mailbox event notifications */
+    mboxevent_init();
+    mboxevent_setnamespace(&scan_namespace);
 
     if (optind == argc) { /* do the whole partition */
 	strcpy(buf, "*");
@@ -342,7 +348,7 @@ int scan_me(char *name,
 	printf("Working on %s...\n", mboxname);
     }
 
-    r = mailbox_open_iwl(name, 0, &mailbox);
+    r = mailbox_open_iwl(name, &mailbox);
     if (r) { /* did we find it? */
 	syslog(LOG_ERR, "Couldn't find %s, check spelling", name);
 	return 0;
@@ -380,7 +386,7 @@ int scan_me(char *name,
 	if (i_mbox) i_mbox->recno = 1;
     }
 
-    mailbox_expunge(mailbox, virus_check, i_mbox, 0, NULL);
+    mailbox_expunge(mailbox, virus_check, i_mbox, NULL, EVENT_MESSAGE_EXPUNGE);
     mailbox_close(&mailbox);
 
     return 0;
@@ -448,7 +454,7 @@ void append_notifications()
 	    FILE *f = fdopen(fd, "w+");
 	    size_t ownerlen;
 	    struct infected_msg *msg;
-	    char buf[8192], datestr[80];
+	    char buf[8192], datestr[RFC822_DATETIME_MAX+1];
 	    time_t t;
 	    struct protstream *pout;
 	    struct appendstate as;
@@ -461,7 +467,7 @@ void append_notifications()
 		     (int) p, (int) t, 
 		     outgoing_count++, config_servername);
 	    fprintf(f, "Message-ID: %s\r\n", buf);
-	    rfc822date_gen(datestr, sizeof(datestr), t);
+	    time_to_rfc822(t, datestr, sizeof(datestr));
 	    fprintf(f, "Date: %s\r\n", datestr);
 	    fprintf(f, "From: Mail System Administrator <%s>\r\n",
 		    config_getstring(IMAPOPT_POSTMASTER));
@@ -498,11 +504,14 @@ void append_notifications()
 	    fflush(f);
 	    msgsize = ftell(f);
 
-	    append_setup(&as, i_mbox->owner, NULL, NULL, 0, -1);
+	    /* send MessageAppend event notification */
+	    append_setup(&as, i_mbox->owner, NULL, NULL, 0, NULL, NULL, 0,
+			 EVENT_MESSAGE_APPEND);
+
 	    pout = prot_new(fd, 0);
 	    prot_rewind(pout);
-	    append_fromstream(&as, &body, pout, msgsize, t, NULL, 0);
-	    append_commit(&as, -1, NULL, NULL, NULL);
+	    append_fromstream(&as, &body, pout, msgsize, t, NULL);
+	    append_commit(&as);
 
 	    if (body) {
 		message_free_body(body);

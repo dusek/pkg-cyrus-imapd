@@ -65,6 +65,7 @@
 #include "jcal.h"
 #include "map.h"
 #include "tok.h"
+#include "strhash.h"
 #include "tz_err.h"
 #include "util.h"
 #include "version.h"
@@ -85,7 +86,8 @@ static int action_get(struct transaction_t *txn);
 static int action_expand(struct transaction_t *txn);
 static int json_response(int code, struct transaction_t *txn, json_t *root,
 			 char **resp);
-static int json_error_response(struct transaction_t *txn, long code);
+static int json_error_response(struct transaction_t *txn, long tz_code,
+			       struct strlist *param, icaltimetype *time);
 
 struct observance {
     const char *name;
@@ -141,7 +143,7 @@ struct namespace_t namespace_timezone = {
 	{ NULL,			NULL },			/* MKCOL	*/
 	{ NULL,			NULL },			/* MOVE		*/
 	{ &meth_options,	NULL },			/* OPTIONS	*/
-	{ &meth_get,		NULL },			/* POST	*/
+	{ NULL,			NULL },			/* POST	*/
 	{ NULL,			NULL },			/* PROPFIND	*/
 	{ NULL,			NULL },			/* PROPPATCH	*/
 	{ NULL,			NULL },			/* PUT		*/
@@ -190,8 +192,10 @@ static int meth_get(struct transaction_t *txn,
 	for (ap = actions; ap->name && strcmp(action->s, ap->name); ap++);
     }
 
-    if (!ap || !ap->name) ret = json_error_response(txn, TZ_INVALID_ACTION);
-    else ret = ap->proc(txn);
+    if (!ap || !ap->name)
+	ret = json_error_response(txn, TZ_INVALID_ACTION, action, NULL);
+    else
+	ret = ap->proc(txn);
 
     return ret;
 }
@@ -245,7 +249,12 @@ static int action_capa(struct transaction_t *txn)
 
 	/* Construct our response */
 	root = json_pack("{s:i"				/* version */
-			 "  s:{s:s s:{s:b s:b} s:[]}"	/* info */
+			 "  s:{"			/* info */
+			 "      s:s"			/*   primary-source */
+			 "      s:{s:b s:b}"		/*   truncated */
+			 "      s:s"   			/*   provider-details */
+			 "      s:[]"  			/*   contacts */
+			 "    }"
 			 "  s:["			/* actions */
 			 "    {s:s s:[]}"		/*   capabilities */
 			 "    {s:s s:["			/*   list */
@@ -268,12 +277,13 @@ static int action_capa(struct transaction_t *txn)
 			 "    ]}"
 			 "    {s:s s:["			/*   find */
 //			 "      {s:s s:b s:b}"		/*     lang */
-			 "      {s:s s:b s:b}"		/*     name */
+			 "      {s:s s:b s:b}"		/*     pattern */
 			 "    ]}"
 			 "  ]}",
 			 "version", 1,
 			 "info", "primary-source", info.data->s,
-			 "truncated", "any", 1, "untruncated", 1, "contacts",
+			 "truncated", "any", 1, "untruncated", 1,
+			 "provider-details", "", "contacts",
 			 "actions",
 			 "name", "capabilities", "parameters",
 
@@ -294,12 +304,12 @@ static int action_capa(struct transaction_t *txn)
 //			 "name", "lang", "required", 0, "multi", 1,
 			 "name", "tzid", "required", 1, "multi", 0,
 			 "name", "changedsince", "required", 0, "multi", 0,
-			 "name", "start", "required", 0, "multi", 0,
+			 "name", "start", "required", 1, "multi", 0,
 			 "name", "end", "required", 0, "multi", 0,
 
 			 "name", "find", "parameters",
 //			 "name", "lang", "required", 0, "multi", 1,
-			 "name", "name", "required", 1, "multi", 0);
+			 "name", "pattern", "required", 1, "multi", 0);
 	freestrlist(info.data);
 
 	if (!root) {
@@ -357,31 +367,39 @@ static int action_list(struct transaction_t *txn)
 {
     int r, precond, tzid_only = 1;
     struct strlist *param, *name = NULL;
+    icaltimetype changedsince = icaltime_null_time();
     struct resp_body_t *resp_body = &txn->resp_body;
     struct zoneinfo info;
-    time_t lastmod, changedsince = 0;
+    time_t lastmod;
     json_t *root = NULL;
 
     /* Sanity check the parameters */
     param = hash_lookup("action", &txn->req_qparams);
     if (!strcmp("find", param->s)) {
-	name = hash_lookup("name", &txn->req_qparams);
-	if (!name || name->next  /* mandatory, once only */) {
-	    return json_error_response(txn, TZ_INVALID_NAME);
+	name = hash_lookup("pattern", &txn->req_qparams);
+	if (!name || name->next		  /* mandatory, once only */
+	    || !name->s || !*name->s	  /* not empty */
+	    || !strcspn(name->s, "*")) {  /* not (*)+ */
+	    return json_error_response(txn, TZ_INVALID_PATTERN, name, NULL);
 	}
 	tzid_only = 0;
     }
     else {
 	param = hash_lookup("changedsince", &txn->req_qparams);
 	if (param) {
-	    changedsince = icaltime_as_timet(icaltime_from_string(param->s));
-	    if (!changedsince || param->next  /* once only */)
-		return json_error_response(txn, TZ_INVALID_CHANGEDSINCE);
+	    changedsince = icaltime_from_string(param->s);
+	    if (param->next || !changedsince.is_utc) {  /* once only, UTC */
+		return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
+					   param, &changedsince);
+	    }
 	}
 
 	name = hash_lookup("tzid", &txn->req_qparams);
 	if (name) {
-	    if (changedsince) return json_error_response(txn, TZ_INVALID_TZID);
+	    if (changedsince.is_utc) {
+		return json_error_response(txn, TZ_INVALID_TZID,
+					   param, &changedsince);
+	    }
 	    else {
 		/* Check for tzid=*, and revert to empty list */
 		struct strlist *sl;
@@ -446,8 +464,8 @@ static int action_list(struct transaction_t *txn)
 
 	/* Add timezones to array */
 	do {
-	    zoneinfo_find(name ? name->s : NULL, tzid_only, changedsince,
-			  &list_cb, &lrock);
+	    zoneinfo_find(name ? name->s : NULL, tzid_only,
+			  icaltime_as_timet(changedsince), &list_cb, &lrock);
 	} while (name && (name = name->next));
 
 	if (!tzid_only) free_hash_table(&tzids, NULL);
@@ -459,16 +477,14 @@ static int action_list(struct transaction_t *txn)
 
 
 static void check_tombstone(struct observance *tombstone,
-			    struct observance *obs, icaltimetype *recur)
+			    struct observance *obs)
 {
-    icaltimetype *onset = recur ? recur : &obs->onset;
-
-    if (icaltime_compare(*onset, tombstone->onset) > 0) {
+    if (icaltime_compare(obs->onset, tombstone->onset) > 0) {
 	/* onset is closer to cutoff than existing tombstone */
 	tombstone->name = icalmemory_tmp_copy(obs->name);
 	tombstone->offset_from = tombstone->offset_to = obs->offset_to;
 	tombstone->is_daylight = obs->is_daylight;
-	memcpy(&tombstone->onset, onset, sizeof(icaltimetype));
+	tombstone->onset = obs->onset;
     }
 }
 
@@ -483,28 +499,45 @@ static int rdate_compare(const void *rdate1, const void *rdate2)
 			    ((struct rdate *) rdate2)->date.time);
 }
 
-static void expand_vtimezone(icalcomponent *vtz, icalarray *obsarray,
-			     icaltimetype start, icaltimetype end)
+static const struct observance *truncate_vtimezone(icalcomponent *vtz,
+						   icaltimetype start,
+						   icaltimetype end,
+						   icalarray *obsarray)
 {
-    int truncate = !obsarray;
-    icalcomponent *comp, *nextc;
-    struct observance tombstone;
+    icalcomponent *comp, *nextc, *tomb_std = NULL, *tomb_day = NULL;
+    icalproperty *prop, *proleptic_prop = NULL;
+    static struct observance tombstone;
+    unsigned need_tomb = !icaltime_is_null_time(start);
+
+    /* See if we have a proleptic tzname in VTIMEZONE */
+    for (prop = icalcomponent_get_first_property(vtz, ICAL_X_PROPERTY);
+	 prop;
+	 prop = icalcomponent_get_next_property(vtz, ICAL_X_PROPERTY)) {
+	if (!strcmp("X-PROLEPTIC-TZNAME", icalproperty_get_x_name(prop))) {
+	    proleptic_prop = prop;
+	    break;
+	}
+    }
 
     memset(&tombstone, 0, sizeof(struct observance));
+    tombstone.name = icalmemory_tmp_copy(proleptic_prop ?
+					 icalproperty_get_x(proleptic_prop) :
+					 "LMT");
 
     /* Process each VTMEZONE STANDARD/DAYLIGHT subcomponent */
     for (comp = icalcomponent_get_first_component(vtz, ICAL_ANY_COMPONENT);
 	 comp; comp = nextc) {
-	icalproperty *prop, *dtstart_prop = NULL, *rrule_prop = NULL;
+	icalproperty *dtstart_prop = NULL, *rrule_prop = NULL;
 	icalarray *rdate_array = icalarray_new(sizeof(struct rdate), 10);
 	icaltimetype dtstart;
 	struct observance obs;
-	unsigned n;
+	unsigned n, trunc_dtstart = 0;
 	int r;
 
 	nextc = icalcomponent_get_next_component(vtz, ICAL_ANY_COMPONENT);
 
 	memset(&obs, 0, sizeof(struct observance));
+	obs.offset_from = obs.offset_to = INT_MAX;
 	obs.is_daylight = (icalcomponent_isa(comp) == ICAL_XDAYLIGHT_COMPONENT);
 
 	/* Grab the properties that we require to expand recurrences */
@@ -548,106 +581,178 @@ static void expand_vtimezone(icalcomponent *vtz, icalarray *obsarray,
 	}
 
 	/* We MUST have DTSTART, TZNAME, TZOFFSETFROM, and TZOFFSETTO */
-	if (!dtstart_prop || !obs.name || !obs.offset_from || !obs.offset_to) {
+	if (!dtstart_prop || !obs.name ||
+	    obs.offset_from == INT_MAX || obs.offset_to == INT_MAX) {
 	    icalarray_free(rdate_array);
 	    continue;
 	}
 
+	/* Adjust DTSTART observance to UTC */
+	icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+	obs.onset.is_utc = 1;
+
 	/* Check DTSTART vs window close */
-	if (icaltime_compare(obs.onset, end) >= 0) {
-	    /* All observances occur on/after window close, nothing to do */
+	if (!icaltime_is_null_time(end) &&
+	    icaltime_compare(obs.onset, end) >= 0) {
+	    /* All observances occur on/after window close - remove component */
+	    icalcomponent_remove_component(vtz, comp);
+	    icalcomponent_free(comp);
+
+	    /* Nothing else to do */
 	    icalarray_free(rdate_array);
 	    continue;
 	}
 
 	/* Check DTSTART vs window open */
 	r = icaltime_compare(obs.onset, start);
-	if (r <= 0) {
-	    /* DTSTART is on/prior to our window open - check it vs tombstone */
-	    check_tombstone(&tombstone, &obs, NULL);
-	}
+	if (r < 0) {
+	    /* DTSTART is prior to our window open - check it vs tombstone */
+	    if (need_tomb) check_tombstone(&tombstone, &obs);
 
-	if (r >= 0) {
+	    /* Adjust it */
+	    trunc_dtstart = 1;
+	}
+	else {
 	    /* DTSTART is on/after our window open */
-	    if (truncate) {
-		/* All observances occur on/after window open - nothing to do */
-		icalarray_free(rdate_array);
-		continue;
-	    }
-	    else if (!rrule_prop) {
+	    if (r == 0) need_tomb = 0;
+
+	    if (obsarray && !rrule_prop) {
 		/* Add the DTSTART observance to our array */
 		icalarray_append(obsarray, &obs);
 	    }
 	}
-	else if (rrule_prop) {
-	    /* RRULE starts prior to our window open - 
-	       bump RRULE start to 1 year prior to our window open */
-	    obs.onset.year = start.year - 1;
-	    obs.onset.month = start.month;
-	    obs.onset.day = start.day;
-	}
 
 	if (rrule_prop) {
-	    /* Add any RRULE observances within our window */
-	    struct icalrecurrencetype rrule;
-
-	    rrule = icalproperty_get_rrule(rrule_prop);
+	    struct icalrecurrencetype rrule =
+		icalproperty_get_rrule(rrule_prop);
+	    icalrecur_iterator *ritr = NULL;
+	    unsigned infinite = icaltime_is_null_time(rrule.until);
+	    unsigned trunc_until = 0;
 
 	    /* Check RRULE duration */
-	    if (!icaltime_is_null_time(rrule.until)) {
-		if (rrule.until.is_utc) {
-		    /* Adjust UNTIL to local time */
+	    if (!infinite && icaltime_compare(rrule.until, start) < 0) {
+		/* RRULE ends prior to our window open -
+		   check UNTIL vs tombstone */
+		obs.onset = rrule.until;
+		if (need_tomb) check_tombstone(&tombstone, &obs);
+
+		/* Remove RRULE */
+		icalcomponent_remove_property(comp, rrule_prop);
+		icalproperty_free(rrule_prop);
+	    }
+	    else {
+		/* RRULE ends on/after our window open */
+		if (!icaltime_is_null_time(end) &&
+		    (infinite || icaltime_compare(rrule.until, end) > 0)) {
+		    /* RRULE ends after our window close - need to adjust it */
+		    trunc_until = 1;
+		}
+
+		if (!infinite) {
+		    /* Adjust UNTIL to local time (for iterator) */
 		    icaltime_adjust(&rrule.until, 0, 0, 0, obs.offset_from);
 		    rrule.until.is_utc = 0;
 		}
 
-		if (icaltime_compare(rrule.until, start) < 0) {
-		    /* RRULE ends prior to our window open */
-		    if (truncate) {
-			/* Remove RRULE */
-			icalcomponent_remove_property(comp, rrule_prop);
-			icalproperty_free(rrule_prop);
-		    }
-		    rrule_prop = NULL;
-
-		    /* Check UNTIL vs tombstone */
-		    check_tombstone(&tombstone, &obs, &rrule.until);
+		if (trunc_dtstart) {
+		    /* Bump RRULE start to 1 year prior to our window open */
+		    dtstart.year = start.year - 1;
 		}
+
+		ritr = icalrecur_iterator_new(rrule, dtstart);
 	    }
 
-	    if (rrule_prop) {
-		icalrecur_iterator *ritr;
+	    /* Process any RRULE observances within our window */
+	    if (ritr) {
+		icaltimetype recur, prev_onset;
 
-		ritr = icalrecur_iterator_new(rrule, obs.onset);
-		while (!icaltime_is_null_time(obs.onset =
+		/* Mark original DTSTART (UTC) */
+		dtstart = obs.onset;
+
+		while (!icaltime_is_null_time(obs.onset = recur =
 					      icalrecur_iterator_next(ritr))) {
+		    unsigned ydiff;
 
-		    if (icaltime_compare(obs.onset, end) >= 0) {
-			/* Observance is on/after window close - we're done */
+		    /* Adjust observance to UTC */
+		    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+		    obs.onset.is_utc = 1;
+
+		    if (trunc_until && icaltime_compare(obs.onset, end) > 0) {
+			/* Observance is on/after window close */
+
+			/* Check if DSTART is within 1yr of prev onset */
+			ydiff = prev_onset.year - dtstart.year;
+			if (ydiff <= 1) {
+			    /* Remove RRULE */
+			    icalcomponent_remove_property(comp, rrule_prop);
+			    icalproperty_free(rrule_prop);
+
+			    if (ydiff) {
+				/* Add previous onset as RDATE */
+				struct icaldatetimeperiodtype rdate = {
+				    prev_onset,
+				    icalperiodtype_null_period()
+				};
+				prop = icalproperty_new_rdate(rdate);
+				icalcomponent_add_property(comp, prop);
+			    }
+			}
+			else {
+			    /* Set UNTIL to previous onset */
+			    rrule.until = prev_onset;
+			    icalproperty_set_rrule(rrule_prop, rrule);
+			}
+
+			/* We're done */
 			break;
 		    }
 
 		    /* Check observance vs our window open */
 		    r = icaltime_compare(obs.onset, start);
-		    if (r <= 0) {
-			/* Observance is on/prior to our window open -
+		    if (r < 0) {
+			/* Observance is prior to our window open -
 			   check it vs tombstone */
-			check_tombstone(&tombstone, &obs, NULL);
+			if (need_tomb) check_tombstone(&tombstone, &obs);
 		    }
-
-		    if (r >= 0) {
+		    else {
 			/* Observance is on/after our window open */
-			if (truncate && dtstart_prop) {
-			    /* Make first observance the new DTSTART */
-			    icalproperty_set_dtstart(dtstart_prop, obs.onset);
-			    dtstart_prop = NULL;
-			    break;
+			if (r == 0) need_tomb = 0;
+
+			if (trunc_dtstart) {
+			    /* Make this observance the new DTSTART */
+			    icalproperty_set_dtstart(dtstart_prop, recur);
+			    dtstart = obs.onset;
+			    trunc_dtstart = 0;
+
+			    /* Check if new DSTART is within 1yr of UNTIL */
+			    ydiff = rrule.until.year - recur.year;
+			    if (!trunc_until && ydiff <= 1) {
+				/* Remove RRULE */
+				icalcomponent_remove_property(comp, rrule_prop);
+				icalproperty_free(rrule_prop);
+
+				if (ydiff) {
+				    /* Add UNTIL as RDATE */
+				    struct icaldatetimeperiodtype rdate = {
+					rrule.until,
+					icalperiodtype_null_period()
+				    };
+				    prop = icalproperty_new_rdate(rdate);
+				    icalcomponent_add_property(comp, prop);
+				}
+			    }
 			}
-			else {
+
+			if (obsarray) {
 			    /* Add the observance to our array */
 			    icalarray_append(obsarray, &obs);
 			}
+			else if (!trunc_until) {
+			    /* We're done */
+			    break;
+			}
 		    }
+		    prev_onset = obs.onset;
 		}
 		icalrecur_iterator_free(ritr);
 	    }
@@ -660,105 +765,177 @@ static void expand_vtimezone(icalcomponent *vtz, icalarray *obsarray,
 	for (n = 0; n < rdate_array->num_elements; n++) {
 	    struct rdate *rdate = icalarray_element_at(rdate_array, n);
 
+	    if (n == 0 && icaltime_compare(rdate->date.time, dtstart) == 0) {
+		/* RDATE is same as DTSTART - remove it */
+		icalcomponent_remove_property(comp, rdate->prop);
+		icalproperty_free(rdate->prop);
+		continue;
+	    }
+
 	    obs.onset = rdate->date.time;
-	    if (icaltime_compare(obs.onset, end) >= 0) {
-		/* RDATE is after our window close - we're done */
-		break;
+
+	    /* Adjust observance to UTC */
+	    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+	    obs.onset.is_utc = 1;
+
+	    if (!icaltime_is_null_time(end) &&
+		icaltime_compare(obs.onset, end) >= 0) {
+		/* RDATE is after our window close - remove it */
+		icalcomponent_remove_property(comp, rdate->prop);
+		icalproperty_free(rdate->prop);
+		continue;
 	    }
 
 	    r = icaltime_compare(obs.onset, start);
-	    if (r <= 0) {
-		/* RDATE is on/prior to window open - check it vs tombstone */
-		check_tombstone(&tombstone, &obs, &rdate->date.time);
-	    }
+	    if (r < 0) {
+		/* RDATE is prior to window open - check it vs tombstone */
+		if (need_tomb) check_tombstone(&tombstone, &obs);
 
-	    if (r >= 0) {
-		/* RDATE is on/after our window open */
-		if (truncate) {
-		    if (dtstart_prop) {
-			/* Make this RDATE the new DTSTART */
-			icalproperty_set_dtstart(dtstart_prop, rdate->date.time);
-			dtstart_prop = NULL;
-
-			icalcomponent_remove_property(comp, rdate->prop);
-			icalproperty_free(rdate->prop);
-		    }
-		    break;
-		}
-		else if (icaltime_compare(obs.onset, dtstart) != 0) {
-		    /* RDATE != DTSTART - add observance to our array */
-		    icalarray_append(obsarray, &obs);
-		}
-	    }
-	    else if (truncate) {
-		/* RDATE is prior to our window open - remove it */
+		/* Remove it */
 		icalcomponent_remove_property(comp, rdate->prop);
 		icalproperty_free(rdate->prop);
+	    }
+	    else {
+		/* RDATE is on/after our window open */
+		if (r == 0) need_tomb = 0;
+
+		if (trunc_dtstart) {
+		    /* Make this RDATE the new DTSTART */
+		    icalproperty_set_dtstart(dtstart_prop,
+					     rdate->date.time);
+		    trunc_dtstart = 0;
+
+		    icalcomponent_remove_property(comp, rdate->prop);
+		    icalproperty_free(rdate->prop);
+		}
+
+		if (obsarray) {
+		    /* Add the observance to our array */
+		    icalarray_append(obsarray, &obs);
+		}
 	    }
 	}
 	icalarray_free(rdate_array);
 
 	/* Final check */
-	if (truncate && dtstart_prop) {
-	    /* All observances in comp occur prior to window open, remove it */
-	    icalcomponent_remove_component(vtz, comp);
-	    icalcomponent_free(comp);
+	if (trunc_dtstart) {
+	    /* All observances in comp occur prior to window open, remove it
+	       unless we haven't saved a tombstone comp of this type yet */
+	    if (icalcomponent_isa(comp) == ICAL_XDAYLIGHT_COMPONENT) {
+		if (!tomb_day) {
+		    tomb_day = comp;
+		    comp = NULL;
+		}
+	    }
+	    else if (!tomb_std) {
+		tomb_std = comp;
+		comp = NULL;
+	    }
+
+	    if (comp) {
+		icalcomponent_remove_component(vtz, comp);
+		icalcomponent_free(comp);
+	    }
 	}
     }
 
-    if (icaltime_compare(tombstone.onset, start) < 0) {
-	/* Need to add tombstone component/observance starting at window open */
-	if (truncate) {
-	    comp = icalcomponent_vanew(
-		tombstone.is_daylight ?
-		ICAL_XDAYLIGHT_COMPONENT : ICAL_XSTANDARD_COMPONENT,
-		icalproperty_new_tzoffsetfrom(tombstone.offset_from),
-		icalproperty_new_tzoffsetto(tombstone.offset_to),
-		icalproperty_new_tzname(tombstone.name),
-		icalproperty_new_dtstart(start),
-		0);
-	    icalcomponent_add_component(vtz, comp);
-	}
-	else {
+    if (need_tomb && !icaltime_is_null_time(tombstone.onset)) {
+	/* Need to add tombstone component/observance starting at window open
+	   as long as its not prior to start of TZ data */
+	icalcomponent *tomb;
+	icalproperty *prop, *nextp;
+
+	if (obsarray) {
+	    /* Add the tombstone to our array */
 	    tombstone.onset = start;
 	    icalarray_append(obsarray, &tombstone);
 	}
+
+	/* Determine which tombstone component we need */
+	if (tombstone.is_daylight) {
+	    tomb = tomb_day;
+	    tomb_day = NULL;
+	}
+	else {
+	    tomb = tomb_std;
+	    tomb_std = NULL;
+	}
+
+	/* Set property values on our tombstone */
+	for (prop = icalcomponent_get_first_property(tomb, ICAL_ANY_PROPERTY);
+	     prop; prop = nextp) {
+
+	    nextp = icalcomponent_get_next_property(tomb, ICAL_ANY_PROPERTY);
+
+	    switch (icalproperty_isa(prop)) {
+	    case ICAL_TZNAME_PROPERTY:
+		icalproperty_set_tzname(prop, tombstone.name);
+		break;
+	    case ICAL_TZOFFSETFROM_PROPERTY:
+		icalproperty_set_tzoffsetfrom(prop, tombstone.offset_from);
+		break;
+	    case ICAL_TZOFFSETTO_PROPERTY:
+		icalproperty_set_tzoffsetto(prop, tombstone.offset_to);
+		break;
+	    case ICAL_DTSTART_PROPERTY:
+		/* Adjust window open to local time */
+		icaltime_adjust(&start, 0, 0, 0, tombstone.offset_from);
+		start.is_utc = 0;
+
+		icalproperty_set_dtstart(prop, start);
+		break;
+	    default:
+		icalcomponent_remove_property(tomb, prop);
+		icalproperty_free(prop);
+		break;
+	    }
+	}
+
+	/* Remove X-PROLEPTIC-TZNAME as it no longer applies */
+	if (proleptic_prop) {
+	    icalcomponent_remove_property(vtz, proleptic_prop);
+	    icalproperty_free(proleptic_prop);
+	}
     }
+
+    /* Remove any unused tombstone components */
+    if (tomb_std) {
+	icalcomponent_remove_component(vtz, tomb_std);
+	icalcomponent_free(tomb_std);
+    }
+    if (tomb_day) {
+	icalcomponent_remove_component(vtz, tomb_day);
+	icalcomponent_free(tomb_day);
+    }
+
+    return &tombstone;
 }
 
-static void truncate_vtimezone(icalcomponent *vtz, icaltimetype start)
+#ifndef HAVE_TZDIST_PROPS
+static icalproperty *icalproperty_new_tzidaliasof(const char *v)
 {
-    /* We don't have an end date for truncation, so use "end of time" */
-    time_t now = INT_MAX;
-    struct tm *tm = gmtime(&now);
-    icaltimetype end = icaltime_from_day_of_year(1, tm->tm_year + 1900);
-
-    expand_vtimezone(vtz, NULL, start, end);
+    icalproperty *prop = icalproperty_new_x(v);
+    icalproperty_set_x_name(prop, "TZID-ALIAS-OF");
+    return prop;
 }
 
-/* Version of icaltime_from_string() which supports just YYYY */
-static icaltimetype icaltime_from_year_string(const char *str)
+static icalproperty *icalproperty_new_tzuntil(struct icaltimetype v)
 {
-    struct icaltimetype tt;
-    size_t size = strlen(str);
-
-    if (size < 4 || size > 4) return icaltime_null_time();
-
-    tt = icaltime_from_day_of_year(1, atoi(str));
-    tt.is_date = tt.hour = tt.minute = tt.second = 0;
-
-    return tt;
+    icalproperty *prop = icalproperty_new_x(icaltime_as_ical_string(v));
+    icalproperty_set_x_name(prop, "TZUNTIL");
+    return prop;
 }
+#endif /* HAVE_TZDIST_PROPS */
 
 /* Perform a get action */
 static int action_get(struct transaction_t *txn)
 {
     int r, precond;
     struct strlist *param;
-    const char *tzid;
+    const char *tzid, *truncate = NULL;
     struct zoneinfo zi;
     time_t lastmod;
-    icaltimetype truncate = icaltime_null_time();
+    icaltimetype start = icaltime_null_time(), end = icaltime_null_time();
     char *data = NULL;
     unsigned long datalen = 0;
     struct resp_body_t *resp_body = &txn->resp_body;
@@ -766,9 +943,11 @@ static int action_get(struct transaction_t *txn)
 
     /* Sanity check the parameters */
     param = hash_lookup("tzid", &txn->req_qparams);
-    if (!param || param->next  /* mandatory, once only */
-	|| strchr(param->s, '.')  /* paranoia */) {
-	return json_error_response(txn, TZ_INVALID_TZID);
+    if (!param || param->next) { /* mandatory, once only */
+	return json_error_response(txn, TZ_INVALID_TZID, param, NULL);
+    }
+    if (strchr(param->s, '.')) {  /* paranoia */
+	return json_error_response(txn, TZ_NOT_FOUND, NULL, NULL);
     }
     tzid = param->s;
 
@@ -782,21 +961,46 @@ static int action_get(struct transaction_t *txn)
     else mime = tz_mime_types;
 
     if (!mime || !mime->content_type) {
-	return json_error_response(txn, TZ_INVALID_FORMAT);
+	return json_error_response(txn, TZ_INVALID_FORMAT, param, NULL);
     }
 
     /* Check for any truncation */
     param = hash_lookup("truncate", &txn->req_qparams);
     if (param) {
-	truncate = icaltime_from_year_string(param->s);
-	if (icaltime_is_null_time(truncate) || param->next  /* once only */)
-	    return json_error_response(txn, TZ_INVALID_TRUNCATE);
+	tok_t tok;
+	char *token;
+
+	truncate = param->s;
+
+	if (param->next) {  /* once only */
+	    return json_error_response(txn, TZ_INVALID_TRUNCATE, param, NULL);
+	}
+
+	tok_init(&tok, truncate, ",", TOK_TRIMLEFT|TOK_TRIMRIGHT|TOK_EMPTY);
+	token = tok_next(&tok);
+	if (!token ||
+	    (strcmp(token, "*") &&
+	     !icaltime_is_utc((start = icaltime_from_string(token))))) {
+	    return json_error_response(txn, TZ_INVALID_TRUNCATE, param, &start);
+	}
+	token = tok_next(&tok);
+	if (!token ||
+	    (strcmp(token, "*") &&
+	     (!icaltime_is_utc((end = icaltime_from_string(token))) ||
+	      icaltime_compare(end, start) <= 0))) {
+	    return json_error_response(txn, TZ_INVALID_TRUNCATE, param, &end);
+	}
+	if (tok_next(&tok)) {
+	    return json_error_response(txn, TZ_INVALID_TRUNCATE, param, NULL);
+	}
+	tok_fini(&tok);
     }
 
     /* Get info record from the database */
     if ((r = zoneinfo_lookup(tzid, &zi))) {
 	return (r == CYRUSDB_NOTFOUND ?
-		json_error_response(txn, TZ_NOT_FOUND) : HTTP_SERVER_ERROR);
+		json_error_response(txn, TZ_NOT_FOUND, NULL, NULL)
+		: HTTP_SERVER_ERROR);
     }
 
     /* Generate ETag & Last-Modified from info record */
@@ -856,12 +1060,11 @@ static int action_get(struct transaction_t *txn)
 	prop = icalcomponent_get_first_property(vtz, ICAL_TZID_PROPERTY);
 
 	if (zi.type == ZI_LINK) {
-	    /* Add EQUIVALENT-TZID */
-	    const char *equiv = icalproperty_get_tzid(prop);
-	    icalproperty *eprop = icalproperty_new_x(equiv);
+	    /* Add TZID-ALIAS-OF */
+	    const char *aliasof = icalproperty_get_tzid(prop);
+	    icalproperty *atzid = icalproperty_new_tzidaliasof(aliasof);
 
-	    icalproperty_set_x_name(eprop, "EQUIVALENT-TZID");	
-	    icalcomponent_add_property(vtz, eprop);
+	    icalcomponent_add_property(vtz, atzid);
 
 	    /* Substitute TZID alias */
 	    icalproperty_set_tzid(prop, tzid);
@@ -877,11 +1080,18 @@ static int action_get(struct transaction_t *txn)
 		       (int) strcspn(mime->content_type, ";"),
 		       mime->content_type);
 	}
-	if (!icaltime_is_null_time(truncate)) {
-	    buf_printf(&pathbuf, "&truncate=%d", truncate.year);
+	if (truncate) {
+	    if (!icaltime_is_null_time(end)) {
+		/* Add TZUNTIL to VTIMEZONE */
+		icalproperty *tzuntil = icalproperty_new_tzuntil(end);
+		icalcomponent_add_property(vtz, tzuntil);
+	    }
+
+	    /* Add truncation parameter to TZURL */
+	    buf_printf(&pathbuf, "&truncate=%s", truncate);
 
 	    /* Truncate the VTIMEZONE */
-	    truncate_vtimezone(vtz, truncate);
+	    truncate_vtimezone(vtz, start, end, NULL);
 	}
 
 	/* Set TZURL property */
@@ -914,66 +1124,96 @@ static int observance_compare(const void *obs1, const void *obs2)
 			    ((struct observance *) obs2)->onset);
 }
 
+
+static const char *dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+static const char *mon[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+			     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+
+#define CTIME_FMT "%s %s %2d %02d:%02d:%02d %4d"
+#define CTIME_ARGS(tt) \
+    dow[icaltime_day_of_week(tt)-1], mon[tt.month-1], \
+    tt.day, tt.hour, tt.minute, tt.second, tt.year
+
+
 /* Perform an expand action */
 static int action_expand(struct transaction_t *txn)
 {
-    int r, precond;
+    int r, precond, zdump = 0;
     struct strlist *param;
     const char *tzid;
     struct zoneinfo zi;
-    time_t lastmod, changedsince = 0;
-    icaltimetype start, end;
+    time_t lastmod;
+    icaltimetype start, end, changedsince = icaltime_null_time();
     struct resp_body_t *resp_body = &txn->resp_body;
     json_t *root = NULL;
 
     /* Sanity check the parameters */
     param = hash_lookup("tzid", &txn->req_qparams);
-    if (!param || param->next  /* mandatory, once only */
-	|| strchr(param->s, '.')  /* paranoia */) {
-	return json_error_response(txn, TZ_INVALID_TZID);
+    if (!param || param->next) {  /* mandatory, once only */
+	return json_error_response(txn, TZ_INVALID_TZID, param, NULL);
+    }
+    if (strchr(param->s, '.')) {  /* paranoia */
+	return json_error_response(txn, TZ_NOT_FOUND, NULL, NULL);
     }
     tzid = param->s;
 
     param = hash_lookup("changedsince", &txn->req_qparams);
     if (param) {
-	changedsince = icaltime_as_timet(icaltime_from_string(param->s));
-	if (!changedsince || param->next  /* once only */)
-	    return json_error_response(txn, TZ_INVALID_CHANGEDSINCE);
+	changedsince = icaltime_from_string(param->s);
+	if (param->next || !changedsince.is_utc) {  /* once only, UTC */
+	    return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
+				       param, &changedsince);
+	}
     }
 
     param = hash_lookup("start", &txn->req_qparams);
-    if (param) {
-	start = icaltime_from_year_string(param->s);
-	if (icaltime_is_null_time(start) || param->next  /* once only */)
-	    return json_error_response(txn, TZ_INVALID_START);
-    }
-    else {
-	/* Default to current year */
-	time_t now = time(0);
-	struct tm *tm = gmtime(&now);
+    if (!param || param->next)  /* mandatory, once only */
+	return json_error_response(txn, TZ_INVALID_START, param, NULL);
 
-	start = icaltime_from_day_of_year(1, tm->tm_year + 1900);
-    }
-    start.is_date = 0;
+    start = icaltime_from_string(param->s);
+    if (!start.is_utc)  /* MUST be UTC */
+	return json_error_response(txn, TZ_INVALID_START, param, &start);
 
     param = hash_lookup("end", &txn->req_qparams);
     if (param) {
-	end = icaltime_from_year_string(param->s);
-	if (icaltime_compare(end, start) <= 0  /* end MUST be > start */
-	    || param->next  /* once only */)
-	    return json_error_response(txn, TZ_INVALID_END);
+	end = icaltime_from_string(param->s);
+	if (param->next || !end.is_utc  /* once only, UTC */
+	    || icaltime_compare(end, start) <= 0) {  /* end MUST be > start */
+	    return json_error_response(txn, TZ_INVALID_END, param, &end);
+	}
     }
     else {
-	/* Default to start year + 10 */
-	memcpy(&end, &start, sizeof(icaltimetype));
+	/* Default to start + 10 years */
+	end = start;
 	end.year += 10;
     }
-    end.is_date = 0;
+
+    /* Check requested format (debugging only) */
+    param = hash_lookup("format", &txn->req_qparams);
+    if (param) {
+	if (param->next || strcmp(param->s, "zdump"))  /* optional, once only */
+	    return json_error_response(txn, TZ_INVALID_FORMAT, param, NULL);
+
+	/* Mimic zdump(8) -V output for comparision:
+
+	   For each zonename, print the times both one  second  before  and
+	   exactly at each detected time discontinuity, the time at one day
+	   less than the highest possible time value, and the time  at  the
+	   highest  possible  time value.  Each line is followed by isdst=D
+	   where D is positive, zero, or negative depending on whether  the
+	   given time is daylight saving time, standard time, or an unknown
+	   time type, respectively.  Each line is also followed by gmtoff=N
+	   if  the given local time is known to be N seconds east of Green‐
+	   wich.
+	*/
+	zdump = 1;
+    }
 
     /* Get info record from the database */
     if ((r = zoneinfo_lookup(tzid, &zi))) {
 	return (r == CYRUSDB_NOTFOUND ?
-		json_error_response(txn, TZ_NOT_FOUND) : HTTP_SERVER_ERROR);
+		json_error_response(txn, TZ_NOT_FOUND, NULL, NULL)
+		: HTTP_SERVER_ERROR);
     }
 
     /* Generate ETag & Last-Modified from info record */
@@ -984,7 +1224,7 @@ static int action_expand(struct transaction_t *txn)
 
     /* Check any preconditions, including range request */
     txn->flags.ranges = 1;
-    if (lastmod <= changedsince) precond = HTTP_NOT_MODIFIED;
+    if (lastmod <= icaltime_as_timet(changedsince)) precond = HTTP_NOT_MODIFIED;
     else precond = check_precond(txn, NULL, buf_cstring(&txn->buf), lastmod);
 
     switch (precond) {
@@ -1012,6 +1252,7 @@ static int action_expand(struct transaction_t *txn)
 	const char *path, *msg_base = NULL;
 	unsigned long msg_size = 0;
 	icalcomponent *ical, *vtz;
+	const struct observance *proleptic;
 	char dtstamp[21];
 	icalarray *obsarray;
 	json_t *jobsarray;
@@ -1033,41 +1274,104 @@ static int action_expand(struct transaction_t *txn)
 	close(fd);
 
 	/* Start constructing our response */
-	rfc3339date_gen(dtstamp, sizeof(dtstamp), lastmod);
-	root = json_pack("{s:s s:[]}", "dtstamp", dtstamp, "observances");
-	if (!root) {
-	    txn->error.desc = "Unable to create JSON response";
-	    return HTTP_SERVER_ERROR;
+	if (zdump) {
+	    txn->resp_body.type = "text/plain; charset=us-ascii";
 	}
+	else {
+	    rfc3339date_gen(dtstamp, sizeof(dtstamp), lastmod);
+	    root = json_pack("{s:s s:s s:[]}",
+			     "dtstamp", dtstamp, "tzid", tzid, "observances");
+	    if (!root) {
+		txn->error.desc = "Unable to create JSON response";
+		return HTTP_SERVER_ERROR;
+	    }
+	}
+	
 
 	/* Create an array of observances */
 	obsarray = icalarray_new(sizeof(struct observance), 20);
 	vtz = icalcomponent_get_first_component(ical, ICAL_VTIMEZONE_COMPONENT);
-	expand_vtimezone(vtz, obsarray, start, end);
+	proleptic = truncate_vtimezone(vtz, start, end, obsarray);
 
 	/* Sort the observances by onset */
 	icalarray_sort(obsarray, &observance_compare);
 
-	/* Add observances to JSON array */
-	jobsarray = json_object_get(root, "observances");
-	for (n = 0; n < obsarray->num_elements; n++) {
-	    struct observance *obs = icalarray_element_at(obsarray, n);
+	if (zdump) {
+	    struct buf *body = &txn->resp_body.payload;
+	    struct icaldurationtype off = icaldurationtype_null_duration();
+	    const char *prev_name = proleptic->name;
+	    int prev_isdst = proleptic->is_daylight;
 
-	    json_array_append_new(jobsarray,
-				  json_pack("{s:s s:s s:i s:i}",
-					    "name", obs->name,
-					    "onset",
-					    icaltime_as_iso_string(obs->onset),
-					    "utc-offset-from", obs->offset_from,
-					    "utc-offset-to", obs->offset_to));
+	    for (n = 0; n < obsarray->num_elements; n++) {
+		struct observance *obs = icalarray_element_at(obsarray, n);
+		struct icaltimetype local, ut;
+
+		/* Skip any no-ops as zdump doesn't output them */
+		if (obs->offset_from == obs->offset_to
+		    && prev_isdst == obs->is_daylight
+		    && !strcmp(prev_name, obs->name)) continue;
+
+		/* UT and local time 1 second before onset */
+		off.seconds = -1;
+		ut = icaltime_add(obs->onset, off);
+
+		off.seconds = obs->offset_from;
+		local = icaltime_add(ut, off);
+
+		buf_printf(body,
+			   "%s  " CTIME_FMT " UT = " CTIME_FMT " %s"
+			   " isdst=%d gmtoff=%d\n",
+			   tzid, CTIME_ARGS(ut), CTIME_ARGS(local),
+			   prev_name, prev_isdst, obs->offset_from);
+
+		/* UT and local time at onset */
+		icaltime_adjust(&ut, 0, 0, 0, 1);
+
+		off.seconds = obs->offset_to;
+		local = icaltime_add(ut, off);
+
+		buf_printf(body,
+			   "%s  " CTIME_FMT " UT = " CTIME_FMT " %s"
+			   " isdst=%d gmtoff=%d\n",
+			   tzid, CTIME_ARGS(ut), CTIME_ARGS(local),
+			   obs->name, obs->is_daylight, obs->offset_to);
+
+		prev_name = obs->name;
+		prev_isdst = obs->is_daylight;
+	    }
+	}
+	else {
+	    /* Add observances to JSON array */
+	    jobsarray = json_object_get(root, "observances");
+	    for (n = 0; n < obsarray->num_elements; n++) {
+		struct observance *obs = icalarray_element_at(obsarray, n);
+
+		json_array_append_new(jobsarray,
+				      json_pack(
+					  "{s:s s:s s:i s:i}",
+					  "name", obs->name,
+					  "onset",
+					  icaltime_as_iso_string(obs->onset),
+					  "utc-offset-from", obs->offset_from,
+					  "utc-offset-to", obs->offset_to));
+	    }
 	}
 	icalarray_free(obsarray);
 
 	icalcomponent_free(ical);
     }
 
-    /* Output the JSON object */
-    return json_response(precond, txn, root, NULL);
+    if (zdump) {
+	struct buf *body = &txn->resp_body.payload;
+
+	write_body(precond, txn, buf_cstring(body), buf_len(body));
+
+	return 0;
+    }
+    else {
+	/* Output the JSON object */
+	return json_response(precond, txn, root, NULL);
+    }
 }
 
 
@@ -1104,25 +1408,58 @@ static int json_response(int code, struct transaction_t *txn, json_t *root,
 }
 
 
-static int json_error_response(struct transaction_t *txn, long tz_code)
-{
-    json_t *root;
-    long http_code;
+/* Array of parameter names - MUST be kept in sync with tz_err.et */
+static const char *param_names[] = {
+    "action",
+    "tzid",
+    "pattern",
+    "format",
+    "start",
+    "end",
+    "changedsince",
+    "truncate",
+    "tzid"
+};
 
-    root = json_pack("{s:s}", "error", error_message(tz_code));
+static int json_error_response(struct transaction_t *txn, long tz_code,
+			       struct strlist *param, icaltimetype *time)
+{
+    long http_code = HTTP_BAD_REQUEST;
+    const char *param_name, *fmt = NULL;
+    char desc[100];
+    json_t *root;
+
+    param_name = param_names[tz_code - tz_err_base];
+
+    if (!param) fmt = "missing %s parameter";
+    else if (param->next) fmt = "multiple %s parameters";
+    else if (!param->s || !param->s[0]) fmt = "missing %s value";
+    else if (!time) fmt = "unknown %s value";
+    else if (!time->is_utc) fmt = "invalid %s UTC value";
+
+    switch (tz_code) {
+    case TZ_INVALID_TZID:
+	if (!fmt) fmt = "tzid used with changedsince";
+	break;
+
+    case TZ_INVALID_END:
+    case TZ_INVALID_TRUNCATE:
+	if (!fmt) fmt = "end <= start";
+	break;
+
+    case TZ_NOT_FOUND:
+	http_code = HTTP_NOT_FOUND;
+	fmt = "time zone not found";
+	break;
+    }
+
+    snprintf(desc, sizeof(desc), fmt ? fmt : "unknown error", param_name);
+
+    root = json_pack("{s:s s:s}", "error", error_message(tz_code),
+		     "description", desc);
     if (!root) {
 	txn->error.desc = "Unable to create JSON response";
 	return HTTP_SERVER_ERROR;
-    }
-
-    switch (tz_code) {
-    case TZ_NOT_FOUND:
-	http_code = HTTP_NOT_FOUND;
-	break;
-
-    default:
-	http_code = HTTP_BAD_REQUEST;
-	break;
     }
 
     return json_response(http_code, txn, root, NULL);

@@ -40,8 +40,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: parser.c,v 1.55 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -54,35 +52,35 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-
 #include <string.h>
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
 
-
+#include "assert.h"
+#include "exitcodes.h"
 #include "libconfig.h"
-#include "global.h"
-#include "auth.h"
-#include "backend.h"
-#include "mboxname.h"
-#include "mboxlist.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "prot.h"
-#include "tls.h"
-#include "lex.h"
-#include "actions.h"
-#include "exitcodes.h"
-#include "telemetry.h"
 
-extern char sieved_clienthost[250];
+#include "imap/backend.h"
+#include "imap/global.h"
+#include "imap/mboxlist.h"
+#include "imap/mboxname.h"
+#include "imap/telemetry.h"
+#include "imap/tls.h"
+
+#include "timsieved/actions.h"
+#include "timsieved/codes.h"
+#include "timsieved/lex.h"
+
+extern const char *sieved_clienthost;
 extern int sieved_domainfromip;
 extern int sieved_userisadmin;
 
 /* xxx these are both leaked, but we only handle one connection at a
  * time... */
 extern sasl_conn_t *sieved_saslconn; /* the sasl connection context */
-const char *referral_host = NULL;
+static const char *referral_host = NULL;
 
 int authenticated = 0;
 int verify_only = 0;
@@ -103,7 +101,7 @@ extern struct backend *backend;
 static void cmd_logout(struct protstream *sieved_out,
 		       struct protstream *sieved_in);
 static int cmd_authenticate(struct protstream *sieved_out, struct protstream *sieved_in,
-			    mystring_t *mechanism_name, mystring_t *initial_challenge, const char **errmsg);
+			    const char *mech, const struct buf *initial_challenge, const char **errmsg);
 static void cmd_unauthenticate(struct protstream *sieved_out,
 			       struct protstream *sieved_in);
 static int cmd_starttls(struct protstream *sieved_out, struct protstream *sieved_in);
@@ -127,8 +125,9 @@ static struct protocol_t sieve_protocol =
 { "sieve", SIEVE_SERVICE_NAME, TYPE_STD,
   { { { 1, "OK" },
       { "CAPABILITY", NULL, "OK", NULL,
-	{ { "\"SASL\" ", CAPA_AUTH },
-	  { "\"STARTTLS\"", CAPA_STARTTLS },
+	CAPAF_ONE_PER_LINE|CAPAF_QUOTE_WORDS,
+	{ { "SASL", CAPA_AUTH },
+	  { "STARTTLS", CAPA_STARTTLS },
 	  { NULL, 0 } } },
       { "STARTTLS", "OK", "NO", 1 },
       { "AUTHENTICATE", USHRT_MAX, 1, "OK", "NO", NULL, "*",
@@ -144,10 +143,10 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
   int token = EOL;
   const char *error_msg = "Generic Error";
 
-  mystring_t *mechanism_name = NULL;
-  mystring_t *initial_challenge = NULL;
-  mystring_t *sieve_name = NULL;
-  mystring_t *sieve_data = NULL;
+  struct buf mechanism_name = BUF_INITIALIZER;
+  struct buf initial_challenge = BUF_INITIALIZER;
+  struct buf sieve_name = BUF_INITIALIZER;
+  struct buf sieve_data = BUF_INITIALIZER;
   unsigned long num;
   int ret = FALSE;
 
@@ -157,7 +156,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 
   if (!authenticated && (token > 255) && (token!=AUTHENTICATE) &&
       (token!=LOGOUT) && (token!=CAPABILITY) &&
-      (token!=NOOP) &&
+      (token!=NOOP) && (token!=CHECKSCRIPT) &&
       (!tls_enabled() || (token!=STARTTLS)))
   {
     error_msg = "Authenticate first";
@@ -167,7 +166,8 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     goto error;
   }
 
-  if (verify_only && (token > 255) && (token!=PUTSCRIPT) && (token!=LOGOUT))
+  if (verify_only && (token > 255) && (token!=CHECKSCRIPT)
+    && (token!=PUTSCRIPT) && (token!=LOGOUT))
   {
     error_msg = "Script verification only";
     if (token!=EOL)
@@ -187,6 +187,10 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
       break;
 
   case AUTHENTICATE:
+    if (sieved_tls_required) {
+      error_msg = "AUTHENTICATE only available under a layer";
+      goto error;
+    }
     if (timlex(NULL, NULL, sieved_in)!=SPACE)
     {
       error_msg = "SPACE must occur after AUTHENTICATE";
@@ -227,8 +231,8 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 
     if (authenticated)
 	prot_printf(sieved_out, "NO \"Already authenticated\"\r\n");
-    else if (cmd_authenticate(sieved_out, sieved_in, mechanism_name,
-			      initial_challenge, &error_msg)==FALSE)
+    else if (cmd_authenticate(sieved_out, sieved_in, mechanism_name.s,
+			      &initial_challenge, &error_msg)==FALSE)
     {
 	error_msg = "Authentication Error";
 	goto error;
@@ -255,6 +259,31 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 		   sasl_ssf);
       break;
 
+  case CHECKSCRIPT:
+      if (timlex(NULL, NULL, sieved_in)!=SPACE)
+      {
+          error_msg = "SPACE must occur after CHECKSCRIPT";
+          goto error;
+      }
+
+      if (timlex(&sieve_data, NULL, sieved_in)!=STRING)
+      {
+          error_msg = "Expected script content as second parameter";
+          goto error;
+      }
+
+      if (timlex(NULL, NULL, sieved_in)!=EOL)
+      {
+        error_msg = "Expected EOL";
+        goto error;
+      }
+
+      /* f stands for "f"aked name, it could be any valid script name */
+      buf_reset(&sieve_name);
+      buf_appendcstr(&sieve_name, "f");
+      putscript(sieved_out, &sieve_name, &sieve_data, /* verify_only */ 1);
+      break;
+
   case HAVESPACE:
       if (timlex(NULL, NULL, sieved_in)!=SPACE)
       {
@@ -270,7 +299,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
       
       if (timlex(NULL, NULL, sieved_in)!=SPACE)
       {
-	  error_msg = "Expected SPACE";
+	  error_msg = "Expected SPACE after SCRIPTNAME";
 	  goto error;
       }
       
@@ -289,7 +318,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
       if(referral_host)
 	  goto do_referral;
 
-      cmd_havespace(sieved_out, sieve_name, num);
+      cmd_havespace(sieved_out, &sieve_name, num);
 
       break;
 
@@ -333,7 +362,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     if(referral_host)
 	goto do_referral;
 
-    getscript(sieved_out, sieve_name);
+    getscript(sieved_out, &sieve_name);
     
     break;
 
@@ -372,7 +401,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     if(referral_host)
 	goto do_referral;
 
-    putscript(sieved_out, sieve_name, sieve_data, verify_only);
+    putscript(sieved_out, &sieve_name, &sieve_data, verify_only);
     
     break;
 
@@ -398,7 +427,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     if(referral_host)
 	goto do_referral;
 
-    setactive(sieved_out, sieve_name);
+    setactive(sieved_out, &sieve_name);
     
     break;
 
@@ -424,7 +453,7 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     if(referral_host)
 	goto do_referral;
 
-    deletescript(sieved_out, sieve_name);
+    deletescript(sieved_out, &sieve_name);
     
     break;
 
@@ -464,7 +493,6 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
   case NOOP:
 
     token = timlex(NULL, NULL, sieved_in);
-    mystring_t *noop_param = NULL;
     if (token != EOL)
     {
       /* optional string parameter */
@@ -474,10 +502,9 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 	goto error;
       }
 
-      if (timlex(&noop_param, NULL, sieved_in)!=STRING)
+      if (timlex(&sieve_name, NULL, sieved_in)!=STRING)
       {
 	error_msg = "Expected string";
-	free(noop_param);
 	goto error;
       }
 
@@ -487,18 +514,13 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
     if (token != EOL)
     {
       error_msg = "Expected EOL";
-      free(noop_param);
       goto error;
     }
 
-    if (noop_param != NULL) {
-      int temp;
-      char* dataptr = string_DATAPTR(noop_param);
-      prot_printf(sieved_out, "OK (TAG {%d}\r\n", noop_param->len);
-      for (temp = 0; temp < noop_param->len; temp++)
-      prot_putc(dataptr[temp], sieved_out);
+    if (sieve_name.len) {
+      prot_printf(sieved_out, "OK (TAG ");
+      prot_printliteral(sieved_out, sieve_name.s, sieve_name.len);
       prot_printf(sieved_out, ") \"Done\"\r\n");
-      free(noop_param);
     } else
       prot_printf(sieved_out, "OK \"Done\"\r\n");
     break;
@@ -521,10 +543,10 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
 
  done: 
   /* free memory */
-  free(mechanism_name);
-  free(initial_challenge);
-  free(sieve_name);
-  free(sieve_data);
+  buf_free(&mechanism_name);
+  buf_free(&initial_challenge);
+  buf_free(&sieve_name);
+  buf_free(&sieve_data);
  
   prot_flush(sieved_out);
 
@@ -533,10 +555,10 @@ int parser(struct protstream *sieved_out, struct protstream *sieved_in)
  error:
 
   /* free memory */
-  free(mechanism_name);
-  free(initial_challenge);
-  free(sieve_name);
-  free(sieve_data);
+  buf_free(&mechanism_name);
+  buf_free(&initial_challenge);
+  buf_free(&sieve_name);
+  buf_free(&sieve_data);
 
   prot_printf(sieved_out, "NO \"%s\"\r\n",error_msg);
   prot_flush(sieved_out);
@@ -588,34 +610,32 @@ static void cmd_unauthenticate(struct protstream *sieved_out,
 
 static int cmd_authenticate(struct protstream *sieved_out,
 			    struct protstream *sieved_in,
-			    mystring_t *mechanism_name,
-			    mystring_t *initial_challenge, 
+			    const char *mech,
+			    const struct buf *initial_challenge,
 			    const char **errmsg)
 {
 
   int sasl_result;
-
-  char *mech = string_DATAPTR(mechanism_name);
-
-  mystring_t *clientinstr=NULL;
   char *clientin = NULL;
   unsigned int clientinlen = 0;
 
   const char *serverout=NULL;
   unsigned int serveroutlen;
   const void *canon_user, *val;
-  char *username;
+  char *username = NULL;
   int ret = TRUE;
+  mbentry_t *mbentry = NULL;
 
-  clientinstr = initial_challenge;
-  if (clientinstr!=NULL)
+  assert(initial_challenge);
+  if (initial_challenge->s)
   {
-      clientin=(char *) malloc(clientinstr->len*2);
+      /* a value was provided on the wire, possibly of zero length */
+      clientin = xmalloc(initial_challenge->len*2);
       
-      if (clientinstr->len) {
-	  sasl_result=sasl_decode64(string_DATAPTR(clientinstr), 
-				    clientinstr->len,
-				    clientin, clientinstr->len*2,
+      if (initial_challenge->len) {
+	  sasl_result=sasl_decode64(initial_challenge->s,
+				    initial_challenge->len,
+				    clientin, initial_challenge->len*2,
 				    &clientinlen);
       } else {
 	  clientinlen = 0;
@@ -627,12 +647,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
 	*errmsg="error base64 decoding string";
 	syslog(LOG_NOTICE, "badlogin: %s %s %s",
 	       sieved_clienthost, mech, "error base64 decoding string");
-
-      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	  fatal("could not reset the sasl_conn_t after failure",
-		EC_TEMPFAIL);
-
-	return FALSE;
+	goto reset;
       }
   }
 
@@ -644,7 +659,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
   {
     int token1;
     int token2;
-    mystring_t *str, *blahstr;
+    struct buf str = BUF_INITIALIZER, blahstr = BUF_INITIALIZER;
     char *inbase64;
     unsigned int inbase64len;
 
@@ -657,42 +672,35 @@ static int cmd_authenticate(struct protstream *sieved_out,
     prot_printf(sieved_out, "{%d}\r\n",inbase64len);
     prot_write(sieved_out,inbase64,inbase64len);
     prot_printf(sieved_out,"\r\n");
+    free(inbase64);
 
     token1 = timlex(&str, NULL, sieved_in);
 
     if (token1==STRING)
     {
-      clientin=(char *) malloc(str->len*2);
+      free(clientin);
+      clientin = xmalloc(str.len*2);
 
-      if (str->len) {
-	  sasl_result=sasl_decode64(string_DATAPTR(str), str->len,
-				    clientin, str->len*2, &clientinlen);
+      if (str.len) {
+	  sasl_result=sasl_decode64(str.s, str.len,
+				    clientin, str.len*2, &clientinlen);
       } else {
 	  clientinlen = 0;
 	  sasl_result = SASL_OK;
       }
+      buf_free(&str);
 
       if (sasl_result!=SASL_OK)
       {
 	*errmsg="error base64 decoding string";
 	syslog(LOG_NOTICE, "badlogin: %s %s %s",
 	       sieved_clienthost, mech, "error base64 decoding string");
+	goto reset;
+      }
 
-      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	  fatal("could not reset the sasl_conn_t after failure",
-		EC_TEMPFAIL);
-
-	return FALSE;
-      }      
-      
     } else {
       *errmsg="Expected STRING-xxx1";
-
-      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	  fatal("could not reset the sasl_conn_t after failure",
-		EC_TEMPFAIL);
-
-      return FALSE;
+      goto reset;
     }
 
     token2 = timlex(&blahstr, NULL, sieved_in);
@@ -708,12 +716,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
       *errmsg = "expected a STRING followed by an EOL";
       syslog(LOG_NOTICE, "badlogin: %s %s %s",
 	     sieved_clienthost, mech, "expected string");
-
-      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	  fatal("could not reset the sasl_conn_t after failure",
-		EC_TEMPFAIL);
-
-      return FALSE;
+      goto reset;
     }
 
   }
@@ -726,12 +729,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
       *errmsg = (const char *) sasl_errstring(sasl_result,NULL,NULL);
       syslog(LOG_NOTICE, "badlogin: %s %s %s",
 	     sieved_clienthost, mech, *errmsg);
-
-      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	  fatal("could not reset the sasl_conn_t after failure",
-		EC_TEMPFAIL);
-
-      return FALSE;
+      goto reset;
   }
 
   /* get the userid from SASL */
@@ -741,12 +739,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
     *errmsg = "Internal SASL error";
     syslog(LOG_ERR, "SASL: sasl_getprop SASL_USERNAME: %s",
 	   sasl_errstring(sasl_result, NULL, NULL));
-
-    if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	fatal("could not reset the sasl_conn_t after failure",
-	      EC_TEMPFAIL);
-
-    return FALSE;
+    goto reset;
   }
   username = xstrdup((const char *) canon_user);
 
@@ -756,7 +749,6 @@ static int cmd_authenticate(struct protstream *sieved_out,
       /* Check for a remote mailbox (should we setup a redirect?) */
       struct namespace sieved_namespace;
       char inboxname[MAX_MAILBOX_BUFFER];
-      struct mboxlist_entry mbentry;
       int r;
       
       /* Set namespace */
@@ -778,16 +770,10 @@ static int cmd_authenticate(struct protstream *sieved_out,
       if(r && !sieved_userisadmin) {
 	  /* lookup error */
 	  syslog(LOG_ERR, "%s", error_message(r));
-
-	  if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	      fatal("could not reset the sasl_conn_t after failure",
-		    EC_TEMPFAIL);
-
-	  ret = FALSE;
-	  goto cleanup;
+	  goto reset;
       }
 
-      if(mbentry.mbtype & MBTYPE_REMOTE) {
+      if (mbentry && mbentry->mbtype & MBTYPE_REMOTE) {
 	  /* It's a remote mailbox */
 	  if (config_getswitch(IMAPOPT_SIEVE_ALLOWREFERRALS)) {
 	      /* We want to set up a referral */
@@ -805,13 +791,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
 		      *errmsg = "Internal SASL error";
 		      syslog(LOG_ERR, "SASL: sasl_getprop SASL_AUTHUSER: %s",
 			     sasl_errstring(sasl_result, NULL, NULL));
-
-		      if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-			  fatal("could not reset the sasl_conn_t after failure",
-				EC_TEMPFAIL);
-
-		      ret = FALSE;
-		      goto cleanup;
+		      goto reset;
 		  }
 		  authname = xstrdup((const char *) canon_user);
 
@@ -820,26 +800,25 @@ static int cmd_authenticate(struct protstream *sieved_out,
 
 		  referral_host =
 		      (char*) xmalloc(strlen(authname)+1+strlen(username)+1+
-				      strlen(mbentry.partition)+1);
+				      strlen(mbentry->server)+1);
 		  sprintf((char*) referral_host, "%s;%s@%s",
-			  authname, username, mbentry.partition);
+			  authname, username, mbentry->server);
 
 		  free(authname);
 	      }
 	      else
-		  referral_host = xstrdup(mbentry.partition);
+		  referral_host = xstrdup(mbentry->server);
 	  }
 	  else {
 	      /* We want to set up a connection to the backend for proxying */
 	      const char *statusline = NULL;
-	      char *c;
 
-	      /* xxx hide the fact that we are storing partitions */
-	      c = strchr(mbentry.partition, '!');
-	      if(c) *c = '\0';
+	      /* get a new copy of the userid */
+	      free(username);
+	      username = xstrdup((const char *) canon_user);
 
-	      backend = backend_connect(NULL, mbentry.partition, &sieve_protocol,
-					username, NULL, &statusline);
+	      backend = backend_connect(NULL, mbentry->server, &sieve_protocol,
+					username, NULL, &statusline, -1);
 
 	      if (!backend) {
 		  syslog(LOG_ERR, "couldn't authenticate to backend server");
@@ -854,13 +833,7 @@ static int cmd_authenticate(struct protstream *sieved_out,
       } else if (actions_setuser(username) != TIMSIEVE_OK) {
 	  *errmsg = "internal error";
 	  syslog(LOG_ERR, "error in actions_setuser()");
-
-	  if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
-	      fatal("could not reset the sasl_conn_t after failure",
-		    EC_TEMPFAIL);
-
-	  ret = FALSE;
-	  goto cleanup;
+	  goto reset;
       }
   }
 
@@ -900,12 +873,21 @@ static int cmd_authenticate(struct protstream *sieved_out,
 
   /* Create telemetry log */
   sieved_logfd = telemetry_log(username, sieved_in, sieved_out, 0);
-  
-  cleanup:
+
+cleanup:
   /* free memory */
+  mboxlist_entry_free(&mbentry);
   free(username);
+  free(clientin);
 
   return ret;
+
+reset:
+  if(reset_saslconn(&sieved_saslconn, ssf, authid) != SASL_OK)
+      fatal("could not reset the sasl_conn_t after failure",
+	    EC_TEMPFAIL);
+  ret = FALSE;
+  goto cleanup;
 }
 
 #ifdef HAVE_SSL
@@ -925,8 +907,7 @@ static int cmd_starttls(struct protstream *sieved_out, struct protstream *sieved
 
     result=tls_init_serverengine("sieve",
 				 5,        /* depth to verify */
-				 1,        /* can client auth? */
-				 1);       /* TLS only? */
+				 1);       /* can client auth? */
 
     if (result == -1) {
 
@@ -973,6 +954,7 @@ static int cmd_starttls(struct protstream *sieved_out, struct protstream *sieved
     prot_settls(sieved_out, tls_conn);
 
     starttls_done = 1;
+    sieved_tls_required = 0;
 
     return capabilities(sieved_out, sieved_saslconn, starttls_done,
 			authenticated, sasl_ssf);

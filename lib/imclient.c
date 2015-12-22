@@ -38,25 +38,17 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imclient.c,v 1.95 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
-#include <errno.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef HAVE_STDARG_H
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -74,14 +66,15 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 #include <openssl/ssl.h>
+#else
+#include <errno.h>
 #endif /* HAVE_SSL */
 
 #include "assert.h"
 #include "exitcodes.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
-#include "imparse.h"
+#include "strarray.h"
 #include "imclient.h"
 #include "nonblock.h"
 #include "util.h"
@@ -104,12 +97,6 @@ struct imclient_callback {
     char *keyword;		/* Untagged data protocol keyword */
     imclient_proc_t *proc;		/* Callback function */
     void *rock;			/* Callback rock */
-};
-
-struct stringlist 
-{
-    char *str;
-    struct stringlist *next;
 };
 
 /* Connection data */
@@ -155,7 +142,7 @@ struct imclient {
     int callback_alloc;
     struct imclient_callback *callback;
 
-    struct stringlist *interact_results;
+    strarray_t interact_results;
 
     sasl_conn_t *saslconn;
     int saslcompleted;
@@ -194,14 +181,11 @@ static const char charclass[256] = {
 static struct imclient_cmdcallback *cmdcallback_freelist;
 
 /* Forward declarations */
-void imclient_write(struct imclient *imclient,
-		    const char *s, size_t len);
-static int imclient_writeastring P((struct imclient *imclient,
-				     const char *str));
-static void imclient_writebase64 P((struct imclient *imclient,
-				    const char *output, size_t len));
-static void imclient_eof P((struct imclient *imclient));
-static int imclient_decodebase64 P((char *input));
+static int imclient_writeastring(struct imclient *imclient, const char *str);
+static void imclient_writebase64(struct imclient *imclient,
+				 const char *output, size_t len);
+static void imclient_eof(struct imclient *imclient);
+static int imclient_decodebase64(char *input);
 
 /* callbacks we support */
 static const sasl_callback_t callbacks[] = {
@@ -220,7 +204,7 @@ static const sasl_callback_t callbacks[] = {
  * was not found, or -2 if the service name was not found.
  * use sasl callbacks 'cbs'
  */
-int imclient_connect(struct imclient **imclient, 
+EXPORTED int imclient_connect(struct imclient **imclient,
 		     const char *host, 
 		     const char *port, 
 		     sasl_callback_t *cbs)
@@ -262,7 +246,7 @@ int imclient_connect(struct imclient **imclient,
     freeaddrinfo(res0);
     (*imclient)->outptr = (*imclient)->outstart = (*imclient)->outbuf;
     (*imclient)->outleft = (*imclient)->maxplain = sizeof((*imclient)->outbuf);
-    (*imclient)->interact_results = NULL;
+    strarray_init(&(*imclient)->interact_results);
     imclient_addcallback(*imclient,
 		 "", 0, (imclient_proc_t *) 0, (void *)0,
 		 "OK", CALLBACK_NOLITERAL, (imclient_proc_t *)0, (void *)0,
@@ -300,10 +284,9 @@ int imclient_connect(struct imclient **imclient,
  * Close and free the connection 'imclient'
  */
 void
-imclient_close(struct imclient *imclient)
+EXPORTED imclient_close(struct imclient *imclient)
 {
     int i;
-    struct stringlist *cur, *cur_next;
 
     assert(imclient);
 
@@ -316,30 +299,26 @@ imclient_close(struct imclient *imclient)
     for (i = 0; i < imclient->callback_num; i++) {
 	free(imclient->callback[i].keyword);
     }
-    if (imclient->callback) free((char *)imclient->callback);
+    if (imclient->callback) free(imclient->callback);
 
-    for(cur=imclient->interact_results; cur; cur=cur_next) {
-	cur_next = cur->next;
-	free(cur->str);
-	free(cur);
-    }
+    strarray_fini(&imclient->interact_results);
 
-    free((char *)imclient);
+    free(imclient);
 }
 
-void imclient_setflags(struct imclient *imclient, int flags)
+EXPORTED void imclient_setflags(struct imclient *imclient, int flags)
 {
     assert(imclient);
     imclient->flags |= flags;
 }
 
-void imclient_clearflags(struct imclient *imclient, int flags)
+EXPORTED void imclient_clearflags(struct imclient *imclient, int flags)
 {
     assert(imclient);
     imclient->flags &= ~flags;
 }
 
-char *
+EXPORTED char *
 imclient_servername(struct imclient *imclient)
 {
     assert(imclient);
@@ -366,12 +345,7 @@ imclient_servername(struct imclient *imclient)
  * may scribble on the text of the untagged data.
  * 
  */
-#ifdef __STDC__
-void imclient_addcallback(struct imclient *imclient, ...)
-#else
-void imclient_addcallback(va_alist)
-va_dcl
-#endif
+EXPORTED void imclient_addcallback(struct imclient *imclient, ...)
 {
     va_list pvar;
     char *keyword;
@@ -379,14 +353,7 @@ va_dcl
     imclient_proc_t *proc;
     void *rock;
     int i;
-#ifdef __STDC__
     va_start(pvar, imclient);
-#else
-    struct imclient *imclient;
-
-    va_start(pvar);
-    imclient = va_arg(pvar, struct imclient *);
-#endif
 
     assert(imclient);
 
@@ -445,15 +412,9 @@ va_dcl
  *         which are written as space separated astrings)
  *   %B -- (internal use only) base64-encoded data at end of command line
  */ 
-#ifdef __STDC__
-void
-imclient_send(struct imclient *imclient, void (*finishproc)(),
+EXPORTED void
+imclient_send(struct imclient *imclient, imclient_proc_t *finishproc,
 	      void *finishrock, const char *fmt, ...)
-#else
-void
-imclient_send(va_alist)
-va_dcl
-#endif
 {
     va_list pvar;
     struct imclient_cmdcallback *newcmdcallback;
@@ -462,20 +423,7 @@ va_dcl
     int num;
     unsigned unum;
     int abortcommand = 0;
-#ifdef __STDC__
     va_start(pvar, fmt);
-#else
-    struct imclient *imclient;
-    imclient_proc_t *finishproc;
-    void *finishrock;
-    char *fmt;
-
-    va_start(pvar);
-    imclient = va_arg(pvar, struct imclient *);
-    finishproc = va_arg(pvar, imclient_proc_t *);
-    finishrock = va_arg(pvar, void *);
-    fmt = va_arg(pvar, char *);
-#endif
 
     assert(imclient);
 
@@ -975,7 +923,7 @@ static void imclient_eof(struct imclient *imclient)
  * 'wanttowrite' is filled in with nonzero value iff should
  * select() for write as well.
  */
-void imclient_getselectinfo(struct imclient *imclient, int *fd,
+EXPORTED void imclient_getselectinfo(struct imclient *imclient, int *fd,
 			    int *wanttowrite)
 {
     assert(imclient);
@@ -989,7 +937,7 @@ void imclient_getselectinfo(struct imclient *imclient, int *fd,
 /*
  * Process one input or output event on the connection 'imclient'.
  */
-void imclient_processoneevent(struct imclient *imclient)
+EXPORTED void imclient_processoneevent(struct imclient *imclient)
 {
     char buf[IMCLIENT_BUFSIZE];
     int n;
@@ -1152,49 +1100,36 @@ static sasl_security_properties_t *make_secprops(int min,int max)
   return ret;
 }
 
-void interaction (struct imclient *context, sasl_interact_t *t, char *user)
+static void interaction(struct imclient *context, sasl_interact_t *t, char *user)
 {
-  char result[1024];
-  struct stringlist *cur;
-  
-  assert(context);
-  assert(t);
+    char result[1024];
+    char *str = NULL;
 
-  cur = malloc(sizeof(struct stringlist));
-  if(!cur) {
-      t->len=0;
-      t->result=NULL;
-      return;
-  }
+    assert(context);
+    assert(t);
 
-  cur->str = NULL;
-  cur->next = context->interact_results;
-  context->interact_results = cur;
-
-  if ((t->id == SASL_CB_USER || t->id == SASL_CB_AUTHNAME) 
+    if ((t->id == SASL_CB_USER || t->id == SASL_CB_AUTHNAME)
             && user && user[0]) {
-      t->len = strlen(user);
-      cur->str = xstrdup(user);
-  } else {
-      printf("%s: ", t->prompt);
-      if (t->id == SASL_CB_PASS) {
-	  char *ptr = cyrus_getpass("");
-	  strlcpy(result, ptr, sizeof(result));
-      } else {
-	  if (!fgets(result, sizeof(result)-1, stdin)) return;
-	  result[strlen(result) - 1] = '\0';
-      }
+	str = xstrdup(user);
+    } else {
+	printf("%s: ", t->prompt);
+	if (t->id == SASL_CB_PASS) {
+	    char *ptr = cyrus_getpass("");
+	    strlcpy(result, ptr, sizeof(result));
+	} else {
+	    if (!fgets(result, sizeof(result)-1, stdin))
+		return;
+	}
+	str = xstrdup(result);
+    }
 
-      t->len = strlen(result);
-      cur->str = (char *) xmalloc(t->len+1);
-      memset(cur->str, 0, t->len+1);
-      memcpy(cur->str, result, t->len);
-  }
-
-  t->result = cur->str;
+    assert(str);
+    t->result = str;
+    t->len = strlen(str);
+    strarray_appendm(&context->interact_results, str);
 }
 
-void fillin_interactions(struct imclient *context,
+EXPORTED void fillin_interactions(struct imclient *context,
 			 sasl_interact_t *tlist, char *user)
 {
     assert(context);
@@ -1357,7 +1292,7 @@ static int imclient_authenticate_sub(struct imclient *imclient,
 }
 
 /* xxx service is not needed here */
-int imclient_authenticate(struct imclient *imclient, 
+EXPORTED int imclient_authenticate(struct imclient *imclient,
 			  char *mechlist, 
 			  char *service __attribute__((unused)),
 			  char *user,
@@ -1555,7 +1490,6 @@ static int verify_error = X509_V_OK;
 
 #define CCERT_BUFSIZ 256
 static char peer_CN[CCERT_BUFSIZ];
-static char issuer_CN[CCERT_BUFSIZ];
 
 /*
   * Set up the cert things on the server side. We do need both the
@@ -1695,12 +1629,19 @@ static int tls_init_clientengine(struct imclient *imclient,
 	return -1;
     }
 
-    imclient->tls_ctx = SSL_CTX_new(TLSv1_client_method());
+#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
+    imclient->tls_ctx = SSL_CTX_new(TLS_client_method());
+#else
+    imclient->tls_ctx = SSL_CTX_new(SSLv23_client_method());
+#endif
     if (imclient->tls_ctx == NULL) {
 	return -1;
     };
 
-    off |= SSL_OP_ALL;		/* Work around all known bugs */
+    off |= SSL_OP_ALL;            /* Work around all known bugs */
+    off |= SSL_OP_NO_SSLv2;       /* Disable insecure SSLv2 */
+    off |= SSL_OP_NO_SSLv3;       /* Disable insecure SSLv3 */
+    off |= SSL_OP_NO_COMPRESSION; /* Disable TLS compression */
     SSL_CTX_set_options(imclient->tls_ctx, off);
     
     /* debugging   SSL_CTX_set_info_callback(imclient->tls_ctx, apps_ssl_info_callback); */
@@ -1731,7 +1672,7 @@ static int tls_init_clientengine(struct imclient *imclient,
 
     if (c_cert_file || c_key_file)
 	if (!set_cert_stuff(imclient->tls_ctx, c_cert_file, c_key_file)) {
-	    printf("[ TLS engine: cannot load cert/key data ]\n");
+            printf("[ TLS engine: cannot load cert/key data, may be a cert/key mismatch]\n");
 	    return -1;
 	}
     SSL_CTX_set_tmp_rsa_callback(imclient->tls_ctx, tmp_rsa_cb);
@@ -1878,33 +1819,31 @@ static void apps_ssl_info_callback(SSL * s, int where, int ret)
 }
 #endif
 
-int tls_start_clienttls(struct imclient *imclient,
+EXPORTED int tls_start_clienttls(struct imclient *imclient,
 			unsigned *layer, char **authid, int fd)
 {
-    int     sts;
+    int sts;
     SSL_SESSION *session;
     const SSL_CIPHER *cipher;
-    X509   *peer;
+    X509 *peer;
     int tls_cipher_usebits = 0;
     int tls_cipher_algbits = 0;
     char *tls_peer_CN = "";
-    char *tls_issuer_CN = NULL;
 
-    if (imclient->tls_conn == NULL) {
+    if (!imclient->tls_conn)
 	imclient->tls_conn = (SSL *) SSL_new(imclient->tls_ctx);
-    }
-    if (imclient->tls_conn == NULL) {
+
+    if (!imclient->tls_conn) {
 	printf("Could not allocate 'con' with SSL_new()\n");
 	return -1;
     }
+
     SSL_clear(imclient->tls_conn);
 
     if (!SSL_set_fd(imclient->tls_conn, fd)) {
-      printf("SSL_set_fd failed\n");
-      return -1;
+	printf("SSL_set_fd failed\n");
+	return -1;
     }
-
-    /*SSL_set_read_ahead(imclient->tls_conn, 1);*/
 
     /*
      * This is the actual handshake routine. It will do all the negotiations
@@ -1912,25 +1851,23 @@ int tls_start_clienttls(struct imclient *imclient,
      */
     SSL_set_connect_state(imclient->tls_conn);
 
-
     /*
      * We do have an SSL_set_fd() and now suddenly a BIO_ routine is called?
      * Well there is a BIO below the SSL routines that is automatically
      * created for us, so we can use it for debugging purposes.
      */
-    /*    if (verbose==1) */
-    /*    BIO_set_callback(SSL_get_rbio(imclient->tls_conn), bio_dump_cb);*/
 
     /* Dump the negotiation for loglevels 3 and 4 */
 
-    if ((sts = SSL_connect(imclient->tls_conn)) <= 0) {
+    sts = SSL_connect(imclient->tls_conn);
+    if (sts <= 0) {
 	printf("[ SSL_connect error %d ]\n", sts); /* xxx get string error? */
 	session = SSL_get_session(imclient->tls_conn);
 	if (session) {
 	    SSL_CTX_remove_session(imclient->tls_ctx, session);
 	    printf("[ SSL session removed ]\n");
 	}
-	if (imclient->tls_conn!=NULL)
+	if (imclient->tls_conn)
 	    SSL_free(imclient->tls_conn);
 	imclient->tls_conn = NULL;
 	return -1;
@@ -1941,43 +1878,36 @@ int tls_start_clienttls(struct imclient *imclient,
      * the actual information. We want to save it for later use.
      */
     peer = SSL_get_peer_certificate(imclient->tls_conn);
-    if (peer != NULL) {
+    if (peer) {
 	X509_NAME_get_text_by_NID(X509_get_subject_name(peer),
-			  NID_commonName, peer_CN, CCERT_BUFSIZ);
+				  NID_commonName, peer_CN, CCERT_BUFSIZ);
 	tls_peer_CN = peer_CN;
-	X509_NAME_get_text_by_NID(X509_get_issuer_name(peer),
-			  NID_commonName, issuer_CN, CCERT_BUFSIZ);
-	/*	if (verbose==1)
-		printf("subject_CN=%s, issuer_CN=%s\n", peer_CN, issuer_CN);*/
-	tls_issuer_CN = issuer_CN;
-
     }
+
     cipher = SSL_get_current_cipher(imclient->tls_conn);
     tls_cipher_usebits = SSL_CIPHER_get_bits(cipher,
-						 &tls_cipher_algbits);
+					     &tls_cipher_algbits);
 
-    if (layer!=NULL)
-      *layer = tls_cipher_usebits;
+    if (layer)
+	*layer = tls_cipher_usebits;
 
-    if (authid!=NULL)
-      *authid = tls_peer_CN;
+    if (authid)
+	*authid = tls_peer_CN;
 
-    /*    printf("TLS connection established: %s with cipher %s (%d/%d bits)\n",
-	   tls_protocol, tls_cipher_name,
-	   tls_cipher_usebits, tls_cipher_algbits);*/
     return 0;
 }
 #endif /* HAVE_SSL */
 
-int imclient_havetls () {
+EXPORTED int imclient_havetls(void)
+{
 #ifdef HAVE_SSL
-  return 1;
+    return 1;
 #else
-  return 0;
+    return 0;
 #endif
 }
 
-int imclient_starttls(struct imclient *imclient,
+EXPORTED int imclient_starttls(struct imclient *imclient,
 			     char *cert_file,
 			     char *key_file,
                              char *CAfile,

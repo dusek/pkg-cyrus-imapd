@@ -4,7 +4,6 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="revision" content="$Id: mailbox-format.html,v 1.9 2010/01/06 17:01:29 murch Exp $" />
 <meta name="author" content="Bron Gondwana" />
 
 <title>Index API</title>
@@ -17,9 +16,9 @@
 
 <p>The Index API is implemented in <tt>imap/index.h</tt> and
 <tt>imap/index.c</tt>.  It provides a snapshot view into the
-underlying mailbox (see <a href="mailbox-api.html">the 
+underlying mailbox (see <a href="mailbox-api.html">the
 Mailbox API documentation</a> which obeys IMAP semantics,
-as well as all the searching and sorting logic.
+as well as all the searching and sorting logic.</p>
 
 <h2>Opening and closing</h2>
 
@@ -50,7 +49,7 @@ only reading, or use the code already in imapd and you'll be fine.</p>
 
 <p>Ok - I think a few words about the index model and how it differs
 from direct mailbox access are needed!  In the past, index.c used
-pointers directly into the mmaped <tt>cyrus.index</tt> file and 
+pointers directly into the mmaped <tt>cyrus.index</tt> file and
 maintained the old mmaped copy if an expunge took place.  Under the
 namelock regime, this is no longer required because namelocks will
 avoid the file being re-written.</p>
@@ -72,11 +71,12 @@ a <b>huge</b> mailbox.</p>
     non-peek body fetch, expunge) then cycle through the refreshed
     state map and update the records which are affected.</li>
 <li>call <tt>index_unlock</tt> (unlock the underlying mailbox and
-    commit the statuscache changes)</li>
+    commit the statuscache changes)
 
 <p>At this point the index lock is <b>released</b> and we have not
    yet generated any network traffic.  Now start generating the
    response.</p>
+</li>
 
 <li>if expunges are allowed, call <tt>index_tellexpunge</tt></li>
 <li>call <tt>index_tellchanges</tt> to tell about all other changes</li>

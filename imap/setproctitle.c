@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: setproctitle.c,v 1.18 2010/01/06 17:01:40 murch Exp $
  */
 /*
  * Copyright (c) 1983, 1995 Eric P. Allman
@@ -91,9 +89,9 @@
 
 extern char **environ;
 #ifdef USE_SETPROCTITLE
-int setproctitle_enable = 1;
+static int setproctitle_enable = 1;
 #else
-int setproctitle_enable = 0;
+static int setproctitle_enable = 0;
 #endif
 
 static char		**Argv = NULL;		/* pointer to argument vector */
@@ -102,7 +100,7 @@ static char		*LastArgv = NULL;	/* end of argv */
 /*
  * Sets up a process to be able to use setproctitle()
  */
-void setproctitle_init(int argc, char **argv, char **envp)
+EXPORTED void setproctitle_init(int argc, char **argv, char **envp)
 {
     int i;
 
@@ -210,7 +208,7 @@ typedef unsigned int	*pt_entry_t;
 #if SPT_TYPE != SPT_BUILTIN
 
 /*VARARGS1*/
-void
+HIDDEN void
 setproctitle(const char *fmt, ...)
 {
 # if SPT_TYPE != SPT_NONE

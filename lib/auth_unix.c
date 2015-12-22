@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth_unix.c,v 1.53 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
@@ -52,16 +50,16 @@
 #include "auth.h"
 #include "libcyr_cfg.h"
 #include "xmalloc.h"
+#include "strarray.h"
 #include "util.h"
 
 struct auth_state {
     char userid[81];
-    char **group;
-    int ngroups;
+    strarray_t groups;
 };
 
 static struct auth_state auth_anonymous = {
-    "anonymous", 0, 0
+    "anonymous", STRARRAY_INITIALIZER
 };
 
 /*
@@ -72,9 +70,7 @@ static struct auth_state auth_anonymous = {
  *	2	User is in the group that is identifier
  *	3	User is identifer
  */
-static int mymemberof(auth_state, identifier)
-struct auth_state *auth_state;
-const char *identifier;
+static int mymemberof(struct auth_state *auth_state, const char *identifier)
 {
     int i;
 
@@ -86,8 +82,8 @@ const char *identifier;
 
     if (strncmp(identifier, "group:", 6) != 0) return 0;
 
-    for (i=0; i<auth_state->ngroups; i++) {
-	if (strcmp(identifier+6, auth_state->group[i]) == 0) return 2;
+    for (i=0; i<auth_state->groups.count ; i++) {
+	if (strcmp(identifier+6, auth_state->groups.data[i]) == 0) return 2;
     }
     return 0;
 }
@@ -151,18 +147,15 @@ static char allowedchars[256] = {
  * representations: one for getpwent calls and one for folder names.  The
  * latter canonicalizes to a MUTF7 representation.
  */
-static char *mycanonifyid(identifier, len)
-const char *identifier;
-size_t len;
+static const char *mycanonifyid(const char *identifier, size_t len)
 {
     static char retbuf[81];
     struct group *grp;
-    char sawalpha;
     char *p;
     int username_tolower = 0;
 
-    if(!len) len = strlen(identifier);
-    if(len >= sizeof(retbuf)) return NULL;
+    if (!len) len = strlen(identifier);
+    if (len >= sizeof(retbuf)) return NULL;
 
     memmove(retbuf, identifier, len);
     retbuf[len] = '\0';
@@ -189,27 +182,17 @@ size_t len;
      * Lowercase usernames if requested.
      */
     username_tolower = libcyrus_config_getswitch(CYRUSOPT_USERNAME_TOLOWER);
-    sawalpha = 0;
-    for(p = retbuf; *p; p++) {
+    for (p = retbuf; *p; p++) {
 	if (username_tolower && Uisupper(*p))
 	    *p = tolower((unsigned char)*p);
 
 	switch (allowedchars[*(unsigned char*) p]) {
 	case 0:
 	    return NULL;
-	    
-	case 2:
-	    sawalpha = 1;
-	    /* FALL THROUGH */
-	    
 	default:
-	    ;
+	    break;
 	}
     }
-
-    /* we used to enforce "has to be one alpha char" */
-    /* now we don't */
-    /* if (!sawalpha) return NULL;  */
 
     return retbuf;
 }
@@ -226,7 +209,7 @@ static struct auth_state *mynewstate(const char *identifier)
     struct group *grp;
 #if defined(HAVE_GETGROUPLIST) && defined(__GLIBC__)
     gid_t gid, *groupids = NULL;
-    int ret, ngroups = 10;
+    int ret, ngroups = 10, oldngroups;
 #else
     char **mem;
 #endif
@@ -238,8 +221,7 @@ static struct auth_state *mynewstate(const char *identifier)
     newstate = (struct auth_state *)xmalloc(sizeof(struct auth_state));
 
     strcpy(newstate->userid, identifier);
-    newstate->ngroups = 0;
-    newstate->group = NULL;
+    strarray_init(&newstate->groups);
     
     if(!libcyrus_config_getswitch(CYRUSOPT_AUTH_UNIX_GROUP_ENABLE))
 	return newstate;
@@ -254,29 +236,22 @@ static struct auth_state *mynewstate(const char *identifier)
 	groupids = (gid_t *)xrealloc((gid_t *)groupids,
 				     ngroups * sizeof(gid_t));
 
-	newstate->ngroups = ngroups; /* copy of ngroups for comparision */
+	oldngroups = ngroups; /* copy of ngroups for comparision */
 	ret = getgrouplist(identifier, gid, groupids, &ngroups);
 	/*
 	 * This is tricky. We do this as long as getgrouplist tells us to
 	 * realloc _and_ the number of groups changes. It tells us to realloc
 	 * also in the case of failure...
 	 */
-    } while (ret == -1 && ngroups != newstate->ngroups);
+    } while (ret == -1 && ngroups != oldngroups);
 
-    if (ret == -1) {
-	newstate->ngroups = 0;
-	newstate->group = NULL;
+    if (ret == -1)
 	goto err;
-    }
 
-    newstate->ngroups = 0;
-    newstate->group = (char **)xmalloc(ngroups * sizeof(char *));
     while (ngroups--) {
 	if (pwd || groupids[ngroups] != gid) {
-	    if ((grp = getgrgid(groupids[ngroups]))) {
-		newstate->ngroups++;
-		newstate->group[newstate->ngroups-1] = xstrdup(grp->gr_name);
-	    }
+	    if ((grp = getgrgid(groupids[ngroups])))
+		strarray_append(&newstate->groups, grp->gr_name);
 	}
     }
 
@@ -290,12 +265,8 @@ err:
 	    if (!strcmp(*mem, identifier)) break;
 	}
 
-	if (*mem || (pwd && pwd->pw_gid == grp->gr_gid)) {
-	    newstate->ngroups++;
-	    newstate->group = (char **)xrealloc((char *)newstate->group,
-						newstate->ngroups * sizeof(char *));
-	    newstate->group[newstate->ngroups-1] = xstrdup(grp->gr_name);
-	}
+	if (*mem || (pwd && pwd->pw_gid == grp->gr_gid))
+	    strarray_append(&newstate->groups, grp->gr_name);
     }
     endgrent();
 #endif /* HAVE_GETGROUPLIST */
@@ -303,20 +274,14 @@ err:
     return newstate;
 }
 
-static void myfreestate(auth_state)
-struct auth_state *auth_state;
+static void myfreestate(struct auth_state *auth_state)
 {
-    if (auth_state->group) {
-	while (auth_state->ngroups) {
-	    free((char *)auth_state->group[--auth_state->ngroups]);
-	}
-	free((char *)auth_state->group);
-    }
-    free((char *)auth_state);
+    strarray_fini(&auth_state->groups);
+    free(auth_state);
 }
 
 
-struct auth_mech auth_unix = 
+HIDDEN struct auth_mech auth_unix =
 {
     "unix",		/* name */
 

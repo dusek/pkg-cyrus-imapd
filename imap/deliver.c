@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: deliver.c,v 1.183 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -52,10 +50,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <syslog.h>
 #include <errno.h>
 #include <pwd.h>
 #include <sys/types.h>
@@ -68,7 +64,7 @@
 
 #include "global.h"
 #include "exitcodes.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
 #include "xstrlcat.h"
@@ -76,9 +72,6 @@
 #include "prot.h"
 #include "proxy.h"
 #include "version.h"
-
-/* config.c stuff */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 extern int optind;
 extern char *optarg;
@@ -93,7 +86,8 @@ static struct protocol_t lmtp_protocol =
 { "lmtp", "lmtp", TYPE_STD,
   { { { 0, "220 " },
       { "LHLO", "deliver", "250 ", NULL,
-	{ { "AUTH ", CAPA_AUTH },
+	CAPAF_ONE_PER_LINE|CAPAF_SKIP_FIRST_WORD|CAPAF_DASH_STUFFING,
+	{ { "AUTH", CAPA_AUTH },
 	  { "STARTTLS", CAPA_STARTTLS },
 	  { "PIPELINING", CAPA_PIPELINING },
 	  { "IGNOREQUOTA", CAPA_IGNOREQUOTA },
@@ -114,7 +108,7 @@ static int deliver_msg(char *return_path, char *authuser, int ignorequota,
 		       char **users, int numusers, char *mailbox);
 static struct backend *init_net(const char *sockaddr);
 
-static void usage()
+static void usage(void)
 {
     fprintf(stderr, 
 	    "421-4.3.0 usage: deliver [-C <alt_config> ] [-m mailbox]"
@@ -123,7 +117,7 @@ static void usage()
     exit(EC_USAGE);
 }
 
-void fatal(const char* s, int code)
+EXPORTED void fatal(const char* s, int code)
 {
     static int recurse_code = 0;
     
@@ -243,7 +237,7 @@ int main(int argc, char **argv)
     prot_setflushonread(deliver_in, deliver_out);
     prot_settimeout(deliver_in, 300);
 
-    cyrus_init(alt_config, "deliver", CYRUSINIT_NODB);
+    cyrus_init(alt_config, "deliver", CYRUSINIT_NODB, CONFIG_NEED_PARTITION_DATA);
 
     sockaddr = config_getstring(IMAPOPT_LMTPSOCKET);
     if (!sockaddr) {	
@@ -277,7 +271,7 @@ int main(int argc, char **argv)
     return r;
 }
 
-void just_exit(const char *msg)
+static void just_exit(const char *msg)
 {
     com_err(msg, 0, "%s", error_message(errno));
 
@@ -332,7 +326,7 @@ static int deliver_msg(char *return_path, char *authuser, int ignorequota,
 
     /* connect */
     conn = backend_connect(NULL, sockaddr, &lmtp_protocol,
-			   "", NULL, NULL);
+			   "", NULL, NULL, -1);
     if (!conn) {
 	just_exit("couldn't connect to lmtpd");
     }

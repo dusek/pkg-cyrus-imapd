@@ -40,29 +40,25 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lex.c,v 1.30 2010/01/06 17:02:01 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
 
-#include "tls.h"
-#include "lex.h"
-#include "codes.h"
-#include "actions.h"
 #include "libconfig.h"
-#include "global.h"
-#include "util.h"
 #include "xmalloc.h"
+#include "imap/global.h"
+#include "imap/tls.h"
+#include "timsieved/codes.h"
+#include "timsieved/lex.h"
 
-static int token_lookup (char *str, int len __attribute__((unused)))
+static int token_lookup(const char *str)
 {
     switch (*str) {
     case 'a':
@@ -71,6 +67,7 @@ static int token_lookup (char *str, int len __attribute__((unused)))
 
     case 'c':
 	if (strcmp(str, "capability")==0) return CAPABILITY;
+	if (strcmp(str, "checkscript")==0) return CHECKSCRIPT;
 	break;
 
     case 'd':
@@ -98,6 +95,10 @@ static int token_lookup (char *str, int len __attribute__((unused)))
 	if (strcmp(str, "putscript")==0) return PUTSCRIPT;
 	break;
 
+    case 'r':
+	if (strcmp(str, "renamescript")==0) return RENAMESCRIPT;
+	break;
+
     case 's':
 	if (strcmp(str, "setactive")==0) return SETACTIVE;
 	if (strcmp(str, "starttls")==0 && tls_enabled())
@@ -115,6 +116,8 @@ static int token_lookup (char *str, int len __attribute__((unused)))
 
 /* current state the lexer is in */
 static int lexer_state = LEXER_STATE_NORMAL;
+static unsigned long maxscriptsize=0;
+static char *buffer;
 
 #define ERR() {								\
 		lexer_state=LEXER_STATE_RECOVER;                        \
@@ -131,9 +134,6 @@ void lex_setrecovering(void)
   lexer_state = LEXER_STATE_RECOVER;
 }
 
-static unsigned long maxscriptsize=0;
-static char *buffer;
-
 int lex_init(void)
 {
   maxscriptsize = config_getint(IMAPOPT_SIEVE_MAXSCRIPTSIZE);
@@ -148,7 +148,7 @@ int lex_init(void)
  * if outstr is NULL it isn't filled in
  */
 
-int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *stream)
+int timlex(struct buf *outstr, unsigned long *outnum,  struct protstream *stream)
 {
 
   int ch;
@@ -204,14 +204,11 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
     case LEXER_STATE_QSTR:
       if (ch == '\"') {
 	/* End of the string */
-	if (outstr!=NULL)
-	{
-	  *outstr = NULL;
-	  result = string_allocate(buff_ptr - buffer, buffer, outstr);
-	  if (result != TIMSIEVE_OK)
-	    ERR_PUSHBACK();
-	}
 	  /*} */
+	if (outstr) {
+	    buf_appendmap(outstr, buffer, buff_ptr-buffer);
+	    buf_cstring(outstr);
+	}
 	lexer_state=LEXER_STATE_NORMAL;
 	return STRING;
       }
@@ -275,23 +272,15 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
 	  ERR();
       }
 
-      if (outstr!=NULL)
-      {
-	*outstr = NULL;
-	result = string_allocate(count, NULL, outstr);
-	if (result != TIMSIEVE_OK)
-	  ERR_PUSHBACK();
-      }
-
       /* there is a literal string on the wire. let's read it */
-      if (outstr!=NULL) {
-	char           *it = string_DATAPTR(*outstr),
-	               *end = it + count;
-
-	while (it < end) {
-	  *it=prot_getc(stream);
-	  it++;
-	}
+      if (outstr) {
+	  for (;count > 0;count--) {
+	      ch = prot_getc(stream);
+	      if (ch == EOF)
+		    break;
+	      buf_putc(outstr, ch);
+	  }
+	  buf_cstring(outstr);
       } else {
 	/* just read the chars and throw them away */
 	unsigned long lup;
@@ -361,10 +350,10 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
       if (!Uisalpha(ch)) {
 	int token;
 
-	buffer[buff_ptr - buffer] = '\0';
+	*buff_ptr = '\0';
 
 	/* We've got the atom. */
-	token = token_lookup((char *) buffer, (int) (buff_ptr - buffer));
+	token = token_lookup(buffer);
 
 	if (token!=-1) {
 	  lexer_state=LEXER_STATE_NORMAL;
@@ -384,5 +373,3 @@ int timlex(mystring_t **outstr, unsigned long *outnum,  struct protstream *strea
 
   /* never reached */
 }
-
-

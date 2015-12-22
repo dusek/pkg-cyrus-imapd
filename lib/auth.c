@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth.c,v 1.4 2010/01/06 17:01:43 murch Exp $
  */
 
 #include <config.h>
@@ -61,7 +59,7 @@ struct auth_mech *auth_mechs[] = {
 #endif
     NULL };
 
-static struct auth_mech *auth_fromname()
+static struct auth_mech *auth_fromname(void)
 {
     int i;
     const char *name = libcyrus_config_getstring(CYRUSOPT_AUTH_MECH);
@@ -85,36 +83,30 @@ static struct auth_mech *auth_fromname()
     return auth;
 }
 
-int auth_memberof(auth_state, identifier)
-struct auth_state *auth_state;
-const char *identifier;
+EXPORTED int auth_memberof(struct auth_state *auth_state, const char *identifier)
 {
     struct auth_mech *auth = auth_fromname();
 
     return auth->memberof(auth_state, identifier);
 }
 
-char *auth_canonifyid(identifier, len)
-const char *identifier;
-size_t len;
+EXPORTED const char *auth_canonifyid(const char *identifier, size_t len)
 {
     struct auth_mech *auth = auth_fromname();
 
     return auth->canonifyid(identifier, len);
 }
 
-struct auth_state *auth_newstate(identifier)
-const char *identifier;
+EXPORTED struct auth_state *auth_newstate(const char *identifier)
 {
     struct auth_mech *auth = auth_fromname();
 
     return auth->newstate(identifier);
 }
 
-void auth_freestate(auth_state)
-struct auth_state *auth_state;
+EXPORTED void auth_freestate(struct auth_state *auth_state)
 {
     struct auth_mech *auth = auth_fromname();
 
-    auth->freestate(auth_state);
+    if (auth_state) auth->freestate(auth_state);
 }

@@ -52,7 +52,7 @@
 #include "util.h"
 
 /* Create filename corresponding to DAV DB for mailbox */
-void dav_getpath(struct buf *fname, struct mailbox *mailbox)
+EXPORTED void dav_getpath(struct buf *fname, struct mailbox *mailbox)
 {
     const char *userid;
 
@@ -62,9 +62,8 @@ void dav_getpath(struct buf *fname, struct mailbox *mailbox)
     else buf_setcstr(fname, mailbox_meta_fname(mailbox, META_DAV));
 }
 
-
 /* Create filename corresponding to DAV DB for userid */
-void dav_getpath_byuserid(struct buf *fname, const char *userid)
+EXPORTED void dav_getpath_byuserid(struct buf *fname, const char *userid)
 {
     char c, *domain;
 

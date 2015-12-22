@@ -41,14 +41,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: request.h,v 1.9 2010/01/06 17:01:56 murch Exp $
  */
 #ifndef _REQUEST_H_
 #define _REQUEST_H_
 
-#include "mystring.h"
-#include "isieve.h"
+#include "util.h"
+#include "perl/sieve/lib/isieve.h"
 
 /* old and new versions of the protocol */
 #define OLD_VERSION  4
@@ -56,10 +54,10 @@
 #define ACAP_VERSION 6
 
 int handle_response(int res,int version,struct protstream *pin,
-		    char **refer_to, mystring_t **errstr);
+		    char **refer_to, char **errstr);
 
 int deleteascript(int version,struct protstream *pout, struct protstream *pin,
-		  char *name, char **refer_to, char **errstr);
+		  const char *name, char **refer_to, char **errstr);
 
 int installafile(int version,struct protstream *pout, struct protstream *pin,
 		 char *filename, char *destname,
@@ -69,8 +67,8 @@ int installdata(int version,struct protstream *pout, struct protstream *pin,
 		char *scriptname, char *data, int len, 
 		char **refer_to, char **errstr);
 
-int showlist(int version, struct protstream *pout, struct protstream *pin,
-	     char **refer_to);
+//int showlist(int version, struct protstream *pout, struct protstream *pin,
+//	     char **refer_to);
 
 int list_wcb(int version, struct protstream *pout, struct protstream *pin,
 	     isieve_listcb_t *cb , void *rock, char **refer_to);
@@ -83,14 +81,14 @@ int setscriptactive(int version, struct protstream *pout,
  * Getscript. Save {0,1} wheather to save to disk or display on screen
  */
 
-int getscript(int version, struct protstream *pout, struct protstream *pin,
-	      char *name, int save, char **refer_to, char **errstr);
+//int getscript(int version, struct protstream *pout, struct protstream *pin,
+//	      const char *name, int save, char **refer_to, char **errstr);
 
 int getscriptvalue(int version,struct protstream *pout, struct protstream *pin,
-		   char *name, mystring_t **data, char **refer_to, 
+		   char *name, char **data, char **refer_to,
 		   char **errstr);
 
-void parseerror(char *str);
+void parseerror(const char *str);
 
 
 #endif

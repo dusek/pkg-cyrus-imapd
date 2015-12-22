@@ -1,6 +1,4 @@
 /* +++Date last modified: 05-Jul-1997 */
-/* $Id: hash.c,v 1.13 2006/11/30 17:11:22 murch Exp $ */
-
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -8,10 +6,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "assert.h"
 #include "hash.h"
 #include "mpool.h"
+#include "strhash.h"
 #include "xmalloc.h"
-#include "exitcodes.h"
 
 /*
 ** public domain code by Jerry Coffin, with improvements by HenkJan Wolthuis.
@@ -39,7 +38,7 @@
 ** of the table to 0.
 */
 
-hash_table *construct_hash_table(hash_table *table, size_t size, int use_mpool)
+EXPORTED hash_table *construct_hash_table(hash_table *table, size_t size, int use_mpool)
 {
       assert(table);
       assert(size);
@@ -71,7 +70,7 @@ hash_table *construct_hash_table(hash_table *table, size_t size, int use_mpool)
 ** or, if there was already an entry for @key, the old data pointer.
 */
 
-void *hash_insert(const char *key, void *data, hash_table *table)
+EXPORTED void *hash_insert(const char *key, void *data, hash_table *table)
 {
       unsigned val = strhash(key) % table->size;
       bucket *ptr, *newptr;
@@ -152,7 +151,7 @@ void *hash_insert(const char *key, void *data, hash_table *table)
 ** the key is not in the table.
 */
 
-void *hash_lookup(const char *key, hash_table *table)
+EXPORTED void *hash_lookup(const char *key, hash_table *table)
 {
       unsigned val = strhash(key) % table->size;
       bucket *ptr;
@@ -177,7 +176,7 @@ void *hash_lookup(const char *key, hash_table *table)
 */
 /* Warning: use this function judiciously if you are using memory pools,
  * since it will leak memory until you get rid of the entire hash table */
-void *hash_del(const char *key, hash_table *table)
+EXPORTED void *hash_del(const char *key, hash_table *table)
 {
       unsigned val = strhash(key) % table->size;
       void *data;
@@ -251,7 +250,7 @@ void *hash_del(const char *key, hash_table *table)
 ** it.
 */
 
-void free_hash_table(hash_table *table, void (*func)(void *))
+EXPORTED void free_hash_table(hash_table *table, void (*func)(void *))
 {
       unsigned i;
       bucket *ptr, *temp;
@@ -293,7 +292,7 @@ void free_hash_table(hash_table *table, void (*func)(void *))
 ** node in the table, passing it the key, the associated data and 'rock'.
 */
 
-void hash_enumerate(hash_table *table, void (*func)(const char *, void *, void *),
+EXPORTED void hash_enumerate(hash_table *table, void (*func)(const char *, void *, void *),
 		    void *rock)
 {
       unsigned i;
@@ -314,75 +313,3 @@ void hash_enumerate(hash_table *table, void (*func)(const char *, void *, void *
       }
 }
 
-
-#ifdef TEST
-
-#include <stdio.h>
-
-void fatal(const char* s, int code)
-{
-      fprintf(stderr, "hash: %s\r\n", s);
-      exit(code);
-}
-
-void printer(char *string, void *data, void *rock)
-{
-      printf("%s: %s\n", string, (char *)data);
-}
-
-int main(void)
-{
-      hash_table table;
-
-      char *strings[] = {
-	  "1","2","3","4","5","A decently long string",
-	  NULL
-      };
-
-      char *junk[] = {
-            "The first data",
-            "The second data",
-            "The third data",
-            "The fourth data",
-            "The fifth datum",
-            "The sixth piece of data"
-            };
-
-      int i;
-      void *j;
-
-      construct_hash_table(&table,200,1);
-
-      for (i = 0; NULL != strings[i]; i++ )
-	  hash_insert(strings[i], junk[i], &table);
-
-      for (i=0;NULL != strings[i];i++)
-      {
-	  j = hash_lookup(strings[i], &table);
-	  if (!j)
-	      printf("\nERROR: %s was not in table.",
-		     strings[i]);
-      }
-      
-      for (i=0;NULL != strings[i];i++)
-      {
-            printf("\n");
-            hash_enumerate(&table, printer, NULL);
-            if(!hash_del(strings[i],&table))
-		printf("ERROR WITH DELETE of '%s'\n", strings[i]);
-      }
-
-      for (i=0;NULL != strings[i];i++)
-      {
-            j = hash_lookup(strings[i], &table);
-            if (NULL == j)
-                  printf("\n'%s' is not in table",strings[i]);
-            else  printf("\nERROR: %s was deleted but is still in table.",
-                  strings[i]);
-      }
-      printf("\n");
-      free_hash_table(&table, NULL);
-      return 0;
-}
-
-#endif /* TEST */

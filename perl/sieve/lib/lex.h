@@ -41,17 +41,15 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lex.h,v 1.9 2010/01/06 17:01:56 murch Exp $
  */
 
 #ifndef _LEX_H_
 #define _LEX_H_
 
-#include "mystring.h"
+#include "util.h"
 
 typedef struct lexstate_s {
-  mystring_t *str;
+  char *str;
   int number;
 
 } lexstate_t;
@@ -77,7 +75,7 @@ enum {
     RESP_CODE_QUOTA_MAXSIZE = 305,
     RESP_CODE_TRANSITION_NEEDED = 306,
     RESP_CODE_TRYLATER = 307,
-    RESP_CODE_NONEXISTANT = 308,
+    RESP_CODE_NONEXISTENT = 308,
     RESP_CODE_ALREADYEXISTS = 309,
     RESP_CODE_WARNINGS = 310,
     RESP_CODE_TAG = 311
