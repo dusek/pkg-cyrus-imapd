@@ -1,4 +1,4 @@
-usr/lib/cyrus/bin/cyradm
+usr/bin/cyradm
 usr/lib/cyrus/bin/installsieve
 usr/lib/cyrus/bin/sieveshell
 usr/share/man/man1/cyradm.1p
