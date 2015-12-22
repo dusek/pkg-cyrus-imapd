@@ -2,3 +2,6 @@ etc/pam.d/mupdate
 usr/lib/cyrus/bin/mupdate
 usr/lib/cyrus/bin/mupdatetest
 usr/share/man/man1/cyrus-mupdatetest.1
+usr/lib/cyrus/bin/lmtpproxyd
+usr/lib/cyrus/bin/proxyd
+usr/lib/cyrus/bin/pop3proxyd

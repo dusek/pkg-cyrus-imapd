@@ -1,3 +1,0 @@
-/usr/lib/cyrus/bin/lmtpd /usr/lib/cyrus/bin/lmtpproxyd
-/usr/lib/cyrus/bin/imapd /usr/lib/cyrus/bin/proxyd
-/usr/lib/cyrus/bin/pop3d /usr/lib/cyrus/bin/pop3proxyd
