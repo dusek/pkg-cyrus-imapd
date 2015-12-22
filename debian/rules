@@ -54,6 +54,7 @@ override_dh_auto_configure:
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
 	 --libexecdir=/usr/lib/cyrus/bin \
+	 --bindir=/usr/lib/cyrus/bin \
 	 --sbindir=/usr/lib/cyrus/bin \
 	 --disable-silent-rules \
 	 --enable-autocreate \

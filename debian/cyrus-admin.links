@@ -1,0 +1,3 @@
+/usr/lib/cyrus/bin/cyradm /usr/sbin/cyrus
+/usr/lib/cyrus/bin/installsieve /usr/sbin/cyrus
+/usr/bin/cyrus/bin/sieveshell /usr/sbin/cyrus
