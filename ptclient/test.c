@@ -37,12 +37,13 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: test.c,v 1.8 2010/01/06 17:01:58 murch Exp $
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/syslog.h>
+#include "config.h"
 int main(int argc, char **argv) {
   char *cacheid;
   char cache[16];

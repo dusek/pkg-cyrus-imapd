@@ -38,17 +38,18 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: append.h,v 1.34 2010/01/06 17:01:30 murch Exp $
  */
 
 #ifndef INCLUDED_APPEND_H
 #define INCLUDED_APPEND_H
 
 #include "mailbox.h"
+#include "mboxevent.h"
 #include "message.h"
 #include "prot.h"
 #include "sequence.h"
+#include "strarray.h"
+#include "annotate.h"
 
 struct copymsg {
     unsigned long uid;
@@ -72,6 +73,8 @@ struct copymsg {
 struct appendstate {
     /* mailbox we're appending to */
     struct mailbox *mailbox;
+    /* do we own it? */
+    int close_mailbox_when_done:1;
     int myrights;
     char userid[MAX_MAILBOX_BUFFER];
 
@@ -85,6 +88,15 @@ struct appendstate {
     /* set seen on these message on commit */
     int internalseen;
     struct seqset *seen_seq;
+
+    /* for annotations */
+    struct namespace *namespace;
+    struct auth_state *auth_state;
+    int isadmin;
+
+    /* one event notification to send per appended message */
+    enum event_type event_type;
+    struct mboxevent *mboxevents;
 };
 
 /* add helper function to determine uid range appended? */
@@ -93,19 +105,26 @@ struct stagemsg;
 
 extern int append_check(const char *name,
 			struct auth_state *auth_state,
-			long aclcheck, quota_t quotacheck);
+			long aclcheck,
+			const quota_t quotacheck[QUOTA_NUMRESOURCES]);
 
 /* appendstate must be allocated by client */
 extern int append_setup(struct appendstate *as, const char *name,
 			const char *userid, struct auth_state *auth_state,
-			long aclcheck, quota_t quotacheck);
+			long aclcheck,
+			const quota_t quotacheck[QUOTA_NUMRESOURCES],
+			struct namespace *, int isadmin, enum event_type event_type);
+extern int append_setup_mbox(struct appendstate *as, struct mailbox *mailbox,
+			     const char *userid,
+			     struct auth_state *auth_state,
+			     long aclcheck,
+			     const quota_t quotacheck[QUOTA_NUMRESOURCES],
+			     struct namespace *namespace,
+			     int isadmin, enum event_type event_type);
 
-extern int append_commit(struct appendstate *as,
-			 quota_t quotacheck,
-			 unsigned long *uidvalidity, 
-			 unsigned long *startuid, 
-			 unsigned long *num,
-			 struct mailbox **mailboxptr);
+extern uint32_t append_uidvalidity(struct appendstate *as);
+
+extern int append_commit(struct appendstate *as);
 extern int append_abort(struct appendstate *as);
 
 /* creates a new stage and returns stage file corresponding to mailboxname */
@@ -115,7 +134,8 @@ extern FILE *append_newstage(const char *mailboxname, time_t internaldate,
 /* adds a new mailbox to the stage initially created by append_newstage() */
 extern int append_fromstage(struct appendstate *mailbox, struct body **body,
 			    struct stagemsg *stage, time_t internaldate,
-			    const char **flag, int nflags, int nolink);
+			    const strarray_t *flags, int nolink,
+			    struct entryattlist *annotations);
 
 /* removes the stage (frees memory, deletes the staging files) */
 extern int append_removestage(struct stagemsg *stage);
@@ -123,7 +143,7 @@ extern int append_removestage(struct stagemsg *stage);
 extern int append_fromstream(struct appendstate *as, struct body **body,
 			     struct protstream *messagefile,
 			     unsigned long size, time_t internaldate,
-			     const char **flag, int nflags);
+			     const strarray_t *flags);
 
 extern int append_copy(struct mailbox *mailbox,
 		       struct appendstate *append_mailbox,
@@ -134,5 +154,8 @@ extern int append_collectnews(struct appendstate *mailbox,
 
 #define append_getuidvalidity(as) ((as)->m.uidvalidity);
 #define append_getlastuid(as) ((as)->m.last_uid);
+
+extern int append_run_annotator(struct appendstate *as,
+				struct index_record *record);
 
 #endif /* INCLUDED_APPEND_H */

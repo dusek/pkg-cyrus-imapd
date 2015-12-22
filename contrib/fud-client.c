@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: fud-client.c,v 1.8 2010/01/08 20:49:27 murch Exp $
  */
 
 /*  This is an example client for the experimental fud service. 
@@ -75,6 +73,7 @@ void
 timeout(signo)
 int signo;
 {
+	(void)signo;
 	fprintf(stderr,"fud-client: request timed out.\n");
 	exit(EX_UNAVAILABLE);
 }
@@ -84,7 +83,8 @@ main(argc, argv)
 int argc; 
 char **argv;
 {
-	int soc,x,rc;
+	int soc,rc;
+	unsigned int x;
 	struct sockaddr_in sin,sfrom;
 	struct hostent *hp;
 	fd_set fset;

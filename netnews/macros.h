@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: macros.h,v 1.9 2010/01/06 17:01:53 murch Exp $
  */
 
 /*
@@ -47,6 +45,8 @@
 **  Don't replace any existing definitions, for use with malloc-debug
 **  packages, e.g.
 */
+#include "xmalloc.h"
+
 #if	defined(_DEBUG_MALLOC_INC)
 #undef _DEBUG_MALLOC_INC
 #include "malloc.h"

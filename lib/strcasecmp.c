@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: strcasecmp.c,v 1.10 2010/01/06 17:01:47 murch Exp $
- *
  * Author: Chris Newman
  * Start Date: 4/6/93
  */
@@ -51,9 +49,7 @@
 
 /* case insensitive string compare
  */
-int strcasecmp(str1, str2)
-const char *str1;
-const char *str2;
+int strcasecmp(const char *str1, const char *str2)
 {
     while (*str1 && TOLOWER(*str1) == TOLOWER(*str2)) ++str1, ++str2;
 
@@ -62,10 +58,7 @@ const char *str2;
 
 /* case insensitive string compare with count
  */
-int strncasecmp(str1, str2, n)
-const char *str1;
-const char *str2;
-size_t n;
+int strncasecmp(const char *str1, const char *str2, size_t n)
 {
     while (n && *str1 && TOLOWER(*str1) == TOLOWER(*str2)) ++str1, ++str2, --n;
 

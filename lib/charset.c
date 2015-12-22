@@ -38,30 +38,21 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: charset.c,v 1.55 2010/01/06 17:01:44 murch Exp $
  */
 
 #include <config.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "assert.h"
 #include "charset.h"
 #include "xmalloc.h"
 #include "chartable.h"
 #include "util.h"
 
-/* unicode canon translations */
-extern const int chartables_translation_multichar[];
-extern const unsigned char chartables_translation_block16[256];
-extern const unsigned char chartables_translation_block8[][256];
-extern const int chartables_translation[][256];
+#define U_REPLACEMENT	0xfffd
 
-/* named character sets */
-extern const struct charset chartables_charset_table[];
-extern const int chartables_num_charsets;
+#define unicode_isvalid(c) \
+	(!((c >= 0xd800 && c <= 0xdfff) || ((unsigned)c > 0x10ffff)))
 
 char QPSAFECHAR[256] = {
 /* control chars are unsafe */
@@ -108,7 +99,7 @@ struct table_state {
 };
 
 struct canon_state {
-    int spacemode;
+    int flags;
     int seenspace;
 };
 
@@ -187,12 +178,23 @@ static const char index_64[256] = {
 };
 #define CHAR64(c)  (index_64[(unsigned char)(c)])
 
+EXPORTED const char *encoding_name(int encoding)
+{
+    switch (encoding) {
+    case ENCODING_NONE: return "none";
+    case ENCODING_QP: return "quoted-printable";
+    case ENCODING_BASE64: return "base64";
+    case ENCODING_UNKNOWN: return "unknown";
+    default: return "wtf";
+    }
+}
+
 static inline void convert_putc(struct convert_rock *rock, int c)
 {
     rock->f(rock, c);
 }
 
-void convert_cat(struct convert_rock *rock, const char *s)
+static void convert_cat(struct convert_rock *rock, const char *s)
 {
     while (*s) {
 	convert_putc(rock, (unsigned char)*s);
@@ -200,7 +202,7 @@ void convert_cat(struct convert_rock *rock, const char *s)
     }
 }
 
-void convert_catn(struct convert_rock *rock, const char *s, size_t len)
+static void convert_catn(struct convert_rock *rock, const char *s, size_t len)
 {
     while (len-- > 0) {
 	convert_putc(rock, (unsigned char)*s);
@@ -210,7 +212,7 @@ void convert_catn(struct convert_rock *rock, const char *s, size_t len)
 
 /* convertproc_t conversion functions */
 
-void qp2byte(struct convert_rock *rock, int c) 
+static void qp2byte(struct convert_rock *rock, int c)
 {
     struct qp_state *s = (struct qp_state *)rock->state;
     int val;
@@ -250,7 +252,7 @@ void qp2byte(struct convert_rock *rock, int c)
     convert_putc(rock->next, c);
 }
 
-void b64_2byte(struct convert_rock *rock, int c) 
+static void b64_2byte(struct convert_rock *rock, int c)
 {
     struct b64_state *s = (struct b64_state *)rock->state;
     char b = CHAR64(c);
@@ -280,18 +282,18 @@ void b64_2byte(struct convert_rock *rock, int c)
     }
 }
 
-void stripnl2uni(struct convert_rock *rock, int c)
+static void stripnl2uni(struct convert_rock *rock, int c)
 {
     if (c != '\r' && c != '\n')
 	convert_putc(rock->next, c);
 }
 
-void table2uni(struct convert_rock *rock, int c)
+static void table2uni(struct convert_rock *rock, int c)
 {
     struct table_state *s = (struct table_state *)rock->state;
     struct charmap *map = (struct charmap *)&s->curtable[0][c & 0xff];
 
-    /* propogate errors */
+    /* propagate errors */
     if (c == 0xfffd) {
 	convert_putc(rock->next, c);
 	return;
@@ -303,11 +305,11 @@ void table2uni(struct convert_rock *rock, int c)
     s->curtable = s->initialtable + map->next;
 }
 
-void utf8_2uni(struct convert_rock *rock, int c)
+static void utf8_2uni(struct convert_rock *rock, int c)
 {
     struct table_state *s = (struct table_state *)rock->state;
 
-    /* propogate errors */
+    /* propagate errors */
     if (c == 0xfffd) {
 	convert_putc(rock->next, c);
 	return;
@@ -346,11 +348,11 @@ void utf8_2uni(struct convert_rock *rock, int c)
     }
 }
 
-void utf7_2uni (struct convert_rock *rock, int c)
+static void utf7_2uni (struct convert_rock *rock, int c)
 {
     struct table_state *s = (struct table_state *)rock->state;
 
-    /* propogate errors */
+    /* propagate errors */
     if (c == 0xfffd) {
 	convert_putc(rock->next, c);
 	return;
@@ -414,16 +416,17 @@ void utf7_2uni (struct convert_rock *rock, int c)
     }
 }
 
-void uni2searchform(struct convert_rock *rock, int c)
+static void uni2searchform(struct convert_rock *rock, int c)
 {
     struct canon_state *s = (struct canon_state *)rock->state;
     int i;
     int code;
     unsigned char table16, table8;
 
-    /* invalid character becomes a capital X  */
+    /* invalid character becomes an Oxff - that's illegal utf-8,
+     * so it won't match */
     if (c == 0xfffd) {
-	convert_putc(rock->next, 'X');
+	convert_putc(rock->next, 0xff);
 	return;
     }
 
@@ -453,19 +456,14 @@ void uni2searchform(struct convert_rock *rock, int c)
 
     /* special case: whitespace or control characters */
     if (code == ' ' || code == '\r' || code == '\n') {
-	switch (s->spacemode) {
-	case 0:
+	if (s->flags & CHARSET_SKIPSPACE) {
 	    return;
-
-	case 1:
+	}
+	if (s->flags & CHARSET_MERGESPACE) {
 	    if (s->seenspace)
 		return;
 	    s->seenspace = 1;
 	    code = ' '; /* one SPACE char */
-	    break;
-
-	default:
-	    break; /* keep it unchanged */
 	}
     }
     else
@@ -479,12 +477,19 @@ void uni2searchform(struct convert_rock *rock, int c)
 
     /* case - multiple characters */
     for (i = -code; chartables_translation_multichar[i]; i++) {
+	int c = chartables_translation_multichar[i];
+	/* diacritical character range.  This duplicates the
+	 * behaviour of Cyrus versions before 2.5 */
+	if (s->flags & CHARSET_SKIPDIACRIT) {
+	    if ((c & ~0xff) == 0x300)
+		continue;
+	}
 	/* note: whitespace already stripped from multichar sequences... */
-	convert_putc(rock->next, chartables_translation_multichar[i]);
+	convert_putc(rock->next, c);
     }
 }
 
-void uni2utf8(struct convert_rock *rock, int c)
+static void uni2utf8(struct convert_rock *rock, int c)
 {
     if (c > 0xffff) {
 	convert_putc(rock->next, 0xF0 + ((c >> 18) & 0x07));
@@ -506,26 +511,26 @@ void uni2utf8(struct convert_rock *rock, int c)
     }
 }
 
-void byte2search(struct convert_rock *rock, int c)
+static void byte2search(struct convert_rock *rock, int c)
 {
     struct search_state *s = (struct search_state *)rock->state;
     int i, cur;
     unsigned char b = (unsigned char)c;
 
     if (c == 0xfffd) {
-	c = 'X'; /* searchable by invalid character! */
+	c = 0xff; /* searchable by invalid character! */
     }
 
     /* check our "in_progress" matches to see if they're still valid */
     for (i = 0, cur = 0; i < s->max_start; i++) {
 	/* no more active offsets */
-	if (s->starts[i] == -1) 
+	if (s->starts[i] == -1)
 	    break;
 
 	/* if we've passed one that's not ongoing, copy back */
-	if (cur < i) {
+	if (cur < i)
 	    s->starts[cur] = s->starts[i];
-	}
+
 	/* check that the substring is still maching */
 	if (b == s->substr[s->offset - s->starts[i]]) {
 	    if (s->offset - s->starts[i] == s->patlen - 1) {
@@ -534,7 +539,7 @@ void byte2search(struct convert_rock *rock, int c)
 	    }
 	    else {
 		/* keep this one, it's ongoing */
-	    	cur++;
+		cur++;
 	    }
 	}
     }
@@ -543,7 +548,7 @@ void byte2search(struct convert_rock *rock, int c)
 	/* have to treat this one specially! */
 	if (s->patlen == 1)
 	    s->havematch = 1;
-	else 
+	else
 	    s->starts[cur++] = s->offset;
     }
     /* empty out any others that aren't being kept */
@@ -553,7 +558,7 @@ void byte2search(struct convert_rock *rock, int c)
     s->offset++;
 }
 
-void byte2buffer(struct convert_rock *rock, int c)
+static void byte2buffer(struct convert_rock *rock, int c)
 {
     struct buf *buf = (struct buf *)rock->state;
 
@@ -562,7 +567,7 @@ void byte2buffer(struct convert_rock *rock, int c)
 
 /* convert_rock manipulation routines */
 
-void table_switch(struct convert_rock *rock, int charset_num)
+static void table_switch(struct convert_rock *rock, int charset_num)
 {
     struct table_state *state = (struct table_state *)rock->state;
 
@@ -597,20 +602,11 @@ void table_switch(struct convert_rock *rock, int charset_num)
 /* Extract a cstring from a buffer.  NOTE: caller must free the memory
  * themselves once this is called.  Resets the state.  If you don't
  * call this function then buffer_free will clean up */
-unsigned char *buffer_cstring(struct convert_rock *rock)
+static char *buffer_cstring(struct convert_rock *rock)
 {
     struct buf *buf = (struct buf *)rock->state;
-    unsigned char *res;
 
-    /* copy the pointer out */
-    res = (unsigned char *)buf_cstring(buf);
-
-    /* clean up the buffer so it frees correctly later */
-    buf->s = 0;
-    buf->len = 0;
-    buf->alloc = 0;
-
-    return res;
+    return buf_release(buf);
 }
 
 static inline int search_havematch(struct convert_rock *rock)
@@ -621,7 +617,7 @@ static inline int search_havematch(struct convert_rock *rock)
 
 /* conversion cleanup routines */
 
-void basic_free(struct convert_rock *rock) 
+static void basic_free(struct convert_rock *rock)
 {
     if (rock) {
 	if (rock->state) free(rock->state);
@@ -629,7 +625,7 @@ void basic_free(struct convert_rock *rock)
     }
 }
 
-void search_free(struct convert_rock *rock)
+static void search_free(struct convert_rock *rock)
 {
     if (rock && rock->state) {
 	struct search_state *s = (struct search_state *)rock->state;
@@ -638,7 +634,8 @@ void search_free(struct convert_rock *rock)
     basic_free(rock);
 }
 
-void buffer_free(struct convert_rock *rock) {
+static void buffer_free(struct convert_rock *rock)
+{
     if (rock && rock->state) {
 	struct buf *buf = (struct buf *)rock->state;
 	buf_free(buf);
@@ -646,7 +643,7 @@ void buffer_free(struct convert_rock *rock) {
     basic_free(rock);
 }
 
-void convert_free(struct convert_rock *rock) {
+static void convert_free(struct convert_rock *rock) {
     struct convert_rock *next;
     while (rock) {
 	next = rock->next;
@@ -660,7 +657,7 @@ void convert_free(struct convert_rock *rock) {
 
 /* converter initialisation routines */
 
-struct convert_rock *qp_init(int isheader, struct convert_rock *next) 
+static struct convert_rock *qp_init(int isheader, struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     struct qp_state *s = xzmalloc(sizeof(struct qp_state));
@@ -671,7 +668,7 @@ struct convert_rock *qp_init(int isheader, struct convert_rock *next)
     return rock;
 }
 
-struct convert_rock *b64_init(struct convert_rock *next) 
+static struct convert_rock *b64_init(struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     rock->state = xzmalloc(sizeof(struct b64_state));
@@ -680,7 +677,7 @@ struct convert_rock *b64_init(struct convert_rock *next)
     return rock;
 }
 
-struct convert_rock *stripnl_init(struct convert_rock *next)
+static struct convert_rock *stripnl_init(struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     rock->f = stripnl2uni;
@@ -688,18 +685,18 @@ struct convert_rock *stripnl_init(struct convert_rock *next)
     return rock;
 }
 
-struct convert_rock *canon_init(int spacemode, struct convert_rock *next)
+static struct convert_rock *canon_init(int flags, struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     struct canon_state *s = xzmalloc(sizeof(struct canon_state));
-    s->spacemode = spacemode;
+    s->flags = flags;
     rock->f = uni2searchform;
     rock->state = s;
     rock->next = next;
     return rock;
 }
 
-struct convert_rock *uni_init(struct convert_rock *next) 
+static struct convert_rock *uni_init(struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     rock->f = uni2utf8;
@@ -707,7 +704,7 @@ struct convert_rock *uni_init(struct convert_rock *next)
     return rock;
 }
 
-struct convert_rock *table_init(int charset_num, struct convert_rock *next)
+static struct convert_rock *table_init(int charset_num, struct convert_rock *next)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     rock->state = xzmalloc(sizeof(struct table_state));
@@ -716,7 +713,7 @@ struct convert_rock *table_init(int charset_num, struct convert_rock *next)
     return rock;
 }
 
-struct convert_rock *search_init(const char *substr, comp_pat *pat) {
+static struct convert_rock *search_init(const char *substr, comp_pat *pat) {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     struct search_state *s = xzmalloc(sizeof(struct search_state));
     struct comp_pat_s *p = (struct comp_pat_s *)pat;
@@ -741,14 +738,10 @@ struct convert_rock *search_init(const char *substr, comp_pat *pat) {
     return rock;
 }
 
-struct convert_rock *buffer_init(unsigned char *str, int len)
+static struct convert_rock *buffer_init(void)
 {
     struct convert_rock *rock = xzmalloc(sizeof(struct convert_rock));
     struct buf *buf = xzmalloc(sizeof(struct buf));
-
-    /* fiddling under the hood */
-    buf->s = (char *)str;
-    buf->alloc = len;
 
     rock->f = byte2buffer;
     rock->cleanup = buffer_free;
@@ -760,13 +753,32 @@ struct convert_rock *buffer_init(unsigned char *str, int len)
 /* API */
 
 /*
+ * Return the name of the given character set number, or NULL if
+ * not known.
+ */
+EXPORTED const char *charset_name(charset_index i)
+{
+    return (i >= 0 && i < chartables_num_charsets ?
+	    chartables_charset_table[i].name : "unknown");
+}
+
+/*
  * Lookup the character set 'name'.  Returns the character set number
  * or -1 if there is no matching character set.
  */
-int charset_lookupname(const char *name)
+EXPORTED int charset_lookupname(const char *name)
 {
     int i;
 
+    /* translate to canonical name */
+    for (i = 0; charset_aliases[i].name; i++) {
+	if (!strcasecmp(name, charset_aliases[i].name)) {
+	    name = charset_aliases[i].canon_name;
+	    break;
+	}
+    }
+
+    /* look up canonical name */
     for (i = 0; i < chartables_num_charsets; i++) {
 	if (!strcasecmp(name, chartables_charset_table[i].name)) 
 	    return i;
@@ -775,12 +787,20 @@ int charset_lookupname(const char *name)
     return -1;
 }
 
+static int lookup_buf(const char *buf, int len)
+{
+    char *name = xstrndup(buf, len);
+    int res = charset_lookupname(name);
+    free(name);
+    return res;
+}
+
 /*
  * Convert the string 's' in the character set numbered 'charset'
- * into canonical searching form.  Decodes into 'retval', which 
- * must be reallocable and currently at least size 'alloced'.
+ * into canonical searching form.  Returns a newly allocated string
+ * which must be free()d by the caller.
  */
-char *charset_convert(const char *s, int charset, char *buf, size_t bufsz)
+EXPORTED char *charset_convert(const char *s, int charset, int flags)
 {
     struct convert_rock *input, *tobuffer;
     char *res;
@@ -791,16 +811,16 @@ char *charset_convert(const char *s, int charset, char *buf, size_t bufsz)
 	return xstrdup("X");
 
     /* set up the conversion path */
-    tobuffer = buffer_init((unsigned char *)buf, bufsz);
+    tobuffer = buffer_init();
     input = uni_init(tobuffer);
-    input = canon_init(1, input);
+    input = canon_init(flags, input);
     input = table_init(charset, input);
 
     /* do the conversion */
     convert_cat(input, s);
 
     /* extract the result */
-    res = (char *)buffer_cstring(tobuffer);
+    res = buffer_cstring(tobuffer);
 
     /* clean up */
     convert_free(input);
@@ -808,8 +828,14 @@ char *charset_convert(const char *s, int charset, char *buf, size_t bufsz)
     return res;
 }
 
+EXPORTED char *charset_utf8_to_searchform(const char *s, int flags)
+{
+    int charset = charset_lookupname("utf-8");
+    return charset_convert(s, charset, flags);
+}
+
 /* Convert from a given charset and encoding into utf8 */
-char *charset_to_utf8(const char *msg_base, size_t len, int charset, int encoding)
+EXPORTED char *charset_to_utf8(const char *msg_base, size_t len, int charset, int encoding)
 {
     struct convert_rock *input, *tobuffer;
     char *res;
@@ -823,7 +849,7 @@ char *charset_to_utf8(const char *msg_base, size_t len, int charset, int encodin
 	return xstrdup("");
 
     /* set up the conversion path */
-    tobuffer = buffer_init(0, 0);
+    tobuffer = buffer_init();
     input = uni_init(tobuffer);
     input = table_init(charset, input);
 
@@ -850,13 +876,13 @@ char *charset_to_utf8(const char *msg_base, size_t len, int charset, int encodin
     }
 
     convert_catn(input, msg_base, len);
-    res = (char *)buffer_cstring(tobuffer);
+    res = buffer_cstring(tobuffer);
     convert_free(input);
 
     return res;
 }
 
-void mimeheader_cat(struct convert_rock *target, const char *s)
+static void mimeheader_cat(struct convert_rock *target, const char *s)
 {
     struct convert_rock *input, *stripnl;
     int eatspace = 0;
@@ -907,20 +933,16 @@ void mimeheader_cat(struct convert_rock *target, const char *s)
 	 * Get the 1522-word's character set
 	 */
 	start++;
-	for (charset = 0; charset < chartables_num_charsets; charset++) {
-	    if ((int)strlen(chartables_charset_table[charset].name) == endcharset-start &&
-		!strncasecmp(start, chartables_charset_table[charset].name, endcharset-start)) {
-		table_switch(input, charset);
-		break;
-	    }
-	}
-
-	if (charset == chartables_num_charsets) {
+	charset = lookup_buf(start, endcharset-start);
+	if (charset < 0) {
 	    /* Unrecognized charset, nothing will match here */
 	    convert_putc(input, 0xfffd); /* unknown character */
 	}
 	else {
 	    struct convert_rock *extract;
+
+	    table_switch(input, charset);
+
 	    /* choose decoder */
 	    if (encoding[1] == 'q' || encoding[1] == 'Q') {
 		extract = qp_init(1, input);
@@ -952,22 +974,24 @@ void mimeheader_cat(struct convert_rock *target, const char *s)
 }
 
 /*
- * Decode MIME strings (per RFC 2047) in 's'.  It writes the decoded
- * string to 'retval', calling realloc() as needed. (Thus retval may
- * be NULL.) Returns retval, contining 's' in canonical searching form.
+ * Decode MIME strings (per RFC 2047) in 's'.  Returns a newly allocated
+ * string, contining 's' in canonical searching form, which must be
+ * free()d by the caller.
  */
-char *charset_decode_mimeheader(const char *s, char *retval, size_t alloced)
+EXPORTED char *charset_decode_mimeheader(const char *s, int flags)
 {
     struct convert_rock *tobuffer, *input;
     char *res;
 
-    tobuffer = buffer_init((unsigned char *)retval, alloced);
+    if (!s) return NULL;
+
+    tobuffer = buffer_init();
     input = uni_init(tobuffer);
-    input = canon_init(1, input);
+    input = canon_init(flags, input);
 
     mimeheader_cat(input, s);
  
-    res = (char *)buffer_cstring(tobuffer);
+    res = buffer_cstring(tobuffer);
 
     convert_free(input);
 
@@ -975,36 +999,38 @@ char *charset_decode_mimeheader(const char *s, char *retval, size_t alloced)
 }
 
 /*
- * Decode MIME strings (per RFC 2047) in 's'.  It writes the decoded
- * string to 'retval', calling realloc() as needed. (Thus retval may
- * be NULL.) Returns retval, contining 's' in canonical searching form.
+ * Decode MIME strings (per RFC 2047) in 's'.  Returns a newly allocated
+ * string, containing the decoded string, which must be free()d by the
+ * caller.
  */
-char *charset_parse_mimeheader(const char *s)
+EXPORTED char *charset_parse_mimeheader(const char *s)
 {
     struct convert_rock *tobuffer, *input;
     char *res;
 
-    tobuffer = buffer_init(0, 0);
+    if (!s) return NULL;
+
+    tobuffer = buffer_init();
     input = uni_init(tobuffer);
 
     mimeheader_cat(input, s);
  
-    res = (char *)buffer_cstring(tobuffer);
+    res = buffer_cstring(tobuffer);
 
     convert_free(input);
 
     return res;
 }
 
-int charset_search_mimeheader(const char *substr, comp_pat *pat,
-    const char *s, int searchform)
+EXPORTED int charset_search_mimeheader(const char *substr, comp_pat *pat,
+			      const char *s, int flags)
 {
     struct convert_rock *input, *tosearch;
     int res;
 
     tosearch = search_init(substr, pat);
     input = uni_init(tosearch);
-    if (searchform) input = canon_init(1, input);
+    input = canon_init(flags, input);
 
     mimeheader_cat(input, s);
  
@@ -1021,7 +1047,7 @@ int charset_search_mimeheader(const char *substr, comp_pat *pat,
  * deeper analysis of the possible paths through the string, but
  * this is a good absolute maximum, and it just means a few more
  * bytes get allocated... */
-comp_pat *charset_compilepat(const char *s)
+EXPORTED comp_pat *charset_compilepat(const char *s)
 {
     struct comp_pat_s *pat = xzmalloc(sizeof(struct comp_pat_s));
     const char *p = s;
@@ -1037,7 +1063,7 @@ comp_pat *charset_compilepat(const char *s)
 /*
  * Free the compiled pattern 'pat'
  */
-void charset_freepat(comp_pat *pat)
+EXPORTED void charset_freepat(comp_pat *pat)
 {
     free((struct comp_pat_s *)pat);
 }
@@ -1049,18 +1075,28 @@ void charset_freepat(comp_pat *pat)
  * Uses the to_search target directly.  Assumes 's' is already
  * in search normal form (i.e. from a cache file)
  */
-int charset_searchstring(const char *substr, comp_pat *pat,
-    const char *s, size_t len)
+EXPORTED int charset_searchstring(const char *substr, comp_pat *pat,
+			 const char *s, size_t len, int flags)
 {
     struct convert_rock *tosearch;
+    struct convert_rock *input;
+    int charset = charset_lookupname("utf-8");
     int res;
+
+    if (!substr[0])
+	return 1; /* zero length string always matches */
 
     /* set up the search handler */
     tosearch = search_init(substr, pat);
 
+    /* and the input stream */
+    input = uni_init(tosearch);
+    input = canon_init(flags, input);
+    input = table_init(charset, input);
+
     /* feed the handler */
     while (len-- > 0) {
-	convert_putc(tosearch, (unsigned char)*s++);
+	convert_putc(input, (unsigned char)*s++);
 	if (search_havematch(tosearch)) break; /* shortcut if there's a match */
     }
 
@@ -1068,7 +1104,7 @@ int charset_searchstring(const char *substr, comp_pat *pat,
     res = search_havematch(tosearch);
 
     /* clean up */
-    search_free(tosearch);
+    convert_free(input);
 
     return res;
 }
@@ -1080,9 +1116,9 @@ int charset_searchstring(const char *substr, comp_pat *pat,
  * content transfer encoding of the data, respectively.
  * Returns nonzero iff the string was found.
  */
-int charset_searchfile(const char *substr, comp_pat *pat,
-    const char *msg_base, size_t len, int charset, 
-    int encoding)
+EXPORTED int charset_searchfile(const char *substr, comp_pat *pat,
+		       const char *msg_base, size_t len,
+		       int charset, int encoding, int flags)
 {
     struct convert_rock *input, *tosearch;
     size_t i;
@@ -1099,7 +1135,7 @@ int charset_searchfile(const char *substr, comp_pat *pat,
     /* set up the conversion path */
     tosearch = search_init(substr, pat);
     input = uni_init(tosearch);
-    input = canon_init(1, input);
+    input = canon_init(flags, input);
     input = table_init(charset, input);
 
     /* choose encoding extraction if needed */
@@ -1138,9 +1174,11 @@ int charset_searchfile(const char *substr, comp_pat *pat,
 }
 
 /* This is based on charset_searchfile above. */
-int charset_extractfile(index_search_text_receiver_t receiver,
-    void* rock, int uid, const char *msg_base, size_t len, 
-    int charset, int encoding)
+EXPORTED int charset_extractitem(index_search_text_receiver_t receiver,
+			void *rock, int uid,
+			const char *msg_base, size_t len,
+			int charset, int encoding, int flags,
+			int rpart, int rcmd)
 {
     struct convert_rock *input, *tobuffer;
     struct buf *out;
@@ -1151,9 +1189,9 @@ int charset_extractfile(index_search_text_receiver_t receiver,
 	return 0;
 
     /* set up the conversion path */
-    tobuffer = buffer_init(0, 0);
+    tobuffer = buffer_init();
     input = uni_init(tobuffer);
-    input = canon_init(1, input);
+    input = canon_init(flags, input);
     input = table_init(charset, input);
 
     switch (encoding) {
@@ -1185,14 +1223,12 @@ int charset_extractfile(index_search_text_receiver_t receiver,
 
 	/* process a block of output every so often */
 	if (buf_len(out) > 4096) {
-	    receiver(uid, SEARCHINDEX_PART_BODY, SEARCHINDEX_CMD_APPENDPART,
-		     out->s, out->len, rock);
+	    receiver(uid, rpart, rcmd, out->s, out->len, rock);
 	    buf_reset(out);
 	}
     }
     if (out->len) { /* finish it */
-	receiver(uid, SEARCHINDEX_PART_BODY, SEARCHINDEX_CMD_APPENDPART,
-		 out->s, out->len, rock);
+	receiver(uid, rpart, rcmd, out->s, out->len, rock);
     }
 
     convert_free(input);
@@ -1200,30 +1236,46 @@ int charset_extractfile(index_search_text_receiver_t receiver,
     return 1;
 }
 
+EXPORTED int charset_extractfile(index_search_text_receiver_t receiver, void *rock,
+			int uid, const char *msg_base, size_t len, 
+			int charset, int encoding, int flags)
+{
+    return charset_extractitem(receiver, rock, uid, msg_base, len,
+			       charset, encoding, flags,
+			       SEARCHINDEX_PART_BODY,
+			       SEARCHINDEX_CMD_APPENDPART);
+}
+
 /*
- * Decode the MIME body part (per RFC 2045) of 'len' bytes located at
- * 'msg_base' having the content transfer 'encoding'.  Decodes into
- * 'retval' (if necessary), which must be reallocable and currently at
- * least size 'alloced'.  Returns the number of decoded bytes in
- * 'outlen'. 
+ * Decode the MIME body part (per RFC 2045) of @len bytes located at
+ * @msg_base having the content transfer @encoding.  Returns a pointer
+ * to decoded bytes.  The number of decoded bytes is returned in
+ * *@outlen.  Depending on the encoding, a newly allocated buffer may be
+ * written to *@decbuf, which should be free()d by the caller if it not
+ * zero.  Note that the return value may point to either @msg_base or
+ * @decbuf, so @decbuf should not be free()d until the return value has
+ * been used.
  */
-char *charset_decode_mimebody(const char *msg_base, size_t len, int encoding,
-			      char **retval, size_t alloced, size_t *outlen)
+EXPORTED const char *charset_decode_mimebody(const char *msg_base, size_t len, int encoding,
+				    char **decbuf, size_t *outlen)
 {
     struct convert_rock *input, *tobuffer;
+
+    *decbuf = NULL;
+    *outlen = 0;
 
     switch (encoding) {
     case ENCODING_NONE:
 	*outlen = len;
-	return (char *) msg_base;
+	return msg_base;
 
     case ENCODING_QP:
-	tobuffer = buffer_init((unsigned char *)*retval, alloced);
+	tobuffer = buffer_init();
 	input = qp_init(0, tobuffer);
 	break;
 
     case ENCODING_BASE64:
-	tobuffer = buffer_init((unsigned char *)*retval, alloced);
+	tobuffer = buffer_init();
 	input = b64_init(tobuffer);
 	break;
 
@@ -1234,26 +1286,22 @@ char *charset_decode_mimebody(const char *msg_base, size_t len, int encoding,
 
     convert_catn(input, msg_base, len);
 
-    /* extract the string from the buffer, messy - but we want to
-     * do it without becoming a cstring or being prematurely freed! */
+    /* extract the string from the buffer */
     {
 	struct buf *buf = (struct buf *)tobuffer->state;
-	*retval = buf->s;
 	*outlen = buf->len;
-	buf->s = 0;
-	buf->len = 0;
-	buf->alloc = 0;
+	*decbuf = buf_release(buf);
     }
 
     convert_free(input);
 
-    if (!*retval) {
+    if (!*decbuf) {
 	/* didn't get a result - maybe blank input, don't return NULL */
 	*outlen = len;
-	return (char *) msg_base;
+	return msg_base;
     }
 
-    return *retval;
+    return *decbuf;
 }
 
 /*
@@ -1270,7 +1318,7 @@ char *charset_decode_mimebody(const char *msg_base, size_t len, int encoding,
 static char base_64[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-char *charset_encode_mimebody(const char *msg_base, size_t len,
+EXPORTED char *charset_encode_mimebody(const char *msg_base, size_t len,
     char *retval, size_t *outlen, int *outlines)
 {
     const unsigned char *s;
@@ -1330,7 +1378,7 @@ char *charset_encode_mimebody(const char *msg_base, size_t len,
 }
 
 /* returns a buffer which the caller must free */
-char *charset_encode_mimeheader(const char *header, size_t len)
+EXPORTED char *charset_encode_mimeheader(const char *header, size_t len)
 {
     struct buf buf = BUF_INITIALIZER;
     size_t n;

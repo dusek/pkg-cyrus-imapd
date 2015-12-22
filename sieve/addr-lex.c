@@ -1,5 +1,6 @@
+#line 2 "sieve/addr-lex.c"
 
-#line 3 "<stdout>"
+#line 4 "sieve/addr-lex.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -27,7 +28,7 @@
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
 #define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 36
+#define YY_FLEX_SUBMINOR_VERSION 39
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
@@ -160,7 +161,15 @@ typedef unsigned int flex_uint32_t;
 
 /* Size of default input buffer. */
 #ifndef YY_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k.
+ * Moreover, YY_BUF_SIZE is 2*YY_READ_BUF_SIZE in the general case.
+ * Ditto for the __ia64__ case accordingly.
+ */
+#define YY_BUF_SIZE 32768
+#else
 #define YY_BUF_SIZE 16384
+#endif /* __ia64__ */
 #endif
 
 /* The state buf must be large enough to hold one state per character in the main buffer.
@@ -186,6 +195,7 @@ extern FILE *addrin, *addrout;
 #define EOB_ACT_LAST_MATCH 2
 
     #define YY_LESS_LINENO(n)
+    #define YY_LINENO_REWIND_TO(ptr)
     
 /* Return all but the first "n" matched characters back to the input stream. */
 #define yyless(n) \
@@ -521,8 +531,8 @@ int addr_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *addrtext;
-#line 1 "addr-lex.l"
-#line 2 "addr-lex.l"
+#line 1 "sieve/addr-lex.l"
+#line 2 "sieve/addr-lex.l"
 /*
  * addr-lex.l -- RFC 822 address lexer
  * Ken Murchison
@@ -565,23 +575,18 @@ char *addrtext;
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: addr-lex.l,v 1.12 2010/01/06 17:01:58 murch Exp $
  */
 
-#include "addr.h"
-#include <stdlib.h>
-#include <string.h>
+#include "sieve/sieve_interface.h"
+#include "sieve/addr.h"
 
-#undef YY_INPUT
-#define YY_INPUT(b, r, ms) (r = addrinput(b, ms))
-
-int addrinput(char *buf, size_t max_size);
-void addrerror(const char *);
+void addrerror(void*, const char *);
 
 static int ncom;	/* number of open comments */
+#define YY_DECL int addrlex(YYSTYPE* addrlval __attribute__((unused)), void* parse_script)
+#define YY_NO_INPUT 1
 
-#line 585 "<stdout>"
+#line 590 "sieve/addr-lex.c"
 
 #define INITIAL 0
 #define QSTRING 1
@@ -663,7 +668,12 @@ static int input (void );
 
 /* Amount of stuff to slurp up with each read. */
 #ifndef YY_READ_BUF_SIZE
+#ifdef __ia64__
+/* On IA-64, the buffer size is 16k, not 8k */
+#define YY_READ_BUF_SIZE 16384
+#else
 #define YY_READ_BUF_SIZE 8192
+#endif /* __ia64__ */
 #endif
 
 /* Copy whatever the last rule matched to the standard output. */
@@ -764,11 +774,6 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 67 "addr-lex.l"
-
-
-#line 771 "<stdout>"
-
 	if ( !(yy_init) )
 		{
 		(yy_init) = 1;
@@ -795,6 +800,12 @@ YY_DECL
 		addr_load_buffer_state( );
 		}
 
+	{
+#line 62 "sieve/addr-lex.l"
+
+
+#line 808 "sieve/addr-lex.c"
+
 	while ( 1 )		/* loops until end-of-file is reached */
 		{
 		yy_cp = (yy_c_buf_p);
@@ -811,7 +822,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)];
+			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -852,104 +863,104 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 69 "addr-lex.l"
+#line 64 "sieve/addr-lex.l"
 { BEGIN QSTRING; return addrtext[0]; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 70 "addr-lex.l"
+#line 65 "sieve/addr-lex.l"
 { BEGIN DOMAINLIT; return addrtext[0]; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 71 "addr-lex.l"
+#line 66 "sieve/addr-lex.l"
 { ncom = 1; BEGIN COMMENT; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 72 "addr-lex.l"
-{ addrerror("address parse error, "
+#line 67 "sieve/addr-lex.l"
+{ addrerror(parse_script, "address parse error, "
 					  "unexpected `')'' "
 					  "(unbalanced comment)");
 				  yyterminate(); }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 77 "addr-lex.l"
+#line 72 "sieve/addr-lex.l"
 return ATOM;
 	YY_BREAK
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
-#line 79 "addr-lex.l"
+#line 74 "sieve/addr-lex.l"
 /* ignore whitespace */
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 80 "addr-lex.l"
+#line 75 "sieve/addr-lex.l"
 return addrtext[0];
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 82 "addr-lex.l"
+#line 77 "sieve/addr-lex.l"
 return QTEXT;
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 83 "addr-lex.l"
+#line 78 "sieve/addr-lex.l"
 { BEGIN INITIAL; return addrtext[0]; }
 	YY_BREAK
 case YY_STATE_EOF(QSTRING):
-#line 84 "addr-lex.l"
+#line 79 "sieve/addr-lex.l"
 { BEGIN INITIAL;
-				  addrerror("address parse error, expecting `'\"'' (unterminated string)");
+				  addrerror(parse_script, "address parse error, expecting `'\"'' (unterminated string)");
 				  yyterminate(); }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 88 "addr-lex.l"
+#line 83 "sieve/addr-lex.l"
 return DTEXT;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 89 "addr-lex.l"
+#line 84 "sieve/addr-lex.l"
 { BEGIN INITIAL; return addrtext[0]; }
 	YY_BREAK
 case YY_STATE_EOF(DOMAINLIT):
-#line 90 "addr-lex.l"
+#line 85 "sieve/addr-lex.l"
 { BEGIN INITIAL;
-				  addrerror("address parse error, expecting `']'' (unterminated domain literal)");
+				  addrerror(parse_script, "address parse error, expecting `']'' (unterminated domain literal)");
 				  yyterminate(); }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 96 "addr-lex.l"
+#line 91 "sieve/addr-lex.l"
 /* ignore comments */
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 97 "addr-lex.l"
+#line 92 "sieve/addr-lex.l"
 ncom++;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 98 "addr-lex.l"
+#line 93 "sieve/addr-lex.l"
 { ncom--; if (ncom == 0) BEGIN INITIAL; }
 	YY_BREAK
 case YY_STATE_EOF(COMMENT):
-#line 99 "addr-lex.l"
+#line 94 "sieve/addr-lex.l"
 { BEGIN INITIAL;
-				  addrerror("address parse error, "
+				  addrerror(parse_script, "address parse error, "
 					  "expecting `')'' "
 					  "(unterminated comment)");
 				  yyterminate(); }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 105 "addr-lex.l"
+#line 100 "sieve/addr-lex.l"
 ECHO;
 	YY_BREAK
-#line 953 "<stdout>"
+#line 964 "sieve/addr-lex.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1080,6 +1091,7 @@ case YY_STATE_EOF(INITIAL):
 			"fatal flex scanner internal error--no action found" );
 	} /* end of action switch */
 		} /* end of scanning one token */
+	} /* end of user's declarations */
 } /* end of addrlex */
 
 /* yy_get_next_buffer - try to read in a new buffer
@@ -1676,7 +1688,7 @@ YY_BUFFER_STATE addr_scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_le
 	YY_BUFFER_STATE b;
 	char *buf;
 	yy_size_t n;
-	int i;
+	yy_size_t i;
     
 	/* Get memory for full buffer, including space for trailing EOB's. */
 	n = _yybytes_len + 2;
@@ -1906,21 +1918,7 @@ void addrfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 105 "addr-lex.l"
+#line 99 "sieve/addr-lex.l"
 
 
-
-/* take input from address string provided by sieve parser */
-int addrinput(char *buf, size_t max_size)
-{
-    extern char *addrptr;	/* current position in address string */
-    size_t n;			/* number of characters to read from string */
-
-    n = strlen(addrptr) < max_size ? strlen(addrptr) : max_size;
-    if (n > 0) {
-	memcpy(buf, addrptr, n);
-	addrptr += n;
-    }
-    return n;
-}
 

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: statuscache.h,v 1.3 2010/01/06 17:01:41 murch Exp $
  */
 
 #ifndef STATUSCACHE_H
@@ -52,7 +50,7 @@
 #define STATUSCACHE_VERSION 4
 
 /* open the statuscache db */
-extern void statuscache_open(const char *name);
+extern void statuscache_open(void);
 
 /* fill a statuscache entry */
 extern void statuscache_fill(struct statusdata *sdata, const char *userid,
@@ -67,10 +65,6 @@ extern int status_lookup(const char *mboxname, const char *userid,
    doesn't exist or doesn't have the fields we need */
 extern int statuscache_lookup(const char *mboxname, const char *userid,
 			      unsigned statusitems, struct statusdata *sdata);
-
-/* update a statuscache entry */
-extern int statuscache_update(const char *mboxname,
-			      struct statusdata *sdata);
 
 /* invalidate (delete) statuscache entry for the mailbox,
    optionally writing the data for one user in the same transaction */

@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: prot.h,v 1.48 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef INCLUDED_PROT_H
@@ -51,6 +49,7 @@
 #include <stdlib.h>
 
 #include <sasl/sasl.h>
+#include <config.h>
 
 #ifdef HAVE_SSL
 #include <openssl/ssl.h>
@@ -106,9 +105,9 @@ struct protstream {
 
     /* Big Buffer Information */
     const char *bigbuf_base;  /* Base Pointer */
-    unsigned long bigbuf_siz; /* Overall Size of Buffer */
-    unsigned long bigbuf_len; /* Length of mapped file */
-    unsigned long bigbuf_pos; /* Current Position */
+    size_t bigbuf_siz; /* Overall Size of Buffer */
+    size_t bigbuf_len; /* Length of mapped file */
+    size_t bigbuf_pos; /* Current Position */
 
     /* Status Flags */
     int eof;
@@ -123,6 +122,8 @@ struct protstream {
     int read_timeout;
     time_t timeout_mark;
     struct protstream *flushonread;
+    /* hack to write to an in-memory-string */
+    struct buf *writetobuf;
 
     int can_unget;
     int bytes_in;
@@ -183,7 +184,8 @@ extern int prot_putc(int c, struct protstream *s);
 
 /* Allocate/free the protstream structure */
 extern struct protstream *prot_new(int fd, int write);
-extern struct protstream *prot_readmap(const char *buf, uint32_t len);
+extern struct protstream *prot_writebuf(struct buf *buf);
+extern struct protstream *prot_readmap(const char *base, uint32_t len);
 extern int prot_free(struct protstream *s);
 
 /* Set the telemetry logfile for a given protstream */
@@ -230,7 +232,7 @@ extern int prot_setflushonread(struct protstream *s,
 			       struct protstream *flushs);
 
 
-extern int prot_setreadcallback(struct protstream *s,
+int prot_setreadcallback(struct protstream *s,
 				prot_readcallback_t *proc, void *rock);
 extern struct prot_waitevent *prot_addwaitevent(struct protstream *s,
 						time_t mark,
@@ -262,6 +264,8 @@ extern int prot_printf(struct protstream *, const char *, ...)
 extern int prot_printliteral(struct protstream *out, const char *s,
 			     size_t size);
 extern int prot_printstring(struct protstream *out, const char *s);
+extern int prot_printmap(struct protstream *out, const char *s, size_t n);
+extern int prot_printamap(struct protstream *out, const char *s, size_t n);
 extern int prot_printastring(struct protstream *out, const char *s);
 extern int prot_read(struct protstream *s, char *buf, unsigned size);
 extern int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size);

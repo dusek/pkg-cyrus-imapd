@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: tree.c,v 1.16 2010/01/06 17:02:00 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -51,29 +49,8 @@
 #include "xmalloc.h"
 
 #include "tree.h"
-#include "sieve.h"
-
-stringlist_t *new_sl(char *s, stringlist_t *n)
-{
-    stringlist_t *p = (stringlist_t *) xmalloc(sizeof(stringlist_t));
-    p->s = s;
-    p->next = n;
-    return p;
-}
-
-stringlist_t *sl_reverse(stringlist_t *l)
-{
-    stringlist_t *prev = NULL;
-    stringlist_t *next;
-    stringlist_t *cur = l;
-    while (cur) {
-	next = cur->next;
-	cur->next = prev;
-	prev = cur;
-	cur = next;
-    }
-    return prev;
-}
+#include "sieve/sieve_interface.h"
+#include "sieve/sieve.h"
 
 tag_t *new_tag(int type, char *s)
 {
@@ -125,21 +102,6 @@ commandlist_t *new_if(test_t *t, commandlist_t *y, commandlist_t *n)
     return p;
 }
 
-void free_sl(stringlist_t *sl) 
-{
-    stringlist_t *sl2;
-    
-    while (sl != NULL) {
-	sl2 = sl->next;
-
-	if (sl->s) free(sl->s);
-
-	free(sl);
-	sl = sl2;
-    }
-}
-
-
 void free_test(test_t *t);
 
 static void free_tl(testlist_t *tl)
@@ -167,7 +129,7 @@ void free_test(test_t *t)
 	break;
 
     case EXISTS:
-	free_sl(t->u.sl);
+	strarray_free(t->u.sl);
 	break;
 
     case SIZE:
@@ -175,24 +137,37 @@ void free_test(test_t *t)
     case STRUE:
 	break;
 
+    case HASFLAG:
     case HEADER:
-	free_sl(t->u.h.sl);
-	free_sl(t->u.h.pl);
-	
+	free(t->u.h.comparator);
+	strarray_free(t->u.h.sl);
+	strarray_free(t->u.h.pl);
 	break;
 
     case ADDRESS:
-	free_sl(t->u.ae.sl);
-	free_sl(t->u.ae.pl);
+    case ENVELOPE:
+	free(t->u.ae.comparator);
+	strarray_free(t->u.ae.sl);
+	strarray_free(t->u.ae.pl);
 	break;
 
     case BODY:
-	free_sl(t->u.b.content_types);
-	free_sl(t->u.b.pl);
+	free(t->u.b.comparator);
+	strarray_free(t->u.b.content_types);
+	strarray_free(t->u.b.pl);
 	break;
 
     case NOT:
 	free_test(t->u.t);
+	break;
+
+    case DATE:
+	free(t->u.dt.header_name);
+	/* fall-through */
+    case CURRENTDATE:
+	free(t->u.dt.comparator);
+	free(t->u.dt.zone);
+	strarray_free(t->u.dt.kl);
 	break;
     }
 
@@ -218,6 +193,7 @@ void free_tree(commandlist_t *cl)
 
 	case FILEINTO:
 	    if (cl->u.f.folder) free(cl->u.f.folder);
+	    if (cl->u.f.flags) strarray_free(cl->u.f.flags);
 	    break;
 
 	case REDIRECT:
@@ -230,17 +206,20 @@ void free_tree(commandlist_t *cl)
 
 	case VACATION:
 	    if (cl->u.v.subject) free(cl->u.v.subject);
-	    if (cl->u.v.addresses) free_sl(cl->u.v.addresses);
+	    if (cl->u.v.addresses) strarray_free(cl->u.v.addresses);
 	    if (cl->u.v.message) free(cl->u.v.message);
 	    break;
 	    
 	case SETFLAG:
 	case ADDFLAG:
 	case REMOVEFLAG:
-	    free_sl(cl->u.sl);
+	    strarray_free(cl->u.sl);
 	    break;
 
 	case KEEP:
+	    if (cl->u.k.flags) strarray_free(cl->u.k.flags);
+	    break;
+
 	case STOP:
 	case DISCARD:
 	case RETURN:
@@ -249,7 +228,7 @@ void free_tree(commandlist_t *cl)
 	case NOTIFY:
 	    if (cl->u.n.method) free(cl->u.n.method);
 	    if (cl->u.n.id) free(cl->u.n.id);
-	    if (cl->u.n.options) free_sl(cl->u.n.options);
+	    if (cl->u.n.options) strarray_free(cl->u.n.options);
 	    if (cl->u.n.message) free(cl->u.n.message);
 	    break;
 

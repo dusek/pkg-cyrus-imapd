@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imap_proxy.c,v 1.19 2010/01/06 17:01:32 murch Exp $
  */
 
 #include <config.h>
@@ -56,15 +54,15 @@
 #include "backend.h"
 #include "exitcodes.h"
 #include "global.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "imap_proxy.h"
 #include "proxy.h"
 #include "mboxname.h"
 #include "mupdate-client.h"
+#include "partlist.h"
 #include "prot.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "xstrlcat.h"
 
 extern unsigned int proxy_cmdcnt;
 extern struct protstream *imapd_in, *imapd_out;
@@ -72,50 +70,32 @@ extern struct backend *backend_inbox, *backend_current, **backend_cached;
 extern char *imapd_userid, *proxy_userid;
 extern struct namespace imapd_namespace;
 
-extern int mlookup(const char *tag, const char *ext_name,
-		   const char *name, int *flags,
-		   char **partp, char **aclp, struct txn **tid) ;
+static partlist_t *server_parts = NULL;
 
-static char *imap_parsemechlist(const char *str, struct stdprot_t *std)
+static void proxy_part_filldata(partlist_t *part_list, int idx);
+
+static void imap_postcapability(struct backend *s)
 {
-    char *ret = xzmalloc(strlen(str)+1);
-    char *tmp;
-    int num = 0;
-    
-    if (strstr(str, " SASL-IR")) {
+    if (CAPA(s, CAPA_SASL_IR)) {
 	/* server supports initial response in AUTHENTICATE command */
-	std->sasl_cmd.maxlen = USHRT_MAX;
+	s->prot->u.std.sasl_cmd.maxlen = USHRT_MAX;
     }
-    
-    while ((tmp = strstr(str, " AUTH="))) {
-	char *end = (tmp += 6);
-	
-	while((*end != ' ') && (*end != '\0')) end++;
-	
-	/* add entry to list */
-	if (num++ > 0) strcat(ret, " ");
-	strlcat(ret, tmp, strlen(ret) + (end - tmp) + 1);
-	
-	/* reset the string */
-	str = end;
-    }
-    
-    return ret;
 }
 
 struct protocol_t imap_protocol =
 { "imap", "imap", TYPE_STD,
   { { { 1, NULL },
-      { "C01 CAPABILITY", NULL, "C01 ", &imap_parsemechlist,
-	{ { " AUTH=", CAPA_AUTH },
-	  { " STARTTLS", CAPA_STARTTLS },
-	  { " COMPRESS=DEFLATE", CAPA_COMPRESS },
-	  { " IDLE", CAPA_IDLE },
-	  { " MUPDATE", CAPA_MUPDATE },
-	  { " MULTIAPPEND", CAPA_MULTIAPPEND },
-	  { " RIGHTS=kxte", CAPA_ACLRIGHTS },
-	  { " LIST-EXTENDED", CAPA_LISTEXTENDED },
-	  { " X-REPLICATION", CAPA_REPLICATION },
+      { "C01 CAPABILITY", NULL, "C01 ", imap_postcapability,
+	CAPAF_MANY_PER_LINE,
+	{ { "AUTH", CAPA_AUTH },
+	  { "STARTTLS", CAPA_STARTTLS },
+	  { "COMPRESS=DEFLATE", CAPA_COMPRESS },
+	  { "IDLE", CAPA_IDLE },
+	  { "MUPDATE", CAPA_MUPDATE },
+	  { "MULTIAPPEND", CAPA_MULTIAPPEND },
+	  { "RIGHTS=kxte", CAPA_ACLRIGHTS },
+	  { "LIST-EXTENDED", CAPA_LISTEXTENDED },
+	  { "SASL-IR", CAPA_SASL_IR },
 	  { NULL, 0 } } },
       { "S01 STARTTLS", "S01 OK", "S01 NO", 0 },
       { "A01 AUTHENTICATE", 0, 0, "A01 OK", "A01 NO", "+ ", "*",
@@ -133,21 +113,24 @@ void proxy_gentag(char *tag, size_t len)
 struct backend *proxy_findinboxserver(const char *userid)
 {
     char inbox[MAX_MAILBOX_BUFFER];
-    int r, mbtype;
-    char *server = NULL;
+    mbentry_t *mbentry = NULL;
     struct backend *s = NULL;
+    int r;
 
     r = (*imapd_namespace.mboxname_tointernal)(&imapd_namespace, "INBOX",
 					       userid, inbox);
+    if (r) return NULL;
 
-    if(!r) {
-	r = mlookup(NULL, NULL, inbox, &mbtype, &server, NULL, NULL);
-	if (!r && (mbtype & MBTYPE_REMOTE)) {
-	    s = proxy_findserver(server, &imap_protocol,
-				 proxy_userid, &backend_cached,
-				 &backend_current, &backend_inbox, imapd_in);
-	}
+    r = mboxlist_lookup(inbox, &mbentry, NULL);
+    if (r) return NULL;
+
+    if (mbentry->mbtype & MBTYPE_REMOTE) {
+	s = proxy_findserver(mbentry->server, &imap_protocol,
+			     proxy_userid, &backend_cached,
+			     &backend_current, &backend_inbox, imapd_in);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     return s;
 }
@@ -182,7 +165,7 @@ static int pipe_response(struct backend *s, const char *tag, int include_last,
 	}
     }
 
-    s->last_result.len = 0;
+    buf_reset(&s->last_result);
 
     /* the only complication here are literals */
     do {
@@ -230,16 +213,8 @@ static int pipe_response(struct backend *s, const char *tag, int include_last,
 	
 	    if (last && !include_last) {
 		/* Store the tagged line */
-		if (sl > s->last_result.alloc - s->last_result.len) {
-		    s->last_result.alloc =
-			(s->last_result.alloc == 0) ? (int) sizeof(buf) :
-			s->last_result.alloc * 2;
-		    s->last_result.s = xrealloc(s->last_result.s,
-						s->last_result.alloc+1);
-		}
-
-		strcpy(s->last_result.s + s->last_result.len, buf + taglen + 1);
-		s->last_result.len += sl - taglen - 1;
+		buf_appendcstr(&s->last_result, buf+taglen+1);
+		buf_cstring(&s->last_result);
 	    }
 	}
 
@@ -473,8 +448,7 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
     int exist_r;
     char mailboxname[MAX_MAILBOX_BUFFER];
     static struct buf tagb, cmd, sep, name;
-    int cur_flags_size = 64;
-    char *flags = xmalloc(cur_flags_size);
+    struct buf flags = BUF_INITIALIZER;
 
     const char *end_strip_flags[] = { " \\NonExistent)", "\\NonExistent)",
 				      " \\Noselect)", "\\Noselect)",
@@ -496,8 +470,8 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 	    if(s == backend_current && !force_notfatal)
 		fatal("Lost connection to selected backend", EC_UNAVAILABLE);
 	    proxy_downserver(s);
-	    free(flags);
-	    return PROXY_NOCONNECTION;
+	    r = PROXY_NOCONNECTION;
+	    goto out;
 	}
 
 	if(!strncmp(tag, tagb.s, taglen)) {
@@ -507,16 +481,12 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 		    fatal("Lost connection to selected backend",
 			  EC_UNAVAILABLE);
 		proxy_downserver(s);
-		free(flags);
-		return PROXY_NOCONNECTION;
+		r = PROXY_NOCONNECTION;
+		goto out;
 	    }	
 	    /* Got the end of the response */
-	    if (s->last_result.alloc == 0) {
-		s->last_result.alloc = sizeof(buf);
-		s->last_result.s = xmalloc(s->last_result.alloc+1);
-	    }
-	    strcpy(s->last_result.s, buf);
-	    s->last_result.len = strlen(buf);
+	    buf_appendcstr(&s->last_result, buf);
+	    buf_cstring(&s->last_result);
 
 	    switch (buf[0]) {
 	    case 'O': case 'o':
@@ -545,42 +515,31 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 	    if(s == backend_current && !force_notfatal)
 		fatal("Lost connection to selected backend", EC_UNAVAILABLE);
 	    proxy_downserver(s);
-	    free(flags);
-	    return PROXY_NOCONNECTION;
+	    r = PROXY_NOCONNECTION;
+	    goto out;
 	}
 
 	if(strncasecmp("LSUB", cmd.s, 4) && strncasecmp("LIST", cmd.s, 4)) {
 	    prot_printf(imapd_out, "%s %s ", tagb.s, cmd.s);
 	    r = pipe_to_end_of_response(s, force_notfatal);
-	    if(r != PROXY_OK) {
-		free(flags);
-		return r;
-	    }
+	    if (r != PROXY_OK)
+		goto out;
 	} else {
 	    /* build up the response bit by bit */
-	    int i = 0;
-	    char *p;
+	    int i;
 
+	    buf_reset(&flags);
 	    c = prot_getc(s->in);
 	    while(c != ')' && c != EOF) {
-		flags[i++] = c;
-		if(i == cur_flags_size) {
-		    /* expand our buffer */
-		    cur_flags_size *= 2;
-		    flags = xrealloc(flags, cur_flags_size);
-		}
+		buf_putc(&flags, c);
 		c = prot_getc(s->in);
 	    }
 
 	    if(c != EOF) {
 		/* terminate string */
-		flags[i++] = ')';
-		if(i == cur_flags_size) {
-		    /* expand our buffer */
-		    cur_flags_size *= 2;
-		    flags = xrealloc(flags, cur_flags_size);
-		}
-		flags[i] = '\0';
+		buf_putc(&flags, ')');
+		buf_cstring(&flags);
+
 		/* get the next character */
  		c = prot_getc(s->in);
 	    }
@@ -590,28 +549,17 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 		    fatal("Bad LSUB response from selected backend",
 			  EC_UNAVAILABLE);
 		proxy_downserver(s);
-		free(flags);
-		return PROXY_NOCONNECTION;
+		r = PROXY_NOCONNECTION;
+		goto out;
 	    }
 
 	    /* Check for flags that we should remove
 	     * (e.g. Noselect, NonExistent) */
-	    for(i=0; end_strip_flags[i]; i++) {
-		p = strstr(flags, end_strip_flags[i]);
-		if(p) {
-		    *p = ')';
-		    *(p+1) = '\0';
-		}
-	    }
+	    for(i=0; end_strip_flags[i]; i++)
+		buf_replace_all(&flags, end_strip_flags[i], ")");
 
-	    for(i=0; mid_strip_flags[i]; i++) {
-		int mid_strip_len = strlen(mid_strip_flags[i]);
-		p = strstr(flags, mid_strip_flags[i]);
-		while(p) {
-		    strcpy(p, p + mid_strip_len);
-		    p = strstr(flags, mid_strip_flags[i]);
-		}
-	    }
+	    for (i=0; mid_strip_flags[i]; i++)
+		buf_replace_all(&flags, mid_strip_flags[i], NULL);
 
 	    /* Get separator */
 	    c = getastring(s->in, s->out, &sep);
@@ -621,8 +569,8 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 		    fatal("Bad LSUB response from selected backend",
 			  EC_UNAVAILABLE);
 		proxy_downserver(s);
-		free(flags);
-		return PROXY_NOCONNECTION;
+		r = PROXY_NOCONNECTION;
+		goto out;
 	    }
 
 	    /* Get name */
@@ -634,8 +582,8 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 		    fatal("Bad LSUB response from selected backend",
 			  EC_UNAVAILABLE);
 		proxy_downserver(s);
-		free(flags);
-		return PROXY_NOCONNECTION;
+		r = PROXY_NOCONNECTION;
+		goto out;
 	    }
 
 	    /* lookup name */
@@ -645,10 +593,11 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 							userid,
 							mailboxname);
 	    if (!r) {
-		struct mboxlist_entry mbentry;
+		mbentry_t *mbentry = NULL;
 		exist_r = mboxlist_lookup(mailboxname, &mbentry, NULL);
-		if(!exist_r && (mbentry.mbtype & MBTYPE_RESERVE))
+		if(!exist_r && (mbentry->mbtype & MBTYPE_RESERVE))
 		    exist_r = IMAP_MAILBOX_RESERVED;
+		mboxlist_entry_free(&mbentry);
 	    } else {
 		/* skip this one */
 		syslog(LOG_ERR, "could not convert %s to internal form",
@@ -658,10 +607,10 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 
 	    /* send our response */
 	    /* we need to set \Noselect if it's not in our mailboxes.db */
-	    if(resp[0] == 'L') {
+	    if (resp[0] == 'L') {
 		if(!exist_r) {
 		    prot_printf(imapd_out, "* %s %s \"%s\" ",
-				resp, flags, sep.s);
+				resp, flags.s, sep.s);
 		} else {
 		    prot_printf(imapd_out, "* %s (\\Noselect) \"%s\" ",
 				resp, sep.s);
@@ -679,13 +628,14 @@ int pipe_lsub(struct backend *s, const char *userid, const char *tag,
 	}
     } /* while(1) */
 
-    free(flags);
+out:
+    buf_free(&flags);
     return r;
 }
 
 /* xxx  start of separate proxy-only code
    (remove when we move to a unified environment) */
-static int chomp(struct protstream *p, char *s)
+static int chomp(struct protstream *p, const char *s)
 {
     int c = prot_getc(p);
 
@@ -1294,11 +1244,11 @@ int proxy_catenate_url(struct backend *s, struct imapurl *url, FILE *f,
 
 /* Proxy GETANNOTATION commands to backend */
 int annotate_fetch_proxy(const char *server, const char *mbox_pat,
-			 struct strlist *entry_pat,
-			 struct strlist *attribute_pat) 
+			 const strarray_t *entry_pat,
+			 const strarray_t *attribute_pat)
 {
     struct backend *be;
-    struct strlist *l;
+    int i;
     char mytag[128];
     
     assert(server && mbox_pat && entry_pat && attribute_pat);
@@ -1311,12 +1261,12 @@ int annotate_fetch_proxy(const char *server, const char *mbox_pat,
     /* Send command to remote */
     proxy_gentag(mytag, sizeof(mytag));
     prot_printf(be->out, "%s GETANNOTATION \"%s\" (", mytag, mbox_pat);
-    for (l = entry_pat; l; l = l->next) {
-	prot_printf(be->out, "\"%s\"%s", l->s, l->next ? " " : "");
+    for (i = 0 ; i < entry_pat->count ; i++) {
+	prot_printf(be->out, "%s\"%s\"", i ? " " : "", entry_pat->data[i]);
     }
     prot_printf(be->out, ") (");
-    for (l = attribute_pat; l; l = l->next) {
-	prot_printf(be->out, "\"%s\"%s", l->s, l->next ? " " : "");
+    for (i = 0 ; i < attribute_pat->count ; i++) {
+	prot_printf(be->out, "%s\"%s\"", i ? " " : "", attribute_pat->data[i]);
     }
     prot_printf(be->out, ")\r\n");
     prot_flush(be->out);
@@ -1351,8 +1301,9 @@ int annotate_store_proxy(const char *server, const char *mbox_pat,
 	prot_printf(be->out, "\"%s\" (", e->entry);
 
 	for (av = e->attvalues; av; av = av->next) {
-	    prot_printf(be->out, "\"%s\" \"%s\"%s", av->attrib, av->value,
-			av->next ? " " : "");
+	    prot_printf(be->out, "\"%s\" ", av->attrib);
+	    prot_printmap(be->out, av->value.s, av->value.len);
+	    prot_printf(be->out, "%s", av->next ? " " : "");
 	}
 	prot_printf(be->out, ")");
 	if (e->next) prot_printf(be->out, " ");
@@ -1368,95 +1319,121 @@ int annotate_store_proxy(const char *server, const char *mbox_pat,
 }
 
 
-char *find_free_server()
+char *find_free_server(void)
 {
     const char *servers = config_getstring(IMAPOPT_SERVERLIST);
-    unsigned long max_avail = 0;
     char *server = NULL;
 
     if (servers) {
-	char *tmpbuf, *cur_server, *next_server;
-	char mytag[128];
-	struct backend *be;
+	if (!server_parts) {
+	    server_parts = xzmalloc(sizeof(partlist_t));
 
-	/* make a working copy of the list */
-	cur_server = tmpbuf = xstrdup(servers);
+	    partlist_initialize(
+		    server_parts,
+		    proxy_part_filldata,
+		    NULL,
+		    servers,
+		    NULL,
+		    partlist_getmode(config_getstring(IMAPOPT_SERVERLIST_SELECT_MODE)),
+		    config_getint(IMAPOPT_SERVERLIST_SELECT_SOFT_USAGE_LIMIT),
+		    config_getint(IMAPOPT_SERVERLIST_SELECT_USAGE_REINIT)
+		);
 
-	while (cur_server) {
-	    /* eat any leading whitespace */
-	    while (Uisspace(*cur_server)) cur_server++;
-
-	    if (!*cur_server) break;
-
-	    /* find end of server */
-	    if ((next_server = strchr(cur_server, ' ')) ||
-		(next_server = strchr(cur_server, '\t')))
-		*next_server++ = '\0';
-
-	    syslog(LOG_DEBUG, "checking free space on server '%s'", cur_server);
-
-	    /* connect to server */
-	    be = proxy_findserver(cur_server, &imap_protocol,
-				  proxy_userid, &backend_cached,
-				  &backend_current, &backend_inbox, imapd_in);
-	    if (be) {
-		unsigned avail = 0;
-		int c;
-
-		/* fetch annotation from remote */
-		proxy_gentag(mytag, sizeof(mytag));
-		prot_printf(be->out,
-			    "%s GETANNOTATION \"\" "
-			    "\"/vendor/cmu/cyrus-imapd/freespace\" "
-			    "\"value.shared\"\r\n", mytag);
-		prot_flush(be->out);
-
-		for (/* each annotation response */;;) {
-		    /* read a line */
-		    c = prot_getc(be->in);
-		    if (c != '*') break;
-		    c = prot_getc(be->in);
-		    if (c != ' ') { /* protocol error */ c = EOF; break; }
-
-		    c = chomp(be->in,
-			      "ANNOTATION \"\" "
-			      "\"/vendor/cmu/cyrus-imapd/freespace\" "
-			      "(\"value.shared\" \"");
-		    if (c == EOF) {
-			/* we don't care about this response */
-			eatline(be->in, c);
-			continue;
-		    }
-
-		    /* read uidvalidity */
-		    c = getuint32(be->in, &avail);
-		    if (c != '\"') { c = EOF; break; }
-		    eatline(be->in, c); /* we don't care about the rest of the line */
-		}
-		if (c != EOF) {
-		    prot_ungetc(c, be->in);
-
-		    /* we should be looking at the tag now */
-		    eatline(be->in, c);
-		}
-		if (c == EOF) {
-		    /* uh oh, we're not happy */
-		    fatal("Lost connection to backend", EC_UNAVAILABLE);
-		}
-		if (avail > max_avail) {
-		    server = cur_server;
-		    max_avail = avail;
-		}
-	    }
-
-	    /* move to next server */
-	    cur_server = next_server;
 	}
 
-	if (server) server = xstrdup(server);
-
-	free(tmpbuf);
+	server = (char *)partlist_select_value(server_parts);
     }
 
     return server;
+}
+
+
+static void proxy_part_filldata(partlist_t *part_list, int idx)
+{
+    char mytag[128];
+    struct backend *be;
+    partitem_t *item = &part_list->items[idx];
+
+    item->id = 0;
+    item->available = 0;
+    item->total = 0;
+    item->quota = 0.;
+
+    syslog(LOG_DEBUG, "checking free space on server '%s'", item->value);
+
+    /* connect to server */
+    be = proxy_findserver(item->value, &imap_protocol,
+	    proxy_userid, &backend_cached,
+	    &backend_current, &backend_inbox, imapd_in);
+
+    if (be) {
+	uint64_t server_available = 0;
+	uint64_t server_total = 0;
+	int c;
+
+	/* fetch annotation from remote */
+	proxy_gentag(mytag, sizeof(mytag));
+	if (part_list->mode == PART_SELECT_MODE_FREESPACE_MOST) {
+	    prot_printf(be->out,
+		"%s GETANNOTATION \"\" "
+		"\"/vendor/cmu/cyrus-imapd/freespace/total\" "
+		"\"value.shared\"\r\n", mytag);
+	}
+	else {
+	    prot_printf(be->out,
+		"%s GETANNOTATION \"\" "
+		"\"/vendor/cmu/cyrus-imapd/freespace/percent/most\" "
+		"\"value.shared\"\r\n", mytag);
+	}
+	prot_flush(be->out);
+
+	for (/* each annotation response */;;) {
+	    /* read a line */
+	    c = prot_getc(be->in);
+	    if (c != '*') break;
+	    c = prot_getc(be->in);
+	    if (c != ' ') { /* protocol error */ c = EOF; break; }
+
+	    if (part_list->mode == PART_SELECT_MODE_FREESPACE_MOST) {
+		c = chomp(be->in,
+		    "ANNOTATION \"\" "
+		    "\"/vendor/cmu/cyrus-imapd/freespace/total\" "
+		    "(\"value.shared\" ");
+	    } else {
+		c = chomp(be->in,
+		    "ANNOTATION \"\" "
+		    "\"/vendor/cmu/cyrus-imapd/freespace/percent/most\" "
+		    "(\"value.shared\" ");
+	    }
+	    if ((c == EOF) || (c != '\"')) {
+		/* we don't care about this response */
+		eatline(be->in, c);
+		continue;
+	    }
+
+	    /* read available */
+	    c = getuint64(be->in, &server_available);
+	    if (c != ';') { c = EOF; break; }
+
+	    /* read total */
+	    c = getuint64(be->in, &server_total);
+	    if (c != '\"') { c = EOF; break; }
+	    eatline(be->in, c); /* we don't care about the rest of the line */
+	}
+	if (c != EOF) {
+	    prot_ungetc(c, be->in);
+
+	    /* we should be looking at the tag now */
+	    eatline(be->in, c);
+	}
+	if (c == EOF) {
+	    /* uh oh, we're not happy */
+	    fatal("Lost connection to backend", EC_UNAVAILABLE);
+	}
+
+	/* unique id */
+	item->id = idx;
+	item->available = server_available;
+	item->total = server_total;
+    }
 }

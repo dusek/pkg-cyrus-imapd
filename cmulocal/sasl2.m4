@@ -1,6 +1,5 @@
 # sasl2.m4--sasl2 libraries and includes
 # Rob Siemborski
-# $Id: sasl2.m4,v 1.61 2011/11/09 15:49:47 murch Exp $
 
 # SASL2_CRYPT_CHK
 # ---------------
@@ -41,7 +40,7 @@ if test "$gssapi" != no; then
     *)
       AC_WARN([The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script])
       if test "$gss_impl" = "cybersafe"; then
-        AC_ERROR([CyberSafe was forced, cannot continue as platform is not supported])
+        AC_MSG_ERROR([CyberSafe was forced, cannot continue as platform is not supported])
       fi
       ;;
   esac
@@ -66,8 +65,7 @@ if test "$gssapi" != no; then
     fi
   fi
   AC_CHECK_HEADER([gssapi.h],,
-                  [AC_CHECK_HEADER([gssapi/gssapi.h],,
-                                   [AC_WARN([Disabling GSSAPI - no include files found]); gssapi=no])])
+                  [AC_CHECK_HEADER([gssapi/gssapi.h],, [gssapi=no])])
   AC_CHECK_HEADERS(gssapi/gssapi_ext.h)
   CPPFLAGS=$cmu_saved_CPPFLAGS
 
@@ -252,7 +250,6 @@ if test "$gssapi" != "no"; then
   fi
 fi
 
-GSSAPI_LIBS=""
 AC_MSG_CHECKING([GSSAPI])
 if test "$gssapi" != no; then
   AC_MSG_RESULT([with implementation ${gss_impl}])
@@ -312,7 +309,6 @@ int main(void)
 else
   AC_MSG_RESULT([disabled])
 fi
-AC_SUBST(GSSAPI_LIBS)
 AC_SUBST(GSSAPIBASE_LIBS)
 ])# SASL_GSSAPI_CHK
 
@@ -385,9 +381,10 @@ if test ${with_staticsasl} != "no"; then
                                         LIB_SASL="$LIB_SASL ${with_staticsasl}/$i42/libsasl2.a"
                                       fi
                                     done
+                                    AC_CHECK_FUNC(dlopen,,[AC_CHECK_LIB(dl, dlopen, [LIB_SASL+="$LIB_SASL -ldl"])])
                                     if test ! "$ac_cv_found_sasl" = "yes"; then
                                       AC_MSG_CHECKING([for static libsasl])
-                                      AC_ERROR([Could not find ${with_staticsasl}/lib*/libsasl2.a])
+                                      AC_MSG_ERROR([Could not find ${with_staticsasl}/lib*/libsasl2.a])
                                     fi])])
 
   AC_MSG_RESULT([found])
@@ -458,7 +455,7 @@ AC_SUBST(SASLFLAGS)
 AC_DEFUN([CMU_SASL2_REQUIRED],
 [AC_REQUIRE([CMU_SASL2])
 if test "$ac_cv_found_sasl" != "yes"; then
-  AC_ERROR([Cannot continue without libsasl2.
+  AC_MSG_ERROR([Cannot continue without libsasl2.
 Get it from ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/.])
 fi])
 
@@ -488,7 +485,7 @@ AC_TRY_CPP([
 #error SASL version is less than $1.$2.$3
 #endif
 ],,
-           [AC_ERROR([Incorrect SASL headers found.  This package requires SASL $1.$2.$3 or newer.])])
+           [AC_MSG_ERROR([Incorrect SASL headers found.  This package requires SASL $1.$2.$3 or newer.])])
 
 CPPFLAGS=$cmu_saved_CPPFLAGS
 ])# CMU_SASL2_REQUIRE_VER

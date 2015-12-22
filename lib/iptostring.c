@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: iptostring.c,v 1.10 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
@@ -52,7 +50,7 @@
 #include <errno.h>
 #include "iptostring.h"
 
-int iptostring(const struct sockaddr *addr, socklen_t addrlen,
+EXPORTED int iptostring(const struct sockaddr *addr, socklen_t addrlen,
 	       char *out, unsigned outlen) {
     char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
     int niflags;

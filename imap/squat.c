@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: squat.c,v 1.12 2010/01/06 17:01:40 murch Exp $
  */
 
 #include <config.h>
@@ -83,7 +81,7 @@ static int memconst(char const* s, int len, char v) {
   return len == 0;
 }
 
-SquatSearchIndex* squat_search_open(int fd) {
+EXPORTED SquatSearchIndex* squat_search_open(int fd) {
   struct stat buf;
   SquatSearchIndex* index;
   SquatDiskHeader const* header;
@@ -153,7 +151,7 @@ cleanup_index:
   return NULL;
 }
 
-int squat_search_list_docs(SquatSearchIndex* index,
+EXPORTED int squat_search_list_docs(SquatSearchIndex* index,
   SquatListDocCallback handler, void* closure) {
   char const* s = index->doc_list;
 
@@ -471,7 +469,7 @@ static void destroy_docset(SquatDocSet* set) {
    of documents, to save memory and the cost of traversing that list
    several times.
 */
-int squat_search_execute(SquatSearchIndex* index, char const* data,
+HIDDEN int squat_search_execute(SquatSearchIndex* index, char const* data,
   int data_len, SquatSearchResultCallback handler, void* closure) {
   int i;
   int min_doc_count_word; /* The subword of 'data' that appears in
@@ -597,7 +595,7 @@ cleanup_run_starts:
   return SQUAT_ERR;
 }
 
-int squat_search_close(SquatSearchIndex* index) {
+EXPORTED int squat_search_close(SquatSearchIndex* index) {
   int r = SQUAT_OK;
 
   squat_set_last_error(SQUAT_ERR_OK);
@@ -854,7 +852,7 @@ static int squat_find_branch(char const** result, char const** prev,
   return(SQUAT_OK);
 }
 
-int squat_scan(SquatSearchIndex* index, char first_char,
+EXPORTED int squat_scan(SquatSearchIndex* index, char first_char,
                SquatScanCallback handler, void* closure)
 {
   char buf[SQUAT_WORD_SIZE+1];
@@ -871,8 +869,6 @@ int squat_scan(SquatSearchIndex* index, char first_char,
   buf[0] = first_char;
 
   return(squat_scan_recurse(s, index->data_end, buf, 1, handler, closure));
-
-  return SQUAT_OK;
 }
 
 /* ====================================================================== */
@@ -928,7 +924,7 @@ squat_preload_data(char const* t, char const* s)
   }
 }
                           
-int squat_count_docs(SquatSearchIndex* index, char first_char, int *counter)
+EXPORTED int squat_count_docs(SquatSearchIndex* index, char first_char, int *counter)
 {
   char buf[SQUAT_WORD_SIZE+1];
   const char *s, *t;

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: map_shared.c,v 1.23 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -55,23 +53,17 @@
 
 #define SLOP (8*1024)
 
-const char *map_method_desc = "shared";
+EXPORTED const char *map_method_desc = "shared";
 
 /*
  * Create/refresh mapping of file
  */
-void
-map_refresh(fd, onceonly, base, len, newlen, name, mboxname)
-int fd;
-int onceonly;
-const char **base;
-unsigned long *len;
-unsigned long newlen;
-const char *name;
-const char *mboxname;
+EXPORTED void map_refresh(int fd, int onceonly, const char **base,
+		 size_t *len, size_t newlen,
+		 const char *name, const char *mboxname)
 {
     struct stat sbuf;
-    char buf[80];
+    char buf[256];
 
     if (newlen == MAP_UNKNOWN_LEN) {
 	if (fstat(fd, &sbuf) == -1) {
@@ -112,10 +104,7 @@ const char *mboxname;
 /*
  * Destroy mapping of file
  */
-void
-map_free(base, len)
-const char **base;
-unsigned long *len;
+EXPORTED void map_free(const char **base, size_t *len)
 {
     if (*len) munmap((char *)*base, *len);
     *base = 0;

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: backend.h,v 1.15 2010/01/06 17:01:30 murch Exp $
  */
 
 #ifndef _INCLUDED_BACKEND_H
@@ -52,6 +50,11 @@
 #include "tls.h"
 
 /* Functionality to bring up/down connections to backend servers */
+
+struct backend_cap_params {
+    unsigned long capa;
+    char *params;	/* each BAR from FOO=BAR, in order, space separated */
+};
 
 struct backend {
     char hostname[MAX_PARTITION_LEN];
@@ -79,6 +82,8 @@ struct backend {
 #endif /* HAVE_SSL */
 
     unsigned long capability;
+    int num_cap_params;
+    struct backend_cap_params *cap_params;
 
     struct buf last_result;
     struct protstream *in; /* from the be server to me, the proxy */
@@ -89,11 +94,17 @@ struct backend {
  * cache on success (and returns NULL on failure, but leaves cache alone) */
 struct backend *backend_connect(struct backend *cache, const char *server,
 				struct protocol_t *prot, const char *userid,
-				sasl_callback_t *cb, const char **auth_status);
-int backend_starttls(struct backend *s, struct tls_cmd_t *tls_cmd);
+				sasl_callback_t *cb, const char **auth_status,
+				int logfd);
+int backend_starttls(	struct backend *s,
+			struct tls_cmd_t *tls_cmd,
+			const char *c_cert_file,
+			const char *c_key_file);
+
 int backend_ping(struct backend *s, const char *userid);
 void backend_disconnect(struct backend *s);
 char *intersect_mechlists(char *config, char *server);
+char *backend_get_cap_params(const struct backend *, unsigned long capa);
 
 #define CAPA(s, c) ((s)->capability & (c))
 

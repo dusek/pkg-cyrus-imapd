@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: version.c,v 1.25 2010/02/03 16:37:42 murch Exp $
  */
 
 #include <config.h>
@@ -59,15 +57,13 @@
 #include <string.h>
 #include "../xversion.h"
 #include "version.h"
-#include "prot.h"
-#include "cyrusdb.h"
 #include "map.h"
 #include "cyr_lock.h"
 #include "nonblock.h"
 #include "idle.h"
 
 #ifdef USE_SIEVE
-#include "sieve_interface.h"
+#include "sieve/sieve_interface.h"
 #endif
 
 static char id_resp_command[MAXIDVALUELEN];
@@ -84,7 +80,7 @@ static char id_resp_arguments[MAXIDVALUELEN] = "";
 #define CYRUS_VERSION _CYRUS_VERSION
 #endif
 
-const char *cyrus_version()
+EXPORTED const char *cyrus_version(void)
 {
     return CYRUS_VERSION;
 }
@@ -92,7 +88,7 @@ const char *cyrus_version()
 /*
  * Grab the command line args for the ID response.
  */
-void id_getcmdline(int argc, char **argv)
+EXPORTED void id_getcmdline(int argc, char **argv)
 {
     snprintf(id_resp_command, MAXIDVALUELEN, "%s", *argv);
     while (--argc > 0) {
@@ -106,7 +102,7 @@ void id_getcmdline(int argc, char **argv)
  * Output the ID response.
  * We do NOT close the parameter list so other stuff can be added later.
  */
-void id_response(struct protstream *pout)
+EXPORTED void id_response(struct protstream *pout)
 {
     struct utsname os;
     const char *sasl_imp;

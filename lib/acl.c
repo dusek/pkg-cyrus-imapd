@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: acl.c,v 1.14 2010/01/06 17:01:43 murch Exp $
- *
  * Author: Chris Newman
  * Start Date: 6/28/93
  *
@@ -54,7 +52,7 @@
 
 /* convert a string to an acl bit vector
  */
-int cyrus_acl_strtomask(const char *str)
+EXPORTED int cyrus_acl_strtomask(const char *str)
 {
     const char *deleteright = libcyrus_config_getstring(CYRUSOPT_DELETERIGHT);
     long legacy_create = 0;
@@ -65,7 +63,7 @@ int cyrus_acl_strtomask(const char *str)
 	switch (*str) {
 	    case 'l': result |= ACL_LOOKUP; break;
 	    case 'r': result |= ACL_READ; break;
-	    case 's': result |= ACL_SEEN; break;
+	    case 's': result |= ACL_SETSEEN; break;
 	    case 'w': result |= ACL_WRITE; break;
 	    case 'i': result |= ACL_INSERT; break;
 	    case 'p': result |= ACL_POST; break;
@@ -78,6 +76,7 @@ int cyrus_acl_strtomask(const char *str)
 	    case 'd': /* legacy DELETE macro - build member rights */
 		legacy_delete = (ACL_DELETEMSG | ACL_EXPUNGE); break;
 	    case 'a': result |= ACL_ADMIN; break;
+	    case 'n': result |= ACL_ANNOTATEMSG; break;
 	    case '0': result |= ACL_USER0; break;
 	    case '1': result |= ACL_USER1; break;
 	    case '2': result |= ACL_USER2; break;
@@ -113,7 +112,7 @@ int cyrus_acl_strtomask(const char *str)
 
 /* convert an acl bit vector to a string
  */
-char *cyrus_acl_masktostr(int acl, char *str)
+EXPORTED char *cyrus_acl_masktostr(int acl, char *str)
 {
     char *pos = str;
     const char *deleteright = libcyrus_config_getstring(CYRUSOPT_DELETERIGHT);
@@ -128,7 +127,7 @@ char *cyrus_acl_masktostr(int acl, char *str)
 
     if (acl & ACL_LOOKUP) *pos++ = 'l';
     if (acl & ACL_READ) *pos++ = 'r';
-    if (acl & ACL_SEEN) *pos++ = 's';
+    if (acl & ACL_SETSEEN) *pos++ = 's';
     if (acl & ACL_WRITE) *pos++ = 'w';
     if (acl & ACL_INSERT) *pos++ = 'i';
     if (acl & ACL_POST) *pos++ = 'p';
@@ -145,6 +144,7 @@ char *cyrus_acl_masktostr(int acl, char *str)
 	*pos++ = 'd';
     }
     if (acl & ACL_ADMIN) *pos++ = 'a';
+    if (acl & ACL_ANNOTATEMSG) *pos++ = 'n';
     if (acl & ACL_USER0) *pos++ = '0';
     if (acl & ACL_USER1) *pos++ = '1';
     if (acl & ACL_USER2) *pos++ = '2';

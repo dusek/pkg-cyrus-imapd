@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: ctl_deliver.c,v 1.25 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -50,14 +48,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <syslog.h>
-#include <errno.h>
 #include <signal.h>
 
-#include "cyrusdb.h"
 #include "duplicate.h"
 #include "exitcodes.h"
 #include "global.h"
@@ -65,10 +59,7 @@
 #include "util.h"
 #include "xmalloc.h"
 
-/* global state */
-const int config_need_data = 0;
-
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr,
 	    "ctl_deliver [-C <altconfig>] -d [-f <dbfile>]\n");
@@ -82,10 +73,9 @@ int main(int argc, char *argv[])
     char *alt_file = NULL;
     char *alt_config = NULL;
     char *days = NULL;
-    int flag = 0;
     enum { DUMP, PRUNE, NONE } op = NONE;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -125,7 +115,7 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "ctl_deliver -E is deprecated: "
 		"using cyr_expire -E instead\n");
 
-	r = snprintf(buf, sizeof(buf), "%s/cyr_expire", SERVICE_PATH);
+	r = snprintf(buf, sizeof(buf), "%s/cyr_expire", SERVICE_DIR);
 	if(r < 0 || r >= (int) sizeof(buf)) {
 	    fatal("cyr_expire command buffer not sufficiently big", EC_CONFIG);
 	}
@@ -139,9 +129,9 @@ int main(int argc, char *argv[])
     }
 
     case DUMP:
-	cyrus_init(alt_config, "ctl_deliver", 0);
+	cyrus_init(alt_config, "ctl_deliver", 0, 0);
 
-	if (duplicate_init(alt_file, flag) != 0) {
+	if (duplicate_init(alt_file) != 0) {
 	    fprintf(stderr, 
 		    "ctl_deliver: unable to init duplicate delivery database\n");
 	    exit(1);

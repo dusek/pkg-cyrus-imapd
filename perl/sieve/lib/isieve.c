@@ -37,37 +37,26 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: isieve.c,v 1.37 2010/01/06 17:01:56 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/file.h>
-#include <netinet/in.h>
 #include <netdb.h>
+#include <netinet/in.h>
+#include <sasl/saslutil.h>
+#include <sys/file.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <sasl/sasl.h>
-#include <sasl/saslutil.h>
-
-#include "isieve.h"
-#include "lex.h"
-#include "request.h"
 #include "iptostring.h"
 #include "xmalloc.h"
-#include "util.h"
-
-#include <prot.h>
+#include "perl/sieve/lib/isieve.h"
+#include "perl/sieve/lib/lex.h"
+#include "perl/sieve/lib/request.h"
 
 struct iseive_s {
     char *serverFQDN;
@@ -97,8 +86,8 @@ static void sieve_dispose(isieve_t *obj)
     sasl_dispose(&obj->conn);
     free(obj->serverFQDN);
 
-    if (obj->refer_authinfo) free(obj->refer_authinfo);
-    if (obj->refer_callbacks) free(obj->refer_callbacks);
+    free(obj->refer_authinfo);
+    free(obj->refer_callbacks);
 
     prot_free(obj->pin);
     prot_free(obj->pout);
@@ -143,10 +132,7 @@ int init_net(char *serverFQDN, int port, isieve_t **obj)
     return -1;
   }
 
-  *obj = (isieve_t *) xmalloc(sizeof(isieve_t));
-  if (!*obj) return -1;
-
-  memset(*obj, '\0', sizeof(isieve_t));
+  *obj = (isieve_t *) xzmalloc(sizeof(isieve_t));
 
   (*obj)->sock = sock;
   (*obj)->serverFQDN = xstrdup(serverFQDN);
@@ -255,7 +241,7 @@ char * read_capability(isieve_t *obj)
 
   while (yylex(&state,obj->pin)==STRING)
   {
-      char *attr = string_DATAPTR(state.str);
+      char *attr = state.str;
       char *val;
 
       val = NULL;
@@ -266,7 +252,7 @@ char * read_capability(isieve_t *obj)
 	  {
 	      parseerror("STRING");
 	  }
-	  val = xstrdup(string_DATAPTR(state.str));
+	  val = state.str;
 	  if (yylex(&state,obj->pin)!=EOL)
 	  {
 	      parseerror("EOL1");
@@ -276,7 +262,7 @@ char * read_capability(isieve_t *obj)
       if (strcasecmp(attr,"SASL")==0)
       {
 	free(cap);
-	cap = val ? xstrdup(val) : NULL;
+	cap = xstrdupnull(val);
       } else if (strcasecmp(attr,"SIEVE")==0) {
 
       } else if (strcasecmp(attr,"IMPLEMENTATION")==0) {
@@ -284,12 +270,9 @@ char * read_capability(isieve_t *obj)
       } else if (strcasecmp(attr,"STARTTLS")==0) {
 	  /* TODO */
       } else if (val && strncmp(val,"SASL=",5)==0) {
-	  int len = strlen(val);
 	  obj->version = OLD_VERSION;
 	  free(cap);
-	  cap = (char *) xmalloc(len+1);
-	  memset(cap, '\0', len);
-	  memcpy(cap, val+5, len-6);
+	  cap = xstrdup(val+5);
 	  free(val);
 	  return cap;
       } else {
@@ -338,17 +321,17 @@ static int getauthline(isieve_t *obj, char **line, unsigned int *linelen,
 {
   lexstate_t state;
   int res;
-  int ret;
   size_t len;
-  mystring_t *errstr;
+  char *errstr = NULL;
   char *last_send;
+  int r;
 
   /* now let's see what the server said */
   res=yylex(&state, obj->pin);
   *line = NULL;
   if (res!=STRING)
   {
-      ret = handle_response(res,obj->version,
+      (void)handle_response(res, obj->version,
 			    obj->pin, &last_send, &errstr);
       
       if (res==TOKEN_OK) {
@@ -360,24 +343,28 @@ static int getauthline(isieve_t *obj, char **line, unsigned int *linelen,
 	      len = last_send_len*2+1;
 	      *line = xmalloc(len);
 
-	      sasl_decode64(last_send, last_send_len,
-			    *line, len, linelen);
+	      r = sasl_decode64(last_send, last_send_len,
+				*line, len, linelen);
 
 	      free(last_send);
+	      if (r != SASL_OK)
+		return STAT_NO;
 	  }
 	  return STAT_OK;
       } else { /* server said no or bye*/
 	  /* xxx handle referrals */
-	  *errstrp = string_DATAPTR(errstr);
+	  *errstrp = errstr;
 	  return STAT_NO;
       }
   }
 
-  len = state.str->len*2+1;
+  len = strlen(state.str)*2+1;
   *line=(char *) xmalloc(len);
 
-  sasl_decode64(string_DATAPTR(state.str), state.str->len,
-		*line, len, linelen);
+  r = sasl_decode64(state.str, strlen(state.str),
+		    *line, len, linelen);
+  if (r != SASL_OK)
+      return STAT_NO;
 
   if (yylex(&state, obj->pin)!=EOL)
       return STAT_NO;
@@ -459,9 +446,9 @@ int auth_sasl(char *mechlist, isieve_t *obj, const char **mechusing,
 
 	/* eat the auth line that confirms that we canceled */
 	if(getauthline(obj,&in,&inlen,errstr) != STAT_NO) {
-	    *errstr = strdup("protocol error");
+	    *errstr = xstrdup("protocol error");
 	} else {
-	    *errstr = strdup(sasl_errstring(saslresult,NULL,NULL));
+	    *errstr = xstrdup(sasl_errstring(saslresult,NULL,NULL));
 	}
 	
 	return saslresult;
@@ -541,7 +528,7 @@ static int refer_simple_cb(void *context, int id, const char **result,
     return SASL_OK;
 }
 
-int do_referral(isieve_t *obj, char *refer_to) 
+static int do_referral(isieve_t *obj, char *refer_to)
 {
     int ret;
     struct servent *serv;
@@ -584,11 +571,11 @@ int do_referral(isieve_t *obj, char *refer_to)
 
 	    switch (callbacks[n].id) {
 	    case SASL_CB_USER:
-		callbacks[n].proc = &refer_simple_cb;
+		callbacks[n].proc = (int (*)(void))&refer_simple_cb;
 		callbacks[n].context = userid ? userid : authid;
 		break;
 	    case SASL_CB_AUTHNAME:
-		callbacks[n].proc = &refer_simple_cb;
+		callbacks[n].proc = (int (*)(void))&refer_simple_cb;
 		callbacks[n].context = authid;
 		break;
 	    default:
@@ -618,7 +605,7 @@ int do_referral(isieve_t *obj, char *refer_to)
     } else {
 	serv = getservbyname("sieve", "tcp");
 	if (serv == NULL) {
-	    port = 2000;
+	    port = 4190;
 	} else {
 	    port = ntohs(serv->s_port);
 	}
@@ -645,9 +632,9 @@ int do_referral(isieve_t *obj, char *refer_to)
 
 	if(mtried) {
 	    char *newlist = (char*) xmalloc(strlen(mechlist)+1);
-	    char *mtr = (char*) xstrdup(mtried);
+	    char *mtr = xstrdup(mtried);
 	    char *tmp;
-	    
+
 	    ucase(mtr);
 	    tmp = strstr(mechlist,mtr);
 	    if (tmp) {
@@ -717,7 +704,7 @@ int isieve_put_file(isieve_t *obj, char *filename, char *destname,
 	if(ret == STAT_OK) {
 	    ret = isieve_put_file(obj, filename, destname, errstr);
 	} else {
-	    *errstr = "referral failed";
+	    *errstr = xstrdup("referral failed");
 	}
     }
     return ret;
@@ -734,7 +721,7 @@ int isieve_put(isieve_t *obj, char *name, char *data, int len, char **errstr)
 	if(ret == STAT_OK) {
 	    ret = isieve_put(obj, name, data, len, errstr);
 	} else {
-	    *errstr = "referral failed";
+	    *errstr = xstrdup("referral failed");
 	}
     }
     return ret;
@@ -751,7 +738,7 @@ int isieve_delete(isieve_t *obj, char *name, char **errstr)
 	if(ret == STAT_OK) {
 	    ret = isieve_delete(obj, name, errstr);
 	} else {
-	    *errstr = "referral failed";
+	    *errstr = xstrdup("referral failed");
 	}
     }
     return ret;
@@ -780,7 +767,7 @@ int isieve_activate(isieve_t *obj, char *name, char **errstr)
 	if(ret == STAT_OK) {
 	    ret = isieve_activate(obj, name, errstr);
 	} else {
-	    *errstr = "referral failed";
+	    *errstr = xstrdup("referral failed");
 	}
     }
     return ret;
@@ -790,7 +777,7 @@ int isieve_get(isieve_t *obj,char *name, char **output, char **errstr)
 {
     int ret;
     char *refer_to;
-    mystring_t *mystr = NULL;
+    char *mystr = NULL;
 
     ret = getscriptvalue(obj->version,obj->pout, obj->pin,
 			 name, &mystr, &refer_to, errstr);
@@ -801,11 +788,11 @@ int isieve_get(isieve_t *obj,char *name, char **output, char **errstr)
 	    ret = isieve_get(obj,name,output,errstr);
 	    return ret;
 	} else {
-	    *errstr = "referral failed";
+	    *errstr = xstrdup("referral failed");
 	}
     }
 
-    *output = string_DATAPTR(mystr);
+    *output = mystr;
 
     return ret;
 }

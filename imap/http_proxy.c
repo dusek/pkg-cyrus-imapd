@@ -71,18 +71,19 @@
 #include <libxml/uri.h>
 
 static int login(struct backend *s, const char *userid,
-		 sasl_callback_t *cb, const char **status);
+		 sasl_callback_t *cb, const char **status,
+		 int noauth);
 static int ping(struct backend *s, const char *userid);
 static int logout(struct backend *s __attribute__((unused)));
 
 
-struct protocol_t http_protocol =
+HIDDEN struct protocol_t http_protocol =
 { "http", "HTTP", TYPE_SPEC,
   { .spec = { &login, &ping, &logout } }
 };
 
 
-const char *digest_recv_success(hdrcache_t hdrs)
+EXPORTED const char *digest_recv_success(hdrcache_t hdrs)
 {
     const char **hdr = spool_getheader(hdrs, "Authentication-Info");
 
@@ -125,7 +126,8 @@ static const char *callback_getdata(sasl_conn_t *conn,
 #define BASE64_BUF_SIZE	21848	/* per RFC 2222bis: ((16K / 3) + 1) * 4  */
 
 static int login(struct backend *s, const char *userid,
-		 sasl_callback_t *cb, const char **status)
+		 sasl_callback_t *cb, const char **status,
+		 int noauth __attribute__((unused)))
 {
     int r = 0;
     socklen_t addrsize;
@@ -248,7 +250,7 @@ static int login(struct backend *s, const char *userid,
 		    if (status) *status = "TLS already active";
 		    break;
 		}
-		else if (backend_starttls(s, NULL)) {
+		else if (backend_starttls(s, NULL, NULL, NULL)) {
 		    r = HTTP_SERVER_ERROR;
 		    if (status) *status = "Unable to start TLS";
 		    break;
@@ -466,9 +468,9 @@ static int logout(struct backend *s __attribute__((unused)))
  * machine to make a roundtrip to the master mailbox server to make
  * sure it's up to date
  */
-int http_mlookup(const char *name, char **server, char **aclp, void *tid)
+EXPORTED int http_mlookup(const char *name, mbentry_t **mbentryp, void *tid)
 {
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
     int r;
 
     r = mboxlist_lookup(name, &mbentry, tid);
@@ -477,28 +479,28 @@ int http_mlookup(const char *name, char **server, char **aclp, void *tid)
 	r = mboxlist_lookup(name, &mbentry, tid);
     }
     if (r) return r;
-    if (mbentry.mbtype & MBTYPE_RESERVE) return IMAP_MAILBOX_RESERVED;
-    if (mbentry.mbtype & MBTYPE_MOVING) return IMAP_MAILBOX_MOVED;
-    if (mbentry.mbtype & MBTYPE_DELETED) return IMAP_MAILBOX_NONEXISTENT;
-
-    if (aclp) *aclp = mbentry.acl;
-    if (server) {
-	*server = NULL;
-	if (mbentry.mbtype & MBTYPE_REMOTE) {
-	    /* xxx hide the fact that we are storing partitions */
-	    char *c;
-	    *server = mbentry.partition;
-	    c = strchr(*server, '!');
-	    if (c) *c = '\0';
-	}
+    if (mbentry->mbtype & MBTYPE_RESERVE) {
+	r = IMAP_MAILBOX_RESERVED;
+	goto done;
+    }
+    if (mbentry->mbtype & MBTYPE_MOVING) {
+	r = IMAP_MAILBOX_MOVED;
+	goto done;
+    }
+    if (mbentry->mbtype & MBTYPE_DELETED) {
+	r = IMAP_MAILBOX_NONEXISTENT;
+	goto done;
     }
 
+done:
+    if (!r && mbentryp) *mbentryp = mbentry;
+    else mboxlist_entry_free(&mbentry);
     return r;
 }
 
 
 /* Fetch protocol and host used for request from headers */
-void http_proto_host(hdrcache_t req_hdrs, const char **proto, const char **host)
+EXPORTED void http_proto_host(hdrcache_t req_hdrs, const char **proto, const char **host)
 {
     const char **fwd;
 
@@ -777,7 +779,7 @@ static int pipe_resp_body(struct protstream *pin, struct protstream *pout,
 
 
 /* Proxy (pipe) a client-request/server-response to/from a backend. */
-int http_pipe_req_resp(struct backend *be, struct transaction_t *txn)
+EXPORTED int http_pipe_req_resp(struct backend *be, struct transaction_t *txn)
 {
     int r = 0, sent_body = 0;
     xmlChar *uri;
@@ -907,7 +909,7 @@ int http_pipe_req_resp(struct backend *be, struct transaction_t *txn)
  * XXX  This function buffers the response bodies of the LOCK & GET requests.
  *      The response body of the PUT request is piped to the client.
  */
-int http_proxy_copy(struct backend *src_be, struct backend *dest_be,
+EXPORTED int http_proxy_copy(struct backend *src_be, struct backend *dest_be,
 		    struct transaction_t *txn)
 {
     int r = 0, sent_body;
@@ -954,7 +956,7 @@ int http_proxy_copy(struct backend *src_be, struct backend *dest_be,
 	prot_printf(src_be->out,
 		    "Content-Type: application/xml; charset=utf-8\r\n"
 		    "Content-Length: %u\r\n\r\n%s",
-		    buf_len(&txn->buf), buf_cstring(&txn->buf));
+		    (unsigned)buf_len(&txn->buf), buf_cstring(&txn->buf));
 	buf_reset(&txn->buf);
 
 	prot_flush(src_be->out);
@@ -1065,7 +1067,7 @@ int http_proxy_copy(struct backend *src_be, struct backend *dest_be,
     write_hdr(dest_be->out, "Content-Encoding", resp_hdrs);
     write_hdr(dest_be->out, "Content-Language", resp_hdrs);
     prot_printf(dest_be->out, "Content-Length: %u\r\n\r\n",
-		buf_len(&resp_body.payload));
+		(unsigned)buf_len(&resp_body.payload));
     prot_flush(dest_be->out);
 
     /* Read response(s) from dest backend until final response or error */

@@ -38,13 +38,10 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: message_guid.c,v 1.9 2010/01/06 17:01:37 murch Exp $
  */
 
 #include <config.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "assert.h"
 #include "global.h"
@@ -277,7 +274,7 @@ static void our_sha1(const unsigned char *buf, unsigned long len,
  *
  ************************************************************************/
 
-void message_guid_generate(struct message_guid *guid,
+EXPORTED void message_guid_generate(struct message_guid *guid,
 			   const char *msg_base, unsigned long msg_len)
 {
     guid->status = GUID_NULL;
@@ -293,7 +290,7 @@ void message_guid_generate(struct message_guid *guid,
  *
  ************************************************************************/
 
-void message_guid_copy(struct message_guid *dst, struct message_guid *src)
+EXPORTED void message_guid_copy(struct message_guid *dst, const struct message_guid *src)
 {
     memcpy(dst, src, sizeof(struct message_guid));
 }
@@ -304,13 +301,13 @@ void message_guid_copy(struct message_guid *dst, struct message_guid *src)
  *
  ************************************************************************/
 
-int message_guid_equal(struct message_guid *g1,
+EXPORTED int message_guid_equal(struct message_guid *g1,
 		       struct message_guid *g2)
 {
     return (memcmp(g1->value, g2->value, MESSAGE_GUID_SIZE) == 0);
 }
 
-int message_guid_cmp(struct message_guid *g1,
+EXPORTED int message_guid_cmp(struct message_guid *g1,
 		       struct message_guid *g2)
 {
     return memcmp(g1->value, g2->value, MESSAGE_GUID_SIZE);
@@ -323,11 +320,11 @@ int message_guid_cmp(struct message_guid *g1,
  *
  ************************************************************************/
 
-unsigned long message_guid_hash(struct message_guid *guid, int hash_size)
+EXPORTED unsigned long message_guid_hash(const struct message_guid *guid, int hash_size)
 {
     int i;
     unsigned long result = 0;
-    unsigned char *s = &guid->value[0];
+    const unsigned char *s = &guid->value[0];
 
     assert(hash_size > 1);
 
@@ -349,7 +346,7 @@ unsigned long message_guid_hash(struct message_guid *guid, int hash_size)
  *
  ************************************************************************/
 
-void message_guid_set_null(struct message_guid *guid)
+EXPORTED void message_guid_set_null(struct message_guid *guid)
 {
     guid->status = GUID_NULL;
     memset(guid->value, 0, MESSAGE_GUID_SIZE);
@@ -361,7 +358,7 @@ void message_guid_set_null(struct message_guid *guid)
  *
  ************************************************************************/
 
-int message_guid_isnull(struct message_guid *guid)
+EXPORTED int message_guid_isnull(struct message_guid *guid)
 {
     if (guid->status == GUID_UNKNOWN) {
 	unsigned char *p = guid->value;
@@ -381,8 +378,7 @@ int message_guid_isnull(struct message_guid *guid)
  *
  ************************************************************************/
 
-void message_guid_export(const struct message_guid *guid,
-			 unsigned char *buf)
+EXPORTED void message_guid_export(const struct message_guid *guid, unsigned char *buf)
 {
     memcpy(buf, guid->value, MESSAGE_GUID_SIZE);
 }
@@ -394,17 +390,12 @@ void message_guid_export(const struct message_guid *guid,
  *
  ************************************************************************/
 
-struct message_guid *message_guid_import(struct message_guid *guid,
-					 const unsigned char *buf)
+EXPORTED void message_guid_import(struct message_guid *guid,
+			 const unsigned char *buf)
 {
-    static struct message_guid tmp;
-
-    if (!guid) guid = &tmp;
-
+    assert(guid);
     guid->status = GUID_UNKNOWN;
     memcpy(guid->value, buf, MESSAGE_GUID_SIZE);
-
-    return(guid);
 }
 
 
@@ -417,22 +408,12 @@ struct message_guid *message_guid_import(struct message_guid *guid,
  *
  ************************************************************************/
 
-static char XDIGIT[] = "0123456789abcdef";
-
-char *message_guid_encode(const struct message_guid *guid)
+EXPORTED char *message_guid_encode(const struct message_guid *guid)
 {
     static char text[2*MESSAGE_GUID_SIZE+1];
-    const unsigned char *v = guid->value;
-    char *p = text;
-    int i;
-
-    for (i = 0; i < MESSAGE_GUID_SIZE; i++, v++) {
-        *p++ = XDIGIT[(*v >> 4) & 0xf];
-        *p++ = XDIGIT[*v & 0xf];
-    }
-    *p = '\0';
-
-    return(text);
+    int r = bin_to_hex(&guid->value, MESSAGE_GUID_SIZE, text, BH_LOWER);
+    assert(r == 2*MESSAGE_GUID_SIZE);
+    return text;
 }
 
 /* message_guid_decode() *************************************************
@@ -442,26 +423,9 @@ char *message_guid_encode(const struct message_guid *guid)
  * 
  ************************************************************************/
 
-int message_guid_decode(struct message_guid *guid, const char *text)
+EXPORTED int message_guid_decode(struct message_guid *guid, const char *text)
 {
-    unsigned char *v = guid->value, msn, lsn;
-    const char *p = text;
-    int i;
-
-    guid->status = GUID_NULL;
-
-    for (i = 0; i < MESSAGE_GUID_SIZE; i++, v++) {
-	if (!Uisxdigit(*p)) return(0);
-	msn = (*p > '9') ? tolower((int) *p) - 'a' + 10 : *p - '0';
-	p++;
-
-	if (!Uisxdigit(*p)) return(0);
-	lsn = (*p > '9') ? tolower((int) *p) - 'a' + 10 : *p - '0';
-	p++;
-	
-	*v = (unsigned char) (msn << 4) | lsn;
-	if (*v) guid->status = GUID_NONNULL;
-    }
-
-    return(*p == '\0');
+    int r = hex_to_bin(text, 0, &guid->value);
+    guid->status = (r > 0 ? GUID_NONNULL : GUID_NULL);
+    return (r == MESSAGE_GUID_SIZE);
 }

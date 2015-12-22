@@ -46,8 +46,9 @@
 #ifndef __CYRUS_STRARRAY_H__
 #define __CYRUS_STRARRAY_H__
 
-#include <config.h>
+#include <string.h>
 #include <sys/types.h>
+#include "util.h"
 
 typedef struct
 {
@@ -87,11 +88,13 @@ strarray_t *strarray_dup(const strarray_t *);
 #define strarray_pushm(sa, s)	    strarray_appendm((sa), (s))
 
 char *strarray_join(const strarray_t *, const char *sep);
-strarray_t *strarray_splitm(char *buf, const char *sep);
-strarray_t *strarray_split(const char *buf, const char *sep);
-strarray_t *strarray_nsplit(const char *buf, size_t len, const char *sep);
+#define STRARRAY_TRIM (1<<0)
+strarray_t *strarray_splitm(char *buf, const char *sep, int flags);
+strarray_t *strarray_split(const char *buf, const char *sep, int flags);
+strarray_t *strarray_nsplit(const char *buf, size_t len, const char *sep, int flags);
 
-void strarray_sort(strarray_t *);
+void strarray_sort(strarray_t *, compar_t *);
+void strarray_uniq(strarray_t *);
 
 char **strarray_takevf(strarray_t *sa);
 
@@ -99,5 +102,7 @@ int strarray_find(const strarray_t *sa, const char *match,
 		  int starting);
 int strarray_find_case(const strarray_t *sa, const char *match,
 		       int starting);
+
+int strarray_size(const strarray_t *sa);
 
 #endif /* __CYRUS_STRARRAY_H__ */

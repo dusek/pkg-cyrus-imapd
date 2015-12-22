@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: convert_code.c,v 1.9 2010/01/06 17:01:30 murch Exp $
  */
 
 /* Same old convert_code function moved into one place instead of being
@@ -49,10 +47,10 @@
 
 #include <config.h>
 
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "exitcodes.h"
 
-int convert_code(int r)
+EXPORTED int convert_code(int r)
 {
     switch (r) {
     case 0:

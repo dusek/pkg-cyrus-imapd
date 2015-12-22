@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: message_guid.h,v 1.7 2010/01/06 17:01:37 murch Exp $
  */
 
 #ifndef MESSAGE_GUID_H
@@ -65,7 +63,7 @@ void message_guid_generate(struct message_guid *guid,
 			   const char *msg_base, unsigned long msg_len);
 
 /* Copy a GUID */
-void message_guid_copy(struct message_guid *dst, struct message_guid *src);
+void message_guid_copy(struct message_guid *dst, const struct message_guid *src);
 
 /* Compare a pair of GUIDs: Returns 1 => match. */
 int message_guid_equal(struct message_guid *guid1,
@@ -76,7 +74,7 @@ int message_guid_cmp(struct message_guid *guid1,
 /* Convert GUID into hash value for hash table lookup
  * Returns: positive int in range [0, hash_size-1]
  */
-unsigned long message_guid_hash(struct message_guid *guid, int hash_size);
+unsigned long message_guid_hash(const struct message_guid *guid, int hash_size);
 
   /* Create a NULL GUID */
 void message_guid_set_null(struct message_guid *guid);
@@ -87,14 +85,13 @@ int message_guid_isnull(struct message_guid *guid);
 /* Export Message GUID as byte sequence (MESSAGE_GUID_SIZE)
  * (Wrapper for memcpy() with current implementation)
  */
-void message_guid_export(const struct message_guid *guid,
-			 unsigned char *buf);
+void message_guid_export(const struct message_guid *guid, unsigned char *buf);
 
 /* Import Message GUID from packed sequence (MESSAGE_GUID_SIZE)
  * (Wrapper for memcpy() with current implementation)
  */
-struct message_guid *message_guid_import(struct message_guid *guid,
-					 const unsigned char *buf);
+void message_guid_import(struct message_guid *guid,
+			 const unsigned char *buf);
 
 
 /* Routines for manipulating text value */

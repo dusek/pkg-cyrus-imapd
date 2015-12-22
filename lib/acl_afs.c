@@ -46,8 +46,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: acl_afs.c,v 1.29 2010/01/06 17:01:43 murch Exp $
  */
 
 #include <config.h>
@@ -63,8 +61,9 @@
  * Calculate the set of rights the user in 'auth_state' has in the ACL 'acl'.
  * 'acl' must be writable, but is restored to its original condition.
  */
-int cyrus_acl_myrights(struct auth_state *auth_state, char *acl)
+EXPORTED int cyrus_acl_myrights(struct auth_state *auth_state, const char *origacl)
 {
+    char *acl = xstrdupsafe(origacl);
     char *thisid, *rights, *nextid;
     long acl_positive = 0, acl_negative = 0;
     long *acl_ptr;
@@ -91,27 +90,22 @@ int cyrus_acl_myrights(struct auth_state *auth_state, char *acl)
 	if (auth_memberof(auth_state, thisid)) {
 	    *acl_ptr |= cyrus_acl_strtomask(rights);
 	}
-
-	/* Put the delimiters back */
-	rights[-1] = '\t';
-	nextid[-1] = '\t';
     }
+
+    free(acl);
 
     return acl_positive & ~acl_negative;
 }
-	
+
 /*
  * Modify the ACL pointed to by 'acl' to make the rights granted to
  * 'identifier' the set specified in the mask 'access'.  The pointer
  * pointed to by 'acl' must have been obtained from malloc().
  */
-int cyrus_acl_set(acl, identifier, mode, access, canonproc, canonrock)
-char **acl;
-const char *identifier;
-int mode;
-int access;
-cyrus_acl_canonproc_t *canonproc;
-void *canonrock;
+EXPORTED int cyrus_acl_set(char **acl, const char *identifier,
+		  int mode, int access,
+		  cyrus_acl_canonproc_t *canonproc,
+		  void *canonrock)
 {
     const char *canonid;
     char *newidentifier = 0;
@@ -186,8 +180,18 @@ void *canonrock;
     }
 
     if (access == 0L) {
-	/* Remove any existing entry for 'identifier' */
-	strcpy(thisid, nextid);
+	/* Remove any existing entry for 'identifier'.
+	   Special case: When we try to delete an invalid/non-existent identifier,
+	   both 'thisid' and 'nextid' point to the end of *acl. */
+	newacl = xmalloc(strlen(*acl) + strlen(nextid) - strlen(thisid) + 1);
+	/* Copy existing ACLs without the current identifier.
+	   Note: The buffer will not be zero terminated. */
+	strncpy(newacl, *acl, (thisid - *acl));
+	/* Append the remaining ACL string. Zero-terminates the string. */
+	strcpy(newacl + (thisid - *acl), nextid);
+
+	free(*acl);
+	*acl = newacl;
     }
     else {
 	/* Replace any existing entry for 'identifier' */
@@ -211,7 +215,7 @@ void *canonrock;
  * Remove any entry for 'identifier' in the ACL pointed to by 'acl'.
  * The pointer pointed to by 'acl' must have been obtained from malloc().
  */
-int cyrus_acl_remove(char **acl, const char *identifier, 
+EXPORTED int cyrus_acl_remove(char **acl, const char *identifier,
 	       cyrus_acl_canonproc_t canonproc, void *canonrock)
 {
     return cyrus_acl_set(acl, identifier, ACL_MODE_SET, 0, canonproc, canonrock);

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lmtpengine.h,v 1.28 2010/01/06 17:01:36 murch Exp $
  */
 
 #ifndef LMTPENGINE_H
@@ -47,6 +45,7 @@
 
 /***************** server-side LMTP *******************/
 
+#include "xmalloc.h"
 #include "spool.h"
 #include "mboxname.h"
 #include "quota.h"
@@ -111,7 +110,9 @@ struct lmtp_func {
     int (*deliver)(message_data_t *m, 
 		   char *authuser, struct auth_state *authstate);
     int (*verify_user)(const char *user, const char *domain, char *mailbox,
-		       quota_t quotacheck, /* user must have this much quota left
+		       quota_t quotastorage_check, /* user must have this much storage quota left
+					   (-1 means don't care about quota) */
+		       quota_t quotamessage_check, /* user must have this much message quota left
 					   (-1 means don't care about quota) */
 		       struct auth_state *authstate);
     void (*shutdown)(int code);

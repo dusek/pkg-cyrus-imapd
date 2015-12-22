@@ -1,7 +1,7 @@
 
 /* lmtpstats.h -- statistics push interface
 
- * generated automatically from lmtpstats.snmp by snmpgen
+ * generated automatically from .././imap/lmtpstats.snmp by snmpgen
 
  *
 
@@ -21,12 +21,12 @@
 
 
 
-#define SNMPDEFINE_mib2 "1.3.6.1.2.1"
-#define SNMPDEFINE_cmulmtp "1.3.6.1.4.1.3.2.2.3.2"
-#define SNMPDEFINE_mtamib "1.3.6.1.2.1.28"
-#define SNMPDEFINE_cmutree "1.3.6.1.4.1.3.2.2.3"
 #define SNMPDEFINE_cmusieve "1.3.6.1.4.1.3.2.2.3.3"
+#define SNMPDEFINE_mib2 "1.3.6.1.2.1"
+#define SNMPDEFINE_cmutree "1.3.6.1.4.1.3.2.2.3"
+#define SNMPDEFINE_mtamib "1.3.6.1.2.1.28"
 #define SNMPDEFINE_mgmt "1.3.6.1.2"
+#define SNMPDEFINE_cmulmtp "1.3.6.1.4.1.3.2.2.3.2"
 
 
 
@@ -68,27 +68,27 @@ typedef void lmtpstats_t;
 
 typedef enum {
 
-    mtaSuccessfulConvertedMessages,
-    AUTHENTICATION_YES,
-    SIEVE_FILEINTO,
-    mtaReceivedVolume,
-    SIEVE_VACATION_TOTAL,
-    SIEVE_MESSAGES_PROCESSED,
-    SIEVE_KEEP,
-    SIEVE_DISCARD,
     SERVER_NAME_VERSION,
+    mtaSuccessfulConvertedMessages,
     AUTHENTICATION_NO,
-    SIEVE_VACATION_REPLIED,
-    SIEVE_REJECT,
-    TOTAL_CONNECTIONS,
+    mtaReceivedRecipients,
+    mtaReceivedMessages,
     ACTIVE_CONNECTIONS,
-    SERVER_UPTIME,
+    SIEVE_VACATION_REPLIED,
+    SIEVE_DISCARD,
     mtaTransmittedMessages,
     SIEVE_REDIRECT,
+    SIEVE_MESSAGES_PROCESSED,
     mtaTransmittedVolume,
+    SIEVE_VACATION_TOTAL,
+    TOTAL_CONNECTIONS,
+    AUTHENTICATION_YES,
+    SIEVE_REJECT,
+    mtaReceivedVolume,
+    SIEVE_KEEP,
     SIEVE_NOTIFY,
-    mtaReceivedMessages,
-    mtaReceivedRecipients
+    SERVER_UPTIME,
+    SIEVE_FILEINTO
 } lmtpstats_t;
 
 

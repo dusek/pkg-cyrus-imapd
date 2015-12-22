@@ -38,30 +38,28 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mutex_fake.c,v 1.4 2010/01/06 17:01:38 murch Exp $
  */
 
 #include <config.h>
 
 #include <sasl/sasl.h>
 
-void *cyrus_mutex_alloc(void) 
+EXPORTED void *cyrus_mutex_alloc(void)
 {
     return (void *)0x1;
 }
 
-int cyrus_mutex_lock(void *mutex __attribute__((unused)))
+EXPORTED int cyrus_mutex_lock(void *mutex __attribute__((unused)))
 {
     return SASL_OK;
 }
 
-int cyrus_mutex_unlock(void *mutex __attribute__((unused)))
+EXPORTED int cyrus_mutex_unlock(void *mutex __attribute__((unused)))
 {
     return SASL_OK;
 }
   
-void cyrus_mutex_free(void *mutex __attribute__((unused)))
+EXPORTED void cyrus_mutex_free(void *mutex __attribute__((unused)))
 {
     return;
 }

@@ -38,24 +38,9 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: strhash.h,v 1.4 2010/01/06 17:01:47 murch Exp $
  */
 
 #ifndef _STRHASH_H_
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include <stdio.h>
-#include <string.h>
-#include <ctype.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <syslog.h>
-#include <errno.h>
 
 unsigned strhash(const char *string);
 

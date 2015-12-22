@@ -38,19 +38,40 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: proc.c,v 1.27 2010/01/06 17:01:38 murch Exp $
  */
 
 #ifndef _PROC_H
 #define _PROC_H
 
+struct proc_limits {
+    const char *procname;
+    const char *clienthost;
+    const char *userid;
+    int user;
+    int maxuser;
+    int host;
+    int maxhost;
+};
+
+typedef int procdata_t(pid_t pid,
+		       const char *servicename, const char *clienthost,
+		       const char *userid, const char *mailbox,
+		       const char *cmd, void *rock);
+
 extern void setproctitle_init(int argc, char **argv, char **envp);
 extern void setproctitle(const char *fmt, ...);
 
-extern int proc_register(const char *progname, const char *clienthost,
-		         const char *userid, const char *mailbox);
+extern int proc_register(const char *servicename, const char *clienthost,
+		         const char *userid, const char *mailbox, const char *cmd);
 
 extern void proc_cleanup(void);
+
+extern int proc_foreach(procdata_t *func, void *rock);
+
+extern int proc_checklimits(struct proc_limits *limitsp);
+
+extern void proc_killuser(const char *userid);
+extern void proc_killmbox(const char *mboxname);
+extern void proc_killusercmd(const char *userid, const char *cmd, int sig);
 
 #endif /* _PROC_H */

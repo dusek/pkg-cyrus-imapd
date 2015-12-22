@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: masterconf.c,v 1.16 2010/01/06 17:01:53 murch Exp $
  */
 
 #include <config.h>
@@ -47,14 +45,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
-#include <errno.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sysexits.h>
 
-#include "libconfig.c"
+#include "util.h"
+#include "libconfig.h"
+#include "xmalloc.h"
+#include "xstrlcat.h"
+#include "xstrlcpy.h"
 
 #if HAVE_UNISTD_H
 # include <unistd.h>
@@ -69,7 +69,20 @@ struct configlist {
     char *value;
 };
 
-extern void fatal(const char *buf, int code);
+extern void fatal(const char *buf, int code)
+    __attribute__((noreturn));
+
+void fatalf(int code, const char *fmt, ...)
+{
+    va_list args;
+    char buf[2048];
+
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    fatal(buf, code);
+}
+
 
 int masterconf_init(const char *ident, const char *alt_config)
 {
@@ -81,11 +94,11 @@ int masterconf_init(const char *ident, const char *alt_config)
     openlog(ident, LOG_PID, SYSLOG_FACILITY);
 
     config_ident = ident;
-    config_read(alt_config);
+    config_read(alt_config, 0);
 
     prefix = config_getstring(IMAPOPT_SYSLOG_PREFIX);
     
-    if(prefix) {
+    if (prefix) {
 	int size = strlen(prefix) + 1 + strlen(ident) + 1;
 	buf = xmalloc(size);
 	strlcpy(buf, prefix, size);
@@ -97,53 +110,38 @@ int masterconf_init(const char *ident, const char *alt_config)
 	openlog(buf, LOG_PID, SYSLOG_FACILITY);
 
         /* don't free the openlog() string! */
+    } else {
+	closelog();
+	openlog(ident, LOG_PID, SYSLOG_FACILITY);
     }
+
+    /* drop debug messages locally */
+    if (!config_debug)
+	setlogmask(~LOG_MASK(LOG_DEBUG));
 
     return 0;
 }
 
 struct entry {
-    char *line;
+#define MAXARGS	    64
+    int nargs;
+    struct {
+	char *key;
+	char *value;
+    } args[MAXARGS];
     int lineno;
 };
 
-const char *masterconf_getstring(struct entry *e, const char *key, 
+const char *masterconf_getstring(struct entry *e, const char *key,
 				 const char *def)
 {
-    char k[256];
-    static char v[256];
     int i;
-    char *p;
 
-    strcpy(k, key);
-    strcat(k, "=");
-
-    p = strstr(e->line, k);
-    if (p) {
-	p += strlen(k);
-	if (*p == '"') {
-	    p++;
-	    for (i = 0; i < 255; i++) {
-		if (*p == '"') break;
-		v[i] = *p++;
-	    }
-	    if (*p != '"') {
-		sprintf(k, "configuration file %s: missing \" on line %d",
-			MASTER_CONFIG_FILENAME, e->lineno);
-		fatal(k, EX_CONFIG);
-	    }
-	} else {
-	    /* one word */
-	    for (i = 0; i < 255; i++) {
-		if (Uisspace(*p)) break;
-		v[i] = *p++;
-	    }
-	}
-	v[i] = '\0';
-	return v;
-    } else {
-	return def;
+    for (i = 0 ; i < e->nargs ; i++) {
+	if (!strcmp(key, e->args[i].key))
+	    return e->args[i].value;
     }
+    return def;
 }
 
 int masterconf_getint(struct entry *e, 
@@ -152,8 +150,13 @@ int masterconf_getint(struct entry *e,
     const char *val = masterconf_getstring(e, key, NULL);
 
     if (!val) return def;
-    if (!Uisdigit(*val) && 
-	(*val != '-' || !Uisdigit(val[1]))) return def;
+    if (!Uisdigit(*val) &&
+        (*val != '-' || !Uisdigit(val[1]))) {
+            syslog(LOG_DEBUG,
+                   "value '%s' for '%s' does not look like a number.",
+                   val, key);
+            return def;
+    }
     return atoi(val);
 }
 
@@ -171,7 +174,62 @@ int masterconf_getswitch(struct entry *e, const char *key, int def)
 	     (val[0] == 'o' && val[1] == 'n') || val[0] == 't') {
 	return 1;
     }
+
+    syslog(LOG_DEBUG, "cannot interpret value '%s' for key '%s'. use y/n.",
+	       val, key);
+
     return def;
+}
+
+static void split_args(struct entry *e, char *buf)
+{
+    char *p = buf, *q;
+    char *key, *value;
+
+    for (;;) {
+	/* skip whitespace before arg */
+	while (Uisspace(*p))
+	    p++;
+	if (!*p)
+	    return;
+	key = p;
+
+	/* parse the key */
+	for (q = p ; Uisalnum(*q) ; q++)
+	    ;
+	if (*q != '=')
+	    fatalf(EX_CONFIG, "configuration file %s: "
+			      "bad character '%c' in argument on line %d",
+			      MASTER_CONFIG_FILENAME, *q, e->lineno);
+	*q++ = '\0';
+
+	/* parse the value */
+	if (*q == '"') {
+	    /* quoted string */
+	    value = ++q;
+	    q = strchr(q, '"');
+	    if (!q)
+		fatalf(EX_CONFIG, "configuration file %s: missing \" on line %d",
+			MASTER_CONFIG_FILENAME, e->lineno);
+	    *q++ = '\0';
+	}
+	else {
+	    /* simple word */
+	    value = q;
+	    while (*q && !Uisspace(*q))
+		q++;
+	    if (*q)
+		*q++ = '\0';
+	}
+
+	if (e->nargs == MAXARGS)
+		fatalf(EX_CONFIG, "configuration file %s: too many arguments on line %d",
+			MASTER_CONFIG_FILENAME, e->lineno);
+	e->args[e->nargs].key = key;
+	e->args[e->nargs].value = value;
+	e->nargs++;
+	p = q;
+    }
 }
 
 static void process_section(FILE *f, int *lnptr, 
@@ -190,7 +248,7 @@ static void process_section(FILE *f, int *lnptr,
 	if (buf[strlen(buf)-1] == '\n') buf[strlen(buf)-1] = '\0';
 	/* remove starting whitespace */
 	for (p = buf; *p && Uisspace(*p); p++);
-	
+
 	/* remove comments */
 	q = strchr(p, '#');
 	if (q) *q = '\0';
@@ -200,12 +258,19 @@ static void process_section(FILE *f, int *lnptr,
 	if (*p == '}') break;
 
 	for (q = p; Uisalnum(*q); q++) ;
-	if (*q) { *q = '\0'; q++; }
-	
+	if (*q) {
+	    if (q > p && !Uisspace(*q))
+		fatalf(EX_CONFIG, "configuration file %s: "
+				  "bad character '%c' in name on line %d",
+				  MASTER_CONFIG_FILENAME, *q, lineno);
+	    *q++ = '\0';
+	}
+
 	if (q - p > 0) {
 	    /* there's a value on this line */
-	    e.line = q;
+	    memset(&e, 0, sizeof(e));
 	    e.lineno = lineno;
+	    split_args(&e, q);
 	    func(p, &e, rock);
 	}
 
@@ -237,11 +302,9 @@ void masterconf_getsection(const char *section, masterconf_process *f,
     if (!infile)
 	infile = fopen(MASTER_CONFIG_FILENAME, "r");
 
-    if (!infile) {
-	snprintf(buf, sizeof(buf), "can't open configuration file %s: %s",
-		MASTER_CONFIG_FILENAME, strerror(errno));
-	fatal(buf, EX_CONFIG);
-    }
+    if (!infile)
+	fatalf(EX_CONFIG, "can't open configuration file %s: %m",
+		MASTER_CONFIG_FILENAME);
 
     while (fgets(buf, sizeof(buf), infile)) {
 	char *p, *q;

@@ -38,13 +38,10 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: imparse.c,v 1.15 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
 #include <stdio.h>
-#include <ctype.h>
 
 #include "imparse.h"
 #include "util.h"
@@ -55,12 +52,10 @@
  * returns the character following the word, and modifies the pointer at
  * 's' to point after the returned character.  Modifies the input buffer.
  */
-int imparse_word(s, retval)
-char **s;
-char **retval;
+EXPORTED int imparse_word(char **s, char **retval)
 {
     int c;
-    
+
     *retval = *s;
     for (;;) {
 	c = *(*s)++;
@@ -80,9 +75,7 @@ char **retval;
  * at the empty string, and modifies 's' to point around the syntax error.
  * Modifies the input buffer.
  */
-int imparse_astring(s, retval)
-char **s;
-char **retval;
+EXPORTED int imparse_astring(char **s, char **retval)
 {
     int c;
     char *d;
@@ -149,28 +142,36 @@ char **retval;
 }
 
 /*
- * Return nonzero if 's' matches the grammar for an atom
+ * Return nonzero if 's' matches the grammar for an atom.  If 'len' is
+ * zero then treat as a c string, \0 delimited.  Otherwise check the
+ * entire map, and consider not an natom if there's a NULL byte in the
+ * mapped space.
  */
-int imparse_isatom(s)
-const char *s;
+EXPORTED int imparse_isnatom(const char *s, int len)
 {
-    int len = 0;
+    int count = 0;
 
     if (!*s) return 0;
-    for (; *s; s++) {
-	len++;
+    for (; len || *s; s++) {
+	count++;
+	if (len && count > len) break;
 	if (*s & 0x80 || *s < 0x1f || *s == 0x7f ||
 	    *s == ' ' || *s == '{' || *s == '(' || *s == ')' ||
 	    *s == '\"' || *s == '%' || *s == '*' || *s == '\\') return 0;
     }
-    if (len >= 1024) return 0;
-    return 1;
+    if (count >= 1024) return 0;
+    return count;
+}
+
+EXPORTED int imparse_isatom(const char *s)
+{
+    return imparse_isnatom(s, 0);
 }
 
 /*
  * Return nonzero if 's' matches the grammar for a sequence
  */
-int imparse_issequence(const char* s)
+EXPORTED int imparse_issequence(const char* s)
 {
     int c;
     int len = 0;
@@ -205,7 +206,7 @@ int imparse_issequence(const char* s)
 /*
  * Return nonzero if 's' matches the grammar for a number
  */
-int imparse_isnumber(const char *s)
+EXPORTED int imparse_isnumber(const char *s)
 {
     if (!*s) return 0;
     for (; *s; s++) {

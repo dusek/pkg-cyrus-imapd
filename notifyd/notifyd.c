@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: notifyd.c,v 1.22 2010/01/06 17:01:54 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -63,9 +61,10 @@
 #include "notifyd.h"
 
 #include "exitcodes.h"
-#include "global.h"
+#include "imap/global.h"
 #include "libconfig.h"
 #include "xmalloc.h"
+#include "strarray.h"
 
 
 /* global state */
@@ -78,7 +77,7 @@ static notifymethod_t *default_method;	/* default method daemon is using */
 
 /* Cleanly shut down and exit */
 void shut_down(int code) __attribute__ ((noreturn));
-void shut_down(int code)
+EXPORTED void shut_down(int code)
 {
     in_shutdown = 1;
 
@@ -88,7 +87,7 @@ void shut_down(int code)
     exit(code);
 }
 
-char *fetch_arg(char *head, char* tail)
+static char *fetch_arg(char *head, char* tail)
 {
     char *cp;
 
@@ -98,21 +97,20 @@ char *fetch_arg(char *head, char* tail)
 
 #define NOTIFY_MAXSIZE 8192
 
-int do_notify()
+static int do_notify(void)
 {
     struct sockaddr_un sun_data;
     socklen_t sunlen = sizeof(sun_data);
     char buf[NOTIFY_MAXSIZE+1], *cp, *tail;
     int r, i;
     char *method, *class, *priority, *user, *mailbox, *message;
-    char **options;
+    strarray_t options = STRARRAY_INITIALIZER;
     long nopt;
     char *reply;
     notifymethod_t *nmethod;
 
     while (1) {
 	method = class = priority = user = mailbox = message = reply = NULL;
-	options = NULL;
 	nopt = 0;
 
 	if (signals_poll() == SIGHUP) {
@@ -145,21 +143,14 @@ int do_notify()
 	if (cp) nopt = strtol(cp, NULL, 10);
 	if (nopt < 0 || errno == ERANGE) cp = NULL;
 
-	if (cp && nopt) {
-	    options = (char**) xrealloc(options, nopt * sizeof(char*));
-	    if (!options)
-		fatal("xmalloc(): can't allocate options", EC_OSERR);
-	}
-
-	for (i = 0; cp && i < nopt; i++) {
-	    options[i] = (cp = fetch_arg(cp, tail));
-	}
+	for (i = 0; cp && i < nopt; i++)
+	    strarray_appendm(&options, cp = fetch_arg(cp, tail));
 
 	if (cp) message = (cp = fetch_arg(cp, tail));
 
 	if (!message) {
 	    syslog(LOG_ERR, "malformed notify request");
-	    free(options);
+	    strarray_fini(&options);
 	    return 0;
 	}
 
@@ -178,7 +169,7 @@ int do_notify()
 
 	if (nmethod->name) {
 	    reply = nmethod->notify(class, priority, user, mailbox,
-				    nopt, options, message);
+				    nopt, options.data, message);
 	}
 #if 0  /* we don't care about responses right now */
 	else {
@@ -190,14 +181,14 @@ int do_notify()
 #endif
 
 	free(reply);
-	free(options);
+	strarray_fini(&options);
     }
 
     /* never reached */
 }
 
 
-void fatal(const char *s, int code)
+EXPORTED void fatal(const char *s, int code)
 {
     static int recurse_code = 0;
 
@@ -212,20 +203,13 @@ void fatal(const char *s, int code)
     shut_down(code);
 }
 
-void printstring(const char *s __attribute__((unused)))
-{
-    /* needed to link against annotate.o */
-    fatal("printstring() executed, but its not used for notifyd!",
-	  EC_SOFTWARE);
-}
-
-void usage(void)
+static void usage(void)
 {
     syslog(LOG_ERR, "usage: notifyd [-C <alt_config>]");
     exit(EC_USAGE);
 }
 
-int service_init(int argc, char **argv, char **envp __attribute__((unused)))
+EXPORTED int service_init(int argc, char **argv, char **envp __attribute__((unused)))
 {
     int opt;
     char *method = "null";
@@ -256,12 +240,12 @@ int service_init(int argc, char **argv, char **envp __attribute__((unused)))
 }
 
 /* Called by service API to shut down the service */
-void service_abort(int error)
+EXPORTED void service_abort(int error)
 {
     shut_down(error);
 }
 
-int service_main(int argc __attribute__((unused)),
+EXPORTED int service_main(int argc __attribute__((unused)),
 		 char **argv __attribute__((unused)),
 		 char **envp __attribute__((unused)))
 {

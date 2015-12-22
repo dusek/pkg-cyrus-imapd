@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mbdump.c,v 1.46 2010/01/06 17:01:36 murch Exp $
  */
 
 #include <config.h>
@@ -55,20 +53,18 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <ctype.h>
 #include <dirent.h>
-#include <unistd.h>
 #include <utime.h>
 
-#include "assert.h"
 #include "annotate.h"
+#ifdef WITH_DAV
 #include "dav_util.h"
+#endif
 #include "exitcodes.h"
 #include "global.h"
-#include "imap_err.h"
-#include "imparse.h"
+#include "imap/imap_err.h"
 #include "map.h"
 #include "mbdump.h"
 #include "mboxkey.h"
@@ -79,8 +75,6 @@
 #include "sequence.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
-#include "upgrade_index.h"
 #include "user.h"
 #include "util.h"
 #include "index.h"
@@ -89,6 +83,12 @@ static int dump_file(int first, int sync,
 		     struct protstream *pin, struct protstream *pout,
 		     const char *filename, const char *ftag,
 		     const char *fbase, unsigned long flen);
+
+static void downgrade_header(struct index_header *i, char *buf, int version,
+			     int header_size, int record_size)
+			     __attribute__((noinline));
+static void header_set_num_records(char *buf, unsigned int nrecords)
+			     __attribute__((noinline));
 
 /* support for downgrading index files on copying back to an
  * earlier version of Cyrus */
@@ -120,13 +120,7 @@ static void downgrade_header(struct index_header *i, char *buf, int version,
     *((bit32 *)(buf+OFFSET_LAST_UID)) = htonl(i->last_uid);
 
     /* quotas may be 64bit now */
-#ifdef HAVE_LONG_LONG_INT
-    *((bit64 *)(buf+OFFSET_QUOTA_MAILBOX_USED64)) = htonll(i->quota_mailbox_used);
-#else
-    /* zero the unused 32bits */
-    *((bit32 *)(buf+OFFSET_QUOTA_MAILBOX_USED64)) = htonl(0);
-    *((bit32 *)(buf+OFFSET_QUOTA_MAILBOX_USED)) = htonl(i->quota_mailbox_used);
-#endif
+    *((bit64 *)(buf+OFFSET_QUOTA_MAILBOX_USED)) = htonll(i->quota_mailbox_used);
 
     *((bit32 *)(buf+OFFSET_POP3_LAST_LOGIN)) = htonl(i->pop3_last_login);
     *((bit32 *)(buf+OFFSET_UIDVALIDITY)) = htonl(i->uidvalidity);
@@ -137,13 +131,7 @@ static void downgrade_header(struct index_header *i, char *buf, int version,
     *((bit32 *)(buf+OFFSET_LEAKED_CACHE)) = htonl(i->leaked_cache_records);
     /* don't put values in the "SPARE" spots */
     if (version < 8) return;
-#ifdef HAVE_LONG_LONG_INT
-    align_htonll(buf+OFFSET_HIGHESTMODSEQ_64, i->highestmodseq);
-#else
-    /* zero the unused 32bits */
-    *((bit32 *)(buf+OFFSET_HIGHESTMODSEQ_64)) = htonl(0);
-    *((bit32 *)(buf+OFFSET_HIGHESTMODSEQ)) = htonl(i->highestmodseq);
-#endif
+    align_htonll(buf+OFFSET_HIGHESTMODSEQ, i->highestmodseq);
 }
 
 static void downgrade_record(struct index_record *record, char *buf,
@@ -152,7 +140,7 @@ static void downgrade_record(struct index_record *record, char *buf,
     int n;
     unsigned UP_content_offset = record->header_size;
     unsigned UP_validflags = 15;
-    unsigned UP_modseqbase = OFFSET_MODSEQ_64;
+    unsigned UP_modseqbase = OFFSET_MODSEQ;
 
     /* GUID was UUID and only 12 bytes long in versions 8 and 9.
      * it doesn't hurt to write it to the buffer in older versions,
@@ -179,13 +167,12 @@ static void downgrade_record(struct index_record *record, char *buf,
     *((bit32 *)(buf+OFFSET_CACHE_VERSION)) = htonl(record->cache_version);
     message_guid_export(&record->guid,
 			(unsigned char *)buf+OFFSET_MESSAGE_GUID);
-#ifdef HAVE_LONG_LONG_INT
     *((bit64 *)(buf+UP_modseqbase)) = htonll(record->modseq);
-#else
-    /* zero the unused 32bits */
-    *((bit32 *)(buf+UP_modseqbase)) = htonl(0);
-    *((bit32 *)(buf+UP_modseqbase)) = htonl(record->modseq);
-#endif
+}
+
+static void header_set_num_records(char *buf, unsigned int nrecords)
+{
+    *((bit32 *)(buf+OFFSET_NUM_RECORDS)) = htonl(nrecords);
 }
 
 /* create a downgraded index file in cyrus.index.  We don't copy back
@@ -277,7 +264,7 @@ static int dump_index(struct mailbox *mailbox, int oldversion,
 	oldindex_fd = open(oldname, O_RDWR|O_TRUNC|O_CREAT, 0666);
 	if (oldindex_fd == -1) goto fail;
 
-	*((bit32 *)(hbuf+OFFSET_NUM_RECORDS)) = htonl(nexpunge);
+	header_set_num_records(hbuf, nexpunge);
 
 	/* Write header - everything we'll say */
 	n = retry_write(oldindex_fd, hbuf, header_size);
@@ -353,28 +340,31 @@ struct dump_annotation_rock
 };
 
 static int dump_annotations(const char *mailbox __attribute__((unused)),
+			    uint32_t uid  __attribute__((unused)),
 			    const char *entry,
 			    const char *userid,
-			    struct annotation_data *attrib, void *rock) 
+			    const struct buf *value, void *rock)
 {
     struct dump_annotation_rock *ctx = (struct dump_annotation_rock *)rock;
 
     /* "A-" userid entry */
     /* entry is delimited by its leading / */
-    unsigned long ename_size = 2 + strlen(userid) +  strlen(entry);
+    char *ename;
+    static const char contenttype[] = "text/plain"; /* fake */
 
     /* Transfer all attributes for this annotation, don't transfer size
      * separately since that can be implicitly determined */
-    prot_printf(ctx->pout,
-		" {%ld%s}\r\nA-%s%s (%ld {" SIZE_T_FMT "%s}\r\n%s"
-		" {" SIZE_T_FMT "%s}\r\n%s)",
-		ename_size, (!ctx->tag ? "+" : ""),
-		userid, entry,
-		attrib->modifiedsince,
-		attrib->size, (!ctx->tag ? "+" : ""),
-		attrib->value,
-		strlen(attrib->contenttype), (!ctx->tag ? "+" : ""),
-		attrib->contenttype);
+
+    prot_putc(' ', ctx->pout);
+    ename = strconcat("A-", userid, entry, (char *)NULL);
+    prot_printliteral(ctx->pout, ename, strlen(ename));
+    free(ename);
+
+    prot_printf(ctx->pout, " (%ld ", 0L);  /* was modifiedsince */
+    prot_printliteral(ctx->pout, value->s, value->len);
+    prot_putc(' ', ctx->pout);
+    prot_printliteral(ctx->pout, contenttype, strlen(contenttype));
+    prot_putc(')', ctx->pout);
 
     return 0;
 }
@@ -386,7 +376,7 @@ static int dump_file(int first, int sync,
 {
     int filefd;
     const char *base;
-    unsigned long len;
+    size_t len;
     struct stat sbuf;
     char c;
 
@@ -445,11 +435,11 @@ static int dump_file(int first, int sync,
 	}
 
 	prot_printf(pout, "%s {%lu%s}\r\n",
-		    ftag, len, (sync ? "+" : ""));
+		    ftag, (long unsigned)len, (sync ? "+" : ""));
     } else {
 	prot_printf(pout, " {" SIZE_T_FMT "%s}\r\n%s {%lu%s}\r\n",
 		    strlen(ftag), (sync ? "+" : ""),
-		    ftag, len, (sync ? "+" : ""));
+		    ftag, (long unsigned)len, (sync ? "+" : ""));
     }
     prot_write(pout, base, len);
     if (!fbase) map_free(&base, &len);
@@ -470,14 +460,16 @@ static struct data_file data_files[] = {
     { META_INDEX,   "cyrus.index"   },
     { META_CACHE,   "cyrus.cache"   },
     { META_EXPUNGE, "cyrus.expunge" },
+#ifdef WITH_DAV
     { META_DAV,     "cyrus.dav"     },
+#endif
     { 0, NULL }
 };
 
 enum { SEEN_DB = 0, SUBS_DB = 1, MBOXKEY_DB = 2, DAV_DB = 3 };
 static int NUM_USER_DATA_FILES = 4;
 
-int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
+EXPORTED int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		 int oldversion,
 		 struct protstream *pin, struct protstream *pout,
 		 struct auth_state *auth_state __attribute((unused)))
@@ -489,6 +481,7 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     const char *fname;
     int first = 1;
     int i;
+    struct quota q;
     struct data_file *df;
     struct seqset *expunged_seq = NULL;
 
@@ -512,16 +505,16 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     /* The first member is either a number (if it is a quota root), or NIL
      * (if it isn't) */
     {
-	struct quota q;
-
-	q.root = mailbox->name;
+	quota_init(&q, mailbox->name);
 	r = quota_read(&q, NULL, 0);
 
 	if (!r) {
-	    prot_printf(pout, "%d", q.limit);
+	    prot_printf(pout, QUOTA_T_FMT, q.limits[QUOTA_STORAGE]);
 	} else {
 	    prot_printf(pout, "NIL");
 	    if (r == IMAP_QUOTAROOT_NONEXISTENT) r = 0;
+	    /* do not send other quota data later */
+	    quota_free(&q);
 	}
     }
 
@@ -604,8 +597,8 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 	struct dump_annotation_rock actx;
 	actx.tag = tag;
 	actx.pout = pout;
-	annotatemore_findall(mailbox->name, "*", dump_annotations,
-			     (void *) &actx, NULL);
+	annotatemore_findall(mailbox->name, 0, "*", dump_annotations,
+			     (void *) &actx);
     }
 
     /* Dump user files if this is an inbox */
@@ -632,11 +625,15 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 		ftag = "MBOXKEY";
 		break;
 	    case DAV_DB: {
+#ifdef WITH_DAV
 		struct buf dav_file = BUF_INITIALIZER;
 
 		dav_getpath_byuserid(&dav_file, userid);
 		fname = (char *) buf_cstring(&dav_file);
 		ftag = "DAV";
+#else
+		continue;
+#endif
 		break;
 	    }
 	    default:
@@ -697,6 +694,42 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
 	    
     } /* end if user INBOX */
 
+    /* Dump quota data */
+    if (q.root) {
+	const char *ename = "X-QUOTA";
+	int res;
+
+	/* ensure there is data to transmit */
+	for (res = 0; res < QUOTA_NUMRESOURCES; res++) {
+	    /* STORAGE quota was already sent */
+	    if ((res != QUOTA_STORAGE) && (q.limits[res] >= 0)) {
+		break;
+	    }
+	}
+
+	if (res < QUOTA_NUMRESOURCES) {
+	    int sent = 0;
+
+	    prot_putc(' ', pout);
+	    prot_printliteral(pout, ename, strlen(ename));
+	    prot_printf(pout, " (");
+
+	    for (res = 0; res < QUOTA_NUMRESOURCES; res++) {
+		if (q.limits[res] < 0) {
+		    continue;
+		}
+		if (sent++) {
+		    prot_putc(' ', pout);
+		}
+		prot_printliteral(pout, quota_names[res], strlen(quota_names[res]));
+		prot_putc(' ', pout);
+		prot_printf(pout, QUOTA_T_FMT, q.limits[res]);
+	    }
+	    prot_putc(')', pout);
+	}
+	quota_free(&q);
+    }
+
  done:
 
     prot_printf(pout,")\r\n");
@@ -709,10 +742,11 @@ int dump_mailbox(const char *tag, struct mailbox *mailbox, uint32_t uid_start,
     return r;
 }
 
-static int cleanup_seen_cb(char *name,
-			   int matchlen __attribute__((unused)),
-			   int maycreate __attribute__((unused)),
-			   void *rock) 
+static int cleanup_seen_cb(void *rock,
+			   const char *key,
+			   size_t keylen,
+			   const char *val __attribute__((unused)),
+			   size_t vallen __attribute__((unused)))
 {
     struct seen *seendb = (struct seen *)rock;
     int r;
@@ -721,6 +755,7 @@ static int cleanup_seen_cb(char *name,
     struct seendata sd = SEENDATA_INITIALIZER;
     unsigned recno;
     struct index_record record;
+    char *name = xstrndup(key, keylen);
 
     r = mailbox_open_iwl(name, &mailbox);
     if (r) goto done;
@@ -753,6 +788,7 @@ static int cleanup_seen_cb(char *name,
 	mailbox->i.recenttime = sd.lastread;
 
  done:
+    free(name);
     seqset_free(seq);
     mailbox_close(&mailbox);
     return r;
@@ -771,16 +807,16 @@ static int cleanup_seen_subfolders(const char *mbname)
     /* no need to do inbox, it will have upgraded OK, just
      * the subfolders */
 
-    snprintf(buf, sizeof(buf), "%s.*", mbname);
+    snprintf(buf, sizeof(buf), "%s.", mbname);
 
     r = seen_open(userid, SEEN_SILENT, &seendb);
-    if (!r) mboxlist_findall(NULL, buf, 1, NULL, NULL, cleanup_seen_cb, seendb);
+    if (!r) mboxlist_allmbox(buf, cleanup_seen_cb, seendb, /*incdel*/0);
     seen_close(&seendb);
 
     return 0;
 }
 
-int undump_mailbox(const char *mbname, 
+EXPORTED int undump_mailbox(const char *mbname,
 		   struct protstream *pin, struct protstream *pout,
 		   struct auth_state *auth_state __attribute((unused)))
 {
@@ -793,15 +829,22 @@ int undump_mailbox(const char *mbname,
     int sieve_usehomedir = config_getswitch(IMAPOPT_SIEVEUSEHOMEDIR);
     const char *userid = NULL;
     char *annotation = NULL;
-    char *contenttype = NULL;
-    char *content = NULL;
+    struct buf content = BUF_INITIALIZER;
     char *seen_file = NULL;
     char *mboxkey_file = NULL;
-    uquota_t old_quota_used = 0;
-    int quotalimit = -1;
+    quota_t old_quota_usage[QUOTA_NUMRESOURCES];
+    int res;
+    quota_t newquotas[QUOTA_NUMRESOURCES];
+    quota_t quotalimit = -1;
+    annotate_state_t *astate = NULL;
 
     memset(&file, 0, sizeof(file));
     memset(&data, 0, sizeof(data));
+
+    /* Set a Quota (may be -1 for "unlimited") */
+    for (res = 0; res < QUOTA_NUMRESOURCES; res++) {
+	newquotas[res] = QUOTA_UNLIMITED;
+    }
 
     if (mboxname_isusermailbox(mbname, 1)) {
 	userid = mboxname_to_userid(mbname);
@@ -824,9 +867,9 @@ int undump_mailbox(const char *mbname,
     if (!strcmp(data.s, "NIL")) {
 	/* Remove any existing quotaroot */
 	mboxlist_unsetquota(mbname);
-    } else if (sscanf(data.s, "%d", &quotalimit) == 1) {
-	/* Set a Quota (may be -1 for "unlimited") */ 
-	mboxlist_setquota(mbname, quotalimit, 0);
+    } else if (sscanf(data.s, QUOTA_T_FMT, &quotalimit) == 1) {
+	/* quota will actually be applied later */
+	newquotas[QUOTA_STORAGE] = quotalimit;
     } else {
 	/* Huh? */
 	buf_free(&data);
@@ -844,15 +887,21 @@ int undump_mailbox(const char *mbname,
     
     r = mailbox_open_exclusive(mbname, &mailbox);
     if (r == IMAP_MAILBOX_NONEXISTENT) {
-	struct mboxlist_entry mbentry;
+	mbentry_t *mbentry = NULL;
 	r = mboxlist_lookup(mbname, &mbentry, NULL);
-	if (!r) r = mailbox_create(mbname, mbentry.mbtype, mbentry.partition,
-				   mbentry.acl, NULL, 0, 0, &mailbox);
+	if (!r) r = mailbox_create(mbname, mbentry->mbtype,
+				   mbentry->partition, mbentry->acl,
+				   NULL, 0, 0, &mailbox);
+	mboxlist_entry_free(&mbentry);
     }
     if(r) goto done;
 
     /* track quota use */
-    old_quota_used = mailbox->i.quota_mailbox_used;
+    mailbox_get_usage(mailbox, old_quota_usage);
+
+    astate = annotate_state_new();
+    r = annotate_state_set_mailbox(astate, mailbox);
+    if (r) goto done;
 
     while(1) {
 	char fnamebuf[MAX_MAILBOX_PATH + 1024];
@@ -861,8 +910,7 @@ int undump_mailbox(const char *mbname,
 	unsigned long cutoff = ULONG_MAX / 10;
 	unsigned digit, cutlim = ULONG_MAX % 10;
 	annotation = NULL;
-	contenttype = NULL;
-	content = NULL;
+	buf_reset(&content);
 	seen_file = NULL;
 	mboxkey_file = NULL;
 	
@@ -874,11 +922,8 @@ int undump_mailbox(const char *mbname,
 
 	if(!strncmp(file.s, "A-", 2)) {
 	    /* Annotation */
-	    size_t contentsize;
-	    uint32_t modtime = 0;
 	    int i;
 	    char *tmpuserid;
-	    const char *ptr;
 
 	    for(i=2; file.s[i]; i++) {
 		if(file.s[i] == '/') break;
@@ -900,7 +945,7 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }	    
 
-	    /* Parse the modtime */
+	    /* Parse the modtime...and ignore it */
 	    c = getword(pin, &data);
 	    if (c != ' ')  {
 		r = IMAP_PROTOCOL_ERROR;
@@ -908,17 +953,8 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }
 
-	    r = parseuint32(data.s, &ptr, &modtime);
-	    if (r || *ptr) {
-		r = IMAP_PROTOCOL_ERROR;
-		free(tmpuserid);
-		goto done;
-	    }
-
-	    c = getbastring(pin, pout, &data);
+	    c = getbastring(pin, pout, &content);
 	    /* xxx binary */
-	    content = xstrdup(data.s);
-	    contentsize = data.len;
 
 	    if(c != ' ') {
 		r = IMAP_PROTOCOL_ERROR;
@@ -926,8 +962,8 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }
 
+	    /* got the contenttype...and ignore it */
 	    c = getastring(pin, pout, &data);
-	    contenttype = xstrdup(data.s);
 	    
 	    if(c != ')') {
 		r = IMAP_PROTOCOL_ERROR;
@@ -935,20 +971,57 @@ int undump_mailbox(const char *mbname,
 		goto done;
 	    }
 
-	    annotatemore_write_entry(mbname, annotation, tmpuserid, content,
-				     contenttype, contentsize, modtime, NULL);
+	    annotate_state_write(astate, annotation, tmpuserid,
+				     &content);
     
 	    free(tmpuserid);
 	    free(annotation);
-	    free(content);
-	    free(contenttype);
 	    annotation = NULL;
-	    content = NULL;
-	    contenttype = NULL;
+	    buf_reset(&content);
 
 	    c = prot_getc(pin);
 	    if(c == ')') break; /* that was the last item */
 	    else if(c != ' ') {
+		r = IMAP_PROTOCOL_ERROR;
+		goto done;
+	    }
+
+	    continue;
+	}
+	else if (!strcmp(file.s, "X-QUOTA")) {
+	    /* Quota */
+	    if (prot_getc(pin) != '(') {
+		r = IMAP_PROTOCOL_ERROR;
+		goto done;
+	    }
+
+	    for (;;) {
+		/* XXX - limit is actually stored in an int value */
+		int32_t limit = 0;
+
+		c = getastring(pin, pout, &content);
+		if (c != ' ') {
+		    r = IMAP_PROTOCOL_ERROR;
+		    goto done;
+		}
+		/* ignore unknown resources */
+		res = quota_name_to_resource(content.s);
+
+		c = getint32(pin, &limit);
+		if (res >= 0) {
+		    newquotas[res] = limit;
+		}
+
+		if (c == ')') break;
+		else if (c != ' ') {
+		    r = IMAP_PROTOCOL_ERROR;
+		    goto done;
+		}
+	    }
+
+	    c = prot_getc(pin);
+	    if (c == ')') break; /* that was the last item */
+	    else if (c != ' ') {
 		r = IMAP_PROTOCOL_ERROR;
 		goto done;
 	    }
@@ -997,12 +1070,14 @@ int undump_mailbox(const char *mbname,
 	    char *s = user_hash_subs(userid);
 	    strlcpy(fnamebuf, s, sizeof(fnamebuf));
 	    free(s);
+#ifdef WITH_DAV
 	} else if (userid && !strcmp(file.s, "DAV")) {
 	    /* overwriting this outright is absolutely what we want to do */
 	    struct buf dav_file = BUF_INITIALIZER;
 	    dav_getpath_byuserid(&dav_file, userid);
 	    strlcpy(fnamebuf, buf_cstring(&dav_file), sizeof(fnamebuf));
 	    buf_free(&dav_file);
+#endif
 	} else if (userid && !strcmp(file.s, "SEEN")) {
 	    seen_file = seen_getpath(userid);
 
@@ -1154,10 +1229,25 @@ int undump_mailbox(const char *mbname,
     buf_free(&file);
     buf_free(&data);
 
+    if (r)
+	annotate_state_abort(&mailbox->annot_state);
+
     if (curfile >= 0) close(curfile);
     /* we fiddled the files under the hood, so we can't do anything
      * BUT close it */
     mailbox_close(&mailbox);
+
+    /* time to apply quota (mailbox must be unlocked) */
+    if (!r) {
+	for (res = 0; res < QUOTA_NUMRESOURCES; res++) {
+	    if (newquotas[res] != QUOTA_UNLIMITED) {
+		break;
+	    }
+	}
+	if (res < QUOTA_NUMRESOURCES) {
+	    mboxlist_setquotas(mbname, newquotas, 0);
+	}
+    }
 
     /* let's make sure the modification times are right */
     if (!r) {
@@ -1174,24 +1264,21 @@ int undump_mailbox(const char *mbname,
 	}
 
 	/* update the quota if necessary */
-	if (mailbox->quotaroot &&
-	    old_quota_used != mailbox->i.quota_mailbox_used) {
-	    struct txn *tid = NULL;
-	    struct quota q;
+	if (mailbox->quotaroot) {
+	    quota_t quota_usage[QUOTA_NUMRESOURCES];
+	    int res;
+	    int changed = 0;
 
-	    q.root = mailbox->quotaroot;
-	    r = quota_read(&q, &tid, 1);
-	    if (!r) {
-		q.used += mailbox->i.quota_mailbox_used - old_quota_used;
-		r = quota_write(&q, &tid);
+	    mailbox_get_usage(mailbox, quota_usage);
+	    for (res = 0; res < QUOTA_NUMRESOURCES; res++) {
+		quota_usage[res] -= old_quota_usage[res];
+		if (quota_usage[res] != 0) {
+		    changed++;
+		}
 	    }
-	    if (!r) quota_commit(&tid);
-	    else {
-		quota_abort(&tid);
-		syslog(LOG_ERR, "LOSTQUOTA: unable to record add of " 
-		       UQUOTA_T_FMT " bytes in quota %s",
-		       mailbox->i.quota_mailbox_used - old_quota_used,
-		       mailbox->quotaroot);
+
+	    if (changed) {
+		r = quota_update_useds(mailbox->quotaroot, quota_usage, 0);
 	    }
 	}
 
@@ -1213,10 +1300,12 @@ int undump_mailbox(const char *mbname,
  done2:
     /* just in case we failed during the modifications, close again */
     mailbox_close(&mailbox);
-    
+    if (!r)
+	r = annotate_state_commit(&astate);
+    else
+	annotate_state_abort(&astate);
     free(annotation);
-    free(content);
-    free(contenttype);
+    buf_free(&content);
     free(seen_file);
     free(mboxkey_file);
 

@@ -1,12 +1,11 @@
 /* +++Date last modified: 05-Jul-1997 */
-/* $Id: hash.h,v 1.9 2003/10/22 18:50:12 rjs3 Exp $ */
-
 #ifndef HASH__H
 #define HASH__H
 
 #include <stddef.h>           /* For size_t     */
-#include "strhash.h"
 #include "mpool.h"
+
+#define HASH_TABLE_INITIALIZER {0, NULL, NULL}
 
 /*
 ** A hash table consists of an array of these buckets.  Each bucket

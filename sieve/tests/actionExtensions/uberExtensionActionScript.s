@@ -1,4 +1,6 @@
-require ["reject", "fileinto", "imapflags", "vacation", "notify"];
+require ["reject", "fileinto", "imapflags", "vacation", "notify",
+	"vacation-seconds", "copy", "imap4flags", "relational",
+	"comparator-i;ascii-numeric"];
 
 #this is for the extra thigns we have added to sieve
 
@@ -45,6 +47,23 @@ if header :contains "subject" "sflag2"
 if header :contains "subject" "rflag"
 {removeflag "\\answered";}
 
+#IMAP4FLAGS#
+##############################################
+if header :contains "subject" "imap4flags"
+{
+setflag "existing";
+keep :flags "keepflag";
+fileinto :flags ["fileinto f2"] "INBOX.fileinto.flags";
+
+addflag ["flag0", "flag1"];
+addflag ["my flag is here"];
+removeflag ["is my"];
+
+fileinto "INBOX.fileinto.internalflags";
+fileinto :flags "" "INBOX.fileinto.nullflags";
+
+}
+
 #VACATION
 #############################################
 if header :contains "subject" "vacation"
@@ -54,6 +73,17 @@ vacation :days 5
 	 :addresses ["me@blah.com" , "me@somewhereelse.com"]
          :subject "i'm at the beach"
 	 "I'll respond in a week or two, when i get back";
+}
+
+#VACATION-SECONDS
+#############################################
+if header :contains "subject" "vacation-seconds"
+{
+
+vacation :seconds 60
+	 :addresses ["me@blah.com" , "me@somewhereelse.com"]
+         :subject "i'm out of the room"
+	 "I'll respond in a minute, when i get back";
 }
 
 #NOTIFY and DENOTIFY
@@ -72,3 +102,4 @@ if header :contains "subject" "n2"
 
 if header :contains "subject" "denotify" 
 {denotify;}
+

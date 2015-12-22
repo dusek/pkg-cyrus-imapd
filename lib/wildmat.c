@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: wildmat.c,v 1.4 2010/01/06 17:01:47 murch Exp $
  */
 
 /*
@@ -83,6 +81,7 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "config.h"
 #include "wildmat.h"
 #include "xmalloc.h"
 
@@ -166,7 +165,7 @@ static int DoMatch(const char *text, const char *p)
 /*
 **  User-level routine.  Returns TRUE or FALSE.
 */
-int wildmat(const char *text, const char *p)
+EXPORTED int wildmat(const char *text, const char *p)
 {
 #ifdef	OPTIMIZE_JUST_STAR
     if (p[0] == '*' && p[1] == '\0')
@@ -217,7 +216,7 @@ main()
 
 
 
-struct wildmat *split_wildmats(char *str, const char *prefix)
+EXPORTED struct wildmat *split_wildmats(char *str, const char *prefix)
 {
     char pattern[1024] = "", *p, *c;
     struct wildmat *wild = NULL;
@@ -255,7 +254,7 @@ struct wildmat *split_wildmats(char *str, const char *prefix)
     return wild;
 }
 
-void free_wildmats(struct wildmat *wild)
+EXPORTED void free_wildmats(struct wildmat *wild)
 {
     struct wildmat *w = wild;
 

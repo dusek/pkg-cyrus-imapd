@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lmtpengine.c,v 1.132 2010/01/06 17:01:35 murch Exp $
  */
 
 #include <config.h>
@@ -51,7 +49,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -65,10 +62,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include <netdb.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
 
@@ -76,19 +69,17 @@
 #include "util.h"
 #include "auth.h"
 #include "prot.h"
-#include "rfc822date.h"
+#include "times.h"
 #include "global.h"
-#include "iptostring.h"
 #include "exitcodes.h"
-#include "imap_err.h"
-#include "mupdate_err.h"
+#include "imap/imap_err.h"
+#include "imap/mupdate_err.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 #include "version.h"
 
 #include "lmtpengine.h"
-#include "lmtpstats.h"
+#include "imap/lmtpstats.h"
 #include "tls.h"
 #include "telemetry.h"
 
@@ -110,7 +101,7 @@ struct clientdata {
     struct protstream *pout;
     int fd;
 
-    char clienthost[NI_MAXHOST*2+1];
+    const char *clienthost;
     char lhlo_param[250];
 
     sasl_conn_t *conn;
@@ -226,6 +217,11 @@ static void send_lmtp_error(struct protstream *pout, int r)
 	prot_printf(pout, "451 4.2.1 Mailbox Reserved\r\n");
 	break;
 
+    case IMAP_MAILBOX_DISABLED:
+	prot_printf(pout,
+		    "450 4.2.1 Mailbox disabled, not accepting messages\r\n");
+	break;
+
     case IMAP_MESSAGE_CONTAINSNULL:
 	prot_printf(pout, "554 5.6.0 Message contains NUL characters\r\n");
 	break;
@@ -275,7 +271,7 @@ static void send_lmtp_error(struct protstream *pout, int r)
    ----- access functions and the like, etc. */
 
 /* returns non-zero on failure */
-int msg_new(message_data_t **m)
+static int msg_new(message_data_t **m)
 {
     message_data_t *ret = (message_data_t *) xmalloc(sizeof(message_data_t));
 
@@ -299,7 +295,7 @@ int msg_new(message_data_t **m)
     return 0;
 }
 
-void msg_free(message_data_t *m)
+static void msg_free(message_data_t *m)
 {
     int i;
 
@@ -468,8 +464,7 @@ static char *parseautheq(char **strp)
 /* return malloc'd string containing the address */
 static char *parseaddr(char *s)
 {
-    char *p, *ret;
-    int len;
+    char *p;
     int lmtp_strict_rfc2821 = config_getswitch(IMAPOPT_LMTP_STRICT_RFC2821);
 
     p = s;
@@ -534,19 +529,15 @@ static char *parseaddr(char *s)
 	    while (Uisalnum(*p) || *p == '.' || *p == '-') p++;
 	}
     }
-    
+
     if (*p++ != '>') return 0;
     if (*p && *p != ' ') return 0;
-    len = p - s;
 
-    ret = xmalloc(len + 1);
-    memcpy(ret, s, len);
-    ret[len] = '\0';
-    return ret;
+    return xstrndup(s, p - s);
 }
 
 /* clean off the <> from the return path */
-void clean_retpath(char *rpath)
+static void clean_retpath(char *rpath)
 {
     int sl;
 
@@ -567,9 +558,7 @@ void clean_retpath(char *rpath)
  * from string pointed to by 'buf'.  Does not handle continuation header
  * lines.
  */
-void
-clean822space(buf)
-char *buf;
+static void clean822space(char *buf)
 {
     char *from=buf, *to=buf;
     int c;
@@ -623,7 +612,7 @@ static int savemsg(struct clientdata *cd,
     int nrcpts = m->rcpt_num;
     time_t now = time(NULL);
     static unsigned msgid_count = 0;
-    char datestr[80], tls_info[250] = "";
+    char datestr[RFC822_DATETIME_MAX+1], tls_info[250] = "";
     const char *skipheaders[] = {
 	"Return-Path",  /* need to remove (we add our own) */
 	NULL
@@ -667,7 +656,7 @@ static int savemsg(struct clientdata *cd,
     }
 
     /* add a received header */
-    rfc822date_gen(datestr, sizeof(datestr), now);
+    time_to_rfc822(now, datestr, sizeof(datestr));
     addlen = 8 + strlen(cd->lhlo_param) + strlen(cd->clienthost);
     if (m->authuser) addlen += 28 + strlen(m->authuser) + 5; /* +5 for ssf */
     addlen += 25 + strlen(config_servername) + strlen(cyrus_version());
@@ -821,7 +810,7 @@ static int savemsg(struct clientdata *cd,
 static int process_recipient(char *addr, struct namespace *namespace,
 			     int ignorequota,
 			     int (*verify_user)(const char *, const char *,
-						char *, quota_t,
+						char *, quota_t, quota_t,
 						struct auth_state *),
 			     message_data_t *msg)
 {
@@ -910,13 +899,30 @@ static int process_recipient(char *addr, struct namespace *namespace,
 	ret->user = NULL;
 
     r = verify_user(ret->user, ret->domain, ret->mailbox,
-		    (quota_t) (ignorequota ? -1 : msg->size), msg->authstate);
+		    (quota_t) (ignorequota ? -1 : msg->size),
+		    ignorequota ? -1 : 1, msg->authstate);
     if (r) {
-	/* we lost */
-	free(ret->all);
-	free(ret->rcpt);
-	free(ret);
-	return r;
+	const char *catchall = NULL;
+	if (r == IMAP_MAILBOX_NONEXISTENT) {
+	    catchall = config_getstring(IMAPOPT_LMTP_CATCHALL_MAILBOX);
+	    if (catchall) {
+		if (!verify_user(catchall, NULL, NULL,
+				ignorequota ? -1 : msg->size,
+				ignorequota ? -1 : 1, msg->authstate)) {
+		    ret->user = xstrdup(catchall);
+		} else {
+		    catchall = NULL;
+		}
+	    }
+	}
+
+	if (catchall == NULL ) {
+	    /* we lost */
+	    free(ret->all);
+	    free(ret->rcpt);
+	    free(ret);
+	    return r;
+	}
     }
     ret->ignorequota = ignorequota;
 
@@ -1006,12 +1012,7 @@ void lmtpmode(struct lmtp_func *func,
     int r;
     struct clientdata cd;
 
-    struct sockaddr_storage localaddr, remoteaddr;
-    int havelocal = 0, haveremote = 0;
-    char localip[60], remoteip[60];
-    socklen_t salen;
-    char hbuf[NI_MAXHOST];
-    int niflags = 0;
+    const char *localip, *remoteip;
 
     sasl_ssf_t ssf;
     char *auth_id;
@@ -1022,7 +1023,7 @@ void lmtpmode(struct lmtp_func *func,
     cd.pin = pin;
     cd.pout = pout;
     cd.fd = fd;
-    cd.clienthost[0] = '\0';
+    cd.clienthost = "";
     cd.lhlo_param[0] = '\0';
     cd.authenticated =  NOAUTH;
 #ifdef HAVE_SSL
@@ -1048,57 +1049,15 @@ void lmtpmode(struct lmtp_func *func,
     }
 
     /* determine who we're talking to */
-    salen = sizeof(remoteaddr);
-    r = getpeername(fd, (struct sockaddr *)&remoteaddr, &salen);
-    if (!r &&
-	(remoteaddr.ss_family == AF_INET ||
-	 remoteaddr.ss_family == AF_INET6)) {
-	/* connected to an internet socket */
-	if (getnameinfo((struct sockaddr *)&remoteaddr, salen,
-			hbuf, sizeof(hbuf), NULL, 0, NI_NAMEREQD) == 0) {
-	    strncpy(cd.clienthost, hbuf, sizeof(hbuf));
-	    strlcat(cd.clienthost, " ", sizeof(cd.clienthost));
-	    cd.clienthost[sizeof(cd.clienthost)-30] = '\0';
-	} else {
-	    cd.clienthost[0] = '\0';
-	}
-	niflags = NI_NUMERICHOST;
-#ifdef NI_WITHSCOPEID
-	if (((struct sockaddr *)&remoteaddr)->sa_family == AF_INET6)
-	    niflags |= NI_WITHSCOPEID;
-#endif
-	if (getnameinfo((struct sockaddr *)&remoteaddr, salen,
-			hbuf, sizeof(hbuf), NULL, 0, niflags) != 0)
-	    strlcpy(hbuf, "unknown", sizeof(hbuf));
-	strlcat(cd.clienthost, "[", sizeof(cd.clienthost));
-	strlcat(cd.clienthost, hbuf, sizeof(cd.clienthost));
-	strlcat(cd.clienthost, "]", sizeof(cd.clienthost));
-	salen = sizeof(localaddr);
-	if (!getsockname(fd, (struct sockaddr *)&localaddr, &salen)) {
-	    /* set the ip addresses here */
-	    if(iptostring((struct sockaddr *)&localaddr, salen,
-			  localip, sizeof(localip)) == 0) {
-		havelocal = 1;
-                saslprops.iplocalport = xstrdup(localip);
-            }
-            if(iptostring((struct sockaddr *)&remoteaddr, salen,
-			  remoteip, sizeof(remoteip)) == 0) {
-		haveremote = 1;
-                saslprops.ipremoteport = xstrdup(remoteip);
-            }
-	} else {
-	    fatal("can't get local addr", EC_SOFTWARE);
-	}
-
-	syslog(LOG_DEBUG, "connection from %s%s", 
-	       cd.clienthost, 
-	       func->preauth ? " preauth'd as postman" : "");
-    } else {
+    cd.clienthost = get_clienthost(fd, &localip, &remoteip);
+    if (!strcmp(cd.clienthost, UNIX_SOCKET)) {
 	/* we're not connected to a internet socket! */
 	func->preauth = 1;
-	strcpy(cd.clienthost, "[unix socket]");
-	syslog(LOG_DEBUG, "lmtp connection preauth'd as postman");
     }
+
+    syslog(LOG_DEBUG, "connection from %s%s", 
+	   cd.clienthost, 
+	   func->preauth ? " preauth'd as postman" : "");
 
     /* Setup SASL to go.  We need to do this *after* we decide if
      *  we are preauthed or not. */
@@ -1126,8 +1085,8 @@ void lmtpmode(struct lmtp_func *func,
 
 	deliver_logfd = telemetry_log(auth_id, pin, pout, 0);
     } else {
-	if(havelocal) sasl_setprop(cd.conn, SASL_IPLOCALPORT,  &localip );
-	if(haveremote) sasl_setprop(cd.conn, SASL_IPREMOTEPORT, &remoteip);  
+	if(localip) sasl_setprop(cd.conn, SASL_IPLOCALPORT,  &localip );
+	if(remoteip) sasl_setprop(cd.conn, SASL_IPREMOTEPORT, &remoteip);  
     }
 
     prot_printf(pout, "220 %s", config_servername);
@@ -1163,6 +1122,9 @@ void lmtpmode(struct lmtp_func *func,
 
 	  func->shutdown(0);
       }
+
+      if (config_getswitch(IMAPOPT_CHATTY))
+	syslog(LOG_NOTICE, "command: %s", buf);
 
       switch (buf[0]) {
       case 'a':
@@ -1222,24 +1184,8 @@ void lmtpmode(struct lmtp_func *func,
 			  continue;
 		      }
 		      else {
-			  sleep(3);
-
-			  if (remoteaddr.ss_family == AF_INET ||
-			      remoteaddr.ss_family == AF_INET6) {
-			      niflags = NI_NUMERICHOST;
-#ifdef NI_WITHSCOPEID
-			      if (remoteaddr.ss_family == AF_INET6)
-				  niflags |= NI_WITHSCOPEID;
-#endif
-			      if (getnameinfo((struct sockaddr *)&remoteaddr,
-					      salen, hbuf, sizeof(hbuf),
-					      NULL, 0, niflags) != 0)
-				  strlcpy(hbuf, "[unknown]", sizeof(hbuf));
-			  }
-			  else
-			      strlcpy(hbuf, "[unix socket]", sizeof(hbuf));		  
 			  syslog(LOG_ERR, "badlogin: %s %s %s",
-				 hbuf, mech, sasl_errdetail(cd.conn));
+				 cd.clienthost, mech, sasl_errdetail(cd.conn));
 		  
 			  snmp_increment_args(AUTHENTICATION_NO, 1,
 					      VARIABLE_AUTH, hash_simple(mech), 
@@ -1598,8 +1544,7 @@ void lmtpmode(struct lmtp_func *func,
 
 		r=tls_init_serverengine("lmtp",
 					5,   /* depth to verify */
-					1,   /* can client auth? */
-					1);   /* TLS only? */
+					1);  /* can client auth? */
 
 		if (r == -1) {
 

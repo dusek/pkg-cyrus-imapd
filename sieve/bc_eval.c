@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: bc_eval.c,v 1.19.2.2 2010/02/12 03:41:11 brong Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -50,21 +48,17 @@
 #include "interp.h"
 #include "message.h"
 #include "script.h"
+#include "parseaddr.h"
 
 #include "bytecode.h"
 
 #include "charset.h"
-#include "hash.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 #include "util.h"
+#include "times.h"
 
 #include <string.h>
-#include <ctype.h>
-
-#define SCOUNT_SIZE 20
-char scount[SCOUNT_SIZE];
 
 /**************************************************************************/
 /**************************************************************************/
@@ -78,7 +72,7 @@ char scount[SCOUNT_SIZE];
 /* Given a bytecode_input_t at the beginning of a string (the len block),
  * return the string, the length, and the bytecode index of the NEXT
  * item */
-int unwrap_string(bytecode_input_t *bc, int pos, const char **str, int *len) 
+EXPORTED int unwrap_string(bytecode_input_t *bc, int pos, const char **str, int *len) 
 {
     int local_len = ntohl(bc[pos].value);
 
@@ -174,16 +168,18 @@ static char* look_for_me(char *myaddr, int numaddresses,
 
     /* loop through each TO header */
     for (l = 0; body[l] != NULL && !found; l++) {
-	void *data = NULL, *marker = NULL;
-	char *addr;
-	
-	parse_address(body[l], &data, &marker);
+	struct address_itr ai;
+	const struct address *a;
+
+	address_itr_init(&ai, body[l]);
 
 	/* loop through each address in the header */
-	while (!found &&
-	       ((addr = get_address(ADDRESS_ALL,&data, &marker, 1))!= NULL)) {
+	while (!found && (a = address_itr_next(&ai)) != NULL) {
+	    char *addr = address_get_all(a, 0);
+	    if (!addr) addr = xstrdup("");
 
 	    if (!strcasecmp(addr, myaddr)) {
+		free(addr);
 		found = xstrdup(myaddr);
 		break;
 	    }
@@ -192,185 +188,164 @@ static char* look_for_me(char *myaddr, int numaddresses,
 
 	    for(x=0; x<numaddresses; x++)
 	    {
-		void *altdata = NULL, *altmarker = NULL;
 		char *altaddr;
 		const char *str;
 
 		curra = unwrap_string(bc, curra, &str, NULL);
 		
 		/* is this address one of my addresses? */
-      		parse_address(str, &altdata, &altmarker);
-
-		altaddr = get_address(ADDRESS_ALL, &altdata, &altmarker, 1);
+		altaddr = address_canonicalise(str);
 
 		if (!strcasecmp(addr,altaddr)) {
+		    free(altaddr);
 		    found=xstrdup(str);
 		    break;
 		}
-
-		free_address(&altdata, &altmarker);
+		free(altaddr);
 	    }
-
+	    free(addr);
 	}
-	free_address(&data, &marker);
+	address_itr_fini(&ai);
     }
 
     return found;
 }
 
-static char *list_fields[] = {
-    "list-id",
-    "list-help",
-    "list-subscribe",
-    "list-unsubscribe",
-    "list-post",
-    "list-owner",
-    "list-archive",
-    NULL
-};
- 
 /* Determine if we should respond to a vacation message */
 static int shouldRespond(void * m, sieve_interp_t *interp,
 			 int numaddresses, bytecode_input_t* bc,
 			 int i, char **from, char **to)
 {
     const char **body;
-    char buf[128];
     char *myaddr = NULL;
-    int l = SIEVE_OK, j;
-    void *data = NULL, *marker = NULL;
-    char *tmp;
+    int l = SIEVE_DONE, j;
     int curra, x;
     char *found = NULL;
     char *reply_to = NULL;
-  
+    static const char * const list_fields[] = {
+	"list-id",
+	"list-help",
+	"list-subscribe",
+	"list-unsubscribe",
+	"list-post",
+	"list-owner",
+	"list-archive",
+	NULL
+    };
+
     /* Implementations SHOULD NOT respond to any message that contains a
        "List-Id" [RFC2919], "List-Help", "List-Subscribe", "List-
        Unsubscribe", "List-Post", "List-Owner" or "List-Archive" [RFC2369]
        header field. */
     for (j = 0; list_fields[j]; j++) {
-	strcpy(buf, list_fields[j]);
-	if (interp->getheader(m, buf, &body) == SIEVE_OK) {
-	    l = SIEVE_DONE;
-	    break;
-	}
+	if (interp->getheader(m, list_fields[j], &body) == SIEVE_OK)
+	    goto out;
     }
 
     /* Implementations SHOULD NOT respond to any message that has an
        "Auto-submitted" header field with a value other than "no".
        This header field is described in [RFC3834]. */
-    strcpy(buf, "auto-submitted");
-    if (interp->getheader(m, buf, &body) == SIEVE_OK) {
+    if (interp->getheader(m, "auto-submitted", &body) == SIEVE_OK) {
 	/* we don't deal with comments, etc. here */
 	/* skip leading white-space */
 	while (*body[0] && Uisspace(*body[0])) body[0]++;
-	if (strcasecmp(body[0], "no")) l = SIEVE_DONE;
+	if (strcasecmp(body[0], "no"))
+	    goto out;
     }
 
     /* is there a Precedence keyword of "junk | bulk | list"? */
     /* XXX  non-standard header, but worth checking */
-    strcpy(buf, "precedence");
-    if (interp->getheader(m, buf, &body) == SIEVE_OK) {
+    if (interp->getheader(m, "precedence", &body) == SIEVE_OK) {
 	/* we don't deal with comments, etc. here */
 	/* skip leading white-space */
 	while (*body[0] && Uisspace(*body[0])) body[0]++;
 	if (!strcasecmp(body[0], "junk") ||
 	    !strcasecmp(body[0], "bulk") ||
 	    !strcasecmp(body[0], "list"))
-	    l = SIEVE_DONE;
+	    goto out;
     }
 
     /* Note: the domain-part of all addresses are canonicalized */
     /* grab my address from the envelope */
-    if (l == SIEVE_OK) {
-	strcpy(buf, "to");
-	l = interp->getenvelope(m, buf, &body);
-	
-	if (body[0]) {  
-	    parse_address(body[0], &data, &marker);
-	    tmp = get_address(ADDRESS_ALL, &data, &marker, 1);
-	    myaddr = (tmp != NULL) ? xstrdup(tmp) : NULL;
-	    free_address(&data, &marker);
-	}  
-    }  
-  
-    if (l == SIEVE_OK) {
-	strcpy(buf, "from");
-	l = interp->getenvelope(m, buf, &body);
-    }
-    if (l == SIEVE_OK && body[0]) {
-	/* we have to parse this address & decide whether we
-	   want to respond to it */
-	parse_address(body[0], &data, &marker);
-	tmp = get_address(ADDRESS_ALL, &data, &marker, 1);
-	reply_to = (tmp != NULL) ? xstrdup(tmp) : NULL;
-	free_address(&data, &marker);
+    l = interp->getenvelope(m, "to", &body);
+    if (l != SIEVE_OK)
+	goto out;
+    l = SIEVE_DONE;
+    if (!body[0])
+	goto out;
+    myaddr = address_canonicalise(body[0]);
 
-	/* first, is there a reply-to address? */
-	if (reply_to == NULL) {
-	    l = SIEVE_DONE;
-	}
-    
-	/* first, is it from me? */
-	if (l == SIEVE_OK && myaddr && !strcmp(myaddr, reply_to)) {
-	    l = SIEVE_DONE;
-	}
-   
-	/* ok, is it any of the other addresses i've
-	   specified? */
-	if (l == SIEVE_OK)
-	{
-	    curra=i;
-	    for(x=0; x<numaddresses; x++) {
-		const char *address;
+    l = interp->getenvelope(m, "from", &body);
+    if (l != SIEVE_OK)
+	goto out;
+    l = SIEVE_DONE;
+    if (!body[0])
+	goto out;
+    /* we have to parse this address & decide whether we
+       want to respond to it */
+    reply_to = address_canonicalise(body[0]);
 
-		curra = unwrap_string(bc, curra, &address, NULL);
-		
-		if (!strcmp(address, reply_to))
-		    l = SIEVE_DONE;
-	    }
-	}
-   
-	/* ok, is it a system address? */
-	if (l == SIEVE_OK && sysaddr(reply_to)) {
-	    l = SIEVE_DONE;
-	}
+    /* first, is there a reply-to address? */
+    if (reply_to == NULL)
+	goto out;
+
+    /* is it from me? */
+    if (myaddr && !strcmp(myaddr, reply_to))
+	goto out;
+
+    /* ok, is it any of the other addresses i've
+       specified? */
+    curra=i;
+    for(x=0; x<numaddresses; x++) {
+	const char *address;
+
+	curra = unwrap_string(bc, curra, &address, NULL);
+
+	if (!strcmp(address, reply_to))
+	    goto out;
     }
-    if (l == SIEVE_OK) {
-	/* ok, we're willing to respond to the sender.
-	   but is this message to me?  that is, is my address
-	   in the [Resent]-To, [Resent]-Cc or [Resent]-Bcc fields? */
-	if (strcpy(buf, "to"), 
-	    interp->getheader(m, buf, &body) == SIEVE_OK)
-	    found = look_for_me(myaddr, numaddresses ,bc, i, body);
-	if (!found && (strcpy(buf, "cc"),
-		       (interp->getheader(m, buf, &body) == SIEVE_OK)))
-	    found = look_for_me(myaddr, numaddresses, bc, i, body);
-	if (!found && (strcpy(buf, "bcc"),
-		       (interp->getheader(m, buf, &body) == SIEVE_OK)))
-	    found = look_for_me(myaddr, numaddresses, bc, i, body);
-	if (!found && (strcpy(buf, "resent-to"), 
-		       (interp->getheader(m, buf, &body) == SIEVE_OK)))
-	    found = look_for_me(myaddr, numaddresses ,bc, i, body);
-	if (!found && (strcpy(buf, "resent-cc"),
-		       (interp->getheader(m, buf, &body) == SIEVE_OK)))
-	    found = look_for_me(myaddr, numaddresses, bc, i, body);
-	if (!found && (strcpy(buf, "resent-bcc"),
-		       (interp->getheader(m, buf, &body) == SIEVE_OK)))
-	    found = look_for_me(myaddr, numaddresses, bc, i, body);
-	if (!found)
-	    l = SIEVE_DONE;
-    }
+
+    /* ok, is it a system address? */
+    if (sysaddr(reply_to))
+	goto out;
+
+    /* ok, we're willing to respond to the sender.
+       but is this message to me?  that is, is my address
+       in the [Resent]-To, [Resent]-Cc or [Resent]-Bcc fields? */
+    if (interp->getheader(m, "to", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses, bc, i, body);
+    if (!found && interp->getheader(m, "cc", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses, bc, i, body);
+    if (!found && interp->getheader(m, "bcc", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses, bc, i, body);
+    if (!found && interp->getheader(m, "resent-to", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses ,bc, i, body);
+    if (!found && interp->getheader(m, "resent-cc", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses, bc, i, body);
+    if (!found && interp->getheader(m, "resent-bcc", &body) == SIEVE_OK)
+	found = look_for_me(myaddr, numaddresses, bc, i, body);
+    if (found)
+	l = SIEVE_OK;
+
     /* ok, ok, if we got here maybe we should reply */
-    if (myaddr) free(myaddr);
-    *from = found;
-    *to = reply_to;
+out:
+    free(myaddr);
+    if (l == SIEVE_OK) {
+	*from = found;
+	*to = reply_to;
+    }
+    else {
+	free(found);
+	free(reply_to);
+    }
+
     return l;
 }
 
 /* Evaluate a bytecode test */
 static int eval_bc_test(sieve_interp_t *interp, void* m,
-			bytecode_input_t * bc, int * ip)
+			bytecode_input_t * bc, int * ip,
+			strarray_t *workingflags, int version)
 {
     int res=0; 
     int i=*ip;
@@ -378,21 +353,24 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
     int list_len; /* for allof/anyof/exists */
     int list_end; /* for allof/anyof/exists */
     int address=0;/*to differentiate between address and envelope*/
+    int has_index=0;/* used to differentiate between pre and post index tests */
     comparator_t * comp=NULL;
     void * comprock=NULL;
     int op= ntohl(bc[i].op);
-    
+    #define SCOUNT_SIZE 20
+    char scount[SCOUNT_SIZE];
+
     switch(op)
     {
-    case BC_FALSE:
+    case BC_FALSE:/*0*/
 	res=0; i++; break;
 
-    case BC_TRUE:
+    case BC_TRUE:/*1*/
 	res=1; i++; break;
 
     case BC_NOT:/*2*/
 	i+=1;
-	res = eval_bc_test(interp, m, bc, &i);
+	res = eval_bc_test(interp, m, bc, &i, workingflags, version);
 	if(res >= 0) res = !res; /* Only invert in non-error case */
 	break;
 
@@ -451,7 +429,7 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	 * in the right place */
 	for (x=0; x<list_len && !res; x++) { 
 	    int tmp;
-	    tmp = eval_bc_test(interp, m, bc, &i);
+	    tmp = eval_bc_test(interp, m, bc, &i, workingflags, version);
 	    if(tmp < 0) {
 		res = tmp;
 		break;
@@ -471,7 +449,7 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	/* return 1 unless you find one that isn't true, then return 0 */
 	for (x=0; x<list_len && res; x++) {
 	    int tmp;
-	    tmp = eval_bc_test(interp, m, bc, &i);
+	    tmp = eval_bc_test(interp, m, bc, &i, workingflags, version);
 	    if(tmp < 0) {
 		res = tmp;
 		break;
@@ -482,18 +460,41 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	i = list_end; /* handle short-circuiting */
 	
 	break;
-    case BC_ADDRESS:/*7*/
+    case BC_ADDRESS:/*13*/
+	has_index=1;
+	/* fall through */
+    case BC_ADDRESS_PRE_INDEX:/*7*/
 	address=1;
+	if (0x07 == version && BC_ADDRESS_PRE_INDEX == op) {
+	    /* There was a version of the bytecode that had the index extension
+	     * but did not update the bytecode codepoints, nor did it increment
+	     * the bytecode version number.  This tests if the index extension
+	     * was in the bytecode based on the position of the match-type
+	     * argument.
+	     * We test for the applicable version number explicitly.
+	     */
+	    switch (ntohl(bc[i+2].value)) {
+	    case B_IS:
+	    case B_CONTAINS:
+	    case B_MATCHES:
+	    case B_REGEX:
+	    case B_COUNT:
+	    case B_VALUE:
+		has_index = 1;
+		break;
+	    default:
+		has_index = 0;
+	    }
+	}
 	/* fall through */
     case BC_ENVELOPE:/*8*/
     {
 	const char ** val;
-	void * data=NULL;
-	void * marker=NULL;
-	char * addr;
-	int addrpart=ADDRESS_ALL;/* XXX correct default behavior?*/
+	struct address_itr ai;
+	const struct address *a;
+	char *addr;
 
- 	int headersi=i+5;/* the i value for the begining of the headers */
+	int headersi=has_index+i+5;/* the i value for the beginning of the headers */
 	int datai=(ntohl(bc[headersi+1].value)/4);
 
 	int numheaders=ntohl(bc[headersi].len);
@@ -501,10 +502,12 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 
 	int currh, currd; /* current header, current data */
 
-	int match=ntohl(bc[i+1].value);
-	int relation=ntohl(bc[i+2].value);
-	int comparator=ntohl(bc[i+3].value);
-	int apart=ntohl(bc[i+4].value);
+	int header_count;
+	int index=has_index ? ntohl(bc[i+1].value) : 0; // used for address only
+	int match=ntohl(bc[has_index+i+1].value);
+	int relation=ntohl(bc[has_index+i+2].value);
+	int comparator=ntohl(bc[has_index+i+3].value);
+	int apart=ntohl(bc[has_index+i+4].value);
 	int count=0;
 	int isReg = (match==B_REGEX);
 	int ctag = 0;
@@ -531,26 +534,6 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	    res = SIEVE_RUN_ERROR;
 	    break;
 	}
-	
-	/*find the part of the address that we want*/
-	switch(apart)
-	{
-	case B_ALL:
-	    addrpart = ADDRESS_ALL; break;
-	case B_LOCALPART:
-	    addrpart = ADDRESS_LOCALPART; break;
-	case B_DOMAIN:
-	    addrpart = ADDRESS_DOMAIN; break;
-	case B_USER:
-	    addrpart = ADDRESS_USER; break;
-	case B_DETAIL:
-	    addrpart = ADDRESS_DETAIL; break;
-	default:
-	    /* this shouldn't happen with correcct bytecode */
-	    res = SIEVE_RUN_ERROR;
-	}
-
-	if(res == SIEVE_RUN_ERROR) break;
 
 	/*loop through all the headers*/
 	currh=headersi+2;
@@ -577,24 +560,70 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 		    continue;
 	    }
 	
+	    /* count results */
+	    header_count = 0;
+	    while (val[header_count] != NULL) {
+		++header_count;
+	    }
+
+	    /* convert index argument value to array index */
+	    if (index > 0) {
+		--index;
+		if (index >= header_count) {
+			res = 0;
+			break;
+		}
+		header_count = index + 1;
+	    }
+	    else if (index < 0) {
+		index += header_count;
+		if (index < 0) {
+			res = 0;
+			break;
+		}
+		header_count = index + 1;
+	    }
+
 	    /*header exists, now to test it*/
 	    /*search through all the headers that match*/
 	    
-	    for (y=0; val[y]!=NULL && !res; y++) {
-		
+	    for (y = index; y < header_count && !res; y++) {
 #if VERBOSE
 		printf("about to parse %s\n", val[y]);
 #endif
 		    
-		if (parse_address(val[y], &data, &marker)!=SIEVE_OK) 
-		    return 0;
-		    
-		while (!res &&
-		       (addr = get_address(addrpart, &data, &marker, 0))) {
+		address_itr_init(&ai, val[y]);
+
+		while (!res && (a = address_itr_next(&ai)) != NULL) {
 #if VERBOSE
 		    printf("working addr %s\n", (addr ? addr : "[nil]"));
 #endif
-			
+		    /*find the part of the address that we want*/
+		    switch(apart)
+		    {
+		    case B_ALL:
+			addr = address_get_all(a, /*canon_domain*/0);
+			break;
+		    case B_LOCALPART:
+			addr = address_get_localpart(a);
+			break;
+		    case B_DOMAIN:
+			addr = address_get_domain(a, /*canon_domain*/0);
+			break;
+		    case B_USER:
+			addr = address_get_user(a);
+			break;
+		    case B_DETAIL:
+			addr = address_get_detail(a);
+			break;
+		    default:
+			/* this shouldn't happen with correct bytecode */
+			res = SIEVE_RUN_ERROR;
+			goto envelope_err;
+		    }
+
+		    if (!addr) addr = xstrdup("");
+
 		    if (match == B_COUNT) {
 			count++;
 		    } else {
@@ -611,6 +640,7 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 						       errbuf, sizeof(errbuf));
 				if (!reg) {
 				    /* Oops */
+				    free(addr);
 				    res=-1;
 				    goto alldone;
 				}
@@ -628,9 +658,10 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 			    }
 			} /* For each data */
 		    }
+		    free(addr);
 		} /* For each address */
 
-		free_address(&data, &marker);
+		address_itr_fini(&ai);
 	    }/* For each message header */
 	    
 #if VERBOSE
@@ -656,13 +687,38 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	/* Update IP */
 	i=(ntohl(bc[datai+1].value)/4);
 	
+envelope_err:
 	break;
     }
-    case BC_HEADER:/*9*/
+    case BC_HEADER:/*14*/
+	has_index=1;
+	/* fall through */
+    case BC_HEADER_PRE_INDEX:/*9*/
+	if (0x07 == version && BC_HEADER_PRE_INDEX == op) {
+	    /* There was a version of the bytecode that had the index extension
+	     * but did not update the bytecode codepoints, nor did it increment
+	     * the bytecode version number.  This tests if the index extension
+	     * was in the bytecode based on the position of the match-type
+	     * argument.
+	     * We test for the applicable version number explicitly.
+	     */
+	    switch (ntohl(bc[i+2].value)) {
+	    case B_IS:
+	    case B_CONTAINS:
+	    case B_MATCHES:
+	    case B_REGEX:
+	    case B_COUNT:
+	    case B_VALUE:
+		    has_index = 1;
+		    break;
+	    default:
+		    has_index = 0;
+	    }
+	}
     {
 	const char** val;
 
-	int headersi=i+4;/*the i value for the begining of hte headers*/
+	int headersi=has_index+i+4;/*the i value for the beginning of the headers*/
 	int datai=(ntohl(bc[headersi+1].value)/4);
 
 	int numheaders=ntohl(bc[headersi].len);
@@ -670,9 +726,11 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 
 	int currh, currd; /*current header, current data*/
 
-	int match=ntohl(bc[i+1].value);
-	int relation=ntohl(bc[i+2].value);
-	int comparator=ntohl(bc[i+3].value);
+	int header_count;
+	int index=has_index ? ntohl(bc[i+1].value) : 0;
+	int match=ntohl(bc[has_index+i+1].value);
+	int relation=ntohl(bc[has_index+i+2].value);
+	int comparator=ntohl(bc[has_index+i+3].value);
 	int count=0;	
 	int isReg = (match==B_REGEX);
 	int ctag = 0;
@@ -716,10 +774,34 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 #if VERBOSE
 	    printf ("val %s %s %s\n", val[0], val[1], val[2]);
 #endif
-	    
+
+	    /* count results */
+	    header_count = 0;
+	    while (val[header_count] != NULL) {
+		++header_count;
+	    }
+
+	    /* convert index argument value to array index */
+	    if (index > 0) {
+		--index;
+		if (index >= header_count) {
+			res = 0;
+			break;
+		}
+		header_count = index + 1;
+	    }
+	    else if (index < 0) {
+		index += header_count;
+		if (index < 0) {
+			res = 0;
+			break;
+		}
+		header_count = index + 1;
+	    }
+
 	    /* search through all the headers that match */
 	    
-	    for (y = 0; val[y] && !res; y++)
+	    for (y = index; y < header_count && !res; y++)
 	    {
 		if  (match == B_COUNT) {
 		    count++;
@@ -779,12 +861,116 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	
 	break;
     }
+    case BC_HASFLAG:/*15*/
+    {
+	int haystacksi=i+4;/*the i value for the beginning of the variables*/
+	int needlesi=(ntohl(bc[haystacksi+1].value)/4);
+
+	int numneedles=ntohl(bc[needlesi].len); // number of search flags
+
+	int currneedle; /* current needle */
+
+	int match=ntohl(bc[i+1].value);
+	int relation=ntohl(bc[i+2].value);
+	int comparator=ntohl(bc[i+3].value);
+	int count=0;
+	int isReg = (match==B_REGEX);
+	int ctag = 0;
+	regex_t *reg;
+	char errbuf[100]; /* Basically unused, regexps tested at compile */
+
+	/* set up variables needed for compiling regex */
+	if (isReg)
+	{
+	    if (comparator== B_ASCIICASEMAP)
+	    {
+		ctag= REG_EXTENDED | REG_NOSUB | REG_ICASE;
+	    }
+	    else
+	    {
+		ctag= REG_EXTENDED | REG_NOSUB;
+	    }
+
+	}
+
+	/*find the correct comparator fcn*/
+	comp=lookup_comp(comparator, match, relation, &comprock);
+
+	if(!comp) {
+	    res = SIEVE_RUN_ERROR;
+	    break;
+	}
+
+	if  (match == B_COUNT )
+	{
+	    count = workingflags->count;
+	    snprintf(scount, SCOUNT_SIZE, "%u", count);
+	    /*search through all the data*/
+	    currneedle=needlesi+2;
+	    for (z=0; z<numneedles && !res; z++)
+	    {
+		const char *this_needle;
+
+		currneedle = unwrap_string(bc, currneedle, &this_needle, NULL);
+#if VERBOSE
+		printf("%d, %s \n", count, data_val);
+#endif
+		res |= comp(scount, strlen(scount), this_needle, comprock);
+	    }
+	} else {
+
+	/* search through the haystack for the needles */
+	currneedle=needlesi+2;
+	for(x=0; x<numneedles && !res; x++)
+	{
+	    const char *this_needle;
+
+	    currneedle = unwrap_string(bc, currneedle, &this_needle, NULL);
+
+#if VERBOSE
+	    printf ("val %s %s %s\n", val[0], val[1], val[2]);
+#endif
+
+	    /* search through all the flags */
+
+	    for (y=0; y < workingflags->count && !res; y++)
+	    {
+		const char *active_flag;
+
+		active_flag = workingflags->data[y];
+
+		if (isReg) {
+		    reg= bc_compile_regex(this_needle, ctag, errbuf,
+					  sizeof(errbuf));
+		    if (!reg)
+		    {
+			/* Oops */
+			res=-1;
+			goto alldone;
+		    }
+
+		    res |= comp(active_flag, strlen(active_flag),
+				(const char *)reg, comprock);
+		    free(reg);
+		} else {
+		    res |= comp(active_flag, strlen(active_flag),
+				this_needle, comprock);
+		}
+	    }
+	}
+	}
+
+	/* Update IP */
+	i=(ntohl(bc[needlesi+1].value)/4);
+
+	break;
+    }
     case BC_BODY:/*10*/
     {
 	sieve_bodypart_t ** val;
 	const char **content_types = NULL;
 
-	int typesi=i+6;/* the i value for the begining of the content-types */
+	int typesi=i+6;/* the i value for the beginning of the content-types */
  	int datai=(ntohl(bc[typesi+1].value)/4);
 
 	int numdata=ntohl(bc[datai].len);
@@ -902,6 +1088,299 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 	
 	break;
     }
+    case BC_DATE:/*11*/
+	has_index=1;
+    case BC_CURRENTDATE:/*12*/
+	if (0x07 == version) {
+	    /* There was a version of the bytecode that had the index extension
+	     * but did not update the bytecode codepoints, nor did it increment
+	     * the bytecode version number.  This tests if the index extension
+	     * was in the bytecode based on the position of the match-type
+	     * or comparator argument.  This will correctly identify whether
+	     * the index extension was supported in every case except the case
+	     * of a timezone that is 61 minutes offset (since 61 corresponds to
+	     * B_ORIGINALZONE).
+	     * There was also an unnumbered version of BC_CURRENTDATE that did
+	     * allow :index.  This also covers that case.
+	     * We test for the applicable version number explicitly.
+	     */
+	    switch (ntohl(bc[i+4].value)) {
+	    /* if the 4th parameter is a comparator, we have neither :index nor
+	     *  :zone tags.  B_ORIGINALZONE is the first parameter.
+	     */
+	    case B_ASCIICASEMAP:
+	    case B_OCTET:
+	    case B_ASCIINUMERIC:
+		has_index = 0;
+		break;
+	    default:
+		/* otherwise, we either have a :zone tag, an :index tag, or
+		 * both
+		 */
+		switch (ntohl(bc[i+5].value)) {
+		/* if the 5th paramater is a comparator, we have either :index
+		 * or :zone, but not both.
+		 */
+		case B_ASCIICASEMAP:
+		case B_OCTET:
+		case B_ASCIINUMERIC:
+		    /* The ambiguous case is B_TIMEZONE as 1st parameter and
+		     * B_ORIGINALZONE as second parameter, which could mean
+		     * either ':index 60 :originalzone' or ':zone "+0101"'
+		     */
+		    if (B_TIMEZONE == ntohl(bc[i+1].value) &&
+			    B_ORIGINALZONE == ntohl(bc[i+2].value)) {
+			/* This is the ambiguous case.  Resolve the ambiguity
+			 * by assuming that there is no :index tag since the
+			 * unnumbered bytecode that shipped with Kolab
+			 * Groupware 3.3 included support for the date
+			 * extension, but not for the index extension.
+			 */
+			has_index = 0;
+
+		    } else if (B_TIMEZONE == ntohl(bc[i+1].value)) {
+			/* if the first parameter is B_TIMEZONE, and the above
+			 * test was false, it must be a :zone tag, and we
+			 * don't have :index.
+			 */
+			has_index = 0;
+		    } else {
+			/* if the first parameter is not B_TIMEZONE, it must
+			 * be an :index tag, and we don't have :zone.
+			 */
+			has_index = 1;
+		    }
+		    break;
+		default:
+		    /* if the 5th parameter is not a comparator, the 6th is,
+		     * and we have both :index and :zone
+		     */
+		    has_index = 1;
+		}
+	    }
+	}
+    {
+	char buffer[64];
+	const char **headers = NULL;
+	const char **key;
+	const char **keylist = NULL;
+	const char *header = NULL;
+	const char *header_data;
+	const char *header_name = NULL;
+	int comparator;
+	int date_part;
+	int header_count;
+	int index;
+	int match;
+	int relation;
+	int timezone_offset = 0;
+	int zone;
+	struct tm tm;
+	time_t t;
+
+	++i; /* BC_DATE | BC_CURRENTDATE */
+
+	/* index */
+	index = has_index ? ntohl(bc[i++].value) : 0;
+
+	/* zone tag */
+	zone = ntohl(bc[i++].value);
+
+	/* timezone offset */
+	if (zone == B_TIMEZONE) {
+		timezone_offset = ntohl(bc[i++].value);
+	}
+
+	/* comparator */
+	match = ntohl(bc[i++].value);
+	relation = ntohl(bc[i++].value);
+	comparator = ntohl(bc[i++].value);
+
+	/* find comparator function */
+	comp = lookup_comp(comparator, match, relation, &comprock);
+	if(!comp) {
+		res = SIEVE_RUN_ERROR;
+		break;
+	}
+
+	/* date-part */
+	date_part = ntohl(bc[i++].value);
+
+	if (BC_DATE == op) {
+		/* header name */
+		i = unwrap_string(bc, i, &header_name, NULL);
+
+		/*
+		 * Process header
+		 */
+
+		if (interp->getheader(m, header_name, &headers) != SIEVE_OK) {
+			res = 0;
+			free(bc_makeArray(bc, &i));
+			break;
+		}
+
+		/* count results */
+		header_count = 0;
+		while (headers[header_count] != NULL) {
+			++header_count;
+		}
+
+		/* convert index argument value to array index */
+		if (index > 0) {
+			--index;
+			if (index >= header_count) {
+				res = 0;
+				free(bc_makeArray(bc, &i));
+				break;
+			}
+			header_count = index + 1;
+		}
+		else if (index < 0) {
+			index += header_count;
+			if (index < 0) {
+				res = 0;
+				free(bc_makeArray(bc, &i));
+				break;
+			}
+			header_count = index + 1;
+		}
+
+		/* check if index is out of bounds */
+		if (index < 0 || index >= header_count) {
+			res = 0;
+			free(bc_makeArray(bc, &i));
+			break;
+		}
+		header = headers[index];
+
+		/* look for separator */
+		header_data = strrchr(header, ';');
+		if (header_data) {
+			/* separator found, skip character and continue */
+			++header_data;
+		}
+		else {
+			/* separator not found, use full header */
+			header_data = header;
+		}
+
+		if (-1 == time_from_rfc822(header_data, &t)) {
+			res = 0;
+			free(bc_makeArray(bc, &i));
+			break;
+		}
+
+		/* timezone offset */
+		if (zone == B_ORIGINALZONE) {
+			char *zone;
+			char sign;
+			int hours;
+			int minutes;
+
+			zone = strrchr(header, ' ');
+			if (!zone ||
+			    3 != sscanf(zone + 1, "%c%02d%02d", &sign, &hours, &minutes)) {
+				res = 0;
+				free(bc_makeArray(bc, &i));
+				break;
+			}
+
+			timezone_offset = (sign == '-' ? -1 : 1) * ((hours * 60) + (minutes));
+		}
+	}
+	else { /* CURRENTDATE */
+		t = interp->time;
+	}
+
+	/* apply timezone_offset (if any) */
+	t += timezone_offset * 60;
+
+	/* get tm struct */
+	gmtime_r(&t, &tm);
+
+
+	/*
+	 * Tests
+	 */
+
+	if (match == B_COUNT) {
+		res = SIEVE_OK;
+		goto alldone;
+	}
+
+	keylist = bc_makeArray(bc, &i);
+	for (key = keylist; *key; ++key) {
+		switch (date_part) {
+		case B_YEAR:
+			snprintf(buffer, sizeof(buffer), "%04d", 1900 + tm.tm_year);
+			break;
+		case B_MONTH:
+			snprintf(buffer, sizeof(buffer), "%02d", 1 + tm.tm_mon);
+			break;
+		case B_DAY:
+			snprintf(buffer, sizeof(buffer), "%02d", tm.tm_mday);
+			break;
+		case B_DATE:
+			snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d",
+			    1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday);
+			break;
+		case B_JULIAN: {
+			int month, year;
+			int c, ya;
+
+			month = 1 + tm.tm_mon;
+			year = 1900 + tm.tm_year;
+
+			if (month > 2) {
+			    month -= 3;
+			}
+			else {
+			    month += 9;
+			    --year;
+			}
+			c = year / 100;
+			ya = year - c * 100;
+
+			snprintf(buffer, sizeof(buffer), "%d",
+			    (c * 146097 / 4 + ya * 1461 / 4 +
+			      (month * 153 + 2) / 5 + tm.tm_mday + 1721119));
+			} break;
+		case B_HOUR:
+			snprintf(buffer, sizeof(buffer), "%02d", tm.tm_hour);
+			break;
+		case B_MINUTE:
+			snprintf(buffer, sizeof(buffer), "%02d", tm.tm_min);
+			break;
+		case B_SECOND:
+			snprintf(buffer, sizeof(buffer), "%02d", tm.tm_sec);
+			break;
+		case B_TIME:
+			snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d",
+			    tm.tm_hour, tm.tm_min, tm.tm_sec);
+			break;
+		case B_ISO8601:
+			time_to_iso8601(t, buffer, sizeof(buffer));
+			break;
+		case B_STD11:
+			time_to_rfc822(t, buffer, sizeof(buffer));
+			break;
+		case B_ZONE:
+			snprintf(buffer, sizeof(buffer), "%c%02d%02d",
+			    timezone_offset >= 0 ? '+' : '-',
+			    abs(timezone_offset) / 60,
+			    abs(timezone_offset) % 60);
+			break;
+		case B_WEEKDAY:
+			snprintf(buffer, sizeof(buffer), "%1d", tm.tm_wday);
+			break;
+		}
+
+		res |= comp(buffer, strlen(buffer), *key, comprock);
+	}
+	free(keylist);
+	break;
+    }
     default:
 #if VERBOSE
 	printf("WERT, can't evaluate if statement. %d is not a valid command",
@@ -920,8 +1399,9 @@ static int eval_bc_test(sieve_interp_t *interp, void* m,
 /* The entrypoint for bytecode evaluation */
 int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 		  void *sc, void *m,
-		  sieve_imapflags_t * imapflags, action_list_t *actions,
-		  notify_list_t *notify_list, const char **errmsg) 
+		  variable_list_t *flagvars, action_list_t *actions,
+		  notify_list_t *notify_list, const char **errmsg,
+		  variable_list_t *workingvars)
 {
     const char *data;
     int res=0;
@@ -981,28 +1461,57 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 #endif
 
     for(ip++; ip<ip_max; ) { 
+	/* In this loop, when a case is switch'ed to, ip points to the first
+	 * parameter of the action.  This makes it easier to add future
+	 * extensions.  Extensions that change an existing action should add
+	 * any new parameters to the beginning of the particular action's
+	 * bytecode.  This will allow the new code to fall through to the
+	 * older code, which will then parse the older parameters and should
+	 * require only a minimal set of changes to support any new extension.
+	 */
 	int copy = 0;
+	strarray_t *actionflags = NULL;
 
-	op=ntohl(bc[ip].op);
+	op=ntohl(bc[ip++].op);
 	switch(op) {
 	case B_STOP:/*0*/
 	    res=1;
 	    break;
 
-	case B_KEEP:/*1*/
-	    res = do_keep(actions, imapflags);
+	case B_KEEP:/*22*/
+	{
+	    int x;
+	    int list_len=ntohl(bc[ip].len);
+
+	    ip+=2; /* skip opcode, list_len, and list data len */
+
+	    if (list_len) {
+		actionflags = (varlist_extend(flagvars))->var;
+	    }
+	    for (x=0; x<list_len; x++) {
+		const char *flag;
+		ip = unwrap_string(bc, ip, &flag, NULL);
+		if (flag[0]) {
+		strarray_add_case(actionflags,flag);
+		}
+	    }
+	}
+	    copy = ntohl(bc[ip++].value);
+	    /* fall through */
+	case B_KEEP_ORIG:/*1*/
+	    res = do_keep(actions, !copy,
+		    actionflags ? actionflags : flagvars->var);
 	    if (res == SIEVE_RUN_ERROR)
 		*errmsg = "Keep can not be used with Reject";
-	    ip++;
+	    actionflags = NULL;
 	    break;
 
 	case B_DISCARD:/*2*/
 	    res=do_discard(actions);
-	    ip++;
 	    break;
 
 	case B_REJECT:/*3*/
-	    ip = unwrap_string(bc, ip+1, &data, NULL);
+	    ip = unwrap_string(bc, ip, &data, NULL);
 	    
 	    res = do_reject(actions, data);
 	
@@ -1011,31 +1520,52 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 
 	    break;
 
-	case B_FILEINTO:/*19*/
-	    copy = ntohl(bc[ip+1].value);
+	case B_FILEINTO:/*23*/
+	{
+	    int x;
+	    int list_len=ntohl(bc[ip].len);
+
+	    ip+=2; /* skip opcode, list_len, and list data len */
+
+	    if (list_len) {
+		actionflags = (varlist_extend(flagvars))->var;
+	    }
+	    for (x=0; x<list_len; x++) {
+		const char *flag;
+		ip = unwrap_string(bc, ip, &flag, NULL);
+		if (flag[0]) {
+		strarray_add_case(actionflags,flag);
+		}
+	    }
+	}
+	    /* fall through */
+	case B_FILEINTO_COPY:/*19*/
+	    copy = ntohl(bc[ip].value);
 	    ip+=1;
 
 	    /* fall through */
 	case B_FILEINTO_ORIG:/*4*/
 	{
-	    ip = unwrap_string(bc, ip+1, &data, NULL);
+	    ip = unwrap_string(bc, ip, &data, NULL);
 
-	    res = do_fileinto(actions, data, !copy, imapflags);
+	    res = do_fileinto(actions, data, !copy,
+		    actionflags ? actionflags : flagvars->var);
 
 	    if (res == SIEVE_RUN_ERROR)
 		*errmsg = "Fileinto can not be used with Reject";
 
+	    actionflags = NULL;
 	    break;
 	}
 
 	case B_REDIRECT:/*20*/
-	    copy = ntohl(bc[ip+1].value);
+	    copy = ntohl(bc[ip].value);
 	    ip+=1;
 
 	    /* fall through */
 	case B_REDIRECT_ORIG:/*5*/
 	{
-	    ip = unwrap_string(bc, ip+1, &data, NULL);
+	    ip = unwrap_string(bc, ip, &data, NULL);
 
 	    res = do_redirect(actions, data, !copy);
 
@@ -1047,11 +1577,11 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 
 	case B_IF:/*6*/
 	{
-	    int testend=ntohl(bc[ip+1].value);
+	    int testend=ntohl(bc[ip].value);
 	    int result;
 	   
-	    ip+=2;
-	    result=eval_bc_test(i, m, bc, &ip);
+	    ip+=1;
+	    result=eval_bc_test(i, m, bc, &ip, workingvars->var, version);
 	    
 	    if (result<0) {
 		*errmsg = "Invalid test";
@@ -1065,27 +1595,39 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    break;
 	}
 
-	case B_MARK:/*8*/
+	case B_MARK:/*7*/
 	    res = do_mark(actions);
-	    ip++;
+	{
+	    int n = i->markflags->count;
+	    while (n) {
+		strarray_add_case(workingvars->var, i->markflags->data[--n]);
+	    }
+	}
 	    break;
 
-	case B_UNMARK:/*9*/
+	case B_UNMARK:/*8*/
 	    res = do_unmark(actions);
-	    ip++;
+	{
+	    int n = i->markflags->count;
+	    while (n) {
+		strarray_remove_all_case(workingvars->var,
+			i->markflags->data[--n]);
+	    }
+	}
 	    break;
 
-	case B_ADDFLAG:/*10*/ 
+	case B_ADDFLAG:/*9*/
 	{
 	    int x;
-	    int list_len=ntohl(bc[ip+1].len);
+	    int list_len=ntohl(bc[ip].len);
 
-	    ip+=3; /* skip opcode, list_len, and list data len */
+	    ip+=2; /* skip opcode, list_len, and list data len */
 
 	    for (x=0; x<list_len; x++) {
 		ip = unwrap_string(bc, ip, &data, NULL);
 		
 		res = do_addflag(actions, data);
+		strarray_add_case(workingvars->var, data);
 
 		if (res == SIEVE_RUN_ERROR)
 		    *errmsg = "addflag can not be used with Reject";
@@ -1093,24 +1635,26 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    break;
 	}
 
-	case B_SETFLAG:
+	case B_SETFLAG:/*10*/
 	{
 	    int x;
-	    int list_len=ntohl(bc[ip+1].len);
+	    int list_len=ntohl(bc[ip].len);
 
-	    ip+=3; /* skip opcode, list_len, and list data len */
+	    ip+=2; /* skip opcode, list_len, and list data len */
 
-	    ip = unwrap_string(bc, ip, &data, NULL);
 
-	    res = do_setflag(actions, data);
+	    res = do_setflag(actions);
+	    strarray_truncate(workingvars->var, 0);
 
 	    if (res == SIEVE_RUN_ERROR) {
 		*errmsg = "setflag can not be used with Reject";
 	    } else {
-		for (x=1; x<list_len; x++) {
+		for (x=0; x<list_len; x++) {
 		    ip = unwrap_string(bc, ip, &data, NULL);
-
+		    if (data[0]) {
 		    res = do_addflag(actions, data);
+		    strarray_add_case(workingvars->var, data);
+		    }
 
 		    if (res == SIEVE_RUN_ERROR)
 			*errmsg = "setflag can not be used with Reject";
@@ -1120,17 +1664,18 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    break;
 	}
 
-	case B_REMOVEFLAG:
+	case B_REMOVEFLAG:/*11*/
 	{
 	    int x;
-	    int list_len=ntohl(bc[ip+1].len);
+	    int list_len=ntohl(bc[ip].len);
 
-	    ip+=3; /* skip opcode, list_len, and list data len */
+	    ip+=2; /* skip opcode, list_len, and list data len */
 
 	    for (x=0; x<list_len; x++) {
 		ip = unwrap_string(bc, ip, &data, NULL);
 
 		res = do_removeflag(actions, data);
+		strarray_remove_all_case(workingvars->var, data);
 
 		if (res == SIEVE_RUN_ERROR)
 		    *errmsg = "removeflag can not be used with Reject";
@@ -1138,7 +1683,7 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    break;
 	}
 
-	case B_NOTIFY:
+	case B_NOTIFY:/*12*/
 	{
 	    const char * id;
 	    const char * method;
@@ -1147,8 +1692,6 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    const char * message;
 	    int pri;
 	    
-	    ip++;
-
 	    /* method */
 	    ip = unwrap_string(bc, ip, &method, NULL);
 
@@ -1188,7 +1731,7 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 
 	    break;
 	}
-	case B_DENOTIFY:
+	case B_DENOTIFY:/*13*/
 	{
          /*
 	  * i really have no idea what the count matchtype should do here.
@@ -1208,7 +1751,6 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    int comparator;
 	    int pri;
 	    
-	    ip++;
 	    pri=ntohl(bc[ip].value);
 	    ip++;
 	    
@@ -1271,19 +1813,18 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    
 	    break;
 	}
-	case B_VACATION:
+	case B_VACATION_ORIG:/*14*/
+	case B_VACATION:/*21*/
 	{
 	    int respond;
 	    char *fromaddr = NULL; /* relative to message we send */
 	    char *toaddr = NULL; /* relative to message we send */
 	    const char *handle = NULL;
 	    const char *message = NULL;
-	    int days, mime;
+	    int seconds, mime;
 	    char buf[128];
 	    char subject[1024];
 	    int x;
-
-	    ip++;
 
 	    x = ntohl(bc[ip].len);
 	    
@@ -1315,7 +1856,10 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 
 		ip = unwrap_string(bc, ip, &message, NULL);
 
-		days = ntohl(bc[ip].value);
+		seconds = ntohl(bc[ip].value);
+		if (op == B_VACATION_ORIG) {
+		    seconds *= DAY2SEC;
+		}
 		mime = ntohl(bc[ip+1].value);
 
 		ip+=2;
@@ -1338,7 +1882,7 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 		}
 
 		res = do_vacation(actions, toaddr, fromaddr, xstrdup(subject),
-				  message, days, mime, handle);
+				  message, seconds, mime, handle);
 
 		if (res == SIEVE_RUN_ERROR)
 		    *errmsg = "Vacation can not be used with Reject or Vacation";
@@ -1362,35 +1906,46 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
 	    break;
 	}
 	case B_NULL:/*15*/
-	    ip++;
 	    break;
 
 	case B_JUMP:/*16*/
-	    ip= ntohl(bc[ip+1].jump);
+	    ip= ntohl(bc[ip].jump);
 	    break;
-	    
+
 	case B_INCLUDE:/*17*/
 	{
-	    int isglobal = (ntohl(bc[ip+1].value) == B_GLOBAL);
+	    int isglobal = (ntohl(bc[ip].value) & 63) == B_GLOBAL;
+	    int once = ntohl(bc[ip].value) & 64 ? 1 : 0;
+	    int isoptional = ntohl(bc[ip].value) & 128 ? 1 : 0;
 	    char fpath[4096];
 
-	    ip = unwrap_string(bc, ip+2, &data, NULL);
+	    ip = unwrap_string(bc, ip+1, &data, NULL);
 
 	    res = i->getinclude(sc, data, isglobal, fpath, sizeof(fpath));
-	    if (res != SIEVE_OK)
-		*errmsg = "Include can not find script";
-
-	    if (!res) {
-		res = sieve_script_load(fpath, &exe);
-		if (res != SIEVE_OK)
-		*errmsg = "Include can not load script";
+	    if (res != SIEVE_OK) {
+		if (isoptional == 0)
+		    *errmsg = "Include can not find script";
+		else
+		    res = SIEVE_OK;
+	        break;
+	    }
+	    res = sieve_script_load(fpath, &exe);
+	    if (res == SIEVE_SCRIPT_RELOADED) {
+		if (once == 1) {
+		    res = SIEVE_OK;
+		    break;
+		}
+	    } else if (res != SIEVE_OK) { /* SIEVE_FAIL */
+		if (isoptional == 0)
+		    *errmsg = "Include can not load script";
+		else
+		    res = SIEVE_OK;
+		break;
 	    }
 
-	    if (!res)
-		res = sieve_eval_bc(exe, 1, i,
-				    sc, m, imapflags, actions,
-				    notify_list, errmsg);
-
+	    res = sieve_eval_bc(exe, 1, i,
+				sc, m, flagvars, actions,
+				notify_list, errmsg, workingvars);
 	    break;
 	}
 
@@ -1413,5 +1968,5 @@ int sieve_eval_bc(sieve_execute_t *exe, int is_incl, sieve_interp_t *i,
   done:
     bc_cur->is_executing = 0;
 
-    return res;      
+    return res;
 }

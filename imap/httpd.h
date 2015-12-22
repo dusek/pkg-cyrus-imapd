@@ -70,6 +70,9 @@
     "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" " \
     "\"http://www.w3.org/TR/html4/loose.dtd\">"
 
+#define XML_DECLARATION \
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+
 /* Macro to return proper response code when user privileges are insufficient */
 #define HTTP_NO_PRIVS \
     (httpd_userid && !is_userid_anonymous(httpd_userid) ? \
@@ -90,7 +93,6 @@
   #define HTTP_DIGEST_MECH NULL  /* not supported by our SASL version */
   #define SASL_USAGE_FLAGS SASL_SUCCESS_DATA
 #endif /* SASL_NEED_HTTP */
-
 
 /* Array of HTTP methods known by our server. */
 struct known_meth_t {
@@ -114,7 +116,8 @@ enum {
     URL_NS_ISCHEDULE,
     URL_NS_DOMAINKEY,
     URL_NS_TIMEZONE,
-    URL_NS_RSS
+    URL_NS_RSS,
+    URL_NS_DBLOOKUP
 };
 
 /* Bitmask of features/methods to allow, based on URL */
@@ -129,8 +132,9 @@ enum {
     ALLOW_CAL =		(1<<7),	/* CalDAV specific methods/features */
     ALLOW_CAL_AVAIL =	(1<<8),	/* CalDAV Availability specific features */
     ALLOW_CAL_SCHED =	(1<<9),	/* CalDAV Scheduling specific features */
-    ALLOW_CARD =	(1<<10),/* CardDAV specific methods/features */
-    ALLOW_ISCHEDULE =	(1<<11)	/* iSchedule specific methods/features */
+    ALLOW_CAL_NOTZ =	(1<<10),/* CalDAV TZ by Ref specific features */
+    ALLOW_CARD =	(1<<11),/* CardDAV specific methods/features */
+    ALLOW_ISCHEDULE =	(1<<12)	/* iSchedule specific methods/features */
 };
 
 struct auth_scheme_t {
@@ -378,6 +382,7 @@ extern struct namespace_t namespace_ischedule;
 extern struct namespace_t namespace_domainkey;
 extern struct namespace_t namespace_timezone;
 extern struct namespace_t namespace_rss;
+extern struct namespace_t namespace_dblookup;
 
 
 /* XXX  These should be included in struct transaction_t */
@@ -421,5 +426,7 @@ extern int meth_trace(struct transaction_t *txn, void *params);
 extern int etagcmp(const char *hdr, const char *etag);
 extern int check_precond(struct transaction_t *txn, const void *data,
 			 const char *etag, time_t lastmod);
+
+extern int httpd_myrights(struct auth_state *authstate, const char *acl);
 
 #endif /* HTTPD_H */

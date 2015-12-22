@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: saslserver.c,v 1.12 2010/01/06 17:01:39 murch Exp $
  */
 
 #include <config.h>
@@ -49,13 +47,13 @@
 #include <sasl/saslutil.h>
 
 #include "prot.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "xmalloc.h"
 
 #define BASE64_BUF_SIZE 21848	/* per RFC 2222bis: ((16K / 3) + 1) * 4  */
 
 /* NOTE: success_data will need to be free()d by the caller */
-int saslserver(sasl_conn_t *conn, const char *mech,
+EXPORTED int saslserver(sasl_conn_t *conn, const char *mech,
 	       const char *init_resp, const char *resp_prefix,
 	       const char *continuation, const char *empty_chal,
                struct protstream *pin, struct protstream *pout,

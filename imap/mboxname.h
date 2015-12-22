@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mboxname.h,v 1.18 2010/01/06 17:01:37 murch Exp $
  */
 
 #ifndef INCLUDED_MBOXNAME_H
@@ -91,6 +89,14 @@ struct mboxlock {
     int locktype;
 };
 
+struct mboxname_parts {
+    const char *domain;
+    const char *userid;	    /* userid WITHOUT the domain */
+    const char *box;
+    int is_deleted;
+    char *freeme;
+};
+
 int mboxname_lock(const char *mboxname, struct mboxlock **mboxlockptr,
 		  int locktype);
 void mboxname_release(struct mboxlock **mboxlockptr);
@@ -128,10 +134,32 @@ int mboxname_userownsmailbox(const char *userid, const char *name);
 char *mboxname_isusermailbox(const char *name, int isinbox);
 
 /*
- * If (internal) mailbox 'name' is in the DELETED namespace
+ * If (internal) mailbox 'name' is in the DELETED namespace.
+ * If timestampp is not NULL, the delete timestamp encoded in
+ * the name is parsed and filled in.
  * returns boolean
  */
-int mboxname_isdeletedmailbox(const char *name);
+int mboxname_isdeletedmailbox(const char *name, time_t *timestampp);
+
+/*
+ * Split an (internal) inboxname into it's constituent parts.
+ * also: userid
+ */
+int mboxname_to_parts(const char *mboxname, struct mboxname_parts *parts);
+int mboxname_userid_to_parts(const char *userid, struct mboxname_parts *parts);
+
+/*
+ * Create an (internal) mboxname from parts
+ */
+
+int mboxname_parts_to_internal(struct mboxname_parts *parts, char *target);
+
+/*
+ * Cleanup up a mboxname_parts structure.
+ */
+void mboxname_init_parts(struct mboxname_parts *parts);
+void mboxname_free_parts(struct mboxname_parts *parts);
+
 
 /*
  * If (internal) mailbox 'name' is a CALENDAR mailbox
@@ -149,9 +177,20 @@ int mboxname_isaddressbookmailbox(const char *name, int mbtype);
 int mboxname_is_prefix(const char *longstr, const char *shortstr);
 
 /*
- * Translate (internal) inboxname into corresponding userid.
+ * Translate (internal) inboxname into corresponding userid,
+ * and vice-versa.
  */
-char *mboxname_to_userid(const char *mboxname);
+const char *mboxname_to_userid(const char *mboxname);
+/* returns a malloc'd mailbox */
+char *mboxname_user_mbox(const char *userid, const char *subfolder);
+
+/*
+ * Check whether two mboxnames have the same userid.
+ */
+int mboxname_parts_same_userid(struct mboxname_parts *a,
+			       struct mboxname_parts *b);
+int mboxname_same_userid(const char *mboxname1, const char *mboxname2);
+
 
 /*
  * Access files (or directories by leaving last parameter
@@ -177,8 +216,16 @@ char *mboxname_lockpath(const char *mboxname);
  */
 int mboxname_policycheck(const char *name);
 
-int mboxname_netnewscheck(const char *name);
-
 void mboxname_todeleted(const char *name, char *result, int withtime);
 
+/*
+ * Given a writable buffer containing an internal mbox name,
+ * convert that buffer in-place to be the name of the mbox'
+ * parent (by truncating off the last component).
+ * Returns 0 if no more truncation is possible, 1 otherwise.
+ */
+int mboxname_make_parent(char *namebuf);
+
+char *mboxname_conf_getpath(struct mboxname_parts *parts,
+			    const char *suffix);
 #endif

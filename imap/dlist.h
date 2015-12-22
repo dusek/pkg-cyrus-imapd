@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sync_support.h,v 1.12 2010/01/06 17:01:42 murch Exp $
- *
  * Original version written by David Carter <dpc22@cam.ac.uk>
  * Rewritten and integrated into Cyrus by Ken Murchison <ken@oceana.com>
  */
@@ -51,6 +49,26 @@
 #include "util.h"
 #include "prot.h"
 #include "mailbox.h"
+#include "message_guid.h"
+
+enum dlistsax_t {
+    DLISTSAX_LISTSTART,
+    DLISTSAX_LISTEND,
+    DLISTSAX_KVLISTSTART,
+    DLISTSAX_KVLISTEND,
+    DLISTSAX_RESERVE,
+    DLISTSAX_LITERAL,
+    DLISTSAX_FLAG,
+    DLISTSAX_STRING,
+    /* error callbacks */
+    DLISTSAX_ERROR
+};
+
+struct dlistsax_data {
+    struct buf kbuf;
+    struct buf buf;
+    void *rock;
+};
 
 enum dlist_t {
     DL_NIL = 0,
@@ -58,7 +76,7 @@ enum dlist_t {
     DL_FLAG,
     DL_NUM,
     DL_DATE,
-    DL_MODSEQ,
+    DL_HEX,
     DL_BUF,
     DL_GUID,
     DL_FILE,
@@ -73,49 +91,160 @@ struct dlist {
     struct dlist *next;
     int type;
     char *sval;
-    modseq_t nval; /* biggest type we need, more or less */
-    struct message_guid gval; /* guid if any */
+    bit64 nval;
+    struct message_guid *gval; /* guid if any */
     char *part; /* so what if we're big! */
 };
 
 const char *dlist_reserve_path(const char *part, struct message_guid *guid);
 
-struct dlist *dlist_atom(struct dlist *dl, const char *name, const char *val);
-struct dlist *dlist_flag(struct dlist *dl, const char *name, const char *val);
-struct dlist *dlist_num(struct dlist *dl, const char *name, unsigned long val);
-struct dlist *dlist_date(struct dlist *dl, const char *name, time_t val);
-struct dlist *dlist_modseq(struct dlist *dl, const char *name, modseq_t val);
-struct dlist *dlist_buf(struct dlist *dl,
-			const char *name, const char *val, size_t len);
-struct dlist *dlist_list(struct dlist *dl, const char *name);
-struct dlist *dlist_kvlist(struct dlist *dl, const char *name);
-struct dlist *dlist_guid(struct dlist *dl,
-			 const char *name, struct message_guid *guid);
-struct dlist *dlist_file(struct dlist *dl,
-			 const char *name, const char *part,
-			 struct message_guid *guid,
-			 unsigned long size, const char *fname);
-struct dlist *dlist_new(const char *name);
+/* set fields */
+void dlist_makeatom(struct dlist *dl, const char *val);
+void dlist_makeflag(struct dlist *dl, const char *val);
+void dlist_makenum32(struct dlist *dl, uint32_t val);
+void dlist_makenum64(struct dlist *dl, bit64 val);
+void dlist_makedate(struct dlist *dl, time_t val);
+void dlist_makehex64(struct dlist *dl, bit64 val);
+void dlist_makemap(struct dlist *dl, const char *val, size_t len);
+void dlist_makeguid(struct dlist *dl, struct message_guid *guid);
+void dlist_makefile(struct dlist *dl,
+		    const char *part, struct message_guid *guid,
+		    unsigned long size, const char *fname);
+
+/* parse fields */
+int dlist_toatom(struct dlist *dl, const char **valp);
+int dlist_toflag(struct dlist *dl, const char **valp);
+int dlist_tonum32(struct dlist *dl, uint32_t *valp);
+int dlist_tonum(struct dlist *dl, bit64 *valp);
+int dlist_todate(struct dlist *dl, time_t *valp);
+int dlist_tohex32(struct dlist *dl, uint32_t *valp);
+int dlist_tohex(struct dlist *dl, bit64 *valp);
+int dlist_tomap(struct dlist *dl, const char **valp, size_t *lenp);
+/* these two don't actually do anything except check type */
+int dlist_tolist(struct dlist *dl, struct dlist **valp);
+int dlist_tokvlist(struct dlist *dl, struct dlist **valp);
+int dlist_toguid(struct dlist *dl, struct message_guid **valp);
+int dlist_tofile(struct dlist *dl,
+		 const char **partp, struct message_guid **guidp,
+		 unsigned long *sizep, const char **fnamep);
+
+int dlist_isatomlist(const struct dlist *dl);
+int dlist_iskvlist(const struct dlist *dl);
+int dlist_isfile(const struct dlist *dl);
+/* XXX - these two aren't const, they can fiddle internals */
+int dlist_isnum(struct dlist *dl);
+int dlist_ishex64(struct dlist *dl);
+int dlist_isguid(struct dlist *dl);
+
+/* special number and string readers - return 0 and "" if nothing */
+bit64 dlist_num(struct dlist *dl);
+const char *dlist_cstring(struct dlist *dl);
+
+/* wrappers for use in a kvlist */
+struct dlist *dlist_newlist(struct dlist *parent, const char *name);
+struct dlist *dlist_newpklist(struct dlist *parent, const char *name);
+struct dlist *dlist_newkvlist(struct dlist *parent, const char *name);
+
+struct dlist *dlist_setatom(struct dlist *parent, const char *name,
+			    const char *val);
+struct dlist *dlist_setflag(struct dlist *parent, const char *name,
+			    const char *val);
+struct dlist *dlist_setnum32(struct dlist *parent, const char *name,
+			     uint32_t val);
+struct dlist *dlist_setnum64(struct dlist *parent, const char *name,
+			     bit64 val);
+struct dlist *dlist_setdate(struct dlist *parent, const char *name,
+			    time_t val);
+struct dlist *dlist_sethex64(struct dlist *parent, const char *name,
+			     bit64 val);
+struct dlist *dlist_setmap(struct dlist *parent, const char *name,
+			   const char *val, size_t len);
+struct dlist *dlist_setguid(struct dlist *parent, const char *name,
+			    struct message_guid *guid);
+struct dlist *dlist_setfile(struct dlist *parent, const char *name,
+			    const char *part, struct message_guid *guid,
+			    size_t size, const char *fname);
+
+/* special number and string readers - return 0 and "" if nothing */
+bit64 dlist_childvaln(struct dlist *parent, const char *name);
+const char *dlist_childvalcstring(struct dlist *parent, const char *name);
+
+struct dlist *dlist_updateatom(struct dlist *parent, const char *name,
+			       const char *val);
+struct dlist *dlist_updateflag(struct dlist *parent, const char *name,
+			       const char *val);
+struct dlist *dlist_updatenum32(struct dlist *parent, const char *name,
+			        uint32_t val);
+struct dlist *dlist_updatenum64(struct dlist *parent, const char *name,
+			        bit64 val);
+struct dlist *dlist_updatedate(struct dlist *parent, const char *name,
+			       time_t val);
+struct dlist *dlist_updatehex64(struct dlist *parent, const char *name,
+				bit64 val);
+struct dlist *dlist_updatemap(struct dlist *parent, const char *name,
+			      const char *val, size_t len);
+struct dlist *dlist_updateguid(struct dlist *parent, const char *name,
+			       struct message_guid *guid);
+struct dlist *dlist_updatefile(struct dlist *parent, const char *name,
+			       const char *part, struct message_guid *guid,
+			       size_t size, const char *fname);
+
+int dlist_getatom(struct dlist *parent, const char *name,
+		  const char **valp);
+int dlist_getflag(struct dlist *parent, const char *name,
+		  const char **valp);
+int dlist_getnum32(struct dlist *parent, const char *name,
+		   uint32_t *valp);
+int dlist_getnum64(struct dlist *parent, const char *name,
+		 bit64 *valp);
+int dlist_getdate(struct dlist *parent, const char *name,
+		  time_t *valp);
+int dlist_gethex64(struct dlist *parent, const char *name,
+		   bit64 *valp);
+int dlist_getmap(struct dlist *parent, const char *name,
+		 const char **valp, size_t *lenp);
+int dlist_getbuf(struct dlist *parent, const char *name,
+		 struct buf *buf);
+int dlist_getlist(struct dlist *parent, const char *name,
+		  struct dlist **valp);
+int dlist_getkvlist(struct dlist *parent, const char *name,
+		    struct dlist **valp);
+int dlist_getguid(struct dlist *parent, const char *name,
+		  struct message_guid **valp);
+int dlist_getfile(struct dlist *parent, const char *name,
+		  const char **partp, struct message_guid **guidp,
+		  unsigned long *sizep, const char **fnamep);
+
 void dlist_free(struct dlist **dlp);
 
-void dlist_print(const struct dlist *dl, int printkeys, struct protstream *out);
-char dlist_parse(struct dlist **dlp, int parsekeys, struct protstream *in);
+void dlist_print(const struct dlist *dl, int printkeys,
+		 struct protstream *out);
+void dlist_printbuf(const struct dlist *dl, int printkeys,
+		    struct buf *outbuf);
+char dlist_parse(struct dlist **dlp, int parsekeys,
+		 struct protstream *in);
+char dlist_parse_asatomlist(struct dlist **dlp, int parsekey,
+			    struct protstream *in);
+int dlist_parsemap(struct dlist **dlp, int parsekeys,
+		   const char *base, unsigned len);
 
-void dlist_stitch(struct dlist *dl, struct dlist *child);
-int dlist_getatom(struct dlist *dl, const char *name, const char **val);
-int dlist_getbuf(struct dlist *dl,
-		 const char *name, const char **val, size_t *len);
-int dlist_getnum(struct dlist *dl, const char *name, uint32_t *val);
-int dlist_getdate(struct dlist *dl, const char *name, time_t *val);
-int dlist_getmodseq(struct dlist *dl, const char *name, modseq_t *val);
-int dlist_getlist(struct dlist *dl, const char *name, struct dlist **val);
-int dlist_getguid(struct dlist *dl,
-		  const char *name, struct message_guid **guid);
-int dlist_getfile(struct dlist *dl,
-		  const char *name, const char **part,
-		  struct message_guid **guid,
-		  unsigned long *size, const char **fname);
+typedef int dlistsax_cb_t(int type, struct dlistsax_data *data);
 
-const char *dlist_lastkey();
+int dlist_parsesax(const char *base, size_t len, int parsekey,
+		   dlistsax_cb_t *proc, void *rock);
+
+void dlist_stitch(struct dlist *parent, struct dlist *child);
+void dlist_unstitch(struct dlist *parent, struct dlist *child);
+struct dlist *dlist_splice(struct dlist *parent, int num);
+
+/* splat: convert a list into its child elements */
+void dlist_splat(struct dlist *parent, struct dlist *child);
+
+struct dlist *dlist_getchild(struct dlist *dl, const char *name);
+struct dlist *dlist_getchildn(struct dlist *dl, int num);
+struct dlist *dlist_getkvchild_bykey(struct dlist *dl,
+				     const char *key, const char *val);
+
+const char *dlist_lastkey(void);
 
 #endif /* INCLUDED_DLIST_H */

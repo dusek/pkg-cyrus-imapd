@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: duplicate.h,v 1.18 2010/01/06 17:01:31 murch Exp $
  */
 
 #ifndef DUPLICATE_H
@@ -57,12 +55,14 @@ typedef struct duplicate_key {
 
 #define DUPLICATE_INITIALIZER { NULL, NULL, NULL }
 
-int duplicate_init(const char *fname, int myflags);
+int duplicate_init(const char *fname);
 
-time_t duplicate_check(duplicate_key_t *dkey);
-void duplicate_log(duplicate_key_t *dkey, char *action);
-void duplicate_mark(duplicate_key_t *dkey, time_t mark, unsigned long uid);
-int duplicate_find(char *msgid, int (*proc)(), void *rock);
+time_t duplicate_check(const duplicate_key_t *dkey);
+void duplicate_log(const duplicate_key_t *dkey, const char *action);
+void duplicate_mark(const duplicate_key_t *dkey, time_t mark, unsigned long uid);
+typedef int (*duplicate_find_proc_t)(const duplicate_key_t *, time_t,
+				     unsigned long, void *);
+int duplicate_find(const char *msgid, duplicate_find_proc_t, void *rock);
 
 int duplicate_prune(int seconds, struct hash_table *expire_table);
 int duplicate_dump(FILE *f);

@@ -1,6 +1,8 @@
-<!-- $Id: specs.html,v 1.71 2010/01/08 15:55:26 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Cyrus IMAP Server Protocol Specifications</TITLE>
 </HEAD>
 <BODY>
@@ -74,7 +76,7 @@ Initial Client Response</TD></TR>
   Extensions</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5524.txt">RFC 5524</A></TD>
 <TD>Extended URLFETCH for Binary and Converted Parts</TD></TR>
-<TR><TD><A HREF="http://www.ietf.org/internet-drafts/draft-daboo-imap-annotatemore-11.txt">
+<TR><TD><A HREF="http://tools.ietf.org/id/draft-daboo-imap-annotatemore-11.txt">
 draft-daboo-imap-annotatemore</A></TD>
 <TD>ANNOTATEMORE Draft</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5464.txt">RFC 5464</A></TD>
@@ -86,6 +88,7 @@ draft-ietf-morg-list-specialuse</A></TD>
 <TD>IMAP4 Extension for Returning STATUS Information in Extended LIST</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5957.txt">RFC 5957</A></TD>
 <TD>Display-Based Address Sorting for the IMAP4 SORT Extension</TD></TR>
+
 
 
 <TR><TD COLSPAN=2><br><h2>POP</h2></TD></TR>
@@ -105,7 +108,7 @@ RFC 3206</A></TD><TD>The SYS and AUTH POP Response Codes</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc3977.txt">RFC 3977</A></TD>
 <TD>Network News Transfer Protocol (NNTP)</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc4642.txt">RFC 4642</A></TD>
-<TD>Using Transport Layer Security (TLS) with 
+<TD>Using Transport Layer Security (TLS) with
 Network News Transfer Protocol (NNTP)</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc4643.txt">RFC 4643</A></TD>
 <TD>Network News Transfer Protocol (NNTP) Extension for Authentication</TD></TR>
@@ -179,22 +182,26 @@ draft-murchison-lmtp-ignorequota</A></TD>
 <TD>Sieve Email Filtering: Vacation Extension</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5231.txt">RFC 5231</A></TD>
 <TD>Sieve Email Filtering: Relational Extension</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc5232.txt">RFC 5232</A></TD>
+<TD>Sieve Email Filtering: Imap4flags Extension</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5233.txt">RFC 5233</A></TD>
 <TD>Sieve Email Filtering: Subaddress Extension</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc5260.txt">RFC 5260</A></TD>
+<TD>Sieve Email Filtering: Date and Index Extensions</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5173.txt">RFC 5173</A></TD>
 <TD>Sieve Email Filtering: Body Extension</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc3894.txt">RFC 3894</A></TD>
 <TD>Sieve Extension: Copying Without Side Effects</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc2298.txt">RFC 2298</A></TD>
 <TD>Extensible Message Format for Message Disposition Notifications (MDNs)</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc6131.txt">RFC 6131</A></TD>
+<TD>Sieve Vacation Extension: "Seconds" Parameter</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc6609.txt">RFC 6609</A></TD>
+<TD>Sieve Email Filtering: Include Extension</TD></TR>
 <TR><TD><A
 HREF="http://www.ietf.org/internet-drafts/draft-ietf-sieve-regex-00.txt">
 draft-ietf-sieve-regex</A></TD>
-<TD>Sieve Email FIltering -- Regular Expression Extension</TD></TR>
-<TR><TD><A
-HREF="http://www.ietf.org/internet-drafts/draft-ietf-sieve-include-03.txt">
-draft-ietf-sieve-include</A></TD>
-<TD>Sieve Email Filtering: Include Extension</TD></TR>
+<TD>Sieve Email Filtering -- Regular Expression Extension</TD></TR>
 <TR><TD><A
 HREF="http://www.oceana.com/ftp/drafts/draft-melnikov-sieve-imapflags-03.txt">
 draft-melnikov-sieve-imapflags</A></TD>
@@ -266,7 +273,11 @@ draft-ietf-httpauth-digest</A></TD>
 <TD>CardDAV: vCard Extensions to Web Distributed Authoring and Versioning (WebDAV)</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/rfc6764">RFC 6764</A></TD>
 <TD>Locating Services for Calendaring Extensions to WebDAV (CalDAV) and vCard Extensions to WebDAV (CardDAV)</TD></TR>
-<TR><TD><A HREF="http://tools.ietf.org/html/draft-daboo-icalendar-rscale">draft-daboo-icalendar-rscale</A></TD>
+<TR><TD><A HREF="http://tools.ietf.org/html/draft-ietf-tzdist-service">draft-ietf-tzdist-service</A></TD>
+<TD>Time Zone Data Distribution Service</TD></TR>
+<TR><TD><A HREF="http://tools.ietf.org/html/draft-ietf-tzdist-caldav-timezone-ref">draft-ietf-tzdist-caldav-timezone-ref</A></TD>
+<TD>CalDAV: Time Zones by Reference</TD></TR>
+<TR><TD><A HREF="http://tools.ietf.org/html/draft-ietf-calext-rscale">draft-ietf-calext-rscale</A></TD>
 <TD>Non-Gregorian Recurrence Rules in iCalendar</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/draft-daboo-calendar-availability">draft-daboo-calendar-availability</A></TD>
 <TD>Calendar Availability</TD></TR>
@@ -274,8 +285,6 @@ draft-ietf-httpauth-digest</A></TD>
 <TD>VPOLL: Consensus Scheduling Component for iCalendar</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/draft-desruisseaux-ischedule">draft-desruisseaux-ischedule</A></TD>
 <TD>Internet Calendar Scheduling Protocol (iSchedule)</TD></TR>
-<TR><TD><A HREF="http://tools.ietf.org/html/draft-douglass-timezone-service">draft-douglass-timezone-service</A></TD>
-<TD>Timezone Service Protocol</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/draft-thomson-hybi-http-timeout">draft-thomson-hybi-http-timeout</A></TD>
 <TD>Hypertext Transfer Protocol (HTTP) Keep-Alive Header</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/draft-murchison-webdav-prefer">draft-murchison-webdav-prefer</A></TD>
@@ -293,6 +302,10 @@ draft-ietf-httpauth-digest</A></TD>
 <TD>Netnews Article Format</TD></TR>
 <TR><TD><A HREF="http://www.ietf.org/rfc/rfc5537.txt">RFC 5537</A></TD>
 <TD>Netnews Architecture and Protocols</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc3656.txt">RFC 3656</a></TD>
+<TD>MUPDATE Protocol (For Cyrus Murder)</TD></TR>
+<TR><TD><A HREF="http://www.ietf.org/rfc/rfc5423.txt">RFC 5423</A></TD>
+<TD>Internet Message Store Events</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/rfc4287">RFC 4287</a></TD>
 <TD>The Atom Syndication Format</TD></TR>
 <TR><TD><A HREF="http://tools.ietf.org/html/rfc5545">RFC 5545</a></TD>

@@ -40,15 +40,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: bc_emit.c,v 1.5 2010/01/06 17:01:58 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#include "xmalloc.h"
 #include "sieve_interface.h"
 
  
@@ -68,15 +65,7 @@ static inline int write_int (int fd, int x)
     int y=htonl(x);
     return (write(fd, &y, sizeof(int)));
 }
- 
-    
 
-struct bytecode_info 
-{
-    bytecode_t *data;/* pointer to almost-flat bytecode */
-    size_t scriptend; /* used by emit code to know final length of bytecode  */
-    size_t reallen; /* allocated length of 'data' */
-};
 
 /* Pad null bytes onto the end of the string we just wrote */
 /* returns -1 on failure or number of bytes written on success */
@@ -197,17 +186,18 @@ static int bc_testlist_emit(int fd, int *codep, bytecode_info_t *bc)
  * emitted bytecode on success */
 static int bc_test_emit(int fd, int *codep, bytecode_info_t *bc) 
 {
+    int opcode;
     int wrote=0;/* Relative offset to account for interleaved strings */
-    
     
     int ret; /* Temporary Return Value Variable */
     
     /* Output this opcode */
-    if(write_int(fd, bc->data[(*codep)].op) == -1)
+    opcode = bc->data[(*codep)++].op;
+    if(write_int(fd, opcode) == -1)
 	return -1;
     wrote += sizeof(int);
     
-    switch(bc->data[(*codep)++].op) {
+    switch(opcode) {
     case BC_TRUE:
     case BC_FALSE:
 	/* No parameter opcodes */
@@ -256,28 +246,36 @@ static int bc_test_emit(int fd, int *codep, bytecode_info_t *bc)
     }
     
     case BC_HEADER:
+    case BC_HASFLAG:
     {
 	int ret;
+	if (BC_HEADER == opcode) {
+	/* drop index */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+	}
 	/* Drop match type */
 	if(write_int(fd, bc->data[(*codep)].value) == -1)
 	    return -1;
 	wrote += sizeof(int);
 	(*codep)++;
-	/*drop comparator */
-	if(write_int(fd, bc->data[(*codep)].value) == -1)
-	    return -1;
-	wrote += sizeof(int);
-	(*codep)++;    
 	/*now drop relation*/
 	if(write_int(fd, bc->data[(*codep)].value) == -1)
 	    return -1;
 	wrote += sizeof(int);
+	(*codep)++;    
+	/*drop comparator */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
 	(*codep)++;
-	/* Now drop headers */
+	/* Now drop haystacks */
 	ret = bc_stringlist_emit(fd, codep, bc);
 	if(ret < 0) return -1;
 	wrote+=ret;
-	/* Now drop data */
+	/* Now drop needles */
 	ret = bc_stringlist_emit(fd, codep, bc);
 	if(ret < 0) return -1;
 	wrote+=ret;
@@ -285,6 +283,13 @@ static int bc_test_emit(int fd, int *codep, bytecode_info_t *bc)
     }
     
     case BC_ADDRESS:
+	/* drop index */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	/* fall-through */
     case BC_ENVELOPE:
     {
 	int ret;
@@ -358,6 +363,84 @@ static int bc_test_emit(int fd, int *codep, bytecode_info_t *bc)
 	break;
     }
     
+    case BC_DATE:
+    case BC_CURRENTDATE:
+    {
+	int ret;
+	int datalen;
+	int tmp;
+
+	/* drop index */
+	if(BC_DATE == opcode) {
+		if(write_int(fd, bc->data[(*codep)].value) == -1)
+		    return -1;
+		wrote += sizeof(int);
+		(*codep)++;
+	}
+
+	/* drop zone tag */
+	tmp = bc->data[(*codep)].value;
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	/* drop timezone offset */
+	if (tmp == B_TIMEZONE) {
+		if(write_int(fd, bc->data[(*codep)].value) == -1)
+		    return -1;
+		wrote += sizeof(int);
+		(*codep)++;
+	}
+
+	/* drop match type */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	/* drop relation */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	/* drop comparator */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	/* drop date-part */
+	if(write_int(fd, bc->data[(*codep)].value) == -1)
+	    return -1;
+	wrote += sizeof(int);
+	(*codep)++;
+
+	if (BC_DATE == opcode) {
+		/* drop header-name */
+		datalen = bc->data[(*codep)++].len;
+
+		if(write_int(fd, datalen) == -1) return -1;
+		wrote += sizeof(int);
+
+		if(write(fd, bc->data[(*codep)++].str, datalen) == -1) return -1;
+		wrote += datalen;
+
+		ret = align_string(fd,datalen);
+		if(ret == -1) return -1;
+
+		wrote+=ret;
+	}
+
+	/* drop keywords */
+	ret = bc_stringlist_emit(fd, codep, bc);
+	if(ret < 0) return -1;
+	wrote+=ret;
+
+	break;
+    }
+
     default:
 	/* Unknown testcode? */
 	return -1;
@@ -434,7 +517,7 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 	    if(testdist == -1)return -1;
 	    filelen +=testdist;
 	    
-            /*store the location for hte end of the test
+            /*store the location for the end of the test
 	     *this is important for short circuiting of allof/anyof*/
 	    jumpto=filelen/4;
 	    if(lseek(fd, testEndLoc, SEEK_SET) == -1)
@@ -512,9 +595,57 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 	    break;
 	}
 	
+	case B_KEEP:
+	    /* Flags Stringlist, Copy (word) */
+
+	    /* Dump a stringlist of flags */
+	    ret = bc_stringlist_emit(fd, &codep, bc);
+	    if(ret < 0)
+		return -1;
+	    filelen += ret;
+
+	    if(write_int(fd,bc->data[codep++].value) == -1)
+		return -1;
+
+	    filelen += sizeof(int);
+	    break;
+
 	case B_FILEINTO:
+	    /* Flags Stringlist, Copy (word), Folder String */
+
+	    /* Dump a stringlist of flags */
+	    ret = bc_stringlist_emit(fd, &codep, bc);
+	    if(ret < 0)
+		return -1;
+	    filelen += ret;
+
+	    /* Write Copy */
+	    if(write_int(fd,bc->data[codep++].value) == -1)
+		return -1;
+
+	    filelen += sizeof(int);
+
+	    /* Write string length of Folder */
+	    len = bc->data[codep++].len;
+	    if(write_int(fd,len) == -1)
+		return -1;
+
+	    filelen+=sizeof(int);
+
+	    /* Write Folder */
+	    if(write(fd,bc->data[codep++].str,len) == -1)
+		return -1;
+
+	    ret = align_string(fd, len);
+	    if(ret == -1)
+		return -1;
+
+	    filelen += len + ret;
+
+	    break;
+
 	case B_REDIRECT:
-	    /* Copy (word), Folder/Address String */
+	    /* Copy (word), Address String */
 
 	    if(write_int(fd,bc->data[codep++].value) == -1)
 		return -1;
@@ -669,7 +800,7 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 	    	    break;
 	case B_VACATION:
 	    /* Address list, Subject String, Message String,
-	       Days (word), Mime (word), From String, Handle String */
+	       Seconds (word), Mime (word), From String, Handle String */
 	   
 	        /*new code-this might be broken*/
 	    ret = bc_stringlist_emit(fd, &codep, bc);
@@ -705,7 +836,7 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 		}
 		
 	    }
-	    /* Days*/
+	    /* Seconds*/
 	    if(write_int(fd,bc->data[codep].value) == -1)
 		return -1;
 	    codep++;
@@ -747,9 +878,9 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 	    
 	    break;
 	case B_INCLUDE:
-	    /* Location (word), Filename String */ 
+	    /* Location + (Once<<6) + (Optional<<7) (word), Filename String */
 
-	    /* Location */
+	    /* Location + (Once<<6) + (Optional<<7) */
 	    if(write_int(fd, bc->data[codep].value) == -1)
 		return -1;
 	    filelen += sizeof(int);
@@ -772,7 +903,6 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 	case B_NULL:
 	case B_STOP:
 	case B_DISCARD:
-	case B_KEEP:
 	case B_MARK:
 	case B_UNMARK:
 	case B_RETURN:
@@ -788,7 +918,7 @@ static int bc_action_emit(int fd, int codep, int stopcodep,
 }
 
 /* spew the bytecode to disk */
-int sieve_emit_bytecode(int fd, bytecode_info_t *bc)  
+EXPORTED int sieve_emit_bytecode(int fd, bytecode_info_t *bc)
 {
     /* First output version number (4 bytes) */
     int data = BYTECODE_VERSION;
@@ -803,7 +933,7 @@ int sieve_emit_bytecode(int fd, bytecode_info_t *bc)
     dump(bc, 0);
 #endif
 
-    /*the sizeof(int) is to account for the version # at the begining*/
+    /*the sizeof(int) is to account for the version # at the beginning*/
     return bc_action_emit(fd, 0, bc->scriptend, bc, sizeof(int) + BYTECODE_MAGIC_LEN);
 }
 

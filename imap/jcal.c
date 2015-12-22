@@ -156,7 +156,7 @@ static json_t *icalvalue_as_json_object(const icalvalue *value)
 
     switch (icalvalue_isa(value)) {
     case ICAL_BOOLEAN_VALUE:
-	return json_boolean(icalvalue_get_integer(value));
+	return (icalvalue_get_integer(value) ? json_true() : json_false());
 
     case ICAL_DATE_VALUE:
 	str = icaltime_as_iso_string(icalvalue_get_date(value));
@@ -818,7 +818,7 @@ static icalcomponent *json_object_to_icalcomponent(json_t *jobj)
 /*
  * Construct an iCalendar component from a jCal string.
  */
-icalcomponent *jcal_string_as_icalcomponent(const char *str)
+EXPORTED icalcomponent *jcal_string_as_icalcomponent(const char *str)
 {
     json_t *jcal;
     json_error_t jerr;
@@ -840,7 +840,7 @@ icalcomponent *jcal_string_as_icalcomponent(const char *str)
 }
 
 
-const char *begin_jcal(struct buf *buf)
+EXPORTED const char *begin_jcal(struct buf *buf)
 {
     /* Begin jCal stream */
     buf_reset(buf);
@@ -867,7 +867,7 @@ const char *begin_jcal(struct buf *buf)
 }
 
 
-void end_jcal(struct buf *buf)
+EXPORTED void end_jcal(struct buf *buf)
 {
     /* End jCal stream */
     buf_setcstr(buf, "]]");

@@ -38,23 +38,21 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: version.h,v 1.164 2010/01/06 17:01:42 murch Exp $
  */
 
 #ifndef _CYRUS_VERSION_H
 #define _CYRUS_VERSION_H
 
+#include "prot.h"
 /* Values for ID processing */
 enum {
-    MAXIDFAILED	= 3,
-    MAXIDLOG = 5,
     MAXIDFIELDLEN = 30,
     MAXIDVALUELEN = 1024,
     MAXIDPAIRS = 30,
-    MAXIDLOGLEN = (MAXIDPAIRS * (MAXIDFIELDLEN + MAXIDVALUELEN + 6))
 };
 
-const char *cyrus_version();
+const char *cyrus_version(void);
+extern void id_getcmdline(int argc, char **argv);
+extern void id_response(struct protstream *pout);
 
 #endif /* _CYRUS_VERSION_H */

@@ -26,7 +26,7 @@
 .\"      Pittsburgh, PA  15213
 .\"      (412) 268-7393, fax: (412) 268-7395
 .\"      innovation@andrew.cmu.edu
- *
+.\"
 .\" 4. Redistributions of any form whatsoever must retain the following
 .\"    acknowledgment:
 .\"    "This product includes software developed by Computing Services
@@ -39,8 +39,6 @@
 .\" WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 .\" AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-.\"
-.\" $Id: quota.8,v 1.13 2010/01/06 17:01:52 murch Exp $
 .SH NAME
 quota \- report and optionally fix quota usage
 .SH SYNOPSIS
@@ -102,6 +100,10 @@ List/fix quotas in \fIdomain\fR.
 .B \-f
 Fix any inconsistencies in the quota subsystem before generating a
 report.
+.TP
+.B \-q
+Quiet.  If -f is specified, then don't print the quota vaules, only
+print messages when things are changed.
 .SH FILES
 .TP
 .B /etc/imapd.conf

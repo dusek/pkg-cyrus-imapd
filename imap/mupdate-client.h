@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mupdate-client.h,v 1.18 2010/01/06 17:01:37 murch Exp $
  */
 
 #ifndef INCLUDED_MUPDATE_CLIENT_H
@@ -60,16 +58,16 @@ void mupdate_disconnect(mupdate_handle **h);
 
 /* activate a mailbox */
 int mupdate_activate(mupdate_handle *handle, 
-		     const char *mailbox, const char *server,
+		     const char *mailbox, const char *location,
 		     const char *acl);
 
 /* reserve a piece of namespace */
 int mupdate_reserve(mupdate_handle *handle,
-		    const char *mailbox, const char *server);
+		    const char *mailbox, const char *location);
 
 /* deactivate a mailbox (ACTIVE->RESERVE) */
 int mupdate_deactivate(mupdate_handle *handle,
-		       const char *mailbox, const char *server);
+		       const char *mailbox, const char *location);
 
 /* delete a mailbox */
 int mupdate_delete(mupdate_handle *handle,
@@ -82,7 +80,7 @@ enum mbtype {
 /* mailbox data structure */
 struct mupdate_mailboxdata {
     const char *mailbox;
-    const char *server;
+    const char *location;
     const char *acl;
     enum mbtype t;
 };

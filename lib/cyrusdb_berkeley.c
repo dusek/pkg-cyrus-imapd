@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: cyrusdb_berkeley.c,v 1.24 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
@@ -58,7 +56,9 @@
 #include "libcyr_cfg.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
+
+#define DATA(d)	    ((d)->data ? (d)->data : "")
+#define DATALEN(d)  ((d)->size)
 
 extern void fatal(const char *, int);
 
@@ -97,8 +97,8 @@ static int dbinit = 0;
 static DB_ENV *dbenv;
 
 /* other routines call this one when they fail */
-static int commit_txn(struct db *db, struct txn *tid);
-static int abort_txn(struct db *db, struct txn *tid);
+static int commit_txn(struct dbengine *db, struct txn *tid);
+static int abort_txn(struct dbengine *db, struct txn *tid);
 
 static void db_panic(DB_ENV *dbenv __attribute__((unused)),
 		     int errno __attribute__((unused)))
@@ -301,11 +301,10 @@ static int mysync(void)
     return 0;
 }
 
-static int myarchive(const char **fnames, const char *dirname)
+static int myarchive(const strarray_t *fnames, const char *dirname)
 {
     int r;
-    char **begin, **list;
-    const char **fname;
+    char **item, **list;
     char dstname[1024], *dp;
     int length, rest;
 
@@ -322,16 +321,16 @@ static int myarchive(const char **fnames, const char *dirname)
 	return CYRUSDB_IOERROR;
     }
     if (list != NULL) {
-	for (begin = list; *list != NULL; ++list) {
-	    syslog(LOG_DEBUG, "removing log file: %s", *list);
-	    r = unlink(*list);
+	for (item = list; *item != NULL; ++item) {
+	    syslog(LOG_DEBUG, "removing log file: %s", *item);
+	    r = unlink(*item);
 	    if (r) {
 		syslog(LOG_ERR, "DBERROR: error removing log file: %s",
-		       *list);
+		       *item);
 		return CYRUSDB_IOERROR;
 	    }
 	}
-	free (begin);
+	free (list);
     }
 
     /* Get the list of database files to archive. */
@@ -343,24 +342,21 @@ static int myarchive(const char **fnames, const char *dirname)
 	return CYRUSDB_IOERROR;
     }
     if (list != NULL) {
-	for (begin = list; *list != NULL; ++list) {
+	for (item = list; *item != NULL; ++item) {
 	    /* only archive those files specified by the app */
-	    for (fname = fnames; *fname != NULL; ++fname) {
-		if (!strcmp(*list, *fname)) break;
-	    }
-	    if (*fname) {
-		syslog(LOG_DEBUG, "archiving database file: %s", *fname);
-		strlcpy(dp, strrchr(*fname, '/'), rest);
-		r = cyrusdb_copyfile(*fname, dstname);
+	    if (strarray_find(fnames, *item, 0) >= 0) {
+		syslog(LOG_DEBUG, "archiving database file: %s", *item);
+		strlcpy(dp, strrchr(*item, '/'), rest);
+		r = cyrusdb_copyfile(*item, dstname);
 		if (r) {
 		    syslog(LOG_ERR,
 			   "DBERROR: error archiving database file: %s",
-			   *fname);
+			   *item);
 		    return CYRUSDB_IOERROR;
 		}
 	    }
 	}
-	free (begin);
+	free (list);
     }
 
     /* Get the list of log files to archive. */
@@ -371,17 +367,17 @@ static int myarchive(const char **fnames, const char *dirname)
 	return CYRUSDB_IOERROR;
     }
     if (list != NULL) {
-	for (begin = list; *list != NULL; ++list) {
-	    syslog(LOG_DEBUG, "archiving log file: %s", *list);
-	    strcpy(dp, strrchr(*list, '/'));
-	    r = cyrusdb_copyfile(*list, dstname);
+	for (item = list; *item != NULL; ++item) {
+	    syslog(LOG_DEBUG, "archiving log file: %s", *item);
+	    strcpy(dp, strrchr(*item, '/'));
+	    r = cyrusdb_copyfile(*item, dstname);
 	    if (r) {
 		syslog(LOG_ERR, "DBERROR: error archiving log file: %s",
-		       *list);
+		       *item);
 		return CYRUSDB_IOERROR;
 	    }
 	}
-	free (begin);
+	free (list);
     }
 
     return 0;
@@ -390,11 +386,11 @@ static int myarchive(const char **fnames, const char *dirname)
 static int mbox_compar(DB *db __attribute__((unused)),
 		       const DBT *a, const DBT *b)
 {
-    return bsearch_ncompare((const char *) a->data, a->size,
-			    (const char *) b->data, b->size);
+    return bsearch_ncompare_mbox((const char *) a->data, a->size,
+				 (const char *) b->data, b->size);
 }
 
-static int myopen(const char *fname, DBTYPE type, int flags, struct db **ret)
+static int myopen(const char *fname, DBTYPE type, int flags, struct dbengine **ret)
 {
     DB *db = NULL;
     int r;
@@ -428,22 +424,22 @@ static int myopen(const char *fname, DBTYPE type, int flags, struct db **ret)
 	return CYRUSDB_IOERROR;
     }
 
-    *ret = (struct db *) db;
+    *ret = (struct dbengine *) db;
 
     return r;
 }
 
-static int open_btree(const char *fname, int flags, struct db **ret)
+static int open_btree(const char *fname, int flags, struct dbengine **ret)
 {
     return myopen(fname, DB_BTREE, flags, ret);
 }
 
-static int open_hash(const char *fname, int flags, struct db **ret)
+static int open_hash(const char *fname, int flags, struct dbengine **ret)
 {
     return myopen(fname, DB_HASH, flags, ret);
 }
 
-static int myclose(struct db *db)
+static int myclose(struct dbengine *db)
 {
     int r;
     DB *a = (DB *) db;
@@ -460,7 +456,7 @@ static int myclose(struct db *db)
     return r;
 }
 
-static int gettid(struct txn **mytid, DB_TXN **tid, char *where)
+static int gettid(struct txn **mytid, DB_TXN **tid, const char *where)
 {
     int r;
 
@@ -488,9 +484,9 @@ static int gettid(struct txn **mytid, DB_TXN **tid, char *where)
     return 0;
 }
 
-static int myfetch(struct db *mydb, 
-		   const char *key, int keylen,
-		   const char **data, int *datalen,
+static int myfetch(struct dbengine *mydb, 
+		   const char *key, size_t keylen,
+		   const char **data, size_t *datalen,
 		   struct txn **mytid, int flags)
 {
     int r = 0;
@@ -515,8 +511,8 @@ static int myfetch(struct db *mydb,
     r = db->get(db, tid, &k, &d, flags);
     switch (r) {
     case 0:
-	if (data) *data = d.data;
-	if (datalen) *datalen = d.size;
+	if (data) *data = DATA(&d);
+	if (datalen) *datalen = DATALEN(&d);
 	break;
     case DB_NOTFOUND:
 	r = CYRUSDB_NOTFOUND;
@@ -538,17 +534,17 @@ static int myfetch(struct db *mydb,
     return r;
 }
 
-static int fetch(struct db *mydb, 
-		 const char *key, int keylen,
-		 const char **data, int *datalen,
+static int fetch(struct dbengine *mydb, 
+		 const char *key, size_t keylen,
+		 const char **data, size_t *datalen,
 		 struct txn **mytid)
 {
     return myfetch(mydb, key, keylen, data, datalen, mytid, 0);
 }
 
-static int fetchlock(struct db *mydb, 
-		     const char *key, int keylen,
-		     const char **data, int *datalen,
+static int fetchlock(struct dbengine *mydb, 
+		     const char *key, size_t keylen,
+		     const char **data, size_t *datalen,
 		     struct txn **mytid)
 {
     return myfetch(mydb, key, keylen, data, datalen, mytid, DB_RMW);
@@ -577,8 +573,8 @@ static int fetchlock(struct db *mydb,
 
 /* instead of "DB_DBT_REALLOC", we might want DB_DBT_USERMEM and allocate
    this to the maximum length at the beginning. */
-static int foreach(struct db *mydb,
-		   char *prefix, int prefixlen,
+static int foreach(struct dbengine *mydb,
+		   const char *prefix, size_t prefixlen,
 		   foreach_p *goodp,
 		   foreach_cb *cb, void *rock, 
 		   struct txn **mytid)
@@ -612,28 +608,31 @@ static int foreach(struct db *mydb,
     /* find first record */
     if (prefix && *prefix) {
 	/* if (k.data) free(k.data); */
-	k.data = prefix;
+	k.data = (char *)prefix;
 	k.size = prefixlen;
 
 	r = cursor->c_get(cursor, &k, &d, DB_SET_RANGE);
     } else {
 	r = cursor->c_get(cursor, &k, &d, DB_FIRST);
+	prefixlen = 0;
     }
     if (!tid && r == DB_LOCK_DEADLOCK) goto restart;
 	
     /* iterate over all mailboxes matching prefix */
     while (!r) {
 	/* does this match our prefix? */
-	if (prefixlen && memcmp(k.data, prefix, prefixlen)) break;
+	if (prefixlen &&
+	    !(k.size >= prefixlen &&
+	      !memcmp(k.data, prefix, prefixlen))) break;
 
-	if (!goodp || goodp(rock, k.data, k.size, d.data, d.size)) {
+	if (!goodp || goodp(rock, k.data, k.size, DATA(&d), DATALEN(&d))) {
 	    /* we have a winner! */
 
 	    /* close the cursor, so we're not holding locks 
 	       during a callback */
 	    CLOSECURSOR(); cursor = NULL;
 
-	    r = cb(rock, k.data, k.size, d.data, d.size);
+	    r = cb(rock, k.data, k.size, DATA(&d), DATALEN(&d));
             if (r != 0) {
                 if (r < 0) {
                     syslog(LOG_ERR, "DBERROR: foreach cb() failed");
@@ -725,9 +724,9 @@ static int foreach(struct db *mydb,
     return r;
 }
 
-static int mystore(struct db *mydb, 
-		   const char *key, int keylen,
-		   const char *data, int datalen,
+static int mystore(struct dbengine *mydb, 
+		   const char *key, size_t keylen,
+		   const char *data, size_t datalen,
 		   struct txn **mytid, int putflags, int txnflags)
 {
     int r = 0;
@@ -737,6 +736,8 @@ static int mystore(struct db *mydb,
 
     assert(dbinit && db);
     assert(key && keylen);
+    if (!data)
+	datalen = 0;
 
     r = gettid(mytid, &tid, "mystore");
     if (r) return r;
@@ -806,41 +807,41 @@ static int mystore(struct db *mydb,
     return r;
 }
 
-static int create(struct db *db, 
-		  const char *key, int keylen,
-		  const char *data, int datalen,
+static int create(struct dbengine *db, 
+		  const char *key, size_t keylen,
+		  const char *data, size_t datalen,
 		  struct txn **tid)
 {
     return mystore(db, key, keylen, data, datalen, tid, DB_NOOVERWRITE, 0);
 }
 
-static int store(struct db *db, 
-		 const char *key, int keylen,
-		 const char *data, int datalen,
+static int store(struct dbengine *db, 
+		 const char *key, size_t keylen,
+		 const char *data, size_t datalen,
 		 struct txn **tid)
 {
     return mystore(db, key, keylen, data, datalen, tid, 0, 0);
 }
 
-static int create_nosync(struct db *db, 
-			 const char *key, int keylen,
-			 const char *data, int datalen,
+static int create_nosync(struct dbengine *db, 
+			 const char *key, size_t keylen,
+			 const char *data, size_t datalen,
 			 struct txn **tid)
 {
     return mystore(db, key, keylen, data, datalen, tid, DB_NOOVERWRITE,
 		   DB_TXN_NOSYNC);
 }
 
-static int store_nosync(struct db *db, 
-			const char *key, int keylen,
-			const char *data, int datalen,
+static int store_nosync(struct dbengine *db, 
+			const char *key, size_t keylen,
+			const char *data, size_t datalen,
 			struct txn **tid)
 {
     return mystore(db, key, keylen, data, datalen, tid, 0, DB_TXN_NOSYNC);
 }
 
-static int mydelete(struct db *mydb, 
-		    const char *key, int keylen,
+static int mydelete(struct dbengine *mydb, 
+		    const char *key, size_t keylen,
 		    struct txn **mytid, int txnflags, int force)
 {
     int r = 0;
@@ -917,21 +918,21 @@ static int mydelete(struct db *mydb,
     return r;
 }
 
-static int delete(struct db *db, 
-		  const char *key, int keylen,
+static int delete(struct dbengine *db, 
+		  const char *key, size_t keylen,
 		  struct txn **tid, int force)
 {
     return mydelete(db, key, keylen, tid, 0, force);
 }
 
-static int delete_nosync(struct db *db, 
-			 const char *key, int keylen,
+static int delete_nosync(struct dbengine *db, 
+			 const char *key, size_t keylen,
 			 struct txn **tid, int force)
 {
     return mydelete(db, key, keylen, tid, DB_TXN_NOSYNC, force);
 }
 
-static int mycommit(struct db *db __attribute__((unused)),
+static int mycommit(struct dbengine *db __attribute__((unused)),
 		    struct txn *tid, int txnflags)
 {
     int r;
@@ -960,17 +961,17 @@ static int mycommit(struct db *db __attribute__((unused)),
     return r;
 }
 
-static int commit_txn(struct db *db, struct txn *tid)
+static int commit_txn(struct dbengine *db, struct txn *tid)
 {
     return mycommit(db, tid, 0);
 }
 
-static int commit_nosync(struct db *db, struct txn *tid)
+static int commit_nosync(struct dbengine *db, struct txn *tid)
 {
     return mycommit(db, tid, DB_TXN_NOSYNC);
 }
 
-static int abort_txn(struct db *db __attribute__((unused)),
+static int abort_txn(struct dbengine *db __attribute__((unused)),
 		     struct txn *tid)
 {
     int r;
@@ -991,7 +992,32 @@ static int abort_txn(struct db *db __attribute__((unused)),
     return 0;
 }
 
-struct cyrusdb_backend cyrusdb_berkeley = 
+static int mycompar(struct dbengine *mydb
+#if ((DB_VERSION_MAJOR > 4) || ((DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR >= 8)))
+		    ,
+		    const char *a, int alen,
+		    const char *b, int blen)
+{
+    DB *db = (DB *) mydb;
+    int (*funcp)(DB *, const DBT *, const DBT *) = NULL;
+
+    db->get_bt_compare(db, &funcp);
+
+    if (funcp == mbox_compar)
+	return bsearch_ncompare_mbox(a, alen, b, blen);
+    else
+#else
+		    __attribute__((unused)),
+		    const char *a, int alen,
+		    const char *b, int blen)
+{
+#endif
+	return bsearch_ncompare_raw(a, alen, b, blen);
+
+}
+
+
+HIDDEN struct cyrusdb_backend cyrusdb_berkeley =
 {
     "berkeley",			/* name */
 
@@ -1005,6 +1031,8 @@ struct cyrusdb_backend cyrusdb_berkeley =
 
     &fetch,
     &fetchlock,
+    NULL,
+
     &foreach,
     &create,
     &store,
@@ -1014,10 +1042,12 @@ struct cyrusdb_backend cyrusdb_berkeley =
     &abort_txn,
     
     NULL,
-    NULL
+    NULL,
+    NULL,
+    &mycompar
 };
 
-struct cyrusdb_backend cyrusdb_berkeley_nosync = 
+HIDDEN struct cyrusdb_backend cyrusdb_berkeley_nosync =
 {
     "berkeley-nosync",		/* name */
 
@@ -1031,6 +1061,8 @@ struct cyrusdb_backend cyrusdb_berkeley_nosync =
 
     &fetch,
     &fetchlock,
+    NULL,
+
     &foreach,
     &create_nosync,
     &store_nosync,
@@ -1040,10 +1072,12 @@ struct cyrusdb_backend cyrusdb_berkeley_nosync =
     &abort_txn,
 
     NULL,
-    NULL
+    NULL,
+    NULL,
+    &mycompar
 };
 
-struct cyrusdb_backend cyrusdb_berkeley_hash = 
+HIDDEN struct cyrusdb_backend cyrusdb_berkeley_hash =
 {
     "berkeley-hash",		/* name */
 
@@ -1057,6 +1091,8 @@ struct cyrusdb_backend cyrusdb_berkeley_hash =
 
     &fetch,
     &fetchlock,
+    NULL,
+
     &foreach,
     &create,
     &store,
@@ -1066,10 +1102,12 @@ struct cyrusdb_backend cyrusdb_berkeley_hash =
     &abort_txn,
     
     NULL,
-    NULL
+    NULL,
+    NULL,
+    &mycompar
 };
 
-struct cyrusdb_backend cyrusdb_berkeley_hash_nosync = 
+HIDDEN struct cyrusdb_backend cyrusdb_berkeley_hash_nosync =
 {
     "berkeley-hash-nosync",	/* name */
 
@@ -1083,6 +1121,8 @@ struct cyrusdb_backend cyrusdb_berkeley_hash_nosync =
 
     &fetch,
     &fetchlock,
+    NULL,
+
     &foreach,
     &create_nosync,
     &store_nosync,
@@ -1092,5 +1132,7 @@ struct cyrusdb_backend cyrusdb_berkeley_hash_nosync =
     &abort_txn,
 
     NULL,
-    NULL
+    NULL,
+    NULL,
+    &mycompar
 };

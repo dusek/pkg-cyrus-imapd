@@ -37,8 +37,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
-# $Id: Admin.pm,v 1.52 2010/01/06 17:01:55 murch Exp $
 
 package Cyrus::IMAP::Admin;
 use strict;
@@ -78,13 +76,29 @@ sub new {
   if(defined($self)) {
     $self->{support_referrals} = 0;
     $self->{support_annotatatemore} = 0;
+    $self->{support_list_extended} = 0;
+    $self->{support_list_special_use} = 0;
+    $self->{support_create_special_use} = 0;
     $self->{authopts} = [];
     $self->addcallback({-trigger => 'CAPABILITY',
 			-callback => sub {my %a = @_;
-					  map { $self->{support_referrals} = 1
+					  map {
+						# RFC 2193 IMAP4 Mailbox Referrals
+						$self->{support_referrals} = 1
 						  if /^MAILBOX-REFERRALS$/i;
 						$self->{support_annotatemore} = 1
 						  if /^ANNOTATEMORE$/i;
+						$self->{support_metadata} = 1
+						  if /^METADATA$/i;
+						# RFC 5258 IMAPv4 - LIST Command Extensions
+						$self->{support_list_extended} = 1
+						  if /^LIST-EXTENDED$/i;
+						# RFC 6154 - IMAP LIST Extension for Special-Use Mailboxes
+						$self->{support_list_special_use} = 1
+						  if /^SPECIAL-USE$/i;
+						# RFC 6154 - IMAP LIST Extension for Special-Use Mailboxes
+						$self->{support_create_special_use} = 1
+						  if /^CREATE-SPECIAL-USE$/i;
 					      }
 					  split(/ /, $a{-text})}});
     $self->send(undef, undef, 'CAPABILITY');
@@ -180,10 +194,29 @@ sub reconstruct {
 }
 
 sub createmailbox {
-  my ($self, $mbx, $partition) = @_;
-  $partition = '' if !defined($partition);
-  my ($rc, $msg) = $self->send('', '', 'CREATE %s%a%a', $mbx,
-			       $partition? ' ': '', $partition);
+  my ($self, $mbx, $partition, $opts) = @_;
+  my $cmd = "CREATE %s";
+  my @args = ();
+  # RFC 3501 + cyrus:    CREATE mailbox [partition]
+  # RFC 4466 + RFC 6154: CREATE mailbox ([PARTITION partition ]USE (special-use))
+  if (defined ($$opts{'-specialuse'})) {
+    if($self->{support_create_special_use}) {
+      if (defined ($partition)) {
+        $cmd .= " (PARTITION %a USE (%a))" ;
+        push @args, ($partition, $$opts{'-specialuse'});
+      } else {
+        $cmd .= " (USE (%a))" ;
+        push @args, $$opts{'-specialuse'};
+      }
+    } else {
+      $self->{error} = "Remote does not support CREATE-SPECIAL-USE.";
+      return undef;
+    }
+  } elsif (defined ($partition)) {
+    $cmd .= " %a";
+    push @args, $partition;
+  }
+  my ($rc, $msg) = $self->send('', '', $cmd, $mbx, @args);
   if ($rc eq 'OK') {
     $self->{error} = undef;
     1;
@@ -324,15 +357,65 @@ sub listaclmailbox {
 *listacl = *listaclmailbox;
 
 sub listmailbox {
-  my ($self, $pat, $ref) = @_;
+  my ($self, $pat, $ref, $opts) = @_;
   $ref ||= "";
   my @info = ();
   my $list_cmd;
+  my @list_sel;
+  my @list_ret;
   if($self->{support_referrals}) {
-    $list_cmd = 'RLIST';
-  } else {
-    $list_cmd = 'LIST';
+    if ($self->{support_list_extended}) {
+      $list_cmd = 'LIST';
+      push @list_sel, "REMOTE";
+    } else {
+      $list_cmd = 'RLIST';
+    }
   }
+
+  if(defined ($$opts{'-sel-special-use'}) && !$self->{support_list_special_use}) {
+    $self->{error} = "Remote does not support SPECIAL-USE.";
+    return undef;
+  }
+
+  if((defined ($$opts{'-sel-special-use'}) ||
+      defined ($$opts{'-sel-recursivematch'}) ||
+      defined ($$opts{'-sel-subscribed'}))
+     && !$self->{support_list_extended}) {
+    $self->{error} = "Remote does not support LIST-EXTENDED.";
+    return undef;
+  }
+
+  if ($self->{support_list_extended}) {
+    push @list_ret, "SUBSCRIBED";
+    # "The RECURSIVEMATCH option MUST NOT occur as the only selection
+    #  option (or only with REMOTE), as it only makes sense when other
+    #  selection options are also used."
+    push @list_sel, "RECURSIVEMATCH"
+      if defined ($$opts{'-sel-recursivematch'});
+
+    push @list_sel, "SUBSCRIBED"
+      if defined ($$opts{'-sel-subscribed'});
+
+    if($self->{support_list_special_use}) {
+      # always return special-use flags
+      push @list_ret, "SPECIAL-USE";
+      push @list_sel, "SPECIAL-USE"
+        if defined ($$opts{'-sel-special-use'});
+    }
+  }
+
+  # RFC 5258:
+  # "By adding options to the LIST command, we are announcing the intent
+  # to phase out and eventually to deprecate the RLIST and RLSUB commands
+  # described in [MBRef])."
+  #
+  # This should never trigger: MAILBOX-REFERRALS and SPECIAL-USE but no
+  # LIST-EXTENDED.
+  if ($list_cmd eq "RLIST" && (scalar (@list_ret) > 0 || scalar (@list_sel) > 0)) {
+    $self->{error} = "Invalid capabilities: MAILBOX-REFERRALS and SPECIAL-USE but no LIST-EXTENDED.";
+    return undef;
+  }
+
   $self->addcallback({-trigger => 'LIST',
 		      -callback => sub {
 			my %d = @_;
@@ -340,6 +423,7 @@ sub listmailbox {
 			my $attrs = $1;
 			my $sep = '';
 			my $mbox;
+			my $extended;
 			# NIL or (attrs) "sep" "str"
 			if ($d{-text} =~ /^N/) {
 			  return if $d{-text} !~ s/^NIL//;
@@ -351,16 +435,36 @@ sub listmailbox {
                         if ($d{-text} =~ /{\d+}(.*)/) {
 			  # cope with literals (?)
 			  (undef, $mbox) = split(/\n/, $d{-text});
-                        } elsif ($d{-text} =~ /\"(([^\\\"]*\\)*[^\\\"]*)\"/) {
+                        } elsif ($d{-text} =~ /^\"(([^\\\"]*\\)*[^\\\"]*)\"/) {
 			  ($mbox = $1) =~ s/\\(.)/$1/g;
 			} else {
-			  $d{-text} =~ /^([]!\#-[^-~]+)/;
+			  $d{-text} =~ s/^([]!\#-[^-~]+)//;
 			  $mbox = $1;
 			}
-			push @{$d{-rock}}, [$mbox, $attrs, $sep];
+			if ($d{-text} =~ s/^ \(("{0,1}[^" ]+"{0,1} \("[^"]*"\))\)//) {
+			  # RFC 5258: mbox-list-extended =  "(" [mbox-list-extended-item
+			  #              *(SP mbox-list-extended-item)] ")"
+			  $extended = $1;
+			}
+			push @{$d{-rock}}, [$mbox, $attrs, $sep, $extended];
 		      },
 		      -rock => \@info});
-  my ($rc, $msg) = $self->send('', '', "$list_cmd %s %s", $ref, $pat);
+
+  # list =      "LIST" [SP list-select-opts] SP mailbox SP mbox-or-pat
+  #             [SP list-return-opts]
+  my @args = ();
+  my $cmd = $list_cmd;
+  if (scalar (@list_sel) > 0) {
+    $cmd .= " (%a)";
+    push @args, join (" ", @list_sel);
+  }
+  $cmd .= " %s %s";
+  push @args, ($ref, $pat);
+  if (scalar (@list_ret) > 0) {
+    $cmd .= " RETURN (%a)";
+    push @args, join (" ", @list_ret);
+  }
+  my ($rc, $msg) = $self->send('', '', $cmd, @args);
   $self->addcallback({-trigger => $list_cmd});
   if ($rc eq 'OK') {
     $self->{error} = undef;
@@ -599,9 +703,9 @@ my %aclalias = (none => '',
 		read => 'lrs',
 		post => 'lrsp',
 		append => 'lrsip',
-		write => 'lrswipkxte',
-		delete => 'lrxte',
-		all => 'lrswipkxtea');
+		write => 'lrswipkxten',
+		delete => 'lrxten',
+		all => 'lrswipkxtean');
 
 sub setaclmailbox {
   my ($self, $mbx, %acl) = @_;
@@ -699,6 +803,20 @@ sub setquota {
   }
 }
 
+
+# map protocol name to user visible name
+sub _attribname2access {
+  my $k = shift;
+
+  if ($k eq 'value.priv' ) {
+     return 'private';
+  } elsif ($k eq 'value.shared') {
+     return 'shared';
+  } else {
+    return $k;
+  }
+}
+
 sub getinfo {
   my $self = shift;
   my $box = shift;
@@ -723,37 +841,75 @@ sub getinfo {
 			# but since we send only the latest form command,
 			# this is the only possible response.
 
+			# Regex 1 (Shared-Folder, user folder looks similar):
+			# cyrus imapd 2.5.0
+			# folder "/vendor/cmu/cyrus-imapd/expire" ("value.shared" "90")
+			# 1      2                                 3              4
+			# folder "/vendor/cmu/cyrus-imapd/pop3showafter" ("value.shared" NIL)
+			# 1      2                                        3              4
+			# folder "/specialuse" ("value.priv" NIL "value.shared" NIL)
+			# 1      2              3            4   5              6
+
+			# cyrus imapd 2.4.17
+			# "folder" "/vendor/cmu/cyrus-imapd/partition" ("value.shared" "default")
+			# 1        2                                    3              4
+
+			# cyrus imapd 2.2.13
+			# "folder" "/vendor/cmu/cyrus-imapd/expire" ("value.shared" "90")
+			# 1        2                                 3              4
+
+			# Regex 1: server info
+			# cyrus imapd 2.5.0
+			# "" "/comment" ("value.shared" "test")
+			# 1  2           3              4
+			# "" "/motd" ("value.shared" NIL)
+			# 1  2        3              4
+			# "" "/vendor/cmu/cyrus-imapd/expire" ("value.priv" NIL "value.shared" NIL)
+			# 1  2                                 3            4   5              6
+
+			# cyrus imapd 2.4.17
+			# "" "/vendor/cmu/cyrus-imapd/freespace" ("value.shared" "3122744")
+			# 1  2                                    3              4
+
+			# Regex 2
+			# cyrus imapd 2.5.0 (user folder, authorized as user)
+			# Note: two lines
+			# INBOX.Sent "/specialuse" ("value.priv" {5}\r\n
+			# \Sent)>
+			# 1          2              3            4\r\n
+			# 5
+
 		        if ($text =~
-			       /^\s*\"([^\"]*)\"\s+\"([^\"]*)\"\s+\(\"([^\"]*)\"\s+\"([^\"]*)\"\)/) {
-			  # note that we require mailbox and entry to be qstrings
-			  # Single annotation, not literal,
-			  # but possibly multiple values
-			  # however, we are only asking for one value, so...
+			       /^\s*\"?([^"]*)"?\s+"?([^"]*)"?\s+\(\"?([^"\{]*)\"?\s+\"?([^"\{]*)\"?(?:\s+\"?([^"\{]*)\"?\s+\"?([^"\{]*)\"?)?\)/) {
 			  my $key;
 			  if($1 ne "") {
-				$key = "/mailbox/{$1}$2";
+				$key = "/mailbox/$2";
 			  } else {
-				$key = "/server$2";
+				$key = "/server/$2";
 			  }
-			  $d{-rock}{$key} = $4;
+			  $d{-rock}->{"$1"}->{_attribname2access($3)}->{$key} = $4;
+			  $d{-rock}->{"$1"}->{_attribname2access($5)}->{$key} = $6 if (defined ($5) && defined ($6));
 		        }  elsif ($text =~
-			       /^\s*\"([^\"]*)\"\s+\"([^\"]*)\"\s+\(\"([^\"]*)\"\s+\{(.*)\}\r\n/) {
-			  my $len = $3;
-			  $text =~ s/^\s*\"([^\"]*)\"\s+\"([^\"]*)\"\s+\(\"([^\"]*)\"\s+\{(.*)\}\r\n//s;
+			       /^\s*"([^"]*)"\s+"([^"]*)"\s+\("([^"\{]*)"\s+\{(.*)\}\r\n/ ||
+			   $text =~ 
+			       /^\s*([^\s]+)\s+"([^"]*)"\s+\("([^"\{]*)"\s+\{(.*)\}\r\n/) {
+			  my $len = $4;
+			  $text =~ s/^\s*"*([^"\s]*)"*\s+"([^"]*)"\s+\("([^"\{]*)"\s+\{(.*)\}\r\n//s;
 			  $text = substr($text, 0, $len);
-			  # note that we require mailbox and entry to be qstrings
 			  # Single annotation (literal style),
-			  # possibly multiple values
-			  # however, we are only asking for one value, so...
+			  # possibly multiple values -- multiple
+			  # values not tested.
+
 			  my $key;
 			  if($1 ne "") {
-				$key = "/mailbox/{$1}$2";
+				$key = "/mailbox/$2";
 			  } else {
 				$key = "/server$2";
 			  }
-			  $d{-rock}{$1} = $text;
+			  $d{-rock}{"$1"}->{_attribname2access($3)}->{$key} = $text;
 			} else {
-			  next;
+			  ; # XXX: unrecognized line, how to notify caller?
+			  1;
 			}
 		      },
 		      -rock => \%info});
@@ -762,12 +918,12 @@ sub getinfo {
   my($rc, $msg);
   if(scalar(@entries)) {
     foreach my $annot (@entries) {
-      ($rc, $msg) = $self->send('', '', "GETANNOTATION %s %q \"value.shared\"",
+      ($rc, $msg) = $self->send('', '', 'GETANNOTATION %s %q ("value.priv" "value.shared")',
 				$box, $annot);
       last if($rc ne 'OK');
     }
   } else {
-    ($rc, $msg) = $self->send('', '', "GETANNOTATION %s \"*\" \"value.shared\"",
+    ($rc, $msg) = $self->send('', '', 'GETANNOTATION %s "*" ("value.priv" "value.shared")',
 			      $box);
   }
   $self->addcallback({-trigger => 'ANNOTATION'});
@@ -782,14 +938,16 @@ sub getinfo {
 *info = *getinfo;
 
 sub mboxconfig {
-  my ($self, $mailbox, $entry, $value) = @_;
+  my ($self, $mailbox, $entry, $value, $private) = @_;
 
   my %values = ( "comment" => "/comment",
 		 "expire" => "/vendor/cmu/cyrus-imapd/expire",
 		 "news2mail" => "/vendor/cmu/cyrus-imapd/news2mail",
 		 "sharedseen" => "/vendor/cmu/cyrus-imapd/sharedseen",
 		 "sieve" => "/vendor/cmu/cyrus-imapd/sieve",
-		 "squat" => "/vendor/cmu/cyrus-imapd/squat" );
+		 "specialuse" => "/specialuse",
+		 "squat" => "/vendor/cmu/cyrus-imapd/squat",
+		 "pop3showafter" => "/vendor/cmu/cyrus-imapd/pop3showafter" );
 
   if(!$self->{support_annotatemore}) {
     $self->{error} = "Remote does not support ANNOTATEMORE.";
@@ -805,15 +963,21 @@ sub mboxconfig {
   my ($rc, $msg);
 
   $value = undef if($value eq "none");
+  my $attribname;
+  if (defined ($private)) {
+    $attribname = "value.priv";
+  } else {
+    $attribname = "value.shared";
+  }
 
   if(defined($value)) {
     ($rc, $msg) = $self->send('', '',
-			      "SETANNOTATION %q %q (\"value.shared\" %q)",
-		              $mailbox, $entry, $value);
+			      'SETANNOTATION %q %q (%q %q)',
+		              $mailbox, $entry, $attribname, $value);
   } else {
     ($rc, $msg) = $self->send('', '',
-                              "SETANNOTATION %q %q (\"value.shared\" NIL)",
-		              $mailbox, $entry);
+                              'SETANNOTATION %q %q (%q NIL)',
+		              $mailbox, $entry, $attribname);
   }
 
   if ($rc eq 'OK') {
@@ -859,7 +1023,7 @@ sub setinfoserver {
 		 "admin" => "/admin",
 		 "shutdown" => "/vendor/cmu/cyrus-imapd/shutdown",
 		 "expire" => "/vendor/cmu/cyrus-imapd/expire",
-		 "squat" => "/vendor/cmu/cyrus-imapd/squat" );
+		 "squat" => "/vendor/cmu/cyrus-imapd/squat");
 
   $entry = $values{$entry} if (exists($values{$entry}));
 
@@ -886,6 +1050,178 @@ sub setinfoserver {
   }
 }
 *setinfo = *setinfoserver;
+
+sub getmetadata {
+  my $self = shift;
+  my $box = shift;
+  my @entries = @_;
+  
+  if(!defined($box)) {
+    $box = "";
+  }
+
+  if(!$self->{support_metadata}) {
+    $self->{error} = "Remote does not support METADATA.";
+    return undef;
+  }
+
+  my %info = ();
+  $self->addcallback({-trigger => 'METADATA',
+		      -callback => sub {
+			my %d = @_;
+			my $text = $d{-text};
+
+			# There were several draft iterations of this,
+			# but since we send only the latest form command,
+			# this is the only possible response.
+
+			if ($text =~
+				/^\s*\"?([^\(]*?)\"?\s+\(\"?([^"\{]*)\"?\s+\"?([^"\)\{]*)\"?\)/) {
+			    my $mdbox = $1;
+			    my $mdkey = $2;
+			    my $mdvalue = $3;
+			    if($mdbox ne "") {
+				$mdkey = "/mailbox/$mdkey";
+				if ($mdkey =~ /private/) {
+				    $d{-rock}->{"$mdbox"}->{'private'}->{$mdkey} = $mdvalue;
+				} elsif ($mdkey =~ /shared/) {
+				    $d{-rock}->{"$mdbox"}->{'shared'}->{$mdkey} = $mdvalue;
+				}
+			    } else {
+				$mdkey = "/server/$mdkey";
+				if ($mdkey =~ /private/) {
+				    $d{-rock}->{"$mdbox"}->{'private'}->{$mdkey} = $mdvalue;
+				} elsif ($mdkey =~ /shared/) {
+				    $d{-rock}->{"$mdbox"}->{'shared'}->{$mdkey} = $mdvalue;
+				}
+			    }
+		        }  elsif ($text =~
+				/^\s*\"?([^\(]*?)\"?\s+\(\"?([^"\{]*?)\"?\s+\{(.*)\}\r\n/) {
+			  my $mdbox = $1;
+			  my $mdkey = $2;
+			  my $len = $3;
+			  $text =~ s/^\s*\"?([^\(]*?)\"?\s+\(\"?([^"]*)\"?\s+\{(.*)\}\r\n//s;
+			  my $mdvalue = substr($text, 0, $len);
+			  # Single annotation (literal style),
+			  # possibly multiple values -- multiple
+			  # values not tested.
+			  if($mdbox ne "") {
+			      $mdkey = "/mailbox/$mdkey";
+			      if ($mdkey =~ /private/) {
+			          $d{-rock}->{"$mdbox"}->{'private'}->{$mdkey} = $mdvalue;
+			      } elsif ($mdkey =~ /shared/) {
+			          $d{-rock}->{"$mdbox"}->{'shared'}->{$mdkey} = $mdvalue;
+			      }
+			  } else {
+			      $mdkey = "/server/$mdkey";
+			      if ($mdkey =~ /private/) {
+			          $d{-rock}->{"$mdbox"}->{'private'}->{$mdkey} = $mdvalue;
+			      } elsif ($mdkey =~ /shared/) {
+			          $d{-rock}->{"$mdbox"}->{'shared'}->{$mdkey} = $mdvalue;
+			      }
+			  }
+			} else {
+			    ; # XXX: unrecognized line, how to notify caller?
+			    1;
+			}
+		      },
+		      -rock => \%info});
+
+  # send getmetadata "/mailbox/name/* or /private/* and /shared/*"
+  my($rc, $msg);
+  if(scalar(@entries)) {
+    foreach my $annot (@entries) {
+      ($rc, $msg) = $self->send('', '', "GETMETADATA %s (%q)",
+				$box, $annot);
+      last if($rc ne 'OK');
+    }
+  } else {
+    ($rc, $msg) = $self->send('', '', "GETMETADATA %s (\"/private/*\")",
+			      $box);
+    ($rc, $msg) = $self->send('', '', "GETMETADATA %s (\"/shared/*\")",
+			      $box);
+  }
+  $self->addcallback({-trigger => 'METADATA'});
+  if ($rc eq 'OK') {
+    $self->{error} = undef;
+    %info;
+  } else {
+    $self->{error} = $msg;
+    ();
+  }
+}
+*info = *getmetadata;
+
+sub setmetadata {
+  my ($self, $mailbox, $entry, $value, $private) = @_;
+
+  my %values = ( "comment" => "/private/comment",
+		 "expire" => "/shared/vendor/cmu/cyrus-imapd/expire",
+		 "news2mail" => "/shared/vendor/cmu/cyrus-imapd/news2mail",
+		 "sharedseen" => "/shared/vendor/cmu/cyrus-imapd/sharedseen",
+		 "sieve" => "/shared/vendor/cmu/cyrus-imapd/sieve",
+		 "specialuse" => "/private/specialuse",
+		 "squat" => "/shared/vendor/cmu/cyrus-imapd/squat",
+		 "pop3showafter" => "/shared/vendor/cmu/cyrus-imapd/pop3showafter" );
+
+  if(!$self->{support_metadata}) {
+    $self->{error} = "Remote does not support METADATA.";
+    return undef;
+  }
+
+  if(exists($values{$entry})) {
+    $entry = $values{$entry};
+  } else {
+    $self->{error} = "Unknown parameter $entry" unless substr($entry,0,1) eq "/";
+  }
+
+  my ($rc, $msg);
+
+  $value = undef if($value eq "none");
+  if (defined ($private)) {
+    $entry =~ s/^\/shared\//\/private\//i;
+  }
+
+  if(defined($value)) {
+    ($rc, $msg) = $self->send('', '',
+			      "SETMETADATA %q (%q %q)",
+		              $mailbox, $entry, $value);
+  } else {
+    ($rc, $msg) = $self->send('', '',
+                              "SETMETADATA %q (%q NIL)",
+		              $mailbox, $entry);
+  }
+
+  if ($rc eq 'OK') {
+    $self->{error} = undef;
+    1;
+  } else {
+    if($self->{support_referrals} && $msg =~ m|^\[REFERRAL\s+([^\]\s]+)\]|) {
+      my ($refserver, $box) = $self->fromURL($1);
+      my $port = 143;
+
+      if($refserver =~ /:/) {
+	$refserver =~ /([^:]+):(\d+)/;
+	$refserver = $1; $port = $2;
+      }
+
+      my $cyradm = Cyrus::IMAP::Admin->new($refserver, $port)
+	or die "cyradm: cannot connect to $refserver\n";
+      $cyradm->addcallback({-trigger => 'EOF',
+			    -callback => \&_cb_ref_eof,
+			    -rock => \$cyradm});
+      $cyradm->authenticate(@{$self->_getauthopts()})
+	or die "cyradm: cannot authenticate to $refserver\n";
+
+      my $ret = $cyradm->mboxconfig($mailbox, $entry, $value);
+      $cyradm = undef;
+      return $ret;
+    }
+    $self->{error} = $msg;
+    undef;
+  }
+}
+*setinfo = *setmetadata;
 
 sub subscribemailbox {
   my ($self, $mbx) = @_;
@@ -1024,7 +1360,7 @@ Calling C<error> does not reset the error state, so it is legal to write:
     @folders = $cyradm->list($spec);
     print STDERR "Error: ", $cyradm->error if $cyradm->error;
 
-=item createmailbox($mailbox[, $partition])
+=item createmailbox($mailbox[[, $partition], \%opts])
 
 =item create($mailbox[, $partition])
 
@@ -1050,9 +1386,9 @@ Delete one or more ACL from a mailbox.
 Returns a hash of mailbox ACLs, with each key being a Cyrus user and the
 corresponding value being the ACL.
 
-=item listmailbox($pattern[, $reference])
+=item listmailbox($pattern[[, $reference], \%opts])
 
-=item list($pattern[, $reference])
+=item list($pattern[[, $reference], \%opts])
 
 List mailboxes matching the specified pattern, starting from the specified
 reference.  The result is a list; each element is an array containing the
@@ -1090,7 +1426,7 @@ Renames the specified mailbox, optionally moving it to a different partition.
 
 Set ACLs on a mailbox.  The ACL may be one of the special strings C<none>,
 C<read> (C<lrs>), C<post> (C<lrsp>), C<append> (C<lrsip>), C<write>
-(C<lrswipkxte>), C<delete> (C<lrxte>), or C<all> (C<lrswipkxte>), or
+(C<lrswipkxten>), C<delete> (C<lrxten>), or C<all> (C<lrswipkxten>), or
 any combinations of the ACL codes:
 
 =over 4
@@ -1140,6 +1476,10 @@ Perform EXPUNGE and expunge as part of CLOSE
 =item a
 
 Administer (SETACL/DELETEACL/GETACL/LISTRIGHTS)
+
+=item n
+
+Add, delete or modify annotations
 
 =back
 

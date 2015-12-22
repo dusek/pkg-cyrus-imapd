@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mbexamine.c,v 1.25 2010/01/06 17:01:36 murch Exp $
  */
 
 #include <config.h>
@@ -49,15 +47,12 @@
 #endif
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
 #include <string.h>
 #include <fcntl.h>
-#include <ctype.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
-#include <stdlib.h>
 
 #if HAVE_DIRENT_H
 # include <dirent.h>
@@ -76,26 +71,20 @@
 # endif
 #endif
 
-#include "acl.h"
 #include "assert.h"
-#include "bsearch.h"
-#include "convert_code.h"
 #include "exitcodes.h"
 #include "index.h"
 #include "global.h"
-#include "imap_err.h"
-#include "imparse.h"
+#include "imap/imap_err.h"
 #include "mailbox.h"
 #include "message.h"
 #include "message_guid.h"
 #include "mboxname.h"
 #include "mboxlist.h"
 #include "seen.h"
-#include "retry.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 
 extern int optind;
 extern char *optarg;
@@ -103,19 +92,14 @@ extern char *optarg;
 /* current namespace */
 static struct namespace recon_namespace;
 
-/* config.c stuff */
-const int config_need_data = 0;
-
 /* forward declarations */
-int do_examine(char *name, int matchlen, int maycreate, void *rock);
-int do_quota(char *name, int matchlen, int maycreate, void *rock);
-void usage(void);
+static int do_examine(char *name, int matchlen, int maycreate, void *rock);
+static int do_quota(char *name, int matchlen, int maycreate, void *rock);
+static void usage(void);
 void shut_down(int code);
 
-int code = 0;
-
-unsigned wantuid = 0;
-unsigned wantvalue = 0;
+static unsigned wantuid = 0;
+static unsigned wantvalue = 0;
 
 int main(int argc, char **argv)
 {
@@ -124,13 +108,9 @@ int main(int argc, char **argv)
     char *alt_config = NULL;
     int quotachk = 0;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
-
-    /* Ensure we're up-to-date on the index file format */
-    assert(INDEX_HEADER_SIZE == (OFFSET_HEADER_CRC+4));
-    assert(INDEX_RECORD_SIZE == (OFFSET_RECORD_CRC+4));
 
     while ((opt = getopt(argc, argv, "C:u:s:q")) != EOF) {
 	switch (opt) {
@@ -158,7 +138,7 @@ int main(int argc, char **argv)
 	}
     }
 
-    cyrus_init(alt_config, "mbexamine", 0);
+    cyrus_init(alt_config, "mbexamine", 0, 0);
 
     /* Set namespace -- force standard (internal) */
     if ((r = mboxname_init_namespace(&recon_namespace, 1)) != 0) {
@@ -191,10 +171,10 @@ int main(int argc, char **argv)
     mboxlist_close();
     mboxlist_done();
 
-    exit(code);
+    exit(0);
 }
 
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr,
 	    "usage: mbexamine [-C <alt_config>] [-s seqnum] mailbox...\n"
@@ -203,18 +183,18 @@ void usage(void)
     exit(EC_USAGE);
 }
 
-void print_rec(char *name, struct buf *citem)
+static void print_rec(const char *name, const struct buf *citem)
 {
-    printf(" %s>{%d}%.*s\n", name, citem->len, citem->len, citem->s); 
+    printf(" %s>{" SIZE_T_FMT "}%.*s\n", name, citem->len, (int)citem->len, citem->s); 
 }
 
 /*
  * mboxlist_findall() callback function to examine a mailbox
  */
-int do_examine(char *name,
-	       int matchlen __attribute__((unused)),
-	       int maycreate __attribute__((unused)),
-	       void *rock __attribute__((unused)))
+static int do_examine(char *name,
+		      int matchlen __attribute__((unused)),
+		      int maycreate __attribute__((unused)),
+		      void *rock __attribute__((unused)))
 {
     unsigned i, msgno, recno;
     int r = 0;
@@ -260,8 +240,8 @@ int do_examine(char *name,
     printf("  Minor Version: %d\n", mailbox->i.minor_version);
     printf("  Header Size: %u bytes  Record Size: %u bytes\n",
 	   mailbox->i.start_offset, mailbox->i.record_size);
-    printf("  Number of Messages: %u  Mailbox Size: " UQUOTA_T_FMT " bytes\n",
-	   mailbox->i.exists, mailbox->i.quota_mailbox_used);
+    printf("  Number of Messages: %u  Mailbox Size: " QUOTA_T_FMT " bytes  Annotations Size: " QUOTA_T_FMT " bytes\n",
+	   mailbox->i.exists, mailbox->i.quota_mailbox_used, mailbox->i.quota_annot_used);
     printf("  Last Append Date: (%lu) %s",
 	   mailbox->i.last_appenddate, ctime(&mailbox->i.last_appenddate));
     printf("  UIDValidity: %u  Last UID: %u\n",
@@ -327,6 +307,10 @@ int do_examine(char *name,
 	    printf(" MODSEQ:" MODSEQ_FMT, record.modseq);
 	}
 
+	if (mailbox->i.minor_version >= 13) {
+	    printf("  THIRD: %llx", record.thrid);
+	}
+
 	printf("\n");
 
 	printf("      > USERFLAGS:");
@@ -363,17 +347,17 @@ int do_examine(char *name,
 /*
  * mboxlist_findall() callback function to examine a mailbox quota usage
  */
-int do_quota(char *name,
-	       int matchlen __attribute__((unused)),
-	       int maycreate __attribute__((unused)),
-	       void *rock __attribute__((unused)))
+static int do_quota(char *name,
+		    int matchlen __attribute__((unused)),
+		    int maycreate __attribute__((unused)),
+		    void *rock __attribute__((unused)))
 {
     uint32_t recno;
     int r = 0;
     char ext_name_buf[MAX_MAILBOX_PATH+1];
     struct mailbox *mailbox = NULL;
     struct index_record record;
-    uquota_t total = 0;
+    quota_t total = 0;
     char *fname;
     struct stat sbuf;
     

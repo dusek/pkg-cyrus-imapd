@@ -1,19 +1,19 @@
-/* A Bison parser, made by GNU Bison 2.6.1.  */
+/* A Bison parser, made by GNU Bison 3.0.4.  */
 
 /* Bison interface for Yacc-like parsers in C
-   
-      Copyright (C) 1984, 1989-1990, 2000-2012 Free Software Foundation, Inc.
-   
+
+   Copyright (C) 1984, 1989-1990, 2000-2015 Free Software Foundation, Inc.
+
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation, either version 3 of the License, or
    (at your option) any later version.
-   
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-   
+
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
@@ -26,100 +26,121 @@
    special exception, which will cause the skeleton and the resulting
    Bison output files to be licensed under the GNU General Public
    License without this special exception.
-   
+
    This special exception was added by the Free Software Foundation in
    version 2.2 of Bison.  */
 
-#ifndef YY_Y_TAB_H
-# define YY_Y_TAB_H
-/* Enabling traces.  */
+#ifndef YY_SIEVE_SIEVE_SIEVE_H_INCLUDED
+# define YY_SIEVE_SIEVE_SIEVE_H_INCLUDED
+/* Debug traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
 #endif
 #if YYDEBUG
-extern int yydebug;
+extern int sievedebug;
 #endif
 
-/* Tokens.  */
+/* Token type.  */
 #ifndef YYTOKENTYPE
 # define YYTOKENTYPE
-   /* Put the tokens into the symbol table, so that GDB and other debuggers
-      know about them.  */
-   enum yytokentype {
-     NUMBER = 258,
-     STRING = 259,
-     IF = 260,
-     ELSIF = 261,
-     ELSE = 262,
-     REJCT = 263,
-     FILEINTO = 264,
-     REDIRECT = 265,
-     KEEP = 266,
-     STOP = 267,
-     DISCARD = 268,
-     VACATION = 269,
-     REQUIRE = 270,
-     SETFLAG = 271,
-     ADDFLAG = 272,
-     REMOVEFLAG = 273,
-     MARK = 274,
-     UNMARK = 275,
-     NOTIFY = 276,
-     DENOTIFY = 277,
-     ANYOF = 278,
-     ALLOF = 279,
-     EXISTS = 280,
-     SFALSE = 281,
-     STRUE = 282,
-     HEADER = 283,
-     NOT = 284,
-     SIZE = 285,
-     ADDRESS = 286,
-     ENVELOPE = 287,
-     BODY = 288,
-     COMPARATOR = 289,
-     IS = 290,
-     CONTAINS = 291,
-     MATCHES = 292,
-     REGEX = 293,
-     COUNT = 294,
-     VALUE = 295,
-     OVER = 296,
-     UNDER = 297,
-     GT = 298,
-     GE = 299,
-     LT = 300,
-     LE = 301,
-     EQ = 302,
-     NE = 303,
-     ALL = 304,
-     LOCALPART = 305,
-     DOMAIN = 306,
-     USER = 307,
-     DETAIL = 308,
-     RAW = 309,
-     TEXT = 310,
-     CONTENT = 311,
-     DAYS = 312,
-     ADDRESSES = 313,
-     SUBJECT = 314,
-     FROM = 315,
-     HANDLE = 316,
-     MIME = 317,
-     METHOD = 318,
-     ID = 319,
-     OPTIONS = 320,
-     LOW = 321,
-     NORMAL = 322,
-     HIGH = 323,
-     ANY = 324,
-     MESSAGE = 325,
-     INCLUDE = 326,
-     PERSONAL = 327,
-     GLOBAL = 328,
-     RETURN = 329,
-     COPY = 330
-   };
+  enum yytokentype
+  {
+    NUMBER = 258,
+    STRING = 259,
+    IF = 260,
+    ELSIF = 261,
+    ELSE = 262,
+    REJCT = 263,
+    FILEINTO = 264,
+    REDIRECT = 265,
+    KEEP = 266,
+    STOP = 267,
+    DISCARD = 268,
+    VACATION = 269,
+    REQUIRE = 270,
+    SETFLAG = 271,
+    ADDFLAG = 272,
+    REMOVEFLAG = 273,
+    MARK = 274,
+    UNMARK = 275,
+    HASFLAG = 276,
+    FLAGS = 277,
+    NOTIFY = 278,
+    DENOTIFY = 279,
+    ANYOF = 280,
+    ALLOF = 281,
+    EXISTS = 282,
+    SFALSE = 283,
+    STRUE = 284,
+    HEADER = 285,
+    NOT = 286,
+    SIZE = 287,
+    ADDRESS = 288,
+    ENVELOPE = 289,
+    BODY = 290,
+    COMPARATOR = 291,
+    IS = 292,
+    CONTAINS = 293,
+    MATCHES = 294,
+    REGEX = 295,
+    COUNT = 296,
+    VALUE = 297,
+    OVER = 298,
+    UNDER = 299,
+    GT = 300,
+    GE = 301,
+    LT = 302,
+    LE = 303,
+    EQ = 304,
+    NE = 305,
+    ALL = 306,
+    LOCALPART = 307,
+    DOMAIN = 308,
+    USER = 309,
+    DETAIL = 310,
+    RAW = 311,
+    TEXT = 312,
+    CONTENT = 313,
+    DAYS = 314,
+    ADDRESSES = 315,
+    SUBJECT = 316,
+    FROM = 317,
+    HANDLE = 318,
+    MIME = 319,
+    SECONDS = 320,
+    METHOD = 321,
+    ID = 322,
+    OPTIONS = 323,
+    LOW = 324,
+    NORMAL = 325,
+    HIGH = 326,
+    ANY = 327,
+    MESSAGE = 328,
+    INCLUDE = 329,
+    PERSONAL = 330,
+    GLOBAL = 331,
+    RETURN = 332,
+    OPTIONAL = 333,
+    ONCE = 334,
+    COPY = 335,
+    DATE = 336,
+    CURRENTDATE = 337,
+    INDEX = 338,
+    LAST = 339,
+    ZONE = 340,
+    ORIGINALZONE = 341,
+    YEAR = 342,
+    MONTH = 343,
+    DAY = 344,
+    JULIAN = 345,
+    HOUR = 346,
+    MINUTE = 347,
+    SECOND = 348,
+    TIME = 349,
+    ISO8601 = 350,
+    STD11 = 351,
+    WEEKDAY = 352
+  };
 #endif
 /* Tokens.  */
 #define NUMBER 258
@@ -140,73 +161,94 @@ extern int yydebug;
 #define REMOVEFLAG 273
 #define MARK 274
 #define UNMARK 275
-#define NOTIFY 276
-#define DENOTIFY 277
-#define ANYOF 278
-#define ALLOF 279
-#define EXISTS 280
-#define SFALSE 281
-#define STRUE 282
-#define HEADER 283
-#define NOT 284
-#define SIZE 285
-#define ADDRESS 286
-#define ENVELOPE 287
-#define BODY 288
-#define COMPARATOR 289
-#define IS 290
-#define CONTAINS 291
-#define MATCHES 292
-#define REGEX 293
-#define COUNT 294
-#define VALUE 295
-#define OVER 296
-#define UNDER 297
-#define GT 298
-#define GE 299
-#define LT 300
-#define LE 301
-#define EQ 302
-#define NE 303
-#define ALL 304
-#define LOCALPART 305
-#define DOMAIN 306
-#define USER 307
-#define DETAIL 308
-#define RAW 309
-#define TEXT 310
-#define CONTENT 311
-#define DAYS 312
-#define ADDRESSES 313
-#define SUBJECT 314
-#define FROM 315
-#define HANDLE 316
-#define MIME 317
-#define METHOD 318
-#define ID 319
-#define OPTIONS 320
-#define LOW 321
-#define NORMAL 322
-#define HIGH 323
-#define ANY 324
-#define MESSAGE 325
-#define INCLUDE 326
-#define PERSONAL 327
-#define GLOBAL 328
-#define RETURN 329
-#define COPY 330
+#define HASFLAG 276
+#define FLAGS 277
+#define NOTIFY 278
+#define DENOTIFY 279
+#define ANYOF 280
+#define ALLOF 281
+#define EXISTS 282
+#define SFALSE 283
+#define STRUE 284
+#define HEADER 285
+#define NOT 286
+#define SIZE 287
+#define ADDRESS 288
+#define ENVELOPE 289
+#define BODY 290
+#define COMPARATOR 291
+#define IS 292
+#define CONTAINS 293
+#define MATCHES 294
+#define REGEX 295
+#define COUNT 296
+#define VALUE 297
+#define OVER 298
+#define UNDER 299
+#define GT 300
+#define GE 301
+#define LT 302
+#define LE 303
+#define EQ 304
+#define NE 305
+#define ALL 306
+#define LOCALPART 307
+#define DOMAIN 308
+#define USER 309
+#define DETAIL 310
+#define RAW 311
+#define TEXT 312
+#define CONTENT 313
+#define DAYS 314
+#define ADDRESSES 315
+#define SUBJECT 316
+#define FROM 317
+#define HANDLE 318
+#define MIME 319
+#define SECONDS 320
+#define METHOD 321
+#define ID 322
+#define OPTIONS 323
+#define LOW 324
+#define NORMAL 325
+#define HIGH 326
+#define ANY 327
+#define MESSAGE 328
+#define INCLUDE 329
+#define PERSONAL 330
+#define GLOBAL 331
+#define RETURN 332
+#define OPTIONAL 333
+#define ONCE 334
+#define COPY 335
+#define DATE 336
+#define CURRENTDATE 337
+#define INDEX 338
+#define LAST 339
+#define ZONE 340
+#define ORIGINALZONE 341
+#define YEAR 342
+#define MONTH 343
+#define DAY 344
+#define JULIAN 345
+#define HOUR 346
+#define MINUTE 347
+#define SECOND 348
+#define TIME 349
+#define ISO8601 350
+#define STD11 351
+#define WEEKDAY 352
 
-
-
+/* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef union YYSTYPE
+
+union YYSTYPE
 {
-/* Line 2049 of yacc.c  */
-#line 176 "sieve.y"
+#line 213 "sieve/sieve.y" /* yacc.c:1909  */
 
     int nval;
     char *sval;
-    stringlist_t *sl;
+    strarray_t *sl;
     test_t *test;
     testlist_t *testl;
     commandlist_t *cl;
@@ -216,30 +258,20 @@ typedef union YYSTYPE
     struct btags *btag;
     struct ntags *ntag;
     struct dtags *dtag;
+    struct itags *itag;
+    struct dttags *dttag;
+    struct ftags *ftag;
 
+#line 266 "sieve/sieve.h" /* yacc.c:1909  */
+};
 
-/* Line 2049 of yacc.c  */
-#line 223 "y.tab.h"
-} YYSTYPE;
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
-# define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
 #endif
 
-extern YYSTYPE yylval;
 
-#ifdef YYPARSE_PARAM
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void *YYPARSE_PARAM);
-#else
-int yyparse ();
-#endif
-#else /* ! YYPARSE_PARAM */
-#if defined __STDC__ || defined __cplusplus
-int yyparse (void);
-#else
-int yyparse ();
-#endif
-#endif /* ! YYPARSE_PARAM */
 
-#endif /* !YY_Y_TAB_H  */
+int sieveparse (sieve_script_t *parse_script);
+
+#endif /* !YY_SIEVE_SIEVE_SIEVE_H_INCLUDED  */

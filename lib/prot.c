@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: prot.c,v 1.100 2010/06/28 12:06:43 brong Exp $
  */
 
 #include <config.h>
@@ -48,11 +46,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <signal.h>
-#ifdef HAVE_STDARG_H
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -86,7 +80,7 @@ struct protgroup
  * Create a new protection stream for file descriptor 'fd'.  Stream
  * will be used for writing iff 'write' is nonzero.
  */
-struct protstream *prot_new(int fd, int write)
+EXPORTED struct protstream *prot_new(int fd, int write)
 {
     struct protstream *newstream;
 
@@ -106,15 +100,36 @@ struct protstream *prot_new(int fd, int write)
     return newstream;
 }
 
-/* Create a protstream which is just an interface to a mapped piece of
- * memory, allowing prot commands to be used to read from it */
-struct protstream *prot_readmap(const char *buf, uint32_t len)
+EXPORTED struct protstream *prot_writebuf(struct buf *buf)
 {
     struct protstream *newstream;
 
     newstream = (struct protstream *) xzmalloc(sizeof(struct protstream));
     /* dodgy, but the alternative is two pointers */
-    newstream->ptr = (unsigned char *)buf;
+    newstream->buf = (unsigned char *) 
+	xmalloc(sizeof(char) * (PROT_BUFSIZE));
+    newstream->buf_size = PROT_BUFSIZE;
+    newstream->ptr = newstream->buf;
+    newstream->cnt = PROT_BUFSIZE;
+    newstream->maxplain = PROT_BUFSIZE;
+    newstream->write = 1;
+    newstream->writetobuf = buf;
+    newstream->fd = PROT_NO_FD;
+    newstream->logfd = PROT_NO_FD;
+    newstream->big_buffer = PROT_NO_FD;
+
+    return newstream;
+}
+
+/* Create a protstream which is just an interface to a mapped piece of
+ * memory, allowing prot commands to be used to read from it */
+EXPORTED struct protstream *prot_readmap(const char *base, uint32_t len)
+{
+    struct protstream *newstream;
+
+    newstream = (struct protstream *) xzmalloc(sizeof(struct protstream));
+    /* dodgy, but the alternative is two pointers */
+    newstream->ptr = (unsigned char *)base;
     newstream->cnt = len;
     newstream->fixedsize = 1;
     newstream->fd = PROT_NO_FD;
@@ -127,7 +142,7 @@ struct protstream *prot_readmap(const char *buf, uint32_t len)
 /*
  * Free a protection stream
  */
-int prot_free(struct protstream *s)
+EXPORTED int prot_free(struct protstream *s)
 {
     if (s->error) free(s->error);
     free(s->buf);
@@ -154,13 +169,13 @@ int prot_free(struct protstream *s)
 /*
  * Set the logging file descriptor for stream 's' to be 'fd'.
  */
-int prot_setlog(struct protstream *s, int fd)
+EXPORTED int prot_setlog(struct protstream *s, int fd)
 {
     s->logfd = fd;
     return 0;
 }
 
-int prot_setisclient(struct protstream *s, int val)
+EXPORTED int prot_setisclient(struct protstream *s, int val)
 {
     s->isclient = val;
     return 0;
@@ -172,7 +187,7 @@ int prot_setisclient(struct protstream *s, int val)
  * Turn on TLS for this connection
  */
 
-int prot_settls(struct protstream *s, SSL *tlsconn)
+EXPORTED int prot_settls(struct protstream *s, SSL *tlsconn)
 {
     s->tls_conn = tlsconn;
 
@@ -189,7 +204,7 @@ int prot_settls(struct protstream *s, SSL *tlsconn)
 /*
  * Decode data sent via a SASL security layer. Returns EOF on error.
  */
-int prot_sasldecode(struct protstream *s, int n)
+static int prot_sasldecode(struct protstream *s, int n)
 {
     int result;
     const char *out;
@@ -228,9 +243,7 @@ int prot_sasldecode(struct protstream *s, int n)
  * Turn on SASL for this connection
  */
 
-int prot_setsasl(s, conn)
-struct protstream *s;
-sasl_conn_t *conn;
+EXPORTED int prot_setsasl(struct protstream *s, sasl_conn_t *conn)
 {
     const void *ssfp;
     int result;
@@ -280,7 +293,7 @@ sasl_conn_t *conn;
  * Turn off SASL for this connection
  */
 
-void prot_unsetsasl(struct protstream *s)
+EXPORTED void prot_unsetsasl(struct protstream *s)
 {
     s->conn = NULL;
     s->maxplain = PROT_BUFSIZE;
@@ -310,7 +323,7 @@ static void zfree(voidpf opaque __attribute__((unused)),
  * otherwise initialize a decompressor.
  */
 
-int prot_setcompress(struct protstream *s)
+EXPORTED int prot_setcompress(struct protstream *s)
 {
     int zr = Z_OK;
     z_stream *zstrm = (z_stream *) xmalloc(sizeof(z_stream));
@@ -328,12 +341,13 @@ int prot_setcompress(struct protstream *s)
 
 	s->zlevel = Z_DEFAULT_COMPRESSION;
 	zr = deflateInit2(zstrm, s->zlevel, Z_DEFLATED,
-		          -MAX_WBITS, MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
+		          -MAX_WBITS,		/* raw deflate */
+			  MAX_MEM_LEVEL, Z_DEFAULT_STRATEGY);
     }
     else {
 	zstrm->next_in = Z_NULL;
 	zstrm->avail_in = 0;
-	zr = inflateInit2(zstrm, -MAX_WBITS);
+	zr = inflateInit2(zstrm, -MAX_WBITS);	/* raw inflate */
     }
 
     if (zr != Z_OK)
@@ -408,7 +422,7 @@ static int is_incompressible(const char *p, size_t n)
  * Since we might want to look at the data, we only set a flag and delay
  * any changes to the stream layers until the next prot_write().
  */
-int prot_data_boundary(struct protstream *s)
+EXPORTED int prot_data_boundary(struct protstream *s)
 {
     s->boundary = 1;
     return 0;
@@ -418,7 +432,7 @@ int prot_data_boundary(struct protstream *s)
  * Set the read timeout for the stream 's' to 'timeout' seconds.
  * 's' must have been created for reading.
  */
-int prot_settimeout(struct protstream *s, int timeout)
+EXPORTED int prot_settimeout(struct protstream *s, int timeout)
 {
     assert(!s->write);
 
@@ -431,7 +445,7 @@ int prot_settimeout(struct protstream *s, int timeout)
  * Reset the read timeout_mark for the stream 's'.
  * 'S' must have been created for reading.
  */
-int prot_resettimeout(struct protstream *s)
+EXPORTED int prot_resettimeout(struct protstream *s)
 {
     assert(!s->write);
 
@@ -444,7 +458,7 @@ int prot_resettimeout(struct protstream *s)
  * blocking for reading. 's' must have been created for reading,
  * 'flushs' for writing.
  */
-int prot_setflushonread(struct protstream *s, struct protstream *flushs)
+EXPORTED int prot_setflushonread(struct protstream *s, struct protstream *flushs)
 {
     assert(!s->write);
     if(flushs) assert(flushs->write);
@@ -457,7 +471,7 @@ int prot_setflushonread(struct protstream *s, struct protstream *flushs)
  * Set on stream 's' the callback 'proc' and 'rock'
  * to make the next time we have to wait for input.
  */
-int prot_setreadcallback(struct protstream *s, 
+int prot_setreadcallback(struct protstream *s,
 			 prot_readcallback_t *proc, void *rock)
 {
     assert(!s->write);
@@ -472,7 +486,7 @@ int prot_setreadcallback(struct protstream *s,
  * argument 'rock' will be called at 'mark' (in seconds) while
  * waiting for input.
  */
-struct prot_waitevent *prot_addwaitevent(struct protstream *s, time_t mark,
+EXPORTED struct prot_waitevent *prot_addwaitevent(struct protstream *s, time_t mark,
 					 prot_waiteventcallback_t *proc,
 					 void *rock)
 {
@@ -503,7 +517,7 @@ struct prot_waitevent *prot_addwaitevent(struct protstream *s, time_t mark,
 /*
  * Remove 'event' from stream 's'.
  */
-void prot_removewaitevent(struct protstream *s, struct prot_waitevent *event)
+EXPORTED void prot_removewaitevent(struct protstream *s, struct prot_waitevent *event)
 {
     struct prot_waitevent *prev, *cur;
 
@@ -530,7 +544,7 @@ void prot_removewaitevent(struct protstream *s, struct prot_waitevent *event)
  * error encountered on 's'.  If there is no error condition, return a
  * null pointer.
  */
-const char *prot_error(struct protstream *s)
+EXPORTED const char *prot_error(struct protstream *s)
 {
     if(!s) return "bad protstream passed to prot_error";
     else if(s->error) return s->error;
@@ -541,7 +555,7 @@ const char *prot_error(struct protstream *s)
 /*
  * Rewind the stream 's'.  's' must have been created for reading.
  */
-int prot_rewind(struct protstream *s)
+EXPORTED int prot_rewind(struct protstream *s)
 {
     assert(!s->write);
 
@@ -561,7 +575,7 @@ int prot_rewind(struct protstream *s)
  * Read data into the empty buffer for the stream 's' and return the
  * first character.  Returns EOF on EOF or error.
  */
-int prot_fill(struct protstream *s)
+EXPORTED int prot_fill(struct protstream *s)
 {
     int n;
     unsigned char *ptr;
@@ -628,7 +642,7 @@ int prot_fill(struct protstream *s)
 	    FD_SET(s->fd, &rfds);
 
 	    if (!haveinput &&
-		(select(s->fd + 1, &rfds, (fd_set *)0, (fd_set *)0,
+		(signals_select(s->fd + 1, &rfds, (fd_set *)0, (fd_set *)0,
 			&timeout) <= 0)) {
 		if (s->readcallback_proc) {
 		    (*s->readcallback_proc)(s, s->readcallback_rock);
@@ -673,7 +687,7 @@ int prot_fill(struct protstream *s)
 		timeout.tv_usec = 0;
 		FD_ZERO(&rfds);
 		FD_SET(s->fd, &rfds);
-		r = select(s->fd + 1, &rfds, (fd_set *)0, (fd_set *)0,
+		r = signals_select(s->fd + 1, &rfds, (fd_set *)0, (fd_set *)0,
 			   &timeout);
 		now = time(NULL);
 	    } while ((r == 0 || (r == -1 && errno == EINTR && !signals_poll())) &&
@@ -697,8 +711,8 @@ int prot_fill(struct protstream *s)
 	}
 
 	/* we have data, reset the timeout_mark */
-	s->timeout_mark = time(NULL) + s->read_timeout;
-	
+	prot_resettimeout(s);
+
 	do {
 	    cmdtime_netstart();
 #ifdef HAVE_SSL	  
@@ -773,7 +787,7 @@ int prot_fill(struct protstream *s)
  * If 's' is an input stream, discard any pending/buffered data.  Otherwise,
  * Write out any buffered data in the stream 's'
  */
-int prot_flush(struct protstream *s) 
+EXPORTED int prot_flush(struct protstream *s)
 {
     if (!s->write) {
 	int c, save_dontblock = s->dontblock;
@@ -806,7 +820,7 @@ static void prot_flush_log(struct protstream *s)
 	int n;
 	time_t newtime;
 	char timebuf[20];
-	
+
 	time(&newtime);
 	snprintf(timebuf, sizeof(timebuf), ">%ld>", newtime);
 	n = write(s->logfd, timebuf, strlen(timebuf));
@@ -822,7 +836,9 @@ static void prot_flush_log(struct protstream *s)
 	    }
 	} while (left);
 
-	(void)fsync(s->logfd);
+	/* we don't care THAT much about logs
+	 * (void)fsync(s->logfd);
+	 */
     }
 }
 
@@ -953,8 +969,13 @@ int prot_flush_internal(struct protstream *s, int force)
     
     /* end protstream setup */
 
+    /* if writing to a buffer, just append the lot.  Always works */
+    if (s->writetobuf) {
+	buf_appendmap(s->writetobuf, ptr, left);
+    }
+
     /* If we're doing a blocking write, flush the buffers, bigbuffer first */
-    if(!s->dontblock) {
+    else if (!s->dontblock) {
 	if(s->big_buffer != PROT_NO_FD) {
 	    /* Write the bigbuffer */
 	    do {
@@ -1001,7 +1022,10 @@ int prot_flush_internal(struct protstream *s, int force)
 		left -= n;
 	    }
 	} while(left);
-    } else { /* Nonblocking */
+    }
+
+    /* Nonblocking */
+    else {
 	/* If we've been feeding a bigbuffer, write out from the current
 	 * position as much as we can */
 	if (s->big_buffer != PROT_NO_FD) {
@@ -1134,7 +1158,7 @@ int prot_flush_internal(struct protstream *s, int force)
 /*
  * Write to the output stream 's' the 'len' bytes of data at 'buf'
  */
-int prot_write(struct protstream *s, const char *buf, unsigned len)
+EXPORTED int prot_write(struct protstream *s, const char *buf, unsigned len)
 {
     assert(s->write);
     if(s->error || s->eof) return EOF;
@@ -1191,12 +1215,12 @@ int prot_write(struct protstream *s, const char *buf, unsigned len)
     return 0;
 }
 
-int prot_putbuf(struct protstream *s, struct buf *buf)
+EXPORTED int prot_putbuf(struct protstream *s, struct buf *buf)
 {
     return prot_write(s, buf->s, buf->len);
 }
 
-int prot_puts(struct protstream *s, const char *str)
+EXPORTED int prot_puts(struct protstream *s, const char *str)
 {
     return prot_write(s, str, strlen(str));
 }
@@ -1204,9 +1228,10 @@ int prot_puts(struct protstream *s, const char *str)
 /*
  * Stripped-down version of printf() that works on protection streams
  * Only understands '%lld', '%llu', '%llx', '%ld', '%lu', '%lx',
- * '%d', %u', '%x', '%s', '%tu', '%td', '%c', and '%%' in the format string.
+ * '%d', %u', '%x', '%s', '%tu', '%td', '%c', and '%%'
+ * in the format string.
  */
-int prot_printf(struct protstream *s, const char *fmt, ...)
+EXPORTED int prot_printf(struct protstream *s, const char *fmt, ...)
 {
     va_list pvar;
     int r;
@@ -1218,7 +1243,7 @@ int prot_printf(struct protstream *s, const char *fmt, ...)
     return r;
 }
 
-int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
+EXPORTED int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
 {
     char *percent, *p;
     long l;
@@ -1256,7 +1281,6 @@ int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
 		prot_write(s, buf, strlen(buf));
 		break;
 
-#ifdef HAVE_LONG_LONG_INT
             case 'l': {
 		long long int ll;
 		unsigned long long int ull;
@@ -1285,7 +1309,6 @@ int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
 		}
 		break;
 	    }
-#endif
 
 	    default:
 		abort();
@@ -1299,7 +1322,7 @@ int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
 	    break;
 
 	case 'u':
-	    u = va_arg(pvar, int);
+	    u = va_arg(pvar, unsigned);
 	    snprintf(buf, sizeof(buf), "%u", u);
 	    prot_write(s, buf, strlen(buf));
 	    break;
@@ -1379,7 +1402,7 @@ int prot_vprintf(struct protstream *s, const char *fmt, va_list pvar)
     return 0;
 }
 
-int prot_printliteral(struct protstream *out, const char *s, size_t size)
+EXPORTED int prot_printliteral(struct protstream *out, const char *s, size_t size)
 {
     int r;
     if (out->isclient)
@@ -1390,25 +1413,27 @@ int prot_printliteral(struct protstream *out, const char *s, size_t size)
     return prot_write(out, s, size);
 }
 
+#define isQCHAR(c) \
+	(!((c) & 0x80 || *p == '\r' || (c) == '\n' \
+	    || (c) == '\"' || (c) == '%' || (c) == '\\'))
+#define MAXQSTRING  1024
+
 /*
  * Print 's' as a quoted-string or literal (but not an atom)
  */
-int prot_printstring(struct protstream *out, const char *s)
+EXPORTED int prot_printstring(struct protstream *out, const char *s)
 {
     const char *p;
-    int len = 0;
 
     if (!s) return prot_printf(out, "NIL");
 
     /* Look for any non-QCHAR characters */
-    for (p = s; *p && len < 1024; p++) {
-	len++;
-	if (*p & 0x80 || *p == '\r' || *p == '\n'
-	    || *p == '\"' || *p == '%' || *p == '\\') break;
+    for (p = s; *p && (p-s) < MAXQSTRING; p++) {
+	if (!isQCHAR(*p)) break;
     }
 
     /* if it's too long, literal it */
-    if (*p || len >= 1024) {
+    if (*p || (p-s) >= MAXQSTRING) {
 	return prot_printliteral(out, s, strlen(s));
     }
 
@@ -1416,15 +1441,77 @@ int prot_printstring(struct protstream *out, const char *s)
 }
 
 /*
+ * Print the @n bytes at @s as a quoted-string or literal.
+ * Handles embedded NULs.
+ */
+EXPORTED int prot_printmap(struct protstream *out, const char *s, size_t n)
+{
+    const char *p;
+    int r;
+
+    if (!s) return prot_printf(out, "NIL");
+
+    /* if it's too long, literal it */
+    if (n >= MAXQSTRING)
+	return prot_printliteral(out, s, n);
+
+    /* Look for NULs or any non-QCHAR characters */
+    for (p = s; (size_t)(p-s) < n; p++) {
+	if (!*p || !isQCHAR(*p))
+	    return prot_printliteral(out, s, n);
+    }
+
+    prot_putc('"', out);
+    r = prot_write(out, s, n);
+    if (r < 0)
+	return r;
+    prot_putc('"', out);
+    return r+2;
+}
+
+/*
+ * Print the @n bytes at @s as an atom, quoted-string or literal.
+ * Handles embedded NULs.
+ */
+EXPORTED int prot_printamap(struct protstream *out, const char *s, size_t n)
+{
+    const char *p;
+    int r;
+
+    if (!s) return prot_printf(out, "NIL");
+
+    if (imparse_isnatom(s, n) && (n != 3 || memcmp(s, "NIL", 3)))
+	return prot_write(out, s, n);
+
+    /* if it's too long, literal it */
+    if (n >= MAXQSTRING)
+	return prot_printliteral(out, s, n);
+
+    /* Look for NULs or any non-QCHAR characters */
+    for (p = s; (size_t)(p-s) < n; p++) {
+	if (!*p || !isQCHAR(*p))
+	    return prot_printliteral(out, s, n);
+    }
+
+    prot_putc('"', out);
+    r = prot_write(out, s, n);
+    if (r < 0)
+	return r;
+    prot_putc('"', out);
+    return r+2;
+}
+
+/*
  * Print 's' as an atom, quoted-string, or literal
  */
-int prot_printastring(struct protstream *out, const char *s)
+EXPORTED int prot_printastring(struct protstream *out, const char *s)
 {
     if (!s) return prot_printf(out, "NIL");
 
     /* special cases for atoms */
     if (!*s) return prot_printf(out, "\"\"");
-    if (imparse_isatom(s)) return prot_printf(out, "%s", s);
+    if (imparse_isatom(s) && strcmp(s, "NIL"))
+	return prot_printf(out, "%s", s);
 
     /* not an atom, so pass to printstring */
     return prot_printstring(out, s);
@@ -1434,7 +1521,7 @@ int prot_printastring(struct protstream *out, const char *s)
  * Read from the protections stream 's' up to 'size' bytes into the buffer
  * 'buf'.  Returns the number of bytes read, or 0 for some error.
  */
-int prot_read(struct protstream *s, char *buf, unsigned size)
+EXPORTED int prot_read(struct protstream *s, char *buf, unsigned size)
 {
     int c;
 
@@ -1462,7 +1549,7 @@ int prot_read(struct protstream *s, char *buf, unsigned size)
  * Read from the protections stream 's' up to 'size' bytes, and append them
  * to the buffer 'buf'.  Returns the number of bytes read, or 0 for some error.
  */
-int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size)
+EXPORTED int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size)
 {
     buf_ensure(buf, size);
     size = prot_read(s, buf->s + buf->len, size);
@@ -1478,7 +1565,7 @@ int prot_readbuf(struct protstream *s, struct buf *buf, unsigned size)
  *
  * Only works for readable protstreams
  */ 
-int prot_select(struct protgroup *readstreams, int extra_read_fd,
+EXPORTED int prot_select(struct protgroup *readstreams, int extra_read_fd,
 		struct protgroup **out, int *extra_read_flag,
 		struct timeval *timeout) 
 {
@@ -1591,7 +1678,7 @@ int prot_select(struct protgroup *readstreams, int extra_read_fd,
 	    timeout->tv_usec = 0;
 	}
 
-	if(select(max_fd + 1, &rfds, NULL, NULL, timeout) == -1)
+	if(signals_select(max_fd + 1, &rfds, NULL, NULL, timeout) == -1)
 	    return -1;
 
 	/* Reset now */
@@ -1635,7 +1722,7 @@ int prot_select(struct protgroup *readstreams, int extra_read_fd,
 /*
  * Version of fgets() that works with protection streams.
  */
-char *prot_fgets(char *buf, unsigned size, struct protstream *s)
+EXPORTED char *prot_fgets(char *buf, unsigned size, struct protstream *s)
 {
     char *p = buf;
     int c;
@@ -1658,7 +1745,7 @@ char *prot_fgets(char *buf, unsigned size, struct protstream *s)
 
 /* Handle protgroups */
 /* Create a new protgroup of the given size, or 32 if size is 0 */
-struct protgroup *protgroup_new(size_t size) 
+EXPORTED struct protgroup *protgroup_new(size_t size) 
 {
     struct protgroup *ret = xmalloc(sizeof(struct protgroup));
 
@@ -1683,7 +1770,7 @@ struct protgroup *protgroup_copy(struct protgroup *src)
     return dest;
 }
 
-void protgroup_reset(struct protgroup *group) 
+EXPORTED void protgroup_reset(struct protgroup *group)
 {
     if(group) {
 	memset(group->group, 0,
@@ -1692,7 +1779,7 @@ void protgroup_reset(struct protgroup *group)
     }
 }
 
-void protgroup_free(struct protgroup *group) 
+EXPORTED void protgroup_free(struct protgroup *group)
 {
     if(group) {
 	assert(group->group);
@@ -1701,7 +1788,7 @@ void protgroup_free(struct protgroup *group)
     }
 }
 
-void protgroup_insert(struct protgroup *group, struct protstream *item) 
+EXPORTED void protgroup_insert(struct protgroup *group, struct protstream *item)
 {
     unsigned i, empty;
 
@@ -1724,7 +1811,7 @@ void protgroup_insert(struct protgroup *group, struct protstream *item)
     group->group[empty] = item;
 }
 
-void protgroup_delete(struct protgroup *group, struct protstream *item) 
+EXPORTED void protgroup_delete(struct protgroup *group, struct protstream *item)
 {
     unsigned i;
 
@@ -1746,7 +1833,7 @@ void protgroup_delete(struct protgroup *group, struct protstream *item)
     syslog(LOG_ERR, "protgroup_delete(): can't find protstream in group");
 }
 
-struct protstream *protgroup_getelement(struct protgroup *group,
+EXPORTED struct protstream *protgroup_getelement(struct protgroup *group,
 					size_t element) 
 {
     assert(group);
@@ -1757,7 +1844,7 @@ struct protstream *protgroup_getelement(struct protgroup *group,
     return group->group[element];
 }
 
-int prot_getc(struct protstream *s)
+EXPORTED int prot_getc(struct protstream *s)
 {
     assert(!s->write);
 
@@ -1771,7 +1858,7 @@ int prot_getc(struct protstream *s)
     return prot_fill(s);
 }
 
-int prot_ungetc(int c, struct protstream *s)
+EXPORTED int prot_ungetc(int c, struct protstream *s)
 {
     assert(!s->write);
 
@@ -1790,7 +1877,7 @@ int prot_ungetc(int c, struct protstream *s)
     return c;
 }
 
-int prot_putc(int c, struct protstream *s)
+EXPORTED int prot_putc(int c, struct protstream *s)
 {
     assert(s->write);
     assert(s->cnt > 0);

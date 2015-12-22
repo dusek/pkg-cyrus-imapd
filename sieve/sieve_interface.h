@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: sieve_interface.h,v 1.23.2.1 2010/02/12 03:40:51 brong Exp $
  */
 
 #ifndef SIEVE_H
@@ -52,7 +50,9 @@
 /* error codes */
 #define SIEVE_OK (0)
 
-#include "sieve_err.h"
+#include "strarray.h"
+#include "sieve/sieve_err.h"
+#include "varlist.h"
 
 /* external sieve types */
 typedef struct sieve_interp sieve_interp_t;
@@ -83,8 +83,8 @@ typedef int sieve_get_body(void *message_context, const char **content_types,
 			   sieve_bodypart_t ***parts);
 
 typedef struct sieve_vacation {
-    int min_response;		/* 0 -> defaults to 3 */
-    int max_response;		/* 0 -> defaults to 90 */
+    int min_response;		/* 0 -> defaults to 3 days */
+    int max_response;		/* 0 -> defaults to 90 days */
 
     /* given a hash, say whether we've already responded to it in the last
        days days.  return SIEVE_OK if we SHOULD autorespond (have not already)
@@ -95,10 +95,8 @@ typedef struct sieve_vacation {
     sieve_callback *send_response;
 } sieve_vacation_t;
 
-typedef struct sieve_imapflags {
-    char **flag;		/* NULL -> defaults to \flagged */
-    int nflags;
-} sieve_imapflags_t;
+
+/* sieve_imapflags: NULL -> defaults to \flagged */
 
 typedef struct sieve_redirect_context {
     const char *addr;
@@ -110,11 +108,11 @@ typedef struct sieve_reject_context {
 
 typedef struct sieve_fileinto_context {
     const char *mailbox;
-    sieve_imapflags_t *imapflags;
+    strarray_t *imapflags;
 } sieve_fileinto_context_t;
 
 typedef struct sieve_keep_context {
-    sieve_imapflags_t *imapflags;
+    strarray_t *imapflags;
 } sieve_keep_context_t;
 
 typedef struct sieve_notify_context {
@@ -128,7 +126,7 @@ typedef struct sieve_notify_context {
 
 typedef struct sieve_autorespond_context {
     unsigned char hash[SIEVE_HASHLEN];
-    int days;
+    int seconds;
 } sieve_autorespond_context_t;
 
 typedef struct sieve_send_response_context {
@@ -140,36 +138,36 @@ typedef struct sieve_send_response_context {
 } sieve_send_response_context_t;
 
 /* build a sieve interpretor */
-int sieve_interp_alloc(sieve_interp_t **interp, void *interp_context);
+sieve_interp_t *sieve_interp_alloc(void *interp_context);
 int sieve_interp_free(sieve_interp_t **interp);
 
 /* add the callbacks for actions. undefined behavior results if these
    are called after sieve_script_parse is called! */
-int sieve_register_redirect(sieve_interp_t *interp, sieve_callback *f);
-int sieve_register_discard(sieve_interp_t *interp, sieve_callback *f);
-int sieve_register_reject(sieve_interp_t *interp, sieve_callback *f);
-int sieve_register_fileinto(sieve_interp_t *interp, sieve_callback *f);
-int sieve_register_keep(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_redirect(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_discard(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_reject(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_fileinto(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_keep(sieve_interp_t *interp, sieve_callback *f);
 int sieve_register_vacation(sieve_interp_t *interp, sieve_vacation_t *v);
-int sieve_register_imapflags(sieve_interp_t *interp, sieve_imapflags_t *mark);
-int sieve_register_notify(sieve_interp_t *interp, sieve_callback *f);
-int sieve_register_include(sieve_interp_t *interp, sieve_get_include *f);
+void sieve_register_imapflags(sieve_interp_t *interp, const strarray_t *mark);
+void sieve_register_notify(sieve_interp_t *interp, sieve_callback *f);
+void sieve_register_include(sieve_interp_t *interp, sieve_get_include *f);
 
 /* add the callbacks for messages. again, undefined if used after
    sieve_script_parse */
-int sieve_register_size(sieve_interp_t *interp, sieve_get_size *f);
-int sieve_register_header(sieve_interp_t *interp, sieve_get_header *f);
-int sieve_register_envelope(sieve_interp_t *interp, sieve_get_envelope *f);
-int sieve_register_body(sieve_interp_t *interp, sieve_get_body *f);
+void sieve_register_size(sieve_interp_t *interp, sieve_get_size *f);
+void sieve_register_header(sieve_interp_t *interp, sieve_get_header *f);
+void sieve_register_envelope(sieve_interp_t *interp, sieve_get_envelope *f);
+void sieve_register_body(sieve_interp_t *interp, sieve_get_body *f);
 
 typedef int sieve_parse_error(int lineno, const char *msg, 
 			      void *interp_context,
 			      void *script_context);
-int sieve_register_parse_error(sieve_interp_t *interp, sieve_parse_error *f);
+void sieve_register_parse_error(sieve_interp_t *interp, sieve_parse_error *f);
 
 typedef int sieve_execute_error(const char *msg, void *interp_context,
 				void *script_context, void *message_context);
-int sieve_register_execute_error(sieve_interp_t *interp, 
+void sieve_register_execute_error(sieve_interp_t *interp, 
 				 sieve_execute_error *f);
  
 /* given an interpretor and a script, produce an executable script */
@@ -183,7 +181,7 @@ int sieve_script_load(const char *fpath, sieve_execute_t **ret);
 int sieve_script_unload(sieve_execute_t **s);
 
 /* Free a sieve_script_t */
-int sieve_script_free(sieve_script_t **s);
+void sieve_script_free(sieve_script_t **s);
 
 /* execute bytecode on a message */
 int sieve_execute_bytecode(sieve_execute_t *script, sieve_interp_t *interp,

@@ -38,15 +38,13 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lmtp_sieve.h,v 1.6 2010/01/06 17:01:35 murch Exp $
  */
 
 #ifndef LMTP_SIEVE_H
 #define LMTP_SIEVE_H
 
 #include "lmtpd.h"
-#include "sieve_interface.h"
+#include "sieve/sieve_interface.h"
 
 sieve_interp_t *setup_sieve(void);
 int run_sieve(const char *user, const char *domain, const char *mailbox,

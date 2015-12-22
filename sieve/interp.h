@@ -39,8 +39,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: interp.h,v 1.10 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifndef SIEVE_INTERP_H
@@ -63,12 +61,18 @@ struct sieve_interp {
     sieve_parse_error *err;
 
     /* site-specific imapflags for mark/unmark */
-    sieve_imapflags_t *markflags;
+    const strarray_t *markflags;
 
     sieve_execute_error *execute_err;
 
+    char *lastitem;
+
     /* context to pass along */
     void *interp_context;
+    char extensions[4096];//the number comes from interp.c EXT_LEN
+
+    /* time when allocated */
+    time_t time;
 };
 
 int interp_verify(sieve_interp_t *interp);

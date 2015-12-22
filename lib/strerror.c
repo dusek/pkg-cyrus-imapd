@@ -38,15 +38,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: strerror.c,v 1.8 2010/01/06 17:01:47 murch Exp $
  */
 
 extern int sys_nerr;
-extern char *sys_errlist;
+extern char **sys_errlist;
 
-const char *strerror(errnum)
-int errnum;
+const char *strerror(int errnum)
 {
     if (errnum < 0 || errnum > sys_nerr) return 0;
     return sys_errlist[errnum];

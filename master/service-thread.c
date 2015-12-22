@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: service-thread.c,v 1.22 2010/01/06 17:01:53 murch Exp $
  */
 
 #include <config.h>
@@ -53,8 +51,6 @@
 #endif
 #include <fcntl.h>
 #include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -70,6 +66,7 @@
 #include "service.h"
 #include "libconfig.h"
 #include "xmalloc.h"
+#include "strarray.h"
 #include "signals.h"
 
 extern int optind;
@@ -96,35 +93,37 @@ void notify_master(int fd, int msg)
 int allow_severity = LOG_DEBUG;
 int deny_severity = LOG_ERR;
 
-static void libwrap_init(struct request_info *r, char *service)
+static void libwrap_init(struct request_info *req, char *service)
 {
-    request_init(r, RQ_DAEMON, service, 0);
+    request_init(req, RQ_DAEMON, service, 0);
 }
 
-static int libwrap_ask(struct request_info *r, int fd)
+static int libwrap_ask(struct request_info *req, int fd)
 {
+    struct sockaddr_storage sin_storage;
+    struct sockaddr *sin = (struct sockaddr *)&sin_storage;
+    socklen_t sinlen;
     int a;
-    struct sockaddr_storage sin;
-    socklen_t len = sizeof(sin);
     
     /* XXX: old FreeBSD didn't fill sockaddr correctly against AF_UNIX */
-    sin.ss_family = AF_UNIX;
+    sin->sa_family = AF_UNIX;
 
     /* is this a connection from the local host? */
-    if (getpeername(fd, (struct sockaddr *) &sin, &len) == 0) {
-	if (((struct sockaddr *)&sin)->sa_family == AF_UNIX) {
+    sinlen = sizeof(struct sockaddr_storage);
+    if (getpeername(fd, sin, &sinlen) == 0) {
+	if (sin->sa_family == AF_UNIX) {
 	    return 1;
 	}
     }
     
     /* i hope using the sock_* functions are legal; it certainly makes
        this code very easy! */
-    request_set(r, RQ_FILE, fd, 0);
-    sock_host(r);
+    request_set(req, RQ_FILE, fd, 0);
+    sock_host(req);
 
-    a = hosts_access(r);
+    a = hosts_access(req);
     if (!a) {
-	syslog(deny_severity, "refused connection from %s", eval_client(r));
+	syslog(deny_severity, "refused connection from %s", eval_client(req));
     }
 
     return a;
@@ -147,9 +146,7 @@ static int libwrap_ask(struct request_info *r __attribute__((unused)),
 
 #endif
 
-extern void cyrus_init(const char *, const char *, unsigned);
-
-#define ARGV_GROW 10
+extern void cyrus_init(const char *, const char *, unsigned, int);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -160,14 +157,27 @@ int main(int argc, char **argv, char **envp)
     int opt;
     char *alt_config = NULL;
     int call_debugger = 0;
-    int newargc = 0;
-    char **newargv = (char **) xmalloc(ARGV_GROW * sizeof(char *));
+
+    /*
+     * service_init and service_main need argv and argc, so they can process
+     * service-specific options.  They need argv[0] to point into the real argv
+     * memory space, so that setproctitle can work its magic.  But they also
+     * need the generic options handled here to be removed, because they don't
+     * know how to handle them.
+     *
+     * So, we create a strarray_t "service_argv", and populate it with the
+     * options that we aren't handling here, using strarray_appendm (which
+     * simply ptr-copies its argument), and pass that through, and everything
+     * is happy.
+     *
+     * Note that we don't need to strarray_free service_argv, because it
+     * doesn't contain any malloced memory.
+     */
+    strarray_t service_argv = STRARRAY_INITIALIZER;
+    strarray_appendm(&service_argv, argv[0]);
 
     opterr = 0; /* disable error reporting,
 		   since we don't know about service-specific options */
-
-    newargv[newargc++] = argv[0];
-
     while ((opt = getopt(argc, argv, "C:D")) != EOF) {
 	switch (opt) {
 	case 'C': /* alt config file */
@@ -177,27 +187,18 @@ int main(int argc, char **argv, char **envp)
 	    call_debugger = 1;
 	    break;
 	default:
-	    if (!((newargc+1) % ARGV_GROW)) { /* time to alloc more */
-		newargv = (char **) xrealloc(newargv, (newargc + ARGV_GROW) * 
-					     sizeof(char *));
-	    }
-	    newargv[newargc++] = argv[optind-1];
+	    strarray_appendm(&service_argv, argv[optind-1]);
 
 	    /* option has an argument */
 	    if (optind < argc && argv[optind][0] != '-')
-		newargv[newargc++] = argv[optind++];
+		strarray_appendm(&service_argv, argv[optind++]);
 
 	    break;
 	}
     }
     /* grab the remaining arguments */
-    for (; optind < argc; optind++) {
-	if (!(newargc % ARGV_GROW)) { /* time to alloc more */
-	    newargv = (char **) xrealloc(newargv, (newargc + ARGV_GROW) * 
-					 sizeof(char *));
-	}
-	newargv[newargc++] = argv[optind];
-    }
+    for (; optind < argc; optind++)
+	strarray_appendm(&service_argv, argv[optind]);
 
     opterr = 1; /* enable error reporting */
     optind = 1; /* reset the option index for parsing by the service */
@@ -217,7 +218,8 @@ int main(int argc, char **argv, char **envp)
     }
     service = xstrdup(p);
 
-    cyrus_init(alt_config, service, 0);
+    extern const int config_need_data;
+    cyrus_init(alt_config, service, 0, config_need_data);
 
     if (call_debugger) {
 	char debugbuf[1024];
@@ -253,7 +255,7 @@ int main(int argc, char **argv, char **envp)
 	return 1;
     }
 
-    if (service_init(newargc, newargv, envp) != 0) {
+    if (service_init(service_argv.count, service_argv.data, envp) != 0) {
 	if (MESSAGE_MASTER_ON_EXIT) 
 	    notify_master(STATUS_FD, MASTER_SERVICE_UNAVAILABLE);
 	return 1;
@@ -305,7 +307,7 @@ int main(int argc, char **argv, char **envp)
 
 	use_count++;
 	notify_master(STATUS_FD, MASTER_SERVICE_CONNECTION_MULTI);
-	if (service_main_fd(fd, newargc, newargv, envp) < 0) {
+	if (service_main_fd(fd, service_argv.count, service_argv.data, envp) < 0) {
 	    break;
 	}
     }

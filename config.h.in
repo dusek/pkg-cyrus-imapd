@@ -1,8 +1,8 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 
 /*
- * Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
+ * Copyright (c) 1994-2012 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,8 +40,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: configure.in,v 1.316 2010/01/06 17:01:26 murch Exp $
  */
 
 #ifndef _CYRUS_IMAPD_CONFIG_H_
@@ -62,6 +60,9 @@
 
 /* Alternative to /dev/urandom? */
 #undef EGD_SOCKET
+
+/* Build with support of mailbox event notification */
+#undef ENABLE_MBOXEVENT
 
 /* Do we have a regex library? */
 #undef ENABLE_REGEX
@@ -84,6 +85,12 @@
 /* Build in Berkeley DB support? */
 #undef HAVE_BDB
 
+/* Do we have ClamAV? */
+#undef HAVE_CLAMAV
+
+/* Do we have CU_SetUpFunc? */
+#undef HAVE_CU_SETUPFUNC
+
 /* Define to 1 if you have the `daemon' function. */
 #undef HAVE_DAEMON
 
@@ -94,6 +101,9 @@
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #undef HAVE_DIRENT_H
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
 
 /* Define to 1 if you have the `dns_lookup' function. */
 #undef HAVE_DNS_LOOKUP
@@ -109,6 +119,9 @@
 
 /* Do we have fdatasync()? */
 #undef HAVE_FDATASYNC
+
+/* Define to 1 if you have the `fmemopen' function. */
+#undef HAVE_FMEMOPEN
 
 /* Define to 1 if you have the `ftruncate' function. */
 #undef HAVE_FTRUNCATE
@@ -162,32 +175,32 @@
 /* Define if your GSSAPI implementation supports SPNEGO */
 #undef HAVE_GSS_SPNEGO
 
+/* Build in ical support? */
+#undef HAVE_ICAL
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
 /* Support for Kerberos? */
 #undef HAVE_KRB
 
-/* Should we build ldap pts module? */
+/* Should we build the LDAP pts module? */
 #undef HAVE_LDAP
 
-/* Define to 1 if you have the `dl' library (-ldl). */
-#undef HAVE_LIBDL
-
-/* Define to 1 if you have the `fl' library (-lfl). */
-#undef HAVE_LIBFL
+/* Do we have libcap system capabilities handling (Linux systems only)? */
+#undef HAVE_LIBCAP
 
 /* Define to 1 if you have the `resolv' library (-lresolv). */
 #undef HAVE_LIBRESOLV
+
+/* Do we have the uuid library */
+#undef HAVE_LIBUUID
 
 /* Do we have TCP wrappers? */
 #undef HAVE_LIBWRAP
 
 /* Define to 1 if you support file names longer than 14 characters. */
 #undef HAVE_LONG_FILE_NAMES
-
-/* Does the compiler support long long int? */
-#undef HAVE_LONG_LONG_INT
 
 /* Define to 1 if you have the `memmem' function. */
 #undef HAVE_MEMMEM
@@ -216,6 +229,12 @@
 
 /* Build in PgSQL support? */
 #undef HAVE_PGSQL
+
+/* Define to 1 if you have the `posix_fadvise' function. */
+#undef HAVE_POSIX_FADVISE
+
+/* Define to 1 if you have the `pselect' function. */
+#undef HAVE_PSELECT
 
 /* Do we have an rlim_t? */
 #undef HAVE_RLIM_T
@@ -246,6 +265,9 @@
 
 /* Build in SQLite support? */
 #undef HAVE_SQLITE
+
+/* Build in SQLite support? */
+#undef HAVE_SQLITE3
 
 /* Build with SSL support? */
 #undef HAVE_SSL
@@ -289,6 +311,9 @@
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_ZONE
 
+/* Define to 1 if you have the <sys/capability.h> header file. */
+#undef HAVE_SYS_CAPABILITY_H
+
 /* Define to 1 if you have the <sys/dir.h> header file, and it defines `DIR'.
    */
 #undef HAVE_SYS_DIR_H
@@ -299,6 +324,9 @@
 
 /* Define to 1 if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H
+
+/* Define to 1 if you have the <sys/prctl.h> header file. */
+#undef HAVE_SYS_PRCTL_H
 
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
@@ -318,13 +346,22 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
+/* Define to 1 if you have the `timegm' function. */
+#undef HAVE_TIMEGM
+
 /* Define to 1 if your `struct tm' has `tm_zone'. Deprecated, use
    `HAVE_STRUCT_TM_TM_ZONE' instead. */
 #undef HAVE_TM_ZONE
 
+/* Do we have built-in support for TZdist props? */
+#undef HAVE_TZDIST_PROPS
+
 /* Define to 1 if you don't have `tm_zone' but do have the external array
    `tzname'. */
 #undef HAVE_TZNAME
+
+/* Build TZ by ref support into httpd? */
+#undef HAVE_TZ_BY_REF
 
 /* Do we have UCD-SNMP support? */
 #undef HAVE_UCDSNMP
@@ -332,14 +369,24 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
+#undef HAVE_VALGRIND_VALGRIND_H
+
 /* Build VAVAILABILITY support into httpd? */
 #undef HAVE_VAVAILABILITY
+
+/* Define to 1 or 0, depending whether the compiler supports simple visibility
+   declarations. */
+#undef HAVE_VISIBILITY
 
 /* Build VPOLL support into httpd? */
 #undef HAVE_VPOLL
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
+
+/* Build in libxml support? */
+#undef HAVE_XML2
 
 /* Build with Zephyr support? */
 #undef HAVE_ZEPHYR
@@ -349,6 +396,10 @@
 
 /* define if your compiler has __attribute__ */
 #undef HAVE___ATTRIBUTE__
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
 
 /* Name of the pidfile for master */
 #undef MASTER_PIDFILE
@@ -364,6 +415,9 @@
 
 /* Configure OpenSSL to provide legacy des apis */
 #undef OPENSSL_ENABLE_OLD_DES_SUPPORT
+
+/* Name of package */
+#undef PACKAGE
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -384,7 +438,7 @@
 #undef PACKAGE_VERSION
 
 /* Directory to use for service binaries */
-#undef SERVICE_PATH
+#undef SERVICE_DIR
 
 /* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
@@ -422,6 +476,9 @@
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
 
+/* Build with autocreate functionality */
+#undef USE_AUTOCREATE
+
 /* Build in Sieve support? */
 #undef USE_SIEVE
 
@@ -447,20 +504,17 @@
 #endif
 
 
+/* Version number of package */
+#undef VERSION
+
 /* Build DAV support into httpd? */
 #undef WITH_DAV
 
 /* Build DKIM support into iSchedule? */
 #undef WITH_DKIM
 
-/* Build jCal/jCard/TZ-service support into httpd? */
+/* Build jCal/jCard/TZdist support into httpd? */
 #undef WITH_JSON
-
-/* Build in PTS support? */
-#undef WITH_PTS
-
-/* Build RSS support into httpd? */
-#undef WITH_RSS
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
@@ -495,6 +549,14 @@
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 #undef inline
+#endif
+
+#if HAVE_VISIBILITY
+#define EXPORTED __attribute__((__visibility__("default")))
+#define HIDDEN   __attribute__((__visibility__("hidden")))
+#else
+#define EXPORTED
+#define HIDDEN
 #endif
 
 
@@ -572,10 +634,6 @@ struct sockaddr_storage {
 # define HAVE_SS_FAMILY
 #endif /* !HAVE_STRUCT_SOCKADDR_STORAGE */
 
-#ifndef HAVE_SS_FAMILY
-#define ss_family	__ss_family
-#endif
-
 #ifndef AF_INET6
 /* Define it to something that should never appear */
 #define	AF_INET6	AF_MAX
@@ -625,6 +683,11 @@ struct sockaddr_storage {
 #define strtoofft(nptr, endptr, base) strtoll(nptr, endptr, base)
 #else
 #error dont know what to use for OFF_T_FMT
+#endif
+
+#ifndef HAVE_POSIX_FADVISE
+#define POSIX_FADV_WILLNEED 0
+extern int posix_fadvise(int fd, off_t offset, off_t len, int advice);
 #endif
 
 #ifndef HAVE_STRSEP

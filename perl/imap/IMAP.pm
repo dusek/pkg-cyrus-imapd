@@ -37,8 +37,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
-# $Id: IMAP.pm,v 1.25 2010/01/06 17:01:54 murch Exp $
 
 package Cyrus::IMAP;
 
@@ -202,7 +200,7 @@ sub authenticate {
   if (defined $first &&
       $first =~ /^-\w+|Mechanism|Service|Authz|User|Minssf|Maxssf|Password|Tlskey|Notls|CAfile|CApath$/) {
     (undef, %opts) = @_;
-    foreach (qw(mechanism service authz user minssf maxssf password tlskey notls)) {
+    foreach (qw(mechanism service authz user minssf maxssf password tlskey notls cafile capath)) {
       $opts{'-' . $_} = $opts{ucfirst($_)} if !defined($opts{'-' . $_});
     }
   } else {
@@ -211,6 +209,8 @@ sub authenticate {
      $opts{-tlskey}, $opts{-notls}, $opts{-cafile}, $opts{-capath}) = @_;
   }
 
+  $opts{-cafile} = "" if !defined($opts{-cafile});
+  $opts{-capath} = "" if !defined($opts{-capath});
   $opts{-service} = "imap" if !defined($opts{-service});
   $opts{-minssf} = 0 if !defined($opts{-minssf});
   $opts{-maxssf} = 10000 if !defined($opts{-maxssf});
@@ -283,7 +283,7 @@ sub authenticate {
   }
 
   if (!$rc && $logindisabled) {
-    $self->_starttls('', '', '', '') || return undef;
+    $self->_starttls('', '', $opts{-cafile}, $opts{-capath}) || return undef;
 
     # Refetch all relevent capabilities
     ($starttls, $logindisabled, $availmechs) = (0, 0, "");

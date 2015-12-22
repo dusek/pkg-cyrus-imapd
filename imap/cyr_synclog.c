@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cyr_synclog.c,v 1.7 2010/01/06 17:01:31 murch Exp $
- *
  * Originally written by Bron Gondwana <brong@fastmail.fm>
  */
 
@@ -52,25 +50,44 @@
 #include <unistd.h>
 #endif
 
+#include "exitcodes.h"
 #include "global.h"
 #include "sync_log.h"
 #include "util.h"
 #include "xmalloc.h"
 
-/* config.c stuff */
-const int config_need_data = 0;
+void usage(const char *name) {
+    fprintf(stderr, "Usage: %s [-C altconfig] [-{type}] value\n", name);
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "types:\n");
+    fprintf(stderr, "  -u   USER\n");
+    fprintf(stderr, "  -U   UNUSER\n");
+    fprintf(stderr, "  -v   SIEVE\n");
+    fprintf(stderr, "  -m   MAILBOX\n");
+    fprintf(stderr, "  -M   UNMAILBOX\n");
+    fprintf(stderr, "  -q   QUOTA\n");
+    fprintf(stderr, "  -n   ANNOTATION\n");
+    fprintf(stderr, "  -s   SEEN\n");
+    fprintf(stderr, "  -b   SUBSCRIPTION\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr,
+	    "You may omit the type flag and just specify a complete log line\n");
+    exit(-1);
+}
 
 int main(int argc, char *argv[])
 {
     char *alt_config = NULL;
     char cmd = '\0';
-    char opt;
+    int opt;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
-    while ((opt = getopt(argc, argv, "C:uvmacqnsb")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:uUvmMacqnsb")) != EOF) {
 	switch (opt) {
 	case 'C': /* alt config file */
 	    alt_config = optarg;
@@ -78,11 +95,17 @@ int main(int argc, char *argv[])
 	case 'u': /* User */
 	    cmd = 'u';
 	    break;
+	case 'U': /* UnUser */
+	    cmd = 'U';
+	    break;
 	case 'v': /* sieVe */
 	    cmd = 'v';
 	    break;
 	case 'm': /* Mailbox */
 	    cmd = 'm';
+	    break;
+	case 'M': /* UnMailbox */
+	    cmd = 'M';
 	    break;
 	case 'a': /* Append */
 	    cmd = 'a';
@@ -105,37 +128,36 @@ int main(int argc, char *argv[])
 	}
     }
 
-    if((argc - optind) < 1) {
-	fprintf(stderr, "Usage: %s [-C altconfig] [-{type}] value\n", argv[0]);
-	
-	fprintf(stderr, "\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr, "types:\n");
-	fprintf(stderr, "  -u   USER\n");
-	fprintf(stderr, "  -v   SIEVE\n");
-	fprintf(stderr, "  -m   MAILBOX\n");
-	fprintf(stderr, "  -q   QUOTA\n");
-	fprintf(stderr, "  -n   ANNOTATION\n");
-	fprintf(stderr, "  -s   SEEN\n");
-	fprintf(stderr, "  -b   SUBSCRIPTION\n");
-	fprintf(stderr, "\n");
-	fprintf(stderr,
-		"You may omit the type flag and just specify a complete log line\n");
-	exit(-1);
+    /* need at least one value */
+    if ((argc - optind) < 1) usage(argv[0]);
+    /* and not an empty string */
+    if (!argv[optind][0]) usage(argv[0]);
+
+    if (cmd == 's' || cmd == 'b') {
+	/* need a second value */
+	if ((argc - optind) < 2) usage(argv[0]);
+	/* and not an empty string */
+	if (!argv[optind+1][0]) usage(argv[0]);
     }
 
-    cyrus_init(alt_config, "cyr_synclog", 0);
+    cyrus_init(alt_config, "cyr_synclog", 0, 0);
     sync_log_init();
 
     switch(cmd) {
 	case 'u': /* User */
 	    sync_log_user(argv[optind]);
 	    break;
+	case 'U': /* UnUser */
+	    sync_log_unuser(argv[optind]);
+	    break;
 	case 'v': /* sieVe */
 	    sync_log_sieve(argv[optind]);
 	    break;
 	case 'm': /* Mailbox */
 	    sync_log_mailbox(argv[optind]);
+	    break;
+	case 'M': /* UnMailbox */
+	    sync_log_unmailbox(argv[optind]);
 	    break;
 	case 'q': /* Quota */
 	    sync_log_quota(argv[optind]);

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth_pts.h,v 1.5 2010/01/06 17:01:44 murch Exp $
  */
 
 #ifndef INCLUDED_AUTH_PTS_H
@@ -49,11 +47,9 @@
 #include <unistd.h>
 #endif
 #include <sys/file.h>
-#include <errno.h>
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
-#include <syslog.h>
 #include <ctype.h>
 
 #include "auth.h"

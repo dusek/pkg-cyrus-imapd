@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: ctl_cyrusdb.c,v 1.33 2010/01/06 17:01:30 murch Exp $
  */
 
 #include <config.h>
@@ -50,7 +48,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -85,39 +82,36 @@
 #include "tls.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
 
 #define N(a) (sizeof(a) / sizeof(a[0]))
 
-/* config.c stuff */
-const int config_need_data = 0;
-
-struct cyrusdb {
+static struct cyrusdb {
     const char *name;
-    struct cyrusdb_backend **backendptr;
-    int archive;
+    const char **configptr;
+    cyrusdb_archiver *archiver;
+    int doarchive;
 } dblist[] = {
-    { FNAME_MBOXLIST,		&config_mboxlist_db,	1 },
-    { FNAME_QUOTADB,		&config_quota_db,	1 },
-    { FNAME_ANNOTATIONS,	&config_annotation_db,	1 },
-    { FNAME_DELIVERDB,		&config_duplicate_db,	0 },
-    { FNAME_TLSSESSIONS,	&config_tlscache_db,	0 },
-    { FNAME_PTSDB,		&config_ptscache_db,	0 },
-    { FNAME_STATUSCACHEDB,	&config_statuscache_db,	0 },
-    { NULL,			NULL,			0 }
+    { FNAME_MBOXLIST,		&config_mboxlist_db,	NULL,	1 },
+    { FNAME_QUOTADB,		&config_quota_db,	NULL,	1 },
+    { FNAME_GLOBALANNOTATIONS,	&config_annotation_db,	NULL,	1 },
+    { FNAME_DELIVERDB,		&config_duplicate_db,	NULL,	0 },
+    { FNAME_TLSSESSIONS,	&config_tls_sessions_db,NULL,	0 },
+    { FNAME_PTSDB,		&config_ptscache_db,	NULL,	0 },
+    { FNAME_STATUSCACHEDB,	&config_statuscache_db,	NULL,	0 },
+    { NULL,			NULL,			NULL,	0 }
 };
 
 static int compdb(const void *v1, const void *v2)
 {
     struct cyrusdb *db1 = (struct cyrusdb *) v1;
     struct cyrusdb *db2 = (struct cyrusdb *) v2;
-    struct cyrusdb_backend *b1 = *db1->backendptr;
-    struct cyrusdb_backend *b2 = *db2->backendptr;
 
     /* compare archive pointers for sort */
-    return (b1->archive - b2->archive);
+    return ((char *)db1->archiver - (char *)db2->archiver);
 }
 
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr, "ctl_cyrusdb [-C <altconfig>] -c\n");
     fprintf(stderr, "ctl_cyrusdb [-C <altconfig>] -r [-x]\n");
@@ -130,40 +124,56 @@ static int fixmbox(char *name,
 		   int maycreate __attribute__((unused)),
 		   void *rock __attribute__((unused)))
 {
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
     int r;
 
-    r = mboxlist_lookup(name, &mbentry, NULL);
+    r = mboxlist_lookup_allow_all(name, &mbentry, NULL);
+    if (r) return 0;
+
+    if (mbentry->legacy_specialuse) {
+	const char *userid = mboxname_to_userid(name);
+	if (userid) {
+	    struct buf buf = BUF_INITIALIZER;
+	    buf_setcstr(&buf, mbentry->legacy_specialuse);
+	    annotatemore_rawwrite(name, "/specialuse", userid, &buf);
+	    buf_free(&buf);
+	}
+	free(mbentry->legacy_specialuse);
+	mbentry->legacy_specialuse = NULL;
+	mboxlist_update(mbentry, /*localonly*/1);
+    }
 
     /* if MBTYPE_RESERVED, unset it & call mboxlist_delete */
-    if(!r && (mbentry.mbtype & MBTYPE_RESERVE)) {
-	if(!r) {
-	    r = mboxlist_deletemailbox(name, 1, NULL, NULL, 0, 0, 1);
-	    if(r) {
-		/* log the error */
-		syslog(LOG_ERR,
-		       "could not remove reserved mailbox '%s': %s",
-		       name, error_message(r));
-	    } else {
-		syslog(LOG_ERR,
-		       "removed reserved mailbox '%s'",
-		       name);
-	    }
+    if (mbentry->mbtype & MBTYPE_RESERVE) {
+	r = mboxlist_deletemailbox(name, 1, NULL, NULL, NULL, 0, 0, 1);
+	if (r) {
+	    /* log the error */
+	    syslog(LOG_ERR,
+		   "could not remove reserved mailbox '%s': %s",
+		   name, error_message(r));
+	} else {
+	    syslog(LOG_ERR,
+		   "removed reserved mailbox '%s'",
+		   name);
 	}
     }
 
+    mboxlist_entry_free(&mbentry);
+
     return 0;
 }
-void recover_reserved() 
+
+static void recover_reserved(void)
 {
     char pattern[2] = { '*', '\0' };
-    
+
     mboxlist_init(0);
     mboxlist_open(NULL);
 
-    /* Need annotations.db for mboxlist_deletemailbox() */
-    annotatemore_init(0, NULL, NULL);
-    annotatemore_open(NULL);
+    /* Need annotations.db for mboxlist_deletemailbox() and also
+     * for fixing legacy specialuse support */
+    annotate_init(NULL, NULL);
+    annotatemore_open();
 
     /* Need quotadb for deleting mailboxes with quotas */
     quotadb_init(0);
@@ -177,7 +187,7 @@ void recover_reserved()
     quotadb_done();
 
     annotatemore_close();
-    annotatemore_done();
+    annotate_done();
 
     mboxlist_close();
     mboxlist_done();
@@ -192,18 +202,16 @@ static const char *dbfname(struct cyrusdb *db)
 
 static void check_convert(struct cyrusdb *db, const char *fname)
 {
-    struct cyrusdb_backend *backend = *db->backendptr;
-    struct cyrusdb_backend *oldbe;
     const char *detectname = cyrusdb_detect(fname);
-    char newfname[MAX_MAILBOX_PATH];
     char backendbuf[100];
     char *p;
+    int r;
 
     /* unable to detect current type, assume all is good */
     if (!detectname) return;
 
     /* strip the -nosync from the name if present */
-    strncpy(backendbuf, backend->name, 100);
+    xstrncpy(backendbuf, *db->configptr, 100);
     p = strstr(backendbuf, "-nosync");
     if (p) *p = '\0';
 
@@ -212,14 +220,11 @@ static void check_convert(struct cyrusdb *db, const char *fname)
 
     /* otherwise we need to upgrade! */
     syslog(LOG_NOTICE, "converting %s from %s to %s",
-	   fname, detectname, backend->name);
+	   fname, detectname, *db->configptr);
 
-    oldbe = cyrusdb_fromname(detectname);
-
-    snprintf(newfname, MAX_MAILBOX_PATH, "%s.NEW", fname);
-    cyrusdb_convert(fname, newfname, oldbe, backend);
-    if (rename(newfname, fname) == -1)
-	syslog(LOG_ERR, "failed to rename upgraded file %s", fname);
+    r = cyrusdb_convert(fname, fname, detectname, *db->configptr);
+    if (r)
+	syslog(LOG_NOTICE, "conversion failed %s", fname);
 }
 
 int main(int argc, char *argv[])
@@ -229,12 +234,12 @@ int main(int argc, char *argv[])
     char *alt_config = NULL;
     int reserve_flag = 1;
     enum { RECOVER, CHECKPOINT, NONE } op = NONE;
-    char dirname[1024], backup1[1024], backup2[1024];
-    char *archive_files[N(dblist)];
+    char *dirname = NULL, *backup1 = NULL, *backup2 = NULL;
+    strarray_t files = STRARRAY_INITIALIZER;
     char *msg = "";
-    int i, j, rotated = 0;
+    int i, rotated = 0;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
     r = r2 = 0;
@@ -273,40 +278,38 @@ int main(int argc, char *argv[])
 	/* NOTREACHED */
     }
 
-    cyrus_init(alt_config, "ctl_cyrusdb", 0);
+    cyrus_init(alt_config, "ctl_cyrusdb", 0, 0);
 
     /* create the name of the db directory */
     /* (used by backup directory names) */
-    strcpy(dirname, config_dir);
-    strcat(dirname, FNAME_DBDIR);
+    dirname = strconcat(config_dir, FNAME_DBDIR, (char *)NULL);
 
     /* create the names of the backup directories */
-    strcpy(backup1, dirname);
-    strcat(backup1, ".backup1");
-    strcpy(backup2, dirname);
-    strcat(backup2, ".backup2");
+    backup1 = strconcat(dirname, ".backup1", (char *)NULL);
+    backup2 = strconcat(dirname, ".backup2", (char *)NULL);
 
     syslog(LOG_NOTICE, "%s", msg);
+
+    /* detect backends */
+    for (i = 0; dblist[i].name != NULL; i++)
+	dblist[i].archiver = cyrusdb_getarchiver(*dblist[i].configptr);
 
     /* sort dbenvs */
     qsort(dblist, N(dblist)-1, sizeof(struct cyrusdb), &compdb);
 
-    memset(archive_files, 0, N(dblist) * sizeof(char*));
-    for (i = 0, j = 0; dblist[i].name != NULL; i++) {
+    for (i = 0; dblist[i].name; i++) {
 	const char *fname = dbfname(&dblist[i]);
-	struct cyrusdb_backend *backend = *dblist[i].backendptr;
 
 	if (op == RECOVER)
 	    check_convert(&dblist[i], fname);
 
 	/* if we need to archive this db, add it to the list */
-	if (dblist[i].archive) {
-	    archive_files[j++] = xstrdup(fname);
-	}
+	if (dblist[i].doarchive)
+	    strarray_add(&files, fname);
 
 	/* deal with each dbenv once */
-	if (dblist[i+1].backendptr &&
-	   (*(dblist[i+1].backendptr))->archive == backend->archive) continue;
+	if (dblist[i+1].archiver == dblist[i].archiver)
+	    continue;
 
 	r = r2 = 0;
 	switch (op) {
@@ -314,7 +317,7 @@ int main(int argc, char *argv[])
 	    break;
 	    
 	case CHECKPOINT:
-	    r2 = backend->sync();
+	    r2 = cyrusdb_sync(*dblist[i].configptr);
 	    if (r2) {
 		syslog(LOG_ERR, "DBERROR: sync %s: %s", dirname,
 		       cyrusdb_strerror(r2));
@@ -331,24 +334,40 @@ int main(int argc, char *argv[])
 		DIR *dirp;
 		struct dirent *dirent;
 
-		tail = backup2 + strlen(backup2);
+		char *path;
+		size_t length;
+		long path_max;
+
+		if ((path_max = pathconf("/", _PC_PATH_MAX)) == -1) {
+			syslog(LOG_WARNING, "Unable to determine system PATH_MAX. Using POSIX default.");
+			path_max = _POSIX_PATH_MAX;
+		}
+		if ((path = malloc(path_max)) == NULL) {
+			syslog(LOG_ERR, "%s:%d %s", __FILE__, __LINE__, strerror(errno));
+			exit(EXIT_FAILURE);
+		}
+
+		/* Add path prefix to buffer. */
+		length = strlcpy(path, backup2, path_max);
+		tail = path + length;
+		*tail++ = '/';
+		length++;
 
 		/* remove db.backup2 */
 		dirp = opendir(backup2);
-		strcat(tail++, "/");
 
 		if (dirp) {
 		    while ((dirent = readdir(dirp)) != NULL) {
-			if (dirent->d_name[0] == '.') continue;
-
-			strcpy(tail, dirent->d_name);
-			unlink(backup2);
+			if (dirent->d_name[0] == '.') 
+				continue;
+			(void) strlcpy(tail, dirent->d_name, path_max - length);
+			(void) unlink(path);
 		    }
 
 		    closedir(dirp);
 		}
-		tail[-1] = '\0';
 		r2 = rmdir(backup2);
+		free(path);
 
 		/* move db.backup1 to db.backup2 */
 		if (r2 == 0 || errno == ENOENT)
@@ -363,7 +382,7 @@ int main(int argc, char *argv[])
 
 	    /* do the archive */
 	    if (r2 == 0)
-		r2 = backend->archive((const char**) archive_files, backup1);
+		r2 = dblist[i].archiver(&files, backup1);
 
 	    if (r2) {
 		syslog(LOG_ERR, "DBERROR: archive %s: %s", dirname,
@@ -372,22 +391,24 @@ int main(int argc, char *argv[])
 			"ctl_cyrusdb: unable to archive environment\n");
 	    }
 
+
 	    break;
-	    
+
 	default:
 	    break;
 	}
 
-	/* free the archive_list */
-	while (j > 0) {
-	    free(archive_files[--j]);
-	    archive_files[j] = NULL;
-	}
+	strarray_truncate(&files, 0);
     }
+
+    strarray_fini(&files);
 
     if(op == RECOVER && reserve_flag)
 	recover_reserved();
 
+    free(dirname);
+    free(backup1);
+    free(backup2);
     cyrus_done();
 
     syslog(LOG_NOTICE, "done %s", msg);

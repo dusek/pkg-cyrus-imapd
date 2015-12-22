@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mpool.h,v 1.14 2010/01/06 17:01:46 murch Exp $
  */
 
 #ifndef _MPOOL_H_
@@ -50,12 +48,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <assert.h>
-#include <syslog.h>
-#include <errno.h>
 
 /* Opaque mpool handle */
 struct mpool;

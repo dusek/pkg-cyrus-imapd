@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: proxy.h,v 1.5 2010/01/06 17:01:39 murch Exp $
  */
 
 #ifndef _PROXY_H
@@ -67,7 +65,7 @@ struct dest {
 };
 
 void proxy_adddest(struct dest **dlist, const char *rcpt, int rcpt_num,
-		   char *server, const char *authas);
+		   const char *server, const char *authas);
 
 struct backend *
 proxy_findserver(const char *server, struct protocol_t *prot,

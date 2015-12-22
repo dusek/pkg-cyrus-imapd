@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: util.h,v 1.28 2010/06/28 12:06:44 brong Exp $
- *
  * Author: Chris Newman
  * Start Date: 4/6/93
  */
@@ -49,9 +47,28 @@
 #define INCLUDED_UTIL_H
 
 #include <config.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <limits.h>
 #include <stdarg.h>
+#include <stdio.h>
+
+#ifdef ENABLE_REGEX
+# ifdef HAVE_PCREPOSIX_H
+#  include <pcre.h>
+#  include <pcreposix.h>
+# else /* !HAVE_PCREPOSIX_H */
+#  ifdef HAVE_RXPOSIX_H
+#   include <rxposix.h>
+#  else /* !HAVE_RXPOSIX_H */
+#   include <regex.h>
+#  endif /* HAVE_RXPOSIX_H */
+# endif /* HAVE_PCREPOSIX_H */
+#endif /* ENABLE_REGEX */
+
+#ifndef __GNUC__
+typedef int (*__compar_fn_t)(const void *, const void *);
+#endif
 
 #define BIT32_MAX 4294967295U
 
@@ -65,16 +82,12 @@ typedef unsigned short bit32;
 #error dont know what to use for bit32
 #endif
 
-#ifdef HAVE_LONG_LONG_INT
+typedef int compar_t(const void *a, const void *b);
+
 typedef unsigned long long int bit64;
 typedef unsigned long long int modseq_t;
 #define MODSEQ_FMT "%llu"
 #define atomodseq_t(s) strtoull(s, NULL, 10)
-#else
-typedef unsigned long int modseq_t;
-#define MODSEQ_FMT "%lu"
-#define atomodseq_t(s) strtoul(s, NULL, 10)
-#endif
 
 #define Uisalnum(c) isalnum((int)((unsigned char)(c)))
 #define Uisalpha(c) isalpha((int)((unsigned char)(c)))
@@ -89,8 +102,12 @@ typedef unsigned long int modseq_t;
 extern const unsigned char convert_to_lowercase[256];
 extern const unsigned char convert_to_uppercase[256];
 
+#ifndef TOUPPER
 #define TOUPPER(c) (convert_to_uppercase[(unsigned char)(c)])
+#endif
+#ifndef TOLOWER
 #define TOLOWER(c) (convert_to_lowercase[(unsigned char)(c)])
+#endif
 
 #ifndef MAX
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
@@ -98,6 +115,14 @@ extern const unsigned char convert_to_uppercase[256];
 #ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
+
+/* Some BSDs don't print "NULL" for a NULL pointer string. */ 
+#ifndef IS_NULL
+#define IS_NULL(s)	((s) == NULL ? "(NULL)" : (s))
+#endif
+
+/* Calculate the number of entries in a vector */
+#define VECTOR_SIZE(vector) (sizeof(vector)/sizeof(vector[0]))
 
 typedef struct keyvalue {
     char *key, *value;
@@ -112,14 +137,7 @@ extern char *lcase (char *str);
 extern char *ucase (char *str);
 
 /* clean up control characters in a string while copying it
- *  returns pointer to end of dst string.
- *  dst must have twice the length of source
- */
-extern char *beautify_copy (char *dst, const char *src);
-
-/* clean up control characters in a string while copying it
  *  returns pointer to a static buffer containing the cleaned-up version
- *  returns NULL on malloc() error
  */
 extern char *beautify_string (const char *src);
 
@@ -129,6 +147,11 @@ int strcmpsafe(const char *a, const char *b);
 /* Same semantics as strcasecmp() but gracefully handles
  * either or both it's arguments being NULL */
 int strcasecmpsafe(const char *a, const char *b);
+/* ditto strncmp */
+int strncmpsafe(const char *a, const char *b, size_t n);
+
+/* NULL isn't "" */
+int strcmpnull(const char *a, const char *b);
 
 /* do a binary search in a keyvalue array
  *  nelem is the number of keyvalue elements in the kv array
@@ -144,6 +167,12 @@ extern keyvalue *kv_bsearch (const char *key, keyvalue *kv, int nelem,
  *  of the name.
  */
 extern int dir_hash_c(const char *name, int full);
+/*
+ * Like dir_hash_c() but builds the result as a single-byte
+ * C string in the provided buffer, and returns the buffer,
+ * which is sometimes more convenient.
+ */
+extern char *dir_hash_b(const char *name, int full, char buf[2]);
 
 /* 
  * create an [unlinked] temporary file and return the file descriptor.
@@ -154,73 +183,116 @@ extern int create_tempfile(const char *path);
 extern int cyrus_close_sock(int fd);
 
 /* Reset stdin/stdout/stderr */
-extern void cyrus_reset_stdio();
+extern void cyrus_reset_stdio(void);
 
 /* Create all parent directories for the given path,
  * up to but not including the basename.
  */
 extern int cyrus_mkdir(const char *path, mode_t mode);
 
-extern int become_cyrus(void);
+enum {
+    COPYFILE_NOLINK = (1<<0),
+    COPYFILE_MKDIR  = (1<<1),
+    COPYFILE_RENAME = (1<<2)
+};
+
+extern int cyrus_copyfile(const char *from, const char *to, int flags);
+
+enum {
+    BEFORE_SETUID,
+    AFTER_SETUID,
+    BEFORE_BIND,
+    AFTER_BIND,
+    AFTER_FORK
+};
+
+extern int set_caps(int stage, int is_master);
+extern int become_cyrus(int is_master);
 
 /* Some systems have very inefficient implementations of isdigit,
  * and we use it in a lot of inner loops
  */
 
 #define cyrus_isdigit(x) ((x) >= '0' && (x) <= '9')
-extern int parseint32(const char *p, const char **ptr, int32_t *res);
-extern int parseuint32(const char *p, const char **ptr, uint32_t *res);
+int parseint32(const char *p, const char **ptr, int32_t *res);
+int parseuint32(const char *p, const char **ptr, uint32_t *res);
+int parsenum(const char *p, const char **ptr, int maxlen, bit64 *res);
+int parsehex(const char *p, const char **ptr, int maxlen, bit64 *res);
 
 /* Timing related funcs/vars */
 extern void cmdtime_settimer(int enable);
-extern void cmdtime_starttimer();
+extern void cmdtime_starttimer(void);
 extern void cmdtime_endtimer(double * cmdtime, double * nettime);
-extern void cmdtime_netstart();
-extern void cmdtime_netend();
+extern void cmdtime_netstart(void);
+extern void cmdtime_netend(void);
+extern double timeval_get_double(const struct timeval *tv);
+extern void timeval_set_double(struct timeval *tv, double d);
+extern void timeval_add_double(struct timeval *tv, double delta);
+extern double timesub(const struct timeval *start, const struct timeval *end);
 
+extern clock_t sclock(void);
 
-#define BUF_CSTRING 1
+#define BUF_MMAP    (1<<1)
 
 struct buf {
     char *s;
-    unsigned len;
-    unsigned alloc;
-    int flags;
+    size_t len;
+    size_t alloc;
+    unsigned flags;
 };
 #define BUF_INITIALIZER	{ NULL, 0, 0, 0 }
 
+#define buf_ensure(b, n) do { if ((b)->alloc < (b)->len + (n)) _buf_ensure((b), (n)); } while (0)
+#define buf_putc(b, c) do { buf_ensure((b), 1); (b)->s[(b)->len++] = (c); } while (0)
+
+void _buf_ensure(struct buf *buf, size_t len);
 const char *buf_cstring(struct buf *buf);
-void buf_ensure(struct buf *buf, unsigned morebytes);
+const char *buf_cstringnull(struct buf *buf);
 char *buf_release(struct buf *buf);
-void buf_getmap(struct buf *buf, const char **base, unsigned *len);
-unsigned buf_len(const struct buf *buf);
+char *buf_newcstring(struct buf *buf);
+char *buf_releasenull(struct buf *buf);
+void buf_getmap(struct buf *buf, const char **base, size_t *len);
+int buf_getline(struct buf *buf, FILE *fp);
+size_t buf_len(const struct buf *buf);
+const char *buf_base(const struct buf *buf);
 void buf_reset(struct buf *buf);
-void buf_truncate(struct buf *buf, unsigned int len);
+void buf_truncate(struct buf *buf, ssize_t len);
 void buf_setcstr(struct buf *buf, const char *str);
-void buf_setmap(struct buf *buf, const char *base, unsigned len);
+void buf_setmap(struct buf *buf, const char *base, size_t len);
 void buf_copy(struct buf *dst, const struct buf *src);
 void buf_append(struct buf *dst, const struct buf *src);
 void buf_appendcstr(struct buf *buf, const char *str);
 void buf_appendbit32(struct buf *buf, bit32 num);
-void buf_appendmap(struct buf *buf, const char *base, unsigned len);
-void buf_putc(struct buf *buf, char c);
+void buf_appendmap(struct buf *buf, const char *base, size_t len);
+void buf_cowappendmap(struct buf *buf, const char *base, unsigned int len);
+void buf_cowappendfree(struct buf *buf, char *base, unsigned int len);
+void buf_insert(struct buf *dst, unsigned int off, const struct buf *src);
+void buf_insertcstr(struct buf *buf, unsigned int off, const char *str);
+void buf_insertmap(struct buf *buf, unsigned int off, const char *base, int len);
 void buf_vprintf(struct buf *buf, const char *fmt, va_list args);
 void buf_printf(struct buf *buf, const char *fmt, ...)
-    __attribute__((format(printf,2,3)));
-unsigned int buf_replace_all(struct buf *buf, const char *match,
-			     const char *replace);
+	        __attribute__((format(printf,2,3)));
+int buf_replace_all(struct buf *buf, const char *match,
+		    const char *replace);
+int buf_replace_char(struct buf *buf, char match, char replace);
+#ifdef ENABLE_REGEX
+int buf_replace_all_re(struct buf *buf, const regex_t *,
+		       const char *replace);
+int buf_replace_one_re(struct buf *buf, const regex_t *,
+		       const char *replace);
+#endif
+void buf_remove(struct buf *buf, unsigned int off, unsigned int len);
 int buf_cmp(const struct buf *, const struct buf *);
+int buf_findchar(const struct buf *, unsigned int off, int c);
+int buf_findline(const struct buf *buf, const char *line);
 void buf_init(struct buf *buf);
-void buf_init_ro(struct buf *buf, const char *base, unsigned len);
+void buf_init_ro(struct buf *buf, const char *base, size_t len);
+void buf_initm(struct buf *buf, char *base, int len);
+void buf_init_ro_cstr(struct buf *buf, const char *str);
+void buf_init_mmap(struct buf *buf, int onceonly, int fd,
+		   const char *fname, size_t size, const char *mboxname);
 void buf_free(struct buf *buf);
 void buf_move(struct buf *dst, struct buf *src);
-
-/* use getpassphrase on machines which support it */
-#ifdef HAVE_GETPASSPHRASE
-#define cyrus_getpass getpassphrase
-#else
-#define cyrus_getpass getpass
-#endif
 
 /*
  * Given a list of strings, terminated by (char *)NULL,
@@ -233,6 +305,21 @@ void buf_move(struct buf *dst, struct buf *src);
  */
 char *strconcat(const char *s1, ...);
 
+#define BH_LOWER	    (0)
+#define BH_UPPER	    (1<<8)
+#define _BH_SEP		    (1<<9)
+#define BH_SEPARATOR(c)	    (_BH_SEP|((c)&0x7f))
+#define _BH_GETSEP(flags)   (flags & _BH_SEP ? (char)(flags & 0x7f) : '\0')
+int bin_to_hex(const void *bin, size_t binlen, char *hex, int flags);
+int hex_to_bin(const char *hex, size_t hexlen, void *bin);
+
+/* use getpassphrase on machines which support it */
+#ifdef HAVE_GETPASSPHRASE
+#define cyrus_getpass getpassphrase
+#else
+#define cyrus_getpass getpass
+#endif
+
 #ifdef HAVE_ZLIB
 enum {
     DEFLATE_RAW,
@@ -244,4 +331,33 @@ int buf_inflate(struct buf *buf, int scheme);
 int buf_deflate(struct buf *buf, int compLevel, int scheme);
 #endif
 
+/* A wrapper for close() which handles the fd=-1 case cleanly.
+ * The argument may have side effects and must be an lvalue */
+#define xclose(fd) \
+    do { \
+	int *_fdp = &(fd); \
+	if (*_fdp >= 0) { \
+	    close(*_fdp); \
+	    *_fdp = -1; \
+	} \
+    } while(0)
+
+/* A wrapper for strncpy() which ensures that the destination
+ * string is always NUL-terminated.  Yes, I know we have an
+ * implementation of the BSD strlcpy() which has this semantic,
+ * but that isn't a highly optimised libc or compiler provided
+ * function like strncpy(), and we can trivially and eficiently
+ * add the NUL termination semantic on top of strncpy(). */
+#define xstrncpy(d, s, n) \
+    do { \
+	char *_d = (d); \
+	size_t _n = (n); \
+	strncpy(_d, (s), _n); \
+	_d[_n-1] = '\0'; \
+    } while(0)
+
+/* simple function to request a file gets pre-loaded by the OS */
+int warmup_file(const char *filename, off_t offset, off_t length);
+
 #endif /* INCLUDED_UTIL_H */
+

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth.h,v 1.19 2010/01/06 17:01:43 murch Exp $
  */
 
 #ifndef INCLUDED_AUTH_H
@@ -50,7 +48,7 @@ struct auth_state;
 struct auth_mech {
     const char *name;
 
-    char *(*canonifyid)(const char *identifier, size_t len);
+    const char *(*canonifyid)(const char *identifier, size_t len);
     int (*memberof)(struct auth_state *auth_state, 
              const char *identifier);
     struct auth_state *(*newstate)(const char *identifier);
@@ -71,7 +69,7 @@ extern struct auth_mech auth_krb5;
  *                  failure */
 /* identifier: id to canonify */
 /* len: length of id, or 0 to do strlen(identifier) */
-char *auth_canonifyid(const char *identifier, size_t len);
+const char *auth_canonifyid(const char *identifier, size_t len);
 
 int auth_memberof(struct auth_state *auth_state, 
  	 const char *identifier);

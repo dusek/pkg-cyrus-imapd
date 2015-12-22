@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: cyr_dbtool.c,v 1.8 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -50,29 +48,18 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <syslog.h>
 
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#include "acl.h"
-#include "assert.h"
 #include "sequence.h"
-#include "auth.h"
-#include "exitcodes.h"
-#include "glob.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "global.h"
 #include "util.h"
-#include "xmalloc.h"
-
-const int config_need_data = 0;
 
 static void usage(const char *name)
 {
@@ -116,7 +103,8 @@ int main(int argc, char *argv[])
 	
     if ((argc - optind) < 1) usage(argv[0]);
 
-    cyrus_init(alt_config, "cyr_sequence", 0);
+
+    cyrus_init(alt_config, "cyr_sequence", 0, 0);
 
     /* special case */
     if (!strcmp(argv[optind], "create")) {

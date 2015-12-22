@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lock_flock.c,v 1.17 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -53,7 +51,7 @@
 
 #include "cyr_lock.h"
 
-const char *lock_method_desc = "flock";
+EXPORTED const char *lock_method_desc = "flock";
 
 /*
  * Block until we obtain an exclusive lock on the file descriptor 'fd',
@@ -69,11 +67,8 @@ const char *lock_method_desc = "flock";
  * string naming the action that failed.
  *
  */
-int lock_reopen(fd, filename, sbuf, failaction)
-int fd;
-const char *filename;
-struct stat *sbuf;
-const char **failaction;
+EXPORTED int lock_reopen(int fd, const char *filename,
+			 struct stat *sbuf, const char **failaction)
 {
     int r;
     struct stat sbuffile, sbufspare;
@@ -115,8 +110,7 @@ const char **failaction;
  * Returns 0 for success, -1 for failure, with errno set to an
  * appropriate error code.
  */
-int lock_blocking(fd)
-int fd;
+EXPORTED int lock_blocking(int fd, const char *filename __attribute__((unused)))
 {
     int r;
 
@@ -133,8 +127,7 @@ int fd;
  * Returns 0 for success, -1 for failure, with errno set to an
  * appropriate error code.
  */
-int lock_shared(fd)
-int fd;
+EXPORTED int lock_shared(int fd, const char *filename __attribute__((unused)))
 {
     int r;
 
@@ -151,8 +144,7 @@ int fd;
  * Returns 0 for success, -1 for failure, with errno set to an
  * appropriate error code.
  */
-int lock_nonblocking(fd)
-int fd;
+EXPORTED int lock_nonblocking(int fd, const char *filename __attribute__((unused)))
 {
     int r;
 
@@ -167,16 +159,16 @@ int fd;
 /*
  * Release any lock on 'fd'.  Always returns success.
  */
-int lock_unlock(int fd)
+EXPORTED int lock_unlock(int fd, const char *filename __attribute__((unused)))
 {
     int r;
 
     for (;;) {
-        r = flock(fd, LOCK_UN);
-        if (r != -1) return 0;
-        if (errno == EINTR) continue;
-        /* xxx help! */
-        return -1;
+	r = flock(fd, LOCK_UN);
+	if (r != -1) return 0;
+	if (errno == EINTR) continue;
+	/* xxx help! */
+	return -1;
     }
 }
 

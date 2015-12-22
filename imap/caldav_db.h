@@ -46,13 +46,8 @@
 
 #include <config.h>
 
-/* prepare for caldav operations in this process */
-int caldav_init(void);
-
-/* done with all caldav operations for this process */
-int caldav_done(void);
-
-#ifdef WITH_DAV
+extern time_t caldav_epoch;
+extern time_t caldav_eternity;
 
 #include <libical/ical.h>
 
@@ -60,7 +55,8 @@ int caldav_done(void);
 
 #ifndef HAVE_VAVAILABILITY
 /* Allow us to compile without #ifdef HAVE_VAVAILABILITY everywhere */
-#define ICAL_VAVAILABILITY_COMPONENT  ICAL_NO_COMPONENT
+#define ICAL_VAVAILABILITY_COMPONENT  ICAL_X_COMPONENT
+#define ICAL_XAVAILABLE_COMPONENT     ICAL_X_COMPONENT
 #endif
 
 #ifndef HAVE_VPOLL
@@ -93,6 +89,20 @@ struct caldav_db;
 #define CALDAV_CREATE 0x01
 #define CALDAV_TRUNC  0x02
 
+struct comp_flags {
+    unsigned recurring	  : 1;
+    unsigned transp	  : 1;
+    unsigned status	  : 2;
+};
+
+/* Status values */
+enum {
+    CAL_STATUS_BUSY = 0,
+    CAL_STATUS_CANCELED,
+    CAL_STATUS_TENTATIVE,
+    CAL_STATUS_UNAVAILABLE
+};
+
 struct caldav_data {
     struct dav_data dav;  /* MUST be first so we can typecast */
     unsigned comp_type;
@@ -100,13 +110,19 @@ struct caldav_data {
     const char *organizer;
     const char *dtstart;
     const char *dtend;
-    unsigned recurring;
-    unsigned transp;
+    struct comp_flags comp_flags;
     const char *sched_tag;
 };
 
+/* prepare for caldav operations in this process */
+int caldav_init(void);
+
+/* done with all caldav operations for this process */
+int caldav_done(void);
+
 /* get a database handle corresponding to mailbox */
-struct caldav_db *caldav_open(struct mailbox *mailbox, int flags);
+struct caldav_db *caldav_open_mailbox(struct mailbox *mailbox, int flags);
+struct caldav_db *caldav_open_userid(const char *userid, int flags);
 
 /* close this handle */
 int caldav_close(struct caldav_db *caldavdb);
@@ -149,8 +165,6 @@ int caldav_abort(struct caldav_db *caldavdb);
 /* create caldav_data from icalcomponent */
 void caldav_make_entry(icalcomponent *ical, struct caldav_data *cdata);
 
-int caldav_mboxname(const char *name, const char *userid, char *result);
-
-#endif /* WITH_DAV */
+const char *caldav_mboxname(const char *userid, const char *name);
 
 #endif /* CALDAV_DB_H */

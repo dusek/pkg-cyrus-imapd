@@ -1,5 +1,3 @@
-$Id: drac_auth.patch,v 1.30 2010/01/06 17:01:28 murch Exp $
-
 Patch to add support for Dynamic Relay Authorization Control
 
 For more information about DRAC, see:
@@ -64,10 +62,10 @@ imapd: Once a client is logged in (via LOGIN or AUTHENTICATE),
 
 
 
-diff --git a/configure.in b/configure.in
+diff --git a/configure.ac b/configure.ac
 index e0e8cf4..7d237c0 100644
---- a/configure.in
-+++ b/configure.in
+--- a/configure.ac
++++ b/configure.ac
 @@ -1171,6 +1171,19 @@ dnl (agentx was depricated, but SNMP_SUBDIRS is conveinent as a placeholder)
  SNMP_SUBDIRS=""
  AC_SUBST(SNMP_SUBDIRS)
@@ -92,44 +90,30 @@ diff --git a/imap/Makefile.in b/imap/Makefile.in
 index b5e139b..1f887f3 100644
 --- a/imap/Makefile.in
 +++ b/imap/Makefile.in
-@@ -66,6 +66,7 @@ SIEVE_OBJS = @SIEVE_OBJS@
- SIEVE_LIBS = @SIEVE_LIBS@
- IMAP_COM_ERR_LIBS = @IMAP_COM_ERR_LIBS@
+@@ -66,4 +66,5 @@
  LIB_WRAP = @LIB_WRAP@
 +DRAC_LIBS = @DRACLIBS@
- LIBS = $(IMAP_LIBS) $(IMAP_COM_ERR_LIBS)
- DEPLIBS = ../lib/libcyrus.a ../lib/libcyrus_min.a @DEPLIBS@
+ LIBS = $(IMAP_LIBS) @COM_ERR_LIBS@
+ DEPLIBS = ../lib/libcyrus.a ../lib/libcyrus_min.la
  
-@@ -203,17 +204,17 @@ lmtpd.pure: lmtpd.o proxy.o $(LMTPOBJS) $(SIEVE_OBJS) \
- imapd: $(IMAPDOBJS) mutex_fake.o libimap.a $(DEPLIBS) $(SERVICE)
+@@ -203,7 +204,7 @@ lmtpd.pure: lmtpd.o proxy.o $(LMTPOBJS) \
+ imapd: $(IMAPDOBJS) mutex_fake.o libcyrus_imap.la $(DEPLIBS) $(SERVICE)
  	$(CC) $(LDFLAGS) -o imapd \
  	 $(SERVICE) $(IMAPDOBJS) mutex_fake.o \
--	libimap.a $(DEPLIBS) $(LIBS) $(LIB_WRAP)
-+	libimap.a $(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
- 
- imapd.pure: $(IMAPDOBJS) mutex_fake.o libimap.a $(DEPLIBS) $(SERVICE)
- 	$(PURIFY) $(PUREOPT) $(CC) $(LDFLAGS) -o imapd.pure \
- 	 $(SERVICE) $(IMAPDOBJS) mutex_fake.o libimap.a \
--	$(DEPLIBS) $(LIBS) $(LIB_WRAP)
-+	$(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
- 
- imapd.quant: $(IMAPDOBJS) mutex_fake.o libimap.a $(DEPLIBS) $(SERVICE)
- 	$(QUANTIFY) $(QUANTOPT) $(CC) $(LDFLAGS) -o imapd.quant \
- 	 $(SERVICE) $(IMAPDOBJS) mutex_fake.o libimap.a \
--	$(DEPLIBS) $(LIBS) $(LIB_WRAP)
-+	$(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
+-	libcyrus_imap.la $(DEPLIBS) $(LIBS) $(LIB_WRAP)
++	libcyrus_imap.la $(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
  
  mupdate: mupdate.o mupdate-slave.o mupdate-client.o mutex_pthread.o tls.o \
- 	libimap.a $(DEPLIBS)
+ 	libcyrus_imap.la $(DEPLIBS)
 @@ -231,7 +232,7 @@ mupdate.pure: mupdate.o mupdate-slave.o mupdate-client.o mutex_pthread.o \
- pop3d: pop3d.o proxy.o backend.o tls.o mutex_fake.o libimap.a \
+ pop3d: pop3d.o proxy.o backend.o tls.o mutex_fake.o libcyrus_imap.la \
  	$(DEPLIBS) $(SERVICE)
  	$(CC) $(LDFLAGS) -o pop3d pop3d.o proxy.o backend.o tls.o $(SERVICE) \
--	 mutex_fake.o libimap.a $(DEPLIBS) $(LIBS) $(LIB_WRAP)
-+	 mutex_fake.o libimap.a $(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
+-	 mutex_fake.o libcyrus_imap.la $(DEPLIBS) $(LIBS) $(LIB_WRAP)
++	 mutex_fake.o libcyrus_imap.la $(DEPLIBS) $(LIBS) $(LIB_WRAP) $(DRAC_LIBS)
  
  nntpd: nntpd.o proxy.o backend.o index.o smtpclient.o spool.o tls.o \
- 	 mutex_fake.o nntp_err.o libimap.a $(DEPLIBS) $(SERVICE)
+ 	 mutex_fake.o nntp_err.o libcyrus_imap.la $(DEPLIBS) $(SERVICE)
 diff --git a/imap/imapd.c b/imap/imapd.c
 index d979f3b..e9f51d1 100644
 --- a/imap/imapd.c
@@ -151,7 +135,7 @@ index d979f3b..e9f51d1 100644
 +#endif /* DRAC_AUTH */
 +
  /* current sub-user state */
- struct index_state *imapd_index;
+ static struct index_state *imapd_index;
  
 @@ -738,6 +750,23 @@ int service_init(int argc, char **argv, char **envp)
      /* setup for sending IMAP IDLE notifications */
@@ -253,7 +237,7 @@ index d979f3b..e9f51d1 100644
  /*
   * Top-level command loop parsing
   */
-@@ -2239,6 +2316,11 @@ void cmd_login(char *tag, char *user)
+@@ -2239,6 +2316,11 @@ static void cmd_login(char *tag, char *user)
      capa_response(CAPA_PREAUTH|CAPA_POSTAUTH);
      prot_printf(imapd_out, "] %s\r\n", reply);
  
@@ -292,14 +276,14 @@ index 1a11599..ae5722f 100644
  
  #ifdef HAVE_SSL
  static SSL *tls_conn;
-@@ -120,6 +124,7 @@ int popd_timeout;
- char *popd_userid = 0, *popd_subfolder = 0;
- struct mailbox *popd_mailbox = NULL;
- struct auth_state *popd_authstate = 0;
+@@ -120,6 +124,7 @@ static int popd_timeout;
+ static char *popd_userid = 0, *popd_subfolder = 0;
+ static struct mailbox *popd_mailbox = NULL;
+ static struct auth_state *popd_authstate = 0;
 +static int popd_userisproxyadmin = 0;
- int config_popuseacl, config_popuseimapflags;
+ static int config_popuseacl, config_popuseimapflags;
  struct sockaddr_storage popd_localaddr, popd_remoteaddr;
- int popd_haveaddr = 0;
+ static int popd_haveaddr = 0;
 @@ -150,7 +155,7 @@ static mailbox_decideproc_t expungedeleted;
  
  /* the sasl proxy policy context */

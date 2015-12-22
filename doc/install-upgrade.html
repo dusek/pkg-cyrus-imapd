@@ -1,6 +1,8 @@
-<!-- $Id: install-upgrade.html,v 1.44 2010/01/06 17:01:29 murch Exp $ -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+   "http://www.w3.org/TR/html4/loose.dtd">
 <HTML>
 <HEAD>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
 <TITLE>Upgrading From Previous Versions
 </title>
 </head>
@@ -8,29 +10,69 @@
 
 <h1>Upgrading From Previous Versions</h1>
 
+<h2>Upgrading from all 2.4 series to 2.5</h2>
+<ul>
+<li>It is strongly advised to shut down the server completely while
+    performing the upgrade, because newer daemons will write
+    mailboxes.db entries which aren't compatible with the old
+    daemons, and may cause crashes if you try to upgrade
+    a running server.  You can start the server again immediately
+    with the new daemons installed.</li>
+<li>The most important change is that index file upgrades are
+    no longer automatic.  This avoids the IO storm caused by
+    upgrades from 2.3 to 2.4.  Even if you are upgrading from
+    Cyrus 2.2, it won't cause an IO storm any more.<br/>
+    Instead, you need to run <tt>reconstruct -V max</tt> to
+    upgrade each mailbox in turn.  This will upgrade all
+    mailboxes to the current minor version 13.  This can
+    be safely done while the server is running.</li>
+<li>Older version mailboxes will continue to work "forever",
+    though newer features like annotation quotas will fail,
+    since there's no space in the mailbox header to store them.<br/>
+    There may be slightly inconsistent search results until you upgrade.
+    The cyrus.cache format in 2.3 and earlier ran words together
+    in cache, so searches won't obey word boundaries like they
+    do in 2.4+</li>
+<li>If you were running Cyrus 2.3.x with expunge_mode: delayed,
+    then the contents of the cyrus.expunge file will be removed
+    the first time the mailbox is opened, and the mailbox will
+    act as if expunge_mode: immediate was set until it is upgraded.
+    This is because version 2.3 mailboxes used the cyrus.expunge
+    file, and it's not worth the complexity to try to recreate
+    that file.</li>
+<li>After all mailboxes are upgraded, you should run <tt>quota -f</tt>
+    to make sure all the message and folder count quotas are correct.
+    Cyrus 2.5 supports new quota types, and the counts need to be
+    calculated.</li>
+<li>Many configuration options have changed and new features
+    have been added, read the release notes.</li>
+<li>Mailboxes.db and quota internal formats have changed.
+<li>Just go read the release notes already:
+    <a href="https://docs.cyrus.foundation/imap/release-notes/2.5.0.html">https://docs.cyrus.foundation/imap/release-notes/2.5.0.html</a></li>
+</ul>
+
+<h2>Upgrading from 2.4.17-caldav-beta10 or earlier</h2>
+<ul>
+<li>The schema used for the CalDAV database has changed. ALL sites
+    MUST run the <tt>dav_reconstruct</tt> utility for each of their
+    CalDAV users.</li>
+</ul>
+
+<h2>Upgrading from 2.4.17-caldav-beta9 or earlier</h2>
+<ul>
+<li>The time span calculations for recurring events in which the
+    component containing the RRULE is not the first component have
+    been fixed.  We recommend ALL sites run
+    the <tt>dav_reconstruct</tt> utility for each of their CalDAV
+    users.</li>
+</ul>
+
 <h2>Upgrading from 2.4.17-caldav-beta6 or earlier</h2>
 <ul>
 <li>The time span calculations for various VCALENDAR components,
     especially VTODO (tasks), have been fixed.  We recommend ALL sites
     run the <tt>dav_reconstruct</tt> utility for each of their CalDAV
     users.</li>
-</ul>
-
-<h2>Upgrading from 2.4.15</h2>
-<ul>
-<li>The tools/rehash utility has been fixed, we recommend ALL sites
-    with the fulldirhash option enabled to run tools/rehash on their
-    mailspools.</li>
-</ul>
-
-<h2>Upgrading from 2.4.14</h2>
-<ul>
-<li>We recommend that ALL sites with fulldirhash enabled run
-    tools/rehash on their mail spools after upgrading from
-    2.4.14.  There were serious 32 vs 64 bit hashing bugs
-    which were made worse with 2.4.14.  NOTE: the syntax of
-    tools/rehash has changed.  Run it without arguments to
-    see a usage statement.</li>
 </ul>
 
 <h2>Upgrading from 2.4.12</h2>
@@ -120,7 +162,7 @@
 
 <h2>Upgrading from 2.4.5</h2>
 <ul>
-<li>New config option: <tt>suppress_capabilities</tt>, which 
+<li>New config option: <tt>suppress_capabilities</tt>, which
   takes a space separated list of capabilities which will NOT
   be given in any imap capability response.  This can be used
   on frontends to not display capabilities that older backends
@@ -150,8 +192,8 @@
 <h2>Upgrading from 2.4.2</h2>
 <ul>
 <li>The AFS ptloader configure options have changed.  If you were
-    previously specifying --with-afs when you built, you'll now 
-    want to use --enable-afs instead.  Additionally, you may 
+    previously specifying --with-afs when you built, you'll now
+    want to use --enable-afs instead.  Additionally, you may
     now specify --with-afs-libdir and --with-afs-incdir to
     facilitate finding the AFS libraries and header files.</li>
 <li>The <i>sync_log_names</i> option has been replaced with
@@ -408,7 +450,7 @@ mv /var/imap/mailboxes.db.new /var/imap/mailboxes.db
 </pre>
 Note that the use of full paths to the database files is important.  You
 should also backup your old mailboxes database before moving the new one
-in.<br />
+in.<br>
 
 For the seen state databases, the command to get them all in one fell swoop
 looks like:
@@ -441,11 +483,11 @@ Note that this will fail for scripts that use the &quot;envelope&quot;
 extention but do not require it.  Cyrus 2.1's <tt>timsieved</tt> did
 not do appropriate checking that the optional envelope test was
 required before it was used.
-</li> 
+</li>
 
-<li> Configuration subsystem changes: 
+<li> Configuration subsystem changes:
 
-<ul> 
+<ul>
  <li>The tls_[service]_* configuration options have been removed.  Now
  use [servicename]_tls_*, where servicename is the service identifier
  from <tt>cyrus.conf</tt> for that particular process.</li>
@@ -569,11 +611,11 @@ and Sieve) have been merged into a single <tt>deliver.db</tt> database.
 You can safely remove the entire <tt>/var/imap/deliverdb</tt>
 directory structure after shutting down the server.
 
-<li>All of the Cyrus databases have been unified under a single BDB 
-environment.  A new <tt>ctl_cyrusdb</tt> tool is now used for database 
-recovery and checkpointing instead of <tt>ctl_mboxlist</tt> and 
-<tt>ctl_deliver</tt>.  You should replace the appropriate <tt>START</tt> and 
-<tt>EVENTS</tt> entries in <tt>cyrus.conf</tt> with those in the 
+<li>All of the Cyrus databases have been unified under a single BDB
+environment.  A new <tt>ctl_cyrusdb</tt> tool is now used for database
+recovery and checkpointing instead of <tt>ctl_mboxlist</tt> and
+<tt>ctl_deliver</tt>.  You should replace the appropriate <tt>START</tt> and
+<tt>EVENTS</tt> entries in <tt>cyrus.conf</tt> with those in the
 sample configurations in the <tt>master/conf</tt> directory.
 
 <li> Cyrus now caches SSL/TLS sessions in an external database. If you

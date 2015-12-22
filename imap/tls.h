@@ -42,8 +42,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: tls.h,v 1.21 2010/01/06 17:01:42 murch Exp $
  */
 
 #ifndef INCLUDED_TLS_H
@@ -62,12 +60,11 @@ int tls_enabled(void);
 /* init tls */
 int tls_init_serverengine(const char *ident,
 			  int verifydepth, /* depth to verify */
-			  int askcert,     /* 1 = client auth */
-			  int tlsonly);
+			  int askcert);    /* 1 = client auth */
 
 int tls_init_clientengine(int verifydepth,
-			  char *var_tls_cert_file,
-			  char *var_tls_key_file);
+			  const char *var_server_cert,
+			  const char *var_server_key);
 
 /* start tls negotiation */
 int tls_start_servertls(int readfd, int writefd, int timeout,

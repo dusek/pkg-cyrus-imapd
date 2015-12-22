@@ -40,27 +40,24 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lex.c,v 1.11 2010/01/06 17:01:56 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <string.h>
 
 #include "prot.h"
-
-#include "lex.h"
-
-#include "codes.h"
+#include "xmalloc.h"
+#include "perl/sieve/lib/codes.h"
+#include "perl/sieve/lib/lex.h"
 
 /* current state the lexer is in */
-int lexer_state = LEXER_STATE_NORMAL;
+static int lexer_state = LEXER_STATE_NORMAL;
 
 #define ACAP_MAX_QSTR_LEN 4096
 
@@ -74,7 +71,7 @@ int lexer_state = LEXER_STATE_NORMAL;
 		ERR();					\
   	      }
 
-int token_lookup(char *str, int len __attribute__((unused)))
+static int token_lookup(const char *str)
 {
   if (strcmp(str,"ok")==0) return TOKEN_OK;
   if (strcmp(str,"no")==0) return TOKEN_NO;
@@ -87,7 +84,7 @@ int token_lookup(char *str, int len __attribute__((unused)))
   if (strcmp(str,"quota")==0) return RESP_CODE_QUOTA;
   if (strcmp(str,"transition-needed")==0) return RESP_CODE_TRANSITION_NEEDED;
   if (strcmp(str,"trylater")==0) return RESP_CODE_TRYLATER;
-  if (strcmp(str,"nonexistant")==0) return RESP_CODE_NONEXISTANT;
+  if (strcmp(str,"nonexistent")==0) return RESP_CODE_NONEXISTENT;
   if (strcmp(str,"alreadyexists")==0) return RESP_CODE_ALREADYEXISTS;
   if (strcmp(str,"warning")==0) return RESP_CODE_WARNINGS;
   if (strcmp(str,"tag")==0) return RESP_CODE_TAG;
@@ -106,9 +103,6 @@ int yylex(lexstate_t * lvalp, void * client)
   unsigned long count=0;
 
   int result = SIEVE_OK;
-
-  int synchronizing;  /* wheather we are in the process of reading a
-			 synchronizing string or not */
 
   struct protstream *stream=(struct protstream *) client;
   
@@ -146,10 +140,7 @@ int yylex(lexstate_t * lvalp, void * client)
     case LEXER_STATE_QSTR:
       if (ch == '\"') {
 	/* End of the string */
-	lvalp->str = NULL;
-	result = string_allocate(buff_ptr - buffer, buffer, &lvalp->str);
-	if (result != SIEVE_OK)
-	    ERR_PUSHBACK();
+	lvalp->str = xstrndup(buffer, buff_ptr - buffer);
 	lexer_state=LEXER_STATE_NORMAL;
 	return STRING;
       }
@@ -175,13 +166,10 @@ int yylex(lexstate_t * lvalp, void * client)
 
 	if (newcount < count)
 	  ERR_PUSHBACK();	/* overflow */
-	/*
-	 * XXX This should be fatal if non-synchronizing.
-	 */
+
 	count = newcount;
 	break;
       }
-      synchronizing = FALSE;
 
       if (ch != '}')
 	ERR_PUSHBACK();
@@ -196,14 +184,10 @@ int yylex(lexstate_t * lvalp, void * client)
       if (ch != '\n')
 	ERR_PUSHBACK();
 
-      lvalp->str = NULL;
-      result = string_allocate(count, NULL, &lvalp->str);
-      if (result != SIEVE_OK)
-	ERR_PUSHBACK();
-
+      lvalp->str = (char *)xmalloc(count+1);
       /* there is a literal string on the wire. let's read it */
       {
-	char           *it = string_DATAPTR(lvalp->str),
+	char           *it = lvalp->str,
 	               *end = it + count;
 
 	while (it < end) {
@@ -261,7 +245,6 @@ int yylex(lexstate_t * lvalp, void * client)
 	break;
       case '{':
 	count = 0;
-	synchronizing = TRUE;
 	lexer_state=LEXER_STATE_LITERAL;
 	break;
       case '\r':
@@ -279,10 +262,10 @@ int yylex(lexstate_t * lvalp, void * client)
       if (!(isalpha((unsigned char) ch) || ch == '/')) {
 	int token;
 
-	buffer[ buff_ptr - buffer] = '\0';
+	*buff_ptr = '\0';
 
 	/* We've got the atom. */
-	token = token_lookup((char *) buffer, (int) (buff_ptr - buffer));
+	token = token_lookup(buffer);
 
 	if (token!=-1) {
 	  lexer_state=LEXER_STATE_NORMAL;

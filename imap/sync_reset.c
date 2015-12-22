@@ -39,8 +39,6 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sync_reset.c,v 1.9 2010/06/28 12:04:20 brong Exp $
- *
  * Original version written by David Carter <dpc22@cam.ac.uk>
  * Rewritten and integrated into Cyrus by Ken Murchison <ken@oceana.com>
  */
@@ -56,35 +54,26 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <string.h>
 #include <sys/wait.h>
-#include <errno.h>
-#include <ctype.h>
 #include <sys/resource.h>
 
 #include "global.h"
-#include "assert.h"
 #include "mboxlist.h"
 #include "exitcodes.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "mailbox.h"
-#include "acl.h"
 #include "seen.h"
 #include "mboxname.h"
 #include "map.h"
-#include "imparse.h"
+#include "proc.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcat.h"
-#include "retry.h"
 #include "imapd.h"
 #include "user.h"
 #include "sync_support.h"
 /*#include "cdb.h"*/
-
-/* global state */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
 
 /* Static global variables and support routines for sync_reset */
 
@@ -97,7 +86,6 @@ static struct auth_state *sync_authstate = NULL;
 static char *sync_userid = NULL;
 
 static int verbose = 0;
-static int local_only = 0;
 
 static void shut_down(int code) __attribute__((noreturn));
 static void shut_down(int code)
@@ -105,7 +93,7 @@ static void shut_down(int code)
     in_shutdown = 1;
 
     annotatemore_close();
-    annotatemore_done();
+    annotate_done();
 
     if (sync_userid)    free(sync_userid);
     if (sync_authstate) auth_freestate(sync_authstate);
@@ -128,7 +116,7 @@ static int usage(const char *name)
     exit(EC_USAGE);
 }
 
-void fatal(const char* s, int code)
+EXPORTED void fatal(const char* s, int code)
 {
     fprintf(stderr, "sync_reset: %s\n", s);
     exit(code);
@@ -138,52 +126,46 @@ void fatal(const char* s, int code)
 
 static int reset_single(const char *userid)
 {
-    struct sync_name_list *list = NULL;
+    struct sync_name_list *sublist = sync_name_list_create();
+    struct sync_name_list *mblist = sync_name_list_create();
     struct sync_name *item;
-    char buf[MAX_MAILBOX_BUFFER];
     int r = 0;
 
-    /* Nuke subscriptions */
-    list = sync_name_list_create();
-    r = mboxlist_allsubs(userid, addmbox_sub, list);
+    /* XXX: adding an entry to userdeny_db here would avoid the need to
+     * protect against new logins with external proxy rules - Cyrus could
+     * maintain its own safety */
+
+    /* first, disconnect all current connections for this user */
+    proc_killuser(userid);
+
+    r = mboxlist_allsubs(userid, addmbox_sub, sublist);
     if (r) goto fail;
 
     /* ignore failures here - the subs file gets deleted soon anyway */
-    for (item = list->head; item; item = item->next) {
-	r = (sync_namespacep->mboxname_tointernal)(sync_namespacep, item->name,
-						   userid, buf);
-        if (!r) r = mboxlist_changesub(buf, userid, sync_authstate, 0, 0);
+    for (item = sublist->head; item; item = item->next) {
+	(void)mboxlist_changesub(item->name, userid, sync_authstate, 0, 0, 0);
     }
-    sync_name_list_free(&list);
 
-    /* Nuke normal folders */
-    list = sync_name_list_create();
-
-    (sync_namespacep->mboxname_tointernal)(sync_namespacep, "INBOX",
-					   userid, buf);
-    strlcat(buf, ".*", sizeof(buf));
-    r = (sync_namespacep->mboxlist_findall)(sync_namespacep, buf, 1,
-					    sync_userid, sync_authstate,
-					    addmbox, (void *)list);
+    r = mboxlist_allusermbox(userid, addmbox_sub, mblist, /*incdel*/1);
     if (r) goto fail;
 
-    for (item = list->head; item; item = item->next) {
-        r = mboxlist_deletemailbox(item->name, 1, sync_userid,
-				   sync_authstate, 0, local_only, 1);
-        if (r) goto fail;
+    for (item = mblist->head; item; item = item->next) {
+	r = mboxlist_deletemailbox(item->name, 1, sync_userid,
+				   sync_authstate, NULL, 0, 1, 0);
+	if (r == IMAP_MAILBOX_NONEXISTENT) {
+	    printf("skipping already removed mailbox %s\n", item->name);
+	}
+	else if (r) goto fail;
+	/* XXX - cheap and nasty hack around actually cleaning up the entry */
+	r = mboxlist_deleteremote(item->name, NULL);
+	if (r) goto fail;
     }
 
-    /* Nuke inbox (recursive nuke possible?) */
-    (sync_namespacep->mboxname_tointernal)(sync_namespacep, "INBOX",
-					   userid, buf);
-    r = mboxlist_deletemailbox(buf, 1, sync_userid,
-			       sync_authstate, 0, local_only, 1);
-    if (r && (r != IMAP_MAILBOX_NONEXISTENT)) goto fail;
-
-    r = user_deletedata((char *)userid, sync_userid, sync_authstate, 1);
+    r = user_deletedata(userid, 1);
 
  fail:
-    sync_name_list_free(&list);
+    sync_name_list_free(&sublist);
+    sync_name_list_free(&mblist);
 
     return r;
 }
@@ -199,13 +181,13 @@ main(int argc, char **argv)
     int force = 0;
     int i;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
     setbuf(stdout, NULL);
 
-    while ((opt = getopt(argc, argv, "C:vfL")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:vf")) != EOF) {
         switch (opt) {
         case 'C': /* alt config file */
             alt_config = optarg;
@@ -219,10 +201,6 @@ main(int argc, char **argv)
             force++;
             break;
 
-	case 'L': /* local mailbox operations only */
-	    local_only++;
-	    break;
-
         default:
             usage("sync_reset");
         }
@@ -230,7 +208,7 @@ main(int argc, char **argv)
 
     /* Set up default bounds if no command line options provided */
 
-    cyrus_init(alt_config, "sync_reset", 0);
+    cyrus_init(alt_config, "sync_reset", 0, CONFIG_NEED_PARTITION_DATA);
 
     /* Set namespace -- force standard (internal) */
     if ((r = mboxname_init_namespace(sync_namespacep, 1)) != 0) {
@@ -247,8 +225,8 @@ main(int argc, char **argv)
     signals_set_shutdown(&shut_down);
     signals_add_handlers(0);
 
-    annotatemore_init(0, NULL, NULL);
-    annotatemore_open(NULL);
+    annotate_init(NULL, NULL);
+    annotatemore_open();
 
     if (!force) {
         fprintf(stderr, "Usage: sync_reset -f user user user ...\n");

@@ -38,14 +38,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: xstrlcat.c,v 1.4 2010/01/06 17:01:48 murch Exp $
  */
 
 #include "xstrlcat.h"
 
 #ifndef HAVE_STRLCAT
-size_t strlcat(char *dst, const char *src, size_t len)
+EXPORTED size_t strlcat(char *dst, const char *src, size_t len)
 {
     size_t i, j, o;
     

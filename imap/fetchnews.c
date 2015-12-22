@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: fetchnews.c,v 1.22 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -67,18 +65,16 @@
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcat.h"
-
-/* global state */
-const int config_need_data = 0;
+#include "strarray.h"
 
 #define FNAME_NEWSRCDB "/fetchnews.db"
-#define DB (&cyrusdb_flat)
+#define DB ("flat")
 
 static struct db *newsrc_db = NULL;
 static int newsrc_dbopen = 0;
 
 /* must be called after cyrus_init */
-int newsrc_init(const char *fname, int myflags __attribute__((unused)))
+static int newsrc_init(const char *fname, int myflags __attribute__((unused)))
 {
     char buf[1024];
     int r = 0;
@@ -98,7 +94,7 @@ int newsrc_init(const char *fname, int myflags __attribute__((unused)))
 	    fname = tofree;
 	}
 
-	r = (DB->open)(fname, CYRUSDB_CREATE, &newsrc_db);
+	r = cyrusdb_open(DB, fname, CYRUSDB_CREATE, &newsrc_db);
 	if (r != 0)
 	    syslog(LOG_ERR, "DBERROR: opening %s: %s", fname,
 		   cyrusdb_strerror(r));
@@ -111,12 +107,12 @@ int newsrc_init(const char *fname, int myflags __attribute__((unused)))
     return r;
 }
 
-int newsrc_done(void)
+static int newsrc_done(void)
 {
     int r = 0;
 
     if (newsrc_dbopen) {
-	r = (DB->close)(newsrc_db);
+	r = cyrusdb_close(newsrc_db);
 	if (r) {
 	    syslog(LOG_ERR, "DBERROR: error closing fetchnews.db: %s",
 		   cyrusdb_strerror(r));
@@ -127,7 +123,7 @@ int newsrc_done(void)
     return r;
 }
 
-void usage(void)
+static void usage(void)
 {
     fprintf(stderr,
 	    "fetchnews [-C <altconfig>] [-s <server>] [-n] [-y] [-w <wildmat>] [-f <tstamp file>]\n"
@@ -172,7 +168,7 @@ int init_net(const char *host, char *port,
     return sock;
 }
 
-int fetch(char *msgid, int bymsgid,
+static int fetch(char *msgid, int bymsgid,
 	  struct protstream *pin, struct protstream *pout,
 	  struct protstream *sin, struct protstream *sout,
 	  int *rejected, int *accepted, int *failed)
@@ -251,7 +247,6 @@ int fetch(char *msgid, int bymsgid,
     return 0;
 }
 
-#define RESP_GROW 100
 #define BUFFERSIZE 4096
 
 int main(int argc, char *argv[])
@@ -265,13 +260,13 @@ int main(int argc, char *argv[])
     struct protstream *pin, *pout, *sin, *sout;
     char buf[BUFFERSIZE];
     char sfile[1024] = "";
-    int fd = -1, i, n, offered, rejected, accepted, failed;
+    int fd = -1, i, offered, rejected, accepted, failed;
     time_t stamp;
-    char **resp = NULL;
+    strarray_t resp = STRARRAY_INITIALIZER;
     int newnews = 1;
     char *datefmt = "%y%m%d %H%M%S";
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -325,7 +320,7 @@ int main(int argc, char *argv[])
 
     peer = argv[optind++];
 
-    cyrus_init(alt_config, "fetchnews", 0);
+    cyrus_init(alt_config, "fetchnews", 0, 0);
 
     /* connect to the peer */
     /* xxx configurable port number? */
@@ -412,7 +407,7 @@ int main(int argc, char *argv[])
 	    syslog(LOG_ERR, "cannot open %s", sfile);
 	    goto quit;
 	}
-	if (lock_nonblocking(fd) == -1) {
+	if (lock_nonblocking(fd, sfile) == -1) {
 	    syslog(LOG_ERR, "cannot lock %s: %m", sfile);
 	    goto quit;
 	}
@@ -455,15 +450,9 @@ int main(int argc, char *argv[])
     }
 
     /* process the NEWNEWS/LIST ACTIVE list */
-    n = 0;
     while (prot_fgets(buf, sizeof(buf), pin)) {
 	if (buf[0] == '.') break;
-
-	if (!(n % RESP_GROW)) { /* time to alloc more */
-	    resp = (char **)
-		xrealloc(resp, (n + RESP_GROW) * sizeof(char *));
-	}
-	resp[n++] = xstrdup(buf);
+	strarray_append(&resp, buf);
     }
     if (buf[0] != '.') {
 	syslog(LOG_ERR, "%s terminated abnormally",
@@ -471,7 +460,7 @@ int main(int argc, char *argv[])
 	goto quit;
     }
 
-    if (!n) {
+    if (!resp.count) {
 	/* nothing matches our wildmat */
 	goto quit;
     }
@@ -492,12 +481,12 @@ int main(int argc, char *argv[])
     offered = rejected = accepted = failed = 0;
     if (newnews) {
 	/* response is a list of msgids */
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < resp.count; i++) {
 	    /* find the end of the msgid */
-	    *(strrchr(resp[i], '>') + 1) = '\0';
+	    *(strrchr(resp.data[i], '>') + 1) = '\0';
 
 	    offered++;
-	    if (fetch(resp[i], 1, pin, pout, sin, sout,
+	    if (fetch(resp.data[i], 1, pin, pout, sin, sout,
 		      &rejected, &accepted, &failed)) {
 		goto quit;
 	    }
@@ -507,7 +496,7 @@ int main(int argc, char *argv[])
 	lseek(fd, 0, SEEK_SET);
 	if (write(fd, &stamp, sizeof(stamp)) < (int) sizeof(stamp))
 	    syslog(LOG_ERR, "error writing %s", sfile);
-	lock_unlock(fd);
+	lock_unlock(fd, sfile);
 	close(fd);
     }
     else {
@@ -515,7 +504,7 @@ int main(int argc, char *argv[])
 	const char *data;
 	unsigned long low, high, last, cur;
 	int start;
-	int datalen;
+	size_t datalen;
 	struct txn *tid = NULL;
 
 	newsrc_init(NULL, 0);
@@ -524,12 +513,12 @@ int main(int argc, char *argv[])
 	 * response is a list of groups.
 	 * select each group, and STAT each article we haven't seen yet.
 	 */
-	for (i = 0; i < n; i++) {
+	for (i = 0; i < resp.count; i++) {
 	    /* parse the LIST ACTIVE response */
-	    sscanf(resp[i], "%s %lu %lu", group, &high, &low);
+	    sscanf(resp.data[i], "%s %lu %lu", group, &high, &low);
 
 	    last = 0;
-	    if (!DB->fetchlock(newsrc_db, group, strlen(group),
+	    if (!cyrusdb_fetchlock(newsrc_db, group, strlen(group),
 			       &data, &datalen, &tid)) {
 		last = strtoul(data, NULL, 10);
 	    }
@@ -578,11 +567,11 @@ int main(int argc, char *argv[])
 	    }
 
 	    snprintf(lastbuf, sizeof(lastbuf), "%lu", cur);
-	    DB->store(newsrc_db, group, strlen(group),
+	    cyrusdb_store(newsrc_db, group, strlen(group),
 		      lastbuf, strlen(lastbuf)+1, &tid);
 	}
 
-	if (tid) DB->commit(newsrc_db, tid);
+	if (tid) cyrusdb_commit(newsrc_db, tid);
 	newsrc_done();
     }
 

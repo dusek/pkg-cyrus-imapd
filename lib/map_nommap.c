@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: map_nommap.c,v 1.25 2010/01/06 17:01:46 murch Exp $
  */
 
 #include <config.h>
@@ -55,20 +53,15 @@
 
 #define SLOP (4*1024)
 
-const char *map_method_desc = "nommap";
+EXPORTED const char *map_method_desc = "nommap";
 
 /*
  * Create/refresh mapping of file
  */
 void
-map_refresh(fd, onceonly, base, len, newlen, name, mboxname)
-int fd;
-int onceonly;
-const char **base;
-unsigned long *len;
-unsigned long newlen;
-const char *name;
-const char *mboxname;
+EXPORTED map_refresh(int fd, int onceonly, const char **base,
+		     size_t *len, size_t newlen, const char *name,
+		     const char *mboxname)
 {
     char *p;
     int n, left;
@@ -84,7 +77,7 @@ const char *mboxname;
 	}
 	newlen = sbuf.st_size;
     }
-	    
+
     /* Need a larger buffer */
     if (*len < newlen) {
 	if (*len) free((char *)*base);
@@ -121,9 +114,7 @@ const char *mboxname;
  * Destroy mapping of file
  */
 void
-map_free(base, len)
-const char **base;
-unsigned long *len;
+EXPORTED map_free(const char **base, size_t *len)
 {
     if (*len) free((char *)*base);
     *base = 0;

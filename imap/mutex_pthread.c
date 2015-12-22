@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: mutex_pthread.c,v 1.4 2010/01/06 17:01:38 murch Exp $
  */
 
 #include <config.h>
@@ -49,7 +47,7 @@
 
 #include "xmalloc.h"
 
-void *cyrus_mutex_alloc(void) 
+EXPORTED void *cyrus_mutex_alloc(void)
 {
     pthread_mutex_t *ret = (pthread_mutex_t *)xmalloc(sizeof(pthread_mutex_t));
 
@@ -58,17 +56,17 @@ void *cyrus_mutex_alloc(void)
     return ret;
 }
 
-int cyrus_mutex_lock(void *mutex)
+EXPORTED int cyrus_mutex_lock(void *mutex)
 {
     return pthread_mutex_lock(mutex);
 }
 
-int cyrus_mutex_unlock(void *mutex)
+EXPORTED int cyrus_mutex_unlock(void *mutex)
 {
     return pthread_mutex_unlock(mutex);
 }
   
-void cyrus_mutex_free(void *mutex)
+EXPORTED void cyrus_mutex_free(void *mutex)
 {
     if(!mutex) return;
     

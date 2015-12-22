@@ -41,8 +41,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: addr.y,v 1.15 2010/01/06 17:01:58 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -52,15 +50,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "addr.h"
-#include "script.h"
-#include "xmalloc.h"
+#include "sieve/script.h"
+#include "sieve/addr.h"
 #include "xstrlcpy.h"
 
 #define ADDRERR_SIZE 500
     
-int yyerror(const char *msg);
-extern int yylex(void);
+void yyerror(sieve_script_t*, const char *);
+extern int addrlex(YYSTYPE*, sieve_script_t*);
 
 #define YYERROR_VERBOSE /* i want better error messages! */
 
@@ -71,6 +68,10 @@ extern int yylex(void);
 
 %token ATOM QTEXT DTEXT
 %name-prefix="addr"
+%defines
+%parse-param {sieve_script_t *parse_script}
+%lex-param {sieve_script_t *parse_script}
+%pure_parser
 %%
 sieve_address: addrspec			/* simple address */
 	| phrase '<' addrspec '>'	/* name & addr-spec */
@@ -111,10 +112,7 @@ qstring: '"' QTEXT '"'
 %%
 
 /* copy address error message into buffer provided by sieve parser */
-int yyerror(const char *s)
+void yyerror(sieve_script_t *parse_script, const char *s)
 {
-    extern char addrerr[ADDRERR_SIZE];
-    
-    strlcpy(addrerr, s, ADDRERR_SIZE);
-    return 0;
+    strlcpy(parse_script->addrerr, s, ADDRERR_SIZE);
 }

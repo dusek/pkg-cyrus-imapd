@@ -39,12 +39,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: comparator.h,v 1.17 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifndef COMPARATOR_H
 #define COMPARATOR_H
+
+#include <sys/types.h>
 
 #ifdef ENABLE_REGEX
 # ifdef HAVE_PCREPOSIX_H
@@ -54,7 +54,6 @@
 #  ifdef HAVE_RXPOSIX_H
 #   include <rxposix.h>
 #  else /* !HAVE_RXPOSIX_H */
-#   include <sys/types.h>
 #   include <regex.h>
 #  endif /* HAVE_RXPOSIX_H */
 # endif /* HAVE_PCREPOSIX_H */

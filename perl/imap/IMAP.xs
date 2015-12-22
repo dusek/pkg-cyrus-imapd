@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: IMAP.xs,v 1.29 2010/01/06 17:01:55 murch Exp $
  */
 
 /*
@@ -53,13 +51,12 @@
 #include <pwd.h>
 #include <unistd.h>
 
-#include "imclient.h"
-#include "imapurl.h"
-#include "util.h"
-#include "xmalloc.h"
+#include "lib/imclient.h"
+#include "lib/imapurl.h"
+#include "lib/util.h"
+#include "lib/xmalloc.h"
 
 #include "cyrperl.h"
-#include "config.h"
 
 typedef struct xscyrus *Cyrus_IMAP;
 
@@ -215,9 +212,9 @@ static int get_password(sasl_conn_t *conn, void *context, int id,
 
 /* callbacks we support */
 static const sasl_callback_t sample_callbacks[NUM_SUPPORTED_CALLBACKS] = {
-  { SASL_CB_USER, get_username, NULL }, 
-  { SASL_CB_AUTHNAME, get_username, NULL }, 
-  { SASL_CB_PASS, get_password, NULL },
+  { SASL_CB_USER, (int (*)(void))get_username, NULL },
+  { SASL_CB_AUTHNAME, (int (*)(void))get_username, NULL },
+  { SASL_CB_PASS, (int (*)(void))get_password, NULL },
   { SASL_CB_LIST_END, NULL, NULL }
 };
 

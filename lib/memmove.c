@@ -39,17 +39,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: memmove.c,v 1.10 2010/01/06 17:01:46 murch Exp $
  */
 
 /* for size_t */
 #include <sys/types.h>
 
-void *memmove(s, ct, n)
-void *s;
-const void *ct;
-size_t n;
+void *memmove(void *s, const void *ct, size_t n)
 {
     char *c_s = s;
     const char *c_ct = ct;

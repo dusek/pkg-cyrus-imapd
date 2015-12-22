@@ -38,20 +38,23 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: bsearch.h,v 1.10 2010/01/06 17:01:44 murch Exp $
  */
 
 #ifndef INCLUDED_BSEARCH_H
 #define INCLUDED_BSEARCH_H
 
-extern int bsearch_mem(const char *word, int caseSensitive,
-		       const char *base, unsigned long len,
-		       unsigned long hint,
-		       unsigned long *linelenp);
+extern int bsearch_mem_mbox(const char *word,
+			    const char *base, unsigned long len,
+			    unsigned long hint,
+			    unsigned long *linelenp);
 
-extern int bsearch_compare(const char *s1, const char *s2);
+extern int bsearch_compare_mbox(const char *s1, const char *s2);
 
-extern int bsearch_ncompare(const char *s1, int l1, const char *s2, int l2);
+extern int bsearch_ncompare_mbox(const char *s1, int l1, const char *s2, int l2);
+
+extern int bsearch_ncompare_raw(const char *s1, int l1, const char *s2, int l2);
+
+extern int cmpstringp_raw(const void *p1, const void *p2);
+extern int cmpstringp_mbox(const void *p1, const void *p2);
 
 #endif /* INCLUDED_BSEARCH_H */

@@ -56,6 +56,7 @@
 #include <libical/ical.h>
 
 #include "annotate.h" /* for strlist functionality */
+#include "exitcodes.h"
 #include "global.h"
 #include "hash.h"
 #include "map.h"
@@ -86,7 +87,7 @@ int main(int argc, char **argv)
     char *alt_config = NULL, *version = NULL;
     enum { REBUILD, NONE } op = NONE;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*ismaster*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -113,7 +114,7 @@ int main(int argc, char **argv)
 	}
     }
 
-    cyrus_init(alt_config, "ctl_zoneinfo", 0);
+    cyrus_init(alt_config, "ctl_zoneinfo", 0, 0);
 
     signals_set_shutdown(&shut_down);
     signals_add_handlers(0);
@@ -246,6 +247,8 @@ void do_zonedir(const char *dir, struct hash_table *tzentries,
 
 	    ical = icalparser_parse_string(base);
 	    map_free(&base, &len);
+
+	    if (!ical) continue;  /* skip non-iCalendar files */
 
 	    comp = icalcomponent_get_first_component(ical,
 						     ICAL_VTIMEZONE_COMPONENT);

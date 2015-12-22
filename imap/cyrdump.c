@@ -37,8 +37,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: cyrdump.c,v 1.23 2010/01/06 17:01:31 murch Exp $
  */
 
 #include <config.h>
@@ -56,26 +54,21 @@
 #include "exitcodes.h"
 #include "global.h"
 #include "index.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "imapurl.h"
 #include "mailbox.h"
 #include "mboxlist.h"
-#include "sysexits.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
 
 
-/* config.c stuff */
-const int config_need_data = CONFIG_NEED_PARTITION_DATA;
-
-int verbose = 0;
+static int verbose = 0;
 
 static int dump_me(char *name, int matchlen, int maycreate, void *rock);
 static void print_seq(const char *tag, const char *attrib, 
 		      unsigned *seq, int n);
-int usage(const char *name);
+static int usage(const char *name);
 
 /* current namespace */
 static struct namespace dump_namespace;
@@ -92,7 +85,7 @@ int main(int argc, char *argv[])
     char *alt_config = NULL;
     struct incremental_record irec;
 
-    if ((geteuid()) == 0 && (become_cyrus() != 0)) {
+    if ((geteuid()) == 0 && (become_cyrus(/*is_master*/0) != 0)) {
 	fatal("must run as the Cyrus user", EC_USAGE);
     }
 
@@ -116,7 +109,7 @@ int main(int argc, char *argv[])
 	usage(argv[0]);
     }
 
-    cyrus_init(alt_config, "dump", 0);
+    cyrus_init(alt_config, "dump", 0, CONFIG_NEED_PARTITION_DATA);
     mboxlist_init(0);
     mboxlist_open(NULL);
 
@@ -145,7 +138,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-int usage(const char *name)
+static int usage(const char *name)
 {
     fprintf(stderr, "usage: %s [-v] [mboxpattern ...]\n", name);
 
@@ -234,7 +227,7 @@ static int dump_me(char *name, int matchlen __attribute__((unused)),
 
     for (i = 0; i < numuids; i++) {
 	const char *base;
-	unsigned long len;
+	size_t len;
 
 	if (uids[i] < irec->incruid) {
 	    /* already dumped this message */

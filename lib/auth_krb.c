@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: auth_krb.c,v 1.46 2010/01/06 17:01:43 murch Exp $
  */
 
 #include <config.h>
@@ -100,9 +98,7 @@ static char *auth_map_krbid (const char *real_aname, const char *real_inst,
  *	2	User is in the group that is identifier
  *	3	User is identifer
  */
-static int mymemberof(auth_state, identifier)
-struct auth_state *auth_state;
-const char *identifier;
+static int mymemberof(struct auth_state *auth_state, const char *identifier)
 {
     char aname[ANAME_SZ];
     char inst[INST_SZ];
@@ -142,10 +138,7 @@ const char *identifier;
  * MAX_K_NAME_SZ.  Returns 1 on success, 0 on failure.
  */
 static int
-parse_krbequiv_line(src, principal, localuser)
-const char *src;
-char *principal;
-char *localuser;
+parse_krbequiv_line(const char *src, char *principal, char *localuser)
 {
     int i;
 
@@ -251,9 +244,7 @@ const char *real_realm;
  * Returns a pointer to a static buffer containing the canonical form
  * or NULL if 'identifier' is invalid.
  */
-static char *mycanonifyid(identifier, len)
-const char *identifier;
-size_t len;
+static const char *mycanonifyid(const char *identifier, size_t len)
 {
     static char retbuf[MAX_K_NAME_SZ+1];
     char aname[ANAME_SZ];
@@ -318,8 +309,7 @@ size_t len;
  * points to a 16-byte binary key to cache identifier's information
  * with.
  */
-static struct auth_state *mynewstate(identifier)
-const char *identifier;
+static struct auth_state *mynewstate(const char *identifier)
 {
     struct auth_state *newstate;
 
@@ -335,8 +325,7 @@ const char *identifier;
     return newstate;
 }
 
-static void myfreestate(auth_state)
-struct auth_state *auth_state;
+static void myfreestate(struct auth_state *auth_state)
 {
     free((char *)auth_state);
 }
@@ -351,7 +340,7 @@ static int mymemberof(
 	return 0;
 }
 
-static char *mycanonifyid(
+static const char *mycanonifyid(
     const char *identifier __attribute__((unused)), 
     size_t len __attribute__((unused)))
 {
@@ -374,7 +363,7 @@ static void myfreestate(
 
 #endif
 
-struct auth_mech auth_krb = 
+HIDDEN struct auth_mech auth_krb =
 {
     "krb",		/* name */
 

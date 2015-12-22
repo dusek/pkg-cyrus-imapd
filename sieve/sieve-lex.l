@@ -40,32 +40,32 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: sieve-lex.l,v 1.24 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#include <string.h> /* for strdup */
 #include "xmalloc.h"
 
-#include "tree.h"
-#include "sieve.h"
+#include "sieve/tree.h"
+#include "sieve/sieve_interface.h"
+#include "sieve/sieve.h"
 
 #define YY_NO_INPUT
+#define YY_DECL int yylex(YYSTYPE *yylval, sieve_script_t *parse_script)
 
 static int tonum(char *c);
 static char *chkstr(char *);
 static char *mlbuf;
 static int mlbufsz, mlcur;
-extern int yyerror(char *);
+extern void sieveerror(sieve_script_t *, char *);
 %}
 
 %option yylineno
 %option noyywrap
 %option nounput
+%option prefix="sieve" outfile="lex.yy.c"
 
 ws		[ \t]+
 ident		[a-zA-Z_][a-zA-Z_0-9]*
@@ -77,33 +77,33 @@ CRLF		(\r\n|\r|\n)
 %%
 <MULTILINE>^\.{CRLF}	{ BEGIN INITIAL; 
                           if (mlbuf) mlbuf[mlcur] = '\0';
-                          yylval.sval = chkstr(mlbuf); return STRING; }
+                          yylval->sval = chkstr(mlbuf); return STRING; }
 <MULTILINE>^\.\.  { /* dot stuffing! we want one . */ yyless(1); }
-<MULTILINE>(.|\n) { if (mlcur == mlbufsz) 
+<MULTILINE>(.|\n) { if (mlcur == mlbufsz)
 			mlbuf = xrealloc(mlbuf, 1 + (mlbufsz+=1024));
 		    mlbuf[mlcur++] = yytext[0]; }
-<MULTILINE><<EOF>> { yyerror("unexpected end of file in string"); 
-		     BEGIN INITIAL;
+<MULTILINE><<EOF>> { BEGIN INITIAL;
+		     sieveerror(parse_script, "unexpected end of file in string");
 		     if (mlbuf) free(mlbuf);
 		     yyterminate(); }
 <QSTRING>\"        { BEGIN INITIAL;
                      if (mlbuf) mlbuf[mlcur] = '\0';
-		     yylval.sval = chkstr(mlbuf); return STRING; }
-<QSTRING>\\.      { if (mlcur == mlbufsz) 
+		     yylval->sval = chkstr(mlbuf); return STRING; }
+<QSTRING>\\.      { if (mlcur == mlbufsz)
 			mlbuf = xrealloc(mlbuf, 1 + (mlbufsz+=1024));
 		    mlbuf[mlcur++] = yytext[1]; }
-<QSTRING>(.|\n)   { if (mlcur == mlbufsz) 
+<QSTRING>(.|\n)   { if (mlcur == mlbufsz)
 			mlbuf = xrealloc(mlbuf, 1 + (mlbufsz+=1024));
 		    mlbuf[mlcur++] = yytext[0]; }
-<QSTRING><<EOF>>  { yyerror("unexpected end of file in string");
-		    BEGIN INITIAL;
+<QSTRING><<EOF>>  { sieveerror(parse_script, "unexpected end of file in string");
 		    if (mlbuf) free(mlbuf);
+		    BEGIN INITIAL;
 		    yyterminate(); }
 <INITIAL>text:{ws}?(#.*)?{CRLF}	{ BEGIN MULTILINE;
 			  mlcur = 0; mlbufsz = 0; mlbuf = NULL; }
 <INITIAL>\"        { BEGIN QSTRING;
                     mlcur = 0; mlbufsz = 0; mlbuf = NULL; }
-<INITIAL>[0-9]+[KMGkmg]?	{ yylval.nval = tonum(yytext); return NUMBER; }
+<INITIAL>[0-9]+[KMGkmg]?	{ yylval->nval = tonum(yytext); return NUMBER; }
 <INITIAL>if		return IF;
 <INITIAL>elsif		return ELSIF;
 <INITIAL>else		return ELSE;
@@ -118,6 +118,7 @@ CRLF		(\r\n|\r|\n)
 <INITIAL>body		return BODY;
 <INITIAL>not		return NOT;
 <INITIAL>size		return SIZE;
+<INITIAL>hasflag	return HASFLAG;
 <INITIAL>reject		return REJCT;
 <INITIAL>fileinto	return FILEINTO;
 <INITIAL>redirect	return REDIRECT;
@@ -141,6 +142,7 @@ CRLF		(\r\n|\r|\n)
 <INITIAL>:message	return MESSAGE;
 <INITIAL>vacation	return VACATION;
 <INITIAL>:days		return DAYS;
+<INITIAL>:seconds	return SECONDS;
 <INITIAL>:addresses	return ADDRESSES;
 <INITIAL>:subject	return SUBJECT;
 <INITIAL>:from		return FROM;
@@ -166,8 +168,17 @@ CRLF		(\r\n|\r|\n)
 <INITIAL>include	return INCLUDE;
 <INITIAL>:personal	return PERSONAL;
 <INITIAL>:global	return GLOBAL;
+<INITIAL>:optional	return OPTIONAL;
+<INITIAL>:once		return ONCE;
 <INITIAL>return		return RETURN;
 <INITIAL>:copy		return COPY;
+<INITIAL>date           return DATE;
+<INITIAL>currentdate    return CURRENTDATE;
+<INITIAL>:index         return INDEX;
+<INITIAL>:last          return LAST;
+<INITIAL>:zone          return ZONE;
+<INITIAL>:originalzone  return ORIGINALZONE;
+<INITIAL>:flags		return FLAGS;
 <INITIAL>[ \t\n\r] ;	/* ignore whitespace */
 <INITIAL>#.* ;		/* ignore hash comments */
 <INITIAL>"/*"([^\*]|\*[^\/])*\*?"*/" ;	/* ignore bracket comments */

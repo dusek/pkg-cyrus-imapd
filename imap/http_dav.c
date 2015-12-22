@@ -74,7 +74,9 @@
 #include "imap_err.h"
 #include "index.h"
 #include "proxy.h"
-#include "rfc822date.h"
+#include "times.h"
+#include "syslog.h"
+#include "strhash.h"
 #include "tok.h"
 #include "xmalloc.h"
 #include "xstrlcat.h"
@@ -95,6 +97,8 @@ static const struct dav_namespace_t {
     { XML_NS_ISCHED, NULL },
     { XML_NS_CS, "CS" },
     { XML_NS_CYRUS, "CY" },
+    { XML_NS_USERFLAG, "UF" },
+    { XML_NS_SYSFLAG, "SF" },
 };
 
 /* PROPFIND modes */
@@ -102,10 +106,9 @@ enum {
     PROPFIND_NONE = 0,			/* only used with REPORT */
     PROPFIND_ALL,
     PROPFIND_NAME,
-    PROPFIND_PROP
+    PROPFIND_PROP,
+    PROPFIND_EXPAND			/* only used with expand-prop REPORT */
 };
-
-static void my_dav_init(struct buf *serverinfo);
 
 static int prin_parse_path(const char *path,
 			   struct request_target_t *tgt, const char **errstr);
@@ -115,9 +118,6 @@ static int propfind_displayname(const xmlChar *name, xmlNsPtr ns,
 static int propfind_restype(const xmlChar *name, xmlNsPtr ns,
 			    struct propfind_ctx *fctx, xmlNodePtr resp,
 			    struct propstat propstat[], void *rock);
-static int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
-			      struct propfind_ctx *fctx, xmlNodePtr resp,
-			      struct propstat propstat[], void *rock);
 static int propfind_alturiset(const xmlChar *name, xmlNsPtr ns,
 			      struct propfind_ctx *fctx, xmlNodePtr resp,
 			      struct propstat propstat[], void *rock);
@@ -133,9 +133,26 @@ static int report_prin_search_prop_set(struct transaction_t *txn,
 				       struct propfind_ctx *fctx);
 
 static int allprop_cb(const char *mailbox __attribute__((unused)),
+		      uint32_t uid __attribute__((unused)),
 		      const char *entry,
-		      const char *userid, struct annotation_data *attrib,
+		      const char *userid, const struct buf *attrib,
 		      void *rock);
+
+/* Array of supported REPORTs */
+static const struct report_type_t dav_reports[] = {
+
+    /* WebDAV Versioning (RFC 3253) REPORTs */
+    { "expand-property", NS_DAV, "multistatus", &report_expand_prop,
+      DACL_READ, 0 },
+
+    /* WebDAV ACL (RFC 3744) REPORTs */
+    { "principal-property-search", NS_DAV, "multistatus",
+      &report_prin_prop_search, 0, 0 },
+    { "principal-search-property-set", NS_DAV, "principal-search-property-set",
+      &report_prin_search_prop_set, 0, 0 },
+
+    { NULL, 0, NULL, NULL, 0, 0 }
+};
 
 /* Array of known "live" properties */
 static const struct prop_entry dav_props[] = {
@@ -159,12 +176,12 @@ static const struct prop_entry dav_props[] = {
 
     /* WebDAV Versioning (RFC 3253) properties */
     { "supported-report-set", NS_DAV, PROP_COLLECTION,
-      propfind_reportset, NULL, NULL },
+      propfind_reportset, NULL, (void *) dav_reports },
 
     /* WebDAV ACL (RFC 3744) properties */
     { "alternate-URI-set", NS_DAV, PROP_COLLECTION,
       propfind_alturiset, NULL, NULL },
-    { "principal-URL", NS_DAV, PROP_COLLECTION,
+    { "principal-URL", NS_DAV, PROP_COLLECTION | PROP_EXPAND,
       propfind_principalurl, NULL, NULL },
     { "group-member-set", NS_DAV, 0, NULL, NULL, NULL },
     { "group-membership", NS_DAV, 0, NULL, NULL, NULL },
@@ -172,26 +189,26 @@ static const struct prop_entry dav_props[] = {
       propfind_princolset, NULL, NULL },
 
     /* WebDAV Current Principal (RFC 5397) properties */
-    { "current-user-principal", NS_DAV, PROP_COLLECTION,
+    { "current-user-principal", NS_DAV, PROP_COLLECTION | PROP_EXPAND,
       propfind_curprin, NULL, NULL },
 
     /* CalDAV (RFC 4791) properties */
-    { "calendar-home-set", NS_CALDAV, PROP_COLLECTION,
-      propfind_calurl, NULL, NULL },
+    { "calendar-home-set", NS_CALDAV, PROP_COLLECTION | PROP_EXPAND,
+      propfind_calhome, NULL, NULL },
 
     /* CalDAV Scheduling (RFC 6638) properties */
-    { "schedule-inbox-URL", NS_CALDAV, PROP_COLLECTION,
-      propfind_calurl, NULL, SCHED_INBOX },
-    { "schedule-outbox-URL", NS_CALDAV, PROP_COLLECTION,
-      propfind_calurl, NULL, SCHED_OUTBOX },
+    { "schedule-inbox-URL", NS_CALDAV, PROP_COLLECTION | PROP_EXPAND,
+      propfind_schedinbox, NULL, NULL },
+    { "schedule-outbox-URL", NS_CALDAV, PROP_COLLECTION | PROP_EXPAND,
+      propfind_schedoutbox, NULL, NULL },
     { "calendar-user-address-set", NS_CALDAV, PROP_COLLECTION,
       propfind_caluseraddr, NULL, NULL },
     { "calendar-user-type", NS_CALDAV, PROP_COLLECTION,
       propfind_calusertype, NULL, NULL },
 
     /* CardDAV (RFC 6352) properties */
-    { "addressbook-home-set", NS_CARDDAV, PROP_COLLECTION,
-      propfind_abookurl, NULL, NULL },
+    { "addressbook-home-set", NS_CARDDAV, PROP_COLLECTION | PROP_EXPAND,
+      propfind_abookhome, NULL, NULL },
 
     /* Apple Calendar Server properties */
     { "getctag", NS_CS, PROP_ALLPROP, NULL, NULL, NULL },
@@ -203,20 +220,14 @@ static const struct prop_entry dav_props[] = {
 static struct meth_params princ_params = {
     .parse_path = &prin_parse_path,
     .lprops = dav_props,
-    .reports = {
-	{ "principal-property-search", "multistatus",
-	  &report_prin_prop_search, 0, 0 },
-	{ "principal-search-property-set", "principal-search-property-set",
-	  &report_prin_search_prop_set, 0, 0 },
-	{ NULL, NULL, NULL, 0, 0 }
-    }
+    .reports = dav_reports
 };
 
 /* Namespace for WebDAV principals */
 struct namespace_t namespace_principal = {
     URL_NS_PRINCIPAL, 0, "/dav/principals", NULL, 1 /* auth */,
     ALLOW_READ | ALLOW_DAV,
-    &my_dav_init, NULL, NULL, NULL,
+    NULL, NULL, NULL, NULL,
     {
 	{ NULL,			NULL },			/* ACL		*/
 	{ NULL,			NULL },			/* COPY		*/
@@ -239,15 +250,9 @@ struct namespace_t namespace_principal = {
 };
 
 
-static void my_dav_init(struct buf *serverinfo)
-{
-    buf_printf(serverinfo, " SQLite/%s", sqlite3_libversion());
-}
-
-
 /* Linked-list of properties for fetching */
 struct propfind_entry_list {
-    const xmlChar *name;		/* Property name */
+    xmlChar *name;			/* Property name (needs to be freed) */
     xmlNsPtr ns;			/* Property namespace */
     unsigned char flags;		/* Flags for how/where prop apply */
     int (*get)(const xmlChar *name,	/* Callback to fetch property */
@@ -314,6 +319,9 @@ static const struct precond_t {
 
     /* RSCALE (draft-daboo-icalendar-rscale) preconditions */
     { "supported-rscale", NS_CALDAV },
+
+    /* TZ by Ref (draft-ietf-tzdist-caldav-timezone-ref) preconditions */
+    { "valid-timezone", NS_CALDAV },
 
     /* CalDAV Scheduling (RFC 6638) preconditions */
     { "valid-scheduling-message", NS_CALDAV },
@@ -734,7 +742,7 @@ int xml_add_response(struct propfind_ctx *fctx, long code, unsigned precond)
 {
     xmlNodePtr resp;
 
-    resp = xmlNewChild(fctx->root, NULL, BAD_CAST "response", NULL);
+    resp = xmlNewChild(fctx->root, fctx->ns[NS_DAV], BAD_CAST "response", NULL);
     if (!resp) {
 	fctx->err->desc = "Unable to add response XML element";
 	*fctx->ret = HTTP_SERVER_ERROR;
@@ -824,8 +832,7 @@ int xml_add_response(struct propfind_ctx *fctx, long code, unsigned precond)
 	    (fctx->mode == PROPFIND_ALL || fctx->mode == PROPFIND_NAME)) {
 	    struct allprop_rock arock = { fctx, propstat };
 
-	    annotatemore_findall(fctx->mailbox->name, ANNOT_NS "*",
-				 allprop_cb, &arock, NULL);
+	    annotatemore_findall(fctx->mailbox->name, 0, "*", allprop_cb, &arock);
 	}
 
 	/* Check if we have any propstat elements */
@@ -853,8 +860,6 @@ int xml_add_response(struct propfind_ctx *fctx, long code, unsigned precond)
 	    }
 	}
     }
-
-    fctx->record = NULL;
 
     return 0;
 }
@@ -1102,7 +1107,7 @@ int proppatch_restype(xmlNodePtr prop, unsigned set,
     const char *coltype = (const char *) rock;
     unsigned precond = 0;
 
-    if (set && (pctx->meth == METH_MKCOL || pctx->meth == METH_MKCALENDAR)) {
+    if (set && (pctx->meth != METH_PROPPATCH)) {
 	/* "Writeable" for MKCOL/MKCALENDAR only */
 	xmlNodePtr cur;
 
@@ -1162,26 +1167,28 @@ int propfind_suplock(const xmlChar *name, xmlNsPtr ns,
 
 
 /* Callback to fetch DAV:supported-report-set */
-static int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
-			      struct propfind_ctx *fctx,
-			      xmlNodePtr resp __attribute__((unused)),
-			      struct propstat propstat[],
-			      void *rock __attribute__((unused)))
+int propfind_reportset(const xmlChar *name, xmlNsPtr ns,
+		       struct propfind_ctx *fctx,
+		       xmlNodePtr resp __attribute__((unused)),
+		       struct propstat propstat[],
+		       void *rock __attribute__((unused)))
 {
-    xmlNodePtr s, r, top;
+    xmlNodePtr top, node;
+    const struct report_type_t *report;
 
     top = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 		       name, ns, NULL, 0);
 
-    s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
-    r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-    xmlNewChild(r, fctx->ns[NS_DAV],
-		BAD_CAST "principal-property-search", NULL);
+    for (report = (const struct report_type_t *) rock;
+	 report && report->name; report++) {
+	node = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
+	node = xmlNewChild(node, NULL, BAD_CAST "report", NULL);
 
-    s = xmlNewChild(top, NULL, BAD_CAST "supported-report", NULL);
-    r = xmlNewChild(s, NULL, BAD_CAST "report", NULL);
-    xmlNewChild(r, fctx->ns[NS_DAV],
-		BAD_CAST "principal-search-property-set", NULL);
+	ensure_ns(fctx->ns, report->ns, resp->parent,
+		  known_namespaces[report->ns].href,
+		  known_namespaces[report->ns].prefix);
+	xmlNewChild(node, fctx->ns[report->ns], BAD_CAST report->name, NULL);
+    }
 
     return 0;
 }
@@ -1213,11 +1220,21 @@ static int propfind_principalurl(const xmlChar *name, xmlNsPtr ns,
 
     buf_reset(&fctx->buf);
     if (fctx->req_tgt->user) {
+	xmlNodePtr expand = (xmlNodePtr) rock;
+
 	buf_printf(&fctx->buf, "%s/user/%.*s/",
 		   namespace_principal.prefix,
 		   (int) fctx->req_tgt->userlen, fctx->req_tgt->user);
+
+	if (expand) {
+	    /* Return properties for this URL */
+	    expand_property(expand, fctx, buf_cstring(&fctx->buf),
+			    &prin_parse_path, dav_props, node, 0);
+	    return 0;
+	}
     }
 
+    /* Return just the URL */
     xml_add_href(node, NULL, buf_cstring(&fctx->buf));
 
     return 0;
@@ -1235,12 +1252,22 @@ int propfind_owner(const xmlChar *name, xmlNsPtr ns,
 				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if (fctx->req_tgt->user) {
+	xmlNodePtr expand = (xmlNodePtr) rock;
+
 	buf_reset(&fctx->buf);
 	buf_printf(&fctx->buf, "%s/user/%.*s/",
 		   namespace_principal.prefix,
 		   (int) fctx->req_tgt->userlen, fctx->req_tgt->user);
 
-	xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+	if (expand) {
+	    /* Return properties for this URL */
+	    expand_property(expand, fctx, buf_cstring(&fctx->buf),
+			    &prin_parse_path, dav_props, node, 0);
+	}
+	else {
+	    /* Return just the URL */
+	    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+	}
     }
 
     return 0;
@@ -1411,7 +1438,7 @@ static int add_privs(int rights, unsigned flags,
 	priv = xmlNewChild(parent, NULL, BAD_CAST "privilege", NULL);
 	xmlNewChild(priv, ns[NS_CYRUS], BAD_CAST "remove-collection", NULL);
     }
-    if (rights & DACL_RMRSRC) {
+    if ((rights & DACL_RMRSRC) == DACL_RMRSRC) {
 	priv = xmlNewChild(parent, NULL, BAD_CAST "privilege", NULL);
 	xmlNewChild(priv, ns[NS_CYRUS], BAD_CAST "remove-resource", NULL);
     }
@@ -1483,7 +1510,7 @@ int propfind_curprivset(const xmlChar *name, xmlNsPtr ns,
     if (fctx->userisadmin) {
 	rights |= DACL_ADMIN;
     }
-    else if (mboxname_userownsmailbox(fctx->int_userid, fctx->mailbox->name)) {
+    else if (mboxname_userownsmailbox(httpd_userid, fctx->mailbox->name)) {
 	rights |= config_implicitrights;
     }
 
@@ -1635,7 +1662,7 @@ int propfind_aclrestrict(const xmlChar *name, xmlNsPtr ns,
 
 
 /* Callback to fetch DAV:principal-collection-set */
-int propfind_princolset(const xmlChar *name, xmlNsPtr ns,
+EXPORTED int propfind_princolset(const xmlChar *name, xmlNsPtr ns,
 			struct propfind_ctx *fctx,
 			xmlNodePtr resp __attribute__((unused)),
 			struct propstat propstat[],
@@ -1653,7 +1680,7 @@ int propfind_princolset(const xmlChar *name, xmlNsPtr ns,
 
 
 /* Callback to fetch DAV:quota-available-bytes and DAV:quota-used-bytes */
-int propfind_quota(const xmlChar *name, xmlNsPtr ns,
+EXPORTED int propfind_quota(const xmlChar *name, xmlNsPtr ns,
 		   struct propfind_ctx *fctx,
 		   xmlNodePtr resp __attribute__((unused)),
 		   struct propstat propstat[],
@@ -1689,9 +1716,9 @@ int propfind_quota(const xmlChar *name, xmlNsPtr ns,
     buf_reset(&fctx->buf);
     if (!xmlStrcmp(name, BAD_CAST "quota-available-bytes")) {
 	/* Calculate limit in bytes and subtract usage */
-	uquota_t limit = fctx->quota.limit * QUOTA_UNITS;
+	quota_t limit = fctx->quota.limits[QUOTA_STORAGE] * quota_units[QUOTA_STORAGE];
 
-	buf_printf(&fctx->buf, UQUOTA_T_FMT, limit - fctx->quota.used);
+	buf_printf(&fctx->buf, QUOTA_T_FMT, limit - fctx->quota.useds[QUOTA_STORAGE]);
     }
     else if (fctx->record) {
 	/* Bytes used by resource */
@@ -1699,12 +1726,12 @@ int propfind_quota(const xmlChar *name, xmlNsPtr ns,
     }
     else if (fctx->mailbox) {
 	/* Bytes used by calendar collection */
-	buf_printf(&fctx->buf, UQUOTA_T_FMT,
+	buf_printf(&fctx->buf, QUOTA_T_FMT,
 		   fctx->mailbox->i.quota_mailbox_used);
     }
     else {
 	/* Bytes used by entire hierarchy */
-	buf_printf(&fctx->buf, UQUOTA_T_FMT, fctx->quota.used);
+	buf_printf(&fctx->buf, QUOTA_T_FMT, fctx->quota.useds[QUOTA_STORAGE]);
     }
 
     xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
@@ -1715,20 +1742,31 @@ int propfind_quota(const xmlChar *name, xmlNsPtr ns,
 
 
 /* Callback to fetch DAV:current-user-principal */
-int propfind_curprin(const xmlChar *name, xmlNsPtr ns,
+EXPORTED int propfind_curprin(const xmlChar *name, xmlNsPtr ns,
 		     struct propfind_ctx *fctx,
 		     xmlNodePtr resp __attribute__((unused)),
 		     struct propstat propstat[],
-		     void *rock __attribute__((unused)))
+		     void *rock)
 {
     xmlNodePtr node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV],
 				   &propstat[PROPSTAT_OK], name, ns, NULL, 0);
 
     if (fctx->userid) {
+	xmlNodePtr expand = (xmlNodePtr) rock;
+
 	buf_reset(&fctx->buf);
 	buf_printf(&fctx->buf, "%s/user/%s/",
 		   namespace_principal.prefix, fctx->userid);
-	xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+
+	if (expand) {
+	    /* Return properties for this URL */
+	    expand_property(expand, fctx, buf_cstring(&fctx->buf),
+			    &prin_parse_path, dav_props, node, 0);
+	}
+	else {
+	    /* Return just the URL */
+	    xml_add_href(node, NULL, buf_cstring(&fctx->buf));
+	}
     }
     else {
 	xmlNewChild(node, NULL, BAD_CAST "unauthenticated", NULL);
@@ -1748,12 +1786,7 @@ int propfind_addmember(const xmlChar *name, xmlNsPtr ns,
     xmlNodePtr node;
     int len;
 
-    if (!fctx->req_tgt->collection ||
-	!strcmp(fctx->req_tgt->collection, SCHED_INBOX) ||
-	!strcmp(fctx->req_tgt->collection, SCHED_OUTBOX)) {
-	/* Only allowed on non-scheduling collections */
-	return HTTP_NOT_FOUND;
-    }
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
     node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 			name, ns, NULL, 0);
@@ -1779,6 +1812,9 @@ int propfind_sync_token(const xmlChar *name, xmlNsPtr ns,
 {
     if (!fctx->req_tgt->collection || /* until we support sync on cal-home */
 	!fctx->mailbox || fctx->record) return HTTP_NOT_FOUND;
+
+    /* not defined on the top-level collection either (aka #calendars) */
+    if (!fctx->req_tgt->collection) return HTTP_NOT_FOUND;
 
     buf_reset(&fctx->buf);
     buf_printf(&fctx->buf, SYNC_TOKEN_URL_SCHEME "%u-" MODSEQ_FMT,
@@ -1829,6 +1865,155 @@ int propfind_fromhdr(const xmlChar *name, xmlNsPtr ns,
     return r;
 }
 
+static struct flaggedresources {
+    const char *name;
+    int flag;
+} fres[] = {
+    { "answered", FLAG_ANSWERED },
+    { "flagged", FLAG_FLAGGED },
+    { "seen", FLAG_SEEN },
+    { NULL, 0 } /* last is always NULL */
+};
+
+/* Callback to write a property to annotation DB */
+static int proppatch_toresource(xmlNodePtr prop, unsigned set,
+			 struct proppatch_ctx *pctx,
+			 struct propstat propstat[],
+			 void *rock __attribute__((unused)))
+{
+    xmlChar *freeme = NULL;
+    annotate_state_t *astate = NULL;
+    struct buf value = BUF_INITIALIZER;
+    int r = 1; /* default to error */
+
+    /* flags only store "exists" */
+
+    if (!strcmp((const char *)prop->ns->href, XML_NS_SYSFLAG)) {
+	struct flaggedresources *frp;
+	int isset;
+	for (frp = fres; frp->name; frp++) {
+	    if (strcasecmp((const char *)prop->name, frp->name)) continue;
+	    r = 0; /* ok to do nothing */
+	    isset = pctx->record->system_flags & frp->flag;
+	    if (set) {
+		if (isset) goto done;
+		pctx->record->system_flags |= frp->flag;
+	    }
+	    else {
+		if (!isset) goto done;
+		pctx->record->system_flags &= ~frp->flag;
+	    }
+	    r = mailbox_rewrite_index_record(pctx->mailbox, pctx->record);
+	    goto done;
+	}
+	goto done;
+    }
+
+    if (!strcmp((const char *)prop->ns->href, XML_NS_USERFLAG)) {
+	int userflag = 0;
+	int isset;
+	r = mailbox_user_flag(pctx->mailbox, (const char *)prop->name, &userflag, 1);
+	if (r) goto done;
+	isset = pctx->record->user_flags[userflag/32] & (1<<userflag%31);
+	if (set) {
+	    if (isset) goto done;
+	    pctx->record->user_flags[userflag/32] |= (1<<userflag%31);
+	}
+	else {
+	    if (!isset) goto done;
+	    pctx->record->user_flags[userflag/32] &= ~(1<<userflag%31);
+	}
+	r = mailbox_rewrite_index_record(pctx->mailbox, pctx->record);
+	goto done;
+    }
+
+    /* otherwise it's a database annotation */
+
+    buf_reset(&pctx->buf);
+    buf_printf(&pctx->buf, ANNOT_NS "<%s>%s",
+	       (const char *) prop->ns->href, prop->name);
+
+    if (set) {
+	freeme = xmlNodeGetContent(prop);
+	buf_init_ro_cstr(&value, (const char *)freeme);
+    }
+
+    r = mailbox_get_annotate_state(pctx->mailbox, pctx->record->uid, &astate);
+    if (!r) r = annotate_state_writemask(astate, buf_cstring(&pctx->buf), httpd_userid, &value);
+
+ done:
+
+    if (!r) {
+	xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+		     prop->name, prop->ns, NULL, 0);
+    }
+    else {
+	xml_add_prop(HTTP_SERVER_ERROR, pctx->ns[NS_DAV],
+		     &propstat[PROPSTAT_ERROR], prop->name, prop->ns, NULL, 0);
+    }
+
+    if (freeme) xmlFree(freeme);
+
+    return 0;
+}
+
+
+/* Callback to read a property from annotation DB */
+static int propfind_fromresource(const xmlChar *name, xmlNsPtr ns,
+		    struct propfind_ctx *fctx,
+		    xmlNodePtr resp __attribute__((unused)),
+		    struct propstat propstat[],
+		    void *rock __attribute__((unused)))
+{
+    struct buf attrib = BUF_INITIALIZER;
+    xmlNodePtr node;
+    int r = 0; /* default no error */
+
+    if (!strcmp((const char *)ns->href, XML_NS_SYSFLAG)) {
+	struct flaggedresources *frp;
+	int isset;
+	for (frp = fres; frp->name; frp++) {
+	    if (strcasecmp((const char *)name, frp->name)) continue;
+	    isset = fctx->record->system_flags & frp->flag;
+	    if (isset)
+		buf_setcstr(&attrib, "1");
+	    goto done;
+	}
+	goto done;
+    }
+
+    if (!strcmp((const char *)ns->href, XML_NS_USERFLAG)) {
+	int userflag = 0;
+	int isset;
+	r = mailbox_user_flag(fctx->mailbox, (const char *)name, &userflag, 0);
+	if (r) goto done;
+	isset = fctx->record->user_flags[userflag/32] & (1<<userflag%31);
+	if (isset)
+	    buf_setcstr(&attrib, "1");
+	goto done;
+    }
+
+    /* otherwise it's a DB annotation */
+
+    buf_reset(&fctx->buf);
+    buf_printf(&fctx->buf, ANNOT_NS "<%s>%s",
+	       (const char *) ns->href, name);
+
+    r = annotatemore_msg_lookupmask(fctx->mailbox->name, fctx->record->uid,
+				    buf_cstring(&fctx->buf), httpd_userid, &attrib);
+
+done:
+    if (r) return HTTP_SERVER_ERROR;
+    if (!buf_len(&attrib)) return HTTP_NOT_FOUND;
+
+    node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
+			name, ns, NULL, 0);
+    xmlAddChild(node, xmlNewCDataBlock(fctx->root->doc,
+				       BAD_CAST buf_cstring(&attrib), buf_len(&attrib)));
+
+    return 0;
+}
+
 
 /* Callback to read a property from annotation DB */
 int propfind_fromdb(const xmlChar *name, xmlNsPtr ns,
@@ -1837,64 +2022,70 @@ int propfind_fromdb(const xmlChar *name, xmlNsPtr ns,
 		    struct propstat propstat[],
 		    void *rock __attribute__((unused)))
 {
-    struct annotation_data attrib;
+    struct buf attrib = BUF_INITIALIZER;
     xmlNodePtr node;
     int r = 0;
+
+    if (fctx->req_tgt->resource)
+	return propfind_fromresource(name, ns, fctx, NULL, propstat, NULL);
 
     buf_reset(&fctx->buf);
     buf_printf(&fctx->buf, ANNOT_NS "<%s>%s",
 	       (const char *) ns->href, name);
 
-    memset(&attrib, 0, sizeof(struct annotation_data));
-
     if (fctx->mailbox && !fctx->record &&
-	!(r = annotatemore_lookup(fctx->mailbox->name, buf_cstring(&fctx->buf),
-				  /* shared */ "", &attrib))) {
-	if (!attrib.value && 
+	!(r = annotatemore_lookupmask(fctx->mailbox->name, buf_cstring(&fctx->buf),
+				      httpd_userid, &attrib))) {
+	if (!buf_len(&attrib) &&
 	    !xmlStrcmp(name, BAD_CAST "displayname")) {
 	    /* Special case empty displayname -- use last segment of path */
-	    attrib.value = strrchr(fctx->mailbox->name, '.') + 1;
-	    attrib.size = strlen(attrib.value);
+	    buf_setcstr(&attrib, strrchr(fctx->mailbox->name, '.') + 1);
 	}
     }
 
     if (r) return HTTP_SERVER_ERROR;
-    if (!attrib.value) return HTTP_NOT_FOUND;
+    if (!buf_len(&attrib)) return HTTP_NOT_FOUND;
 
     node = xml_add_prop(HTTP_OK, fctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 			name, ns, NULL, 0);
     xmlAddChild(node, xmlNewCDataBlock(fctx->root->doc,
-				       BAD_CAST attrib.value, attrib.size));
+				       BAD_CAST buf_cstring(&attrib), buf_len(&attrib)));
 
     return 0;
 }
-
 
 /* Callback to write a property to annotation DB */
 int proppatch_todb(xmlNodePtr prop, unsigned set,
 		   struct proppatch_ctx *pctx,
 		   struct propstat propstat[],
-		   void *rock __attribute__((unused)))
+		   void *rock)
 {
     xmlChar *freeme = NULL;
-    const char *value = NULL;
-    size_t len = 0;
+    annotate_state_t *astate = NULL;
+    struct buf value = BUF_INITIALIZER;
     int r;
+
+    if (pctx->req_tgt->resource)
+	return proppatch_toresource(prop, set, pctx, propstat, NULL);
 
     buf_reset(&pctx->buf);
     buf_printf(&pctx->buf, ANNOT_NS "<%s>%s",
 	       (const char *) prop->ns->href, prop->name);
 
     if (set) {
-	freeme = xmlNodeGetContent(prop);
-	value = (const char *) freeme;
-	len = strlen(value);
+	if (rock) {
+	    buf_init_ro_cstr(&value, (const char *)rock);
+	}
+	else {
+	    freeme = xmlNodeGetContent(prop);
+	    buf_init_ro_cstr(&value, (const char *)freeme);
+	}
     }
 
-    if (!(r = annotatemore_write_entry(pctx->mailboxname,
-				       buf_cstring(&pctx->buf), /* shared */ "",
-				       value, NULL, len, 0,
-				       &pctx->tid))) {
+    r = mailbox_get_annotate_state(pctx->mailbox, 0, &astate);
+    if (!r) r = annotate_state_writemask(astate, buf_cstring(&pctx->buf), httpd_userid, &value);
+
+    if (!r) {
 	xml_add_prop(HTTP_OK, pctx->ns[NS_DAV], &propstat[PROPSTAT_OK],
 		     prop->name, prop->ns, NULL, 0);
     }
@@ -1911,8 +2102,9 @@ int proppatch_todb(xmlNodePtr prop, unsigned set,
 
 /* annotemore_findall callback for adding dead properties (allprop/propname) */
 static int allprop_cb(const char *mailbox __attribute__((unused)),
+		      uint32_t uid __attribute__((unused)),
 		      const char *entry,
-		      const char *userid, struct annotation_data *attrib,
+		      const char *userid, const struct buf *attrib,
 		      void *rock)
 {
     struct allprop_rock *arock = (struct allprop_rock *) rock;
@@ -1958,8 +2150,7 @@ static int allprop_cb(const char *mailbox __attribute__((unused)),
 
     if (arock->fctx->mode == PROPFIND_ALL) {
 	xmlAddChild(node, xmlNewCDataBlock(arock->fctx->root->doc,
-					   BAD_CAST attrib->value,
-					   attrib->size));
+					   BAD_CAST attrib->s, attrib->len));
     }
 
     return 0;
@@ -1991,10 +2182,11 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
     int ret = 0;
     xmlNodePtr prop;
     const struct prop_entry *entry;
+    struct propfind_entry_list *tail = NULL;
 
-    if (fctx->mode == PROPFIND_ALL || fctx->mode == PROPFIND_NAME) {
-	xmlNsPtr nsDef;
-
+    switch (fctx->mode) {
+    case PROPFIND_ALL:
+    case PROPFIND_NAME:
 	/* Add live properties for allprop/propname */
 	for (entry = fctx->lprops; entry->name; entry++) {
 	    if (entry->flags & PROP_ALLPROP) {
@@ -2016,17 +2208,28 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 			nentry->get = entry->get;
 			nentry->rock = entry->rock;
 		    }
-		    nentry->next = fctx->elist;
-		    fctx->elist = nentry;
+
+		    /* Append new entry to linked list */
+		    if (tail) {
+			tail->next = nentry;
+			tail = nentry;
+		    }
+		    else tail = fctx->elist = nentry;
 		}
 	    }
 	}
+	/* Fall through and build hash table of namespaces */
 
+    case PROPFIND_EXPAND:
 	/* Add all namespaces attached to the response to our hash table */
-	construct_hash_table(fctx->ns_table, 10, 1);
+	if (!fctx->ns_table->size) {
+	    xmlNsPtr nsDef;
 
-	for (nsDef = fctx->root->nsDef; nsDef; nsDef = nsDef->next) {
-	    hash_insert((const char *) nsDef->href, nsDef, fctx->ns_table);
+	    construct_hash_table(fctx->ns_table, 10, 1);
+
+	    for (nsDef = fctx->root->nsDef; nsDef; nsDef = nsDef->next) {
+		hash_insert((const char *) nsDef->href, nsDef, fctx->ns_table);
+	    }
 	}
     }
 
@@ -2034,10 +2237,52 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
     for (prop = proplist; !*fctx->ret && prop; prop = prop->next) {
 	if (prop->type == XML_ELEMENT_NODE) {
 	    struct propfind_entry_list *nentry;
+	    xmlChar *name, *namespace = NULL;
+	    xmlNsPtr ns = prop->ns;
+	    const char *ns_href = (const char *) ns->href;
+	    unsigned i;
+
+	    if (fctx->mode == PROPFIND_EXPAND) {
+		/* Get name/namespace from <property> */
+		name = xmlGetProp(prop, BAD_CAST "name");
+		namespace = xmlGetProp(prop, BAD_CAST "namespace");
+
+		if (namespace) {
+		    ns_href = (const char *) namespace;
+
+		    /* Look for this namespace in hash table */
+		    ns = hash_lookup(ns_href, fctx->ns_table);
+		    if (!ns) {
+			char prefix[6];
+			snprintf(prefix, sizeof(prefix),
+				 "X%X", strhash(ns_href) & 0xffff);
+			ns = xmlNewNs(fctx->root,
+				      BAD_CAST ns_href, BAD_CAST prefix);
+			hash_insert(ns_href, ns, fctx->ns_table);
+		    }
+		}
+	    }
+	    else {
+		/* node IS the property */
+		name = xmlStrdup(prop->name);
+	    }
+
+	    /* Look for this namespace in our known array */
+	    for (i = 0; i < NUM_NAMESPACE; i++) {
+		if (!strcmp(ns_href, known_namespaces[i].href)) {
+		    ensure_ns(fctx->ns, i, fctx->root,
+			      known_namespaces[i].href,
+			      known_namespaces[i].prefix);
+		    ns = fctx->ns[i];
+		    break;
+		}
+	    }
+
+	    if (namespace) xmlFree(namespace);
 
 	    /* Look for a match against our known properties */
 	    for (entry = fctx->lprops;
-		 entry->name && 
+		 entry->name &&
 		     (strcmp((const char *) prop->name, entry->name) ||
 		      strcmp((const char *) prop->ns->href,
 			     known_namespaces[entry->ns].href));
@@ -2045,17 +2290,19 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 
 	    /* Skip properties already included by allprop */
 	    if (fctx->mode == PROPFIND_ALL && (entry->flags & PROP_ALLPROP))
-		continue;		
+		continue;
 
 	    nentry = xzmalloc(sizeof(struct propfind_entry_list));
-	    nentry->name = prop->name;
-	    nentry->ns = prop->ns;
+	    nentry->name = name;
+	    nentry->ns = ns;
 	    if (entry->name) {
 		/* Found a match - Pre-screen request based on prop flags */
 		if (prescreen_prop(entry, prop, fctx)) {
 		    nentry->flags = entry->flags;
 		    nentry->get = entry->get;
-		    if (entry->flags & PROP_NEEDPROP)
+		    if ((entry->flags & PROP_NEEDPROP) ||
+			((entry->flags & PROP_EXPAND) &&
+			 fctx->mode == PROPFIND_EXPAND))
 			nentry->rock = prop;
 		    else
 			nentry->rock = entry->rock;
@@ -2063,13 +2310,18 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 		ret = *fctx->ret;
 	    }
 	    else {
-		/* No match, treat as a dead property */
-		nentry->flags = PROP_COLLECTION;
+		/* No match, treat as a dead property.  Need to look for both collections
+		 * resources */
+		nentry->flags = PROP_COLLECTION | PROP_RESOURCE;
 		nentry->get = propfind_fromdb;
-		nentry->rock = NULL;
 	    }
-	    nentry->next = fctx->elist;
-	    fctx->elist = nentry;
+
+	    /* Append new entry to linked list */
+	    if (tail) {
+		tail->next = nentry;
+		tail = nentry;
+	    }
+	    else tail = fctx->elist = nentry;
 	}
     }
 
@@ -2247,8 +2499,8 @@ int meth_acl(struct transaction_t *txn, void *params)
     int ret = 0, r, rights;
     xmlDocPtr indoc = NULL;
     xmlNodePtr root, ace;
-    char *server, *aclstr;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct buf acl = BUF_INITIALIZER;
 
     /* Response should not be cached */
@@ -2266,7 +2518,8 @@ int meth_acl(struct transaction_t *txn, void *params)
     }
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &aclstr, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -2278,40 +2531,34 @@ int meth_acl(struct transaction_t *txn, void *params)
 	}
     }
 
-    if (!mboxname_userownsmailbox(httpd_userid, txn->req_tgt.mboxname)) {
+    if (!mboxname_userownsmailbox(httpd_userid, mbentry->name)) {
 	/* Check ACL for current user */
-	rights =  aclstr ? cyrus_acl_myrights(httpd_authstate, aclstr) : 0;
+	rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
 	if (!(rights & DACL_ADMIN)) {
 	    /* DAV:need-privileges */
 	    txn->error.precond = DAV_NEED_PRIVS;
 	    txn->error.resource = txn->req_tgt.path;
 	    txn->error.rights = DACL_ADMIN;
+	    mboxlist_entry_free(&mbentry);
 	    return HTTP_NO_PRIVS;
 	}
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
 
-    /* Local Mailbox */
+    mboxlist_entry_free(&mbentry);
 
-    /* Open mailbox for writing */
-    r = mailbox_open_iwl(txn->req_tgt.mboxname, &mailbox);
-    if (r) {
-	syslog(LOG_ERR, "http_mailbox_open(%s) failed: %s",
-	       txn->req_tgt.mboxname, error_message(r));
-	txn->error.desc = error_message(r);
-	ret = HTTP_SERVER_ERROR;
-	goto done;
-    }
+    /* Local Mailbox */
 
     /* Parse the ACL body */
     ret = parse_xml_body(txn, &root);
@@ -2449,6 +2696,9 @@ int meth_acl(struct transaction_t *txn, void *params)
 					    BAD_CAST "read"))
 			    rights |= DACL_READ;
 			else if (!xmlStrcmp(priv->name,
+					    BAD_CAST "read-free-busy"))
+			    rights |= DACL_READFB;
+			else if (!xmlStrcmp(priv->name,
 					    BAD_CAST "write"))
 			    rights |= DACL_WRITE;
 			else if (!xmlStrcmp(priv->name,
@@ -2457,6 +2707,12 @@ int meth_acl(struct transaction_t *txn, void *params)
 			else if (!xmlStrcmp(priv->name,
 					    BAD_CAST "write-properties"))
 			    rights |= DACL_WRITEPROPS;
+			else if (!xmlStrcmp(priv->name,
+					    BAD_CAST "remove-resource"))
+			    rights |= DACL_RMRSRC;
+			else if (!xmlStrcmp(priv->name,
+					    BAD_CAST "remove-collection"))
+			    rights |= DACL_RMCOL;
 			else if (!xmlStrcmp(priv->name,
 					    BAD_CAST "bind"))
 			    rights |= DACL_BIND;
@@ -2517,27 +2773,30 @@ int meth_acl(struct transaction_t *txn, void *params)
 		}
 	    }
 
-	    cyrus_acl_masktostr(rights, rightstr);
-	    buf_printf(&acl, "%s%s\t%s\t",
-		       deny ? "-" : "", userid, rightstr);
+	    /* gotta have something to do! */
+	    if (rights) {
+		cyrus_acl_masktostr(rights, rightstr);
+		buf_reset(&acl);
+		buf_printf(&acl, "%s%s", deny ? "-" : "+", rightstr);
+
+		r = mboxlist_setacl(&httpd_namespace, txn->req_tgt.mboxname, userid, buf_cstring(&acl),
+				    /*isadmin*/1, httpd_userid, httpd_authstate);
+		if (r) {
+		    syslog(LOG_ERR, "mboxlist_setacl(%s) failed: %s",
+			txn->req_tgt.mboxname, error_message(r));
+		    txn->error.desc = error_message(r);
+		    ret = HTTP_SERVER_ERROR;
+		    goto done;
+		}
+	    }
 	}
     }
-
-    if ((r = mboxlist_sync_setacls(txn->req_tgt.mboxname, buf_cstring(&acl)))) {
-	syslog(LOG_ERR, "mboxlist_sync_setacls(%s) failed: %s",
-	       txn->req_tgt.mboxname, error_message(r));
-	txn->error.desc = error_message(r);
-	ret = HTTP_SERVER_ERROR;
-	goto done;
-    }
-    mailbox_set_acl(mailbox, buf_cstring(&acl), 0);
 
     response_header(HTTP_OK, txn);
 
   done:
     buf_free(&acl);
     if (indoc) xmlFreeDoc(indoc);
-    mailbox_close(&mailbox);
 
     return ret;
 }
@@ -2555,9 +2814,9 @@ int meth_copy(struct transaction_t *txn, void *params)
     const char **hdr;
     xmlURIPtr dest_uri;
     static struct request_target_t dest_tgt;  /* Parsed destination URL */
-    char *server, *acl;
     struct backend *src_be = NULL, *dest_be = NULL;
     struct mailbox *src_mbox = NULL, *dest_mbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record src_rec;
     const char *etag = NULL;
@@ -2605,7 +2864,7 @@ int meth_copy(struct transaction_t *txn, void *params)
     if (!dest_tgt.resource) return HTTP_NOT_ALLOWED;
 
     /* Locate the source mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    if ((r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL))) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -2618,7 +2877,7 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user on source mailbox */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if (((rights & DACL_READ) != DACL_READ) ||
 	((txn->meth == METH_MOVE) && !(rights & DACL_RMRSRC))) {
 	/* DAV:need-privileges */
@@ -2626,18 +2885,23 @@ int meth_copy(struct transaction_t *txn, void *params)
 	txn->error.resource = txn->req_tgt.path;
 	txn->error.rights =
 	    (rights & DACL_READ) != DACL_READ ? DACL_READ : DACL_RMRSRC;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote source mailbox */
-	src_be = proxy_findserver(server, &http_protocol, proxy_userid,
+	src_be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!src_be) return HTTP_UNAVAILABLE;
     }
 
+    mboxlist_entry_free(&mbentry);
+
     /* Locate the destination mailbox */
-    if ((r = http_mlookup(dest_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(dest_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       dest_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -2650,22 +2914,26 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user on destination */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if (!(rights & DACL_ADDRSRC) || !(rights & DACL_WRITECONT)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = dest_tgt.path;
 	txn->error.rights =
 	    !(rights & DACL_ADDRSRC) ? DACL_ADDRSRC : DACL_WRITECONT;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote destination mailbox */
-	dest_be = proxy_findserver(server, &http_protocol, proxy_userid,
+	dest_be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				   &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!dest_be) return HTTP_UNAVAILABLE;
     }
+
+    mboxlist_entry_free(&mbentry);
 
     if (src_be) {
 	/* Remote source mailbox */
@@ -2781,9 +3049,21 @@ int meth_copy(struct transaction_t *txn, void *params)
     if ((txn->meth == METH_MOVE) && (dest_mbox == src_mbox))
 	flags |= NO_DUP_CHECK;
 
+    r = mailbox_lock_index(dest_mbox, LOCK_EXCLUSIVE);
+    if (r) {
+	syslog(LOG_ERR, "relock index(%s) failed: %s",
+	       txn->req_tgt.mboxname, error_message(r));
+	txn->error.desc = error_message(r);
+	ret = HTTP_SERVER_ERROR;
+	goto done;
+    }
+
     /* Parse, validate, and store the resource */
     ret = cparams->copy(txn, src_mbox, &src_rec, dest_mbox, dest_tgt.resource,
 			dest_davdb, overwrite, flags);
+
+    /* we're done, no need to keep this */
+    mailbox_unlock_index(dest_mbox, NULL);
 
     /* For MOVE, we need to delete the source resource */
     if ((txn->meth == METH_MOVE) &&
@@ -2793,7 +3073,7 @@ int meth_copy(struct transaction_t *txn, void *params)
 
 	/* Find message UID for the source resource */
 	cparams->davdb.lookup_resource(src_davdb, txn->req_tgt.mboxname,
-				       txn->req_tgt.resource, 1, (void **) &ddata);
+				       txn->req_tgt.resource, 0, (void **) &ddata);
 	/* XXX  Check errors */
 
 	/* Fetch index record for the source resource */
@@ -2835,9 +3115,10 @@ int meth_copy(struct transaction_t *txn, void *params)
 int meth_delete(struct transaction_t *txn, void *params)
 {
     struct meth_params *dparams = (struct meth_params *) params;
-    int ret = HTTP_NO_CONTENT, r, precond, rights;
-    char *server, *acl;
+    int ret = HTTP_NO_CONTENT, r = 0, precond, rights;
+    struct mboxevent *mboxevent = NULL;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record record;
     const char *etag = NULL;
@@ -2848,14 +3129,16 @@ int meth_delete(struct transaction_t *txn, void *params)
     txn->flags.cc |= CC_NOCACHE;
 
     /* Parse the path */
-    if ((r = dparams->parse_path(txn->req_uri->path,
-				 &txn->req_tgt, &txn->error.desc))) return r;
+    r = dparams->parse_path(txn->req_uri->path,
+				 &txn->req_tgt, &txn->error.desc);
+    if (r) return r;
 
     /* Make sure method is allowed */
     if (!(txn->req_tgt.allow & ALLOW_DELETE)) return HTTP_NOT_ALLOWED; 
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -2868,29 +3151,29 @@ int meth_delete(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
-    if (txn->req_tgt.resource) {
-	if (!(rights & DACL_RMRSRC)) txn->error.rights = DACL_RMRSRC;
-    }
-    else if (!(rights & DACL_RMCOL)) txn->error.rights = DACL_RMCOL;
-
-    if (txn->error.rights) {
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
+    if ((txn->req_tgt.resource && !(rights & DACL_RMRSRC)) ||
+	!(rights & DACL_RMCOL)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = txn->req_tgt.path;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     /* Local Mailbox */
 
@@ -2914,20 +3197,29 @@ int meth_delete(struct transaction_t *txn, void *params)
 
 	mailbox_close(&mailbox);
 
-	r = mboxlist_deletemailbox(txn->req_tgt.mboxname,
-				   httpd_userisadmin || httpd_userisproxyadmin,
-				   httpd_userid, httpd_authstate,
-				   1, 0, 0);
+	mboxevent = mboxevent_new(EVENT_MAILBOX_DELETE);
+
+	if (mboxlist_delayed_delete_isenabled()) {
+	    r = mboxlist_delayed_deletemailbox(txn->req_tgt.mboxname,
+				       httpd_userisadmin || httpd_userisproxyadmin,
+				       httpd_userid, httpd_authstate, mboxevent,
+				       /*checkack*/1, /*localonly*/0, /*force*/0);
+	}
+	else {
+	    r = mboxlist_deletemailbox(txn->req_tgt.mboxname,
+				       httpd_userisadmin || httpd_userisproxyadmin,
+				       httpd_userid, httpd_authstate, mboxevent,
+				       /*checkack*/1, /*localonly*/0, /*force*/0);
+	}
 	if (!r) dparams->davdb.delete_mbox(davdb, txn->req_tgt.mboxname, 0);
-	else if (r == IMAP_PERMISSION_DENIED) ret = HTTP_FORBIDDEN;
+	if (r == IMAP_PERMISSION_DENIED) ret = HTTP_FORBIDDEN;
 	else if (r == IMAP_MAILBOX_NONEXISTENT) ret = HTTP_NOT_FOUND;
 	else if (r) ret = HTTP_SERVER_ERROR;
 
 	dparams->davdb.close_db(davdb);
 
-	return ret;
+	goto done;
     }
-
 
     /* DELETE resource */
 
@@ -2992,13 +3284,22 @@ int meth_delete(struct transaction_t *txn, void *params)
 	/* Expunge the resource */
 	record.system_flags |= FLAG_EXPUNGED;
 
-	if ((r = mailbox_rewrite_index_record(mailbox, &record))) {
+	mboxevent = mboxevent_new(EVENT_MESSAGE_EXPUNGE);
+
+	r = mailbox_rewrite_index_record(mailbox, &record);
+
+	if (r) {
 	    syslog(LOG_ERR, "expunging record (%s) failed: %s",
 		   txn->req_tgt.mboxname, error_message(r));
 	    txn->error.desc = error_message(r);
 	    ret = HTTP_SERVER_ERROR;
 	    goto done;
 	}
+
+	mboxevent_extract_record(mboxevent, mailbox, &record);
+	mboxevent_extract_mailbox(mboxevent, mailbox);
+	mboxevent_set_numunseen(mboxevent, mailbox, -1);
+	mboxevent_set_access(mboxevent, NULL, NULL, httpd_userid, txn->req_tgt.mboxname, 0);
     }
 
     /* Do any special processing */
@@ -3007,6 +3308,10 @@ int meth_delete(struct transaction_t *txn, void *params)
   done:
     if (davdb) dparams->davdb.close_db(davdb);
     mailbox_close(&mailbox);
+
+    if (!r)
+	mboxevent_notify(mboxevent);
+    mboxevent_free(&mboxevent);
 
     return ret;
 }
@@ -3019,20 +3324,23 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     const char **hdr;
     struct mime_type_t *mime;
     int ret = 0, r, precond, rights;
-    const char *msg_base = NULL, *data = NULL;
-    unsigned long msg_size = 0, datalen, offset;
+    const char *data = NULL;
+    unsigned long datalen, offset;
+    struct buf msg_buf = BUF_INITIALIZER;
     struct resp_body_t *resp_body = &txn->resp_body;
-    char *server, *acl, *freeme = NULL;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record record;
     const char *etag = NULL;
     time_t lastmod = 0;
     void *davdb = NULL;
+    char *freeme = NULL;
 
     /* Parse the path */
-    if ((r = gparams->parse_path(txn->req_uri->path,
-				 &txn->req_tgt, &txn->error.desc))) return r;
+    ret = gparams->parse_path(txn->req_uri->path,
+			      &txn->req_tgt, &txn->error.desc);
+    if (ret) return ret;
 
     /* We don't handle GET on a collection (yet) */
     if (!txn->req_tgt.resource) return HTTP_NO_CONTENT;
@@ -3045,7 +3353,8 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     if (!mime) return HTTP_NOT_ACCEPTABLE;
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -3058,25 +3367,29 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
-    if ((rights & DACL_READ) != DACL_READ) {
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
+    if (!(rights & DACL_READ)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = txn->req_tgt.path;
 	txn->error.rights = DACL_READ;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     /* Local Mailbox */
 
@@ -3085,8 +3398,6 @@ int meth_get_dav(struct transaction_t *txn, void *params)
     if (r) {
 	syslog(LOG_ERR, "http_mailbox_open(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
-	txn->error.desc = error_message(r);
-	ret = HTTP_SERVER_ERROR;
 	goto done;
     }
 
@@ -3154,12 +3465,13 @@ int meth_get_dav(struct transaction_t *txn, void *params)
 
 	if (txn->meth == METH_GET) {
 	    /* Load message containing the resource */
-	    mailbox_map_message(mailbox, record.uid, &msg_base, &msg_size);
+	    r = mailbox_map_record(mailbox, &record, &msg_buf);
+	    if (r) goto done;
 
 	    /* iCalendar data in response should not be transformed */
 	    txn->flags.cc |= CC_NOTRANSFORM;
 
-	    data = msg_base + offset;
+	    data = buf_base(&msg_buf) + offset;
 
 	    if (mime != gparams->mime_types) {
 		/* Not the storage format - convert into requested MIME type */
@@ -3174,12 +3486,15 @@ int meth_get_dav(struct transaction_t *txn, void *params)
 
     write_body(precond, txn, data, datalen);
 
-    if (msg_base)
-	mailbox_unmap_message(mailbox, record.uid, &msg_base, &msg_size);
-    if (freeme) free(freeme);
+    buf_free(&msg_buf);
 
   done:
     if (davdb) gparams->davdb.close_db(davdb);
+    if (r) {
+	txn->error.desc = error_message(r);
+	ret = HTTP_SERVER_ERROR;
+    }
+    free(freeme);
     mailbox_close(&mailbox);
 
     return ret;
@@ -3197,8 +3512,8 @@ int meth_lock(struct transaction_t *txn, void *params)
 {
     struct meth_params *lparams = (struct meth_params *) params;
     int ret = HTTP_OK, r, precond, rights;
-    char *server, *acl;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record oldrecord;
     const char *etag;
@@ -3223,7 +3538,8 @@ int meth_lock(struct transaction_t *txn, void *params)
     if (!(txn->req_tgt.allow & ALLOW_WRITE)) return HTTP_NOT_ALLOWED; 
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -3236,26 +3552,30 @@ int meth_lock(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if (!(rights & DACL_WRITECONT) || !(rights & DACL_ADDRSRC)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = txn->req_tgt.path;
 	txn->error.rights =
 	    !(rights & DACL_WRITECONT) ? DACL_WRITECONT : DACL_ADDRSRC;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     /* Local Mailbox */
 
@@ -3464,6 +3784,7 @@ int meth_mkcol(struct transaction_t *txn, void *params)
     xmlNsPtr ns[NUM_NAMESPACE];
     char *partition = NULL;
     struct proppatch_ctx pctx;
+    struct mailbox *mailbox = NULL;
 
     memset(&pctx, 0, sizeof(struct proppatch_ctx));
 
@@ -3503,6 +3824,7 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 
     default:
 	ret = HTTP_SERVER_ERROR;
+	txn->error.desc = error_message(r);
 	goto done;
     }
 
@@ -3547,7 +3869,16 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	instr = root->children;
     }
 
-    if (instr) {
+    /* Create the mailbox */
+    r = mboxlist_createmailbox(txn->req_tgt.mboxname, mparams->mkcol.mbtype,
+			       partition,
+			       httpd_userisadmin || httpd_userisproxyadmin,
+			       httpd_userid, httpd_authstate,
+			       /*localonly*/0, /*forceuser*/0,
+			       /*dbonly*/0, /*notify*/0,
+			       &mailbox);
+
+    if (instr && !r) {
 	/* Start construction of our mkcol/mkcalendar response */
 	if (txn->meth == METH_MKCOL)
 	    root = init_xml_response("mkcol-response", NS_DAV, root, ns);
@@ -3565,7 +3896,7 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	/* Populate our proppatch context */
 	pctx.req_tgt = &txn->req_tgt;
 	pctx.meth = txn->meth;
-	pctx.mailboxname = txn->req_tgt.mboxname;
+	pctx.mailbox = mailbox;
 	pctx.lprops = mparams->lprops;
 	pctx.root = root;
 	pctx.ns = ns;
@@ -3574,11 +3905,10 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	pctx.ret = &r;
 
 	/* Execute the property patch instructions */
-	ret = do_proppatch(&pctx, instr);
+	if (!r) ret = do_proppatch(&pctx, instr);
 
 	if (ret || r) {
 	    /* Something failed.  Abort the txn and change the OK status */
-	    annotatemore_abort(pctx.tid);
 
 	    if (!ret) {
 		/* Error response MUST be a multistatus */
@@ -3594,13 +3924,6 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	}
     }
 
-    /* Create the mailbox */
-    r = mboxlist_createmailbox(txn->req_tgt.mboxname, mparams->mkcol.mbtype,
-			       partition, 
-			       httpd_userisadmin || httpd_userisproxyadmin,
-			       httpd_userid, httpd_authstate,
-			       0, 0, 0);
-
     if (!r) ret = HTTP_CREATED;
     else if (r == IMAP_PERMISSION_DENIED) ret = HTTP_NO_PRIVS;
     else if (r == IMAP_MAILBOX_EXISTS) {
@@ -3612,19 +3935,9 @@ int meth_mkcol(struct transaction_t *txn, void *params)
 	ret = HTTP_SERVER_ERROR;
     }
 
-    if (instr) {
-	if (r) {
-	    /* Failure.  Abort the txn */
-	    annotatemore_abort(pctx.tid);
-	}
-	else {
-	    /* Success.  Commit the txn */
-	    annotatemore_commit(pctx.tid);
-	}
-    }
-
   done:
     buf_free(&pctx.buf);
+    mailbox_close(&mailbox);
 
     if (partition) free(partition);
     if (outdoc) xmlFreeDoc(outdoc);
@@ -3665,8 +3978,7 @@ int propfind_by_resource(void *rock, void *data)
     fctx->data = data;
     if (ddata->imap_uid && !fctx->record) {
 	/* Fetch index record for the resource */
-	r = mailbox_find_index_record(fctx->mailbox, ddata->imap_uid,
-				      &record);
+	r = mailbox_find_index_record(fctx->mailbox, ddata->imap_uid, &record);
 	/* XXX  Check errors */
 
 	fctx->record = r ? NULL : &record;
@@ -3676,23 +3988,12 @@ int propfind_by_resource(void *rock, void *data)
 	/* Add response for missing target */
 	ret = xml_add_response(fctx, HTTP_NOT_FOUND, 0);
     }
-    else {
-	int add_it = 1;
-
-	if (fctx->filter) add_it = fctx->filter(fctx, data);
-
-	if (add_it) {
-	    /* Add response for target */
-	    ret = xml_add_response(fctx, 0, 0);
-	}
+    else if (!fctx->filter || fctx->filter(fctx, data)) {
+	/* Add response for target */
+	ret = xml_add_response(fctx, 0, 0);
     }
 
-    if (fctx->msg_base) {
-	mailbox_unmap_message(fctx->mailbox, ddata->imap_uid,
-			      &fctx->msg_base, &fctx->msg_size);
-    }
-    fctx->msg_base = NULL;
-    fctx->msg_size = 0;
+    buf_free(&fctx->msg_buf);
     fctx->record = NULL;
     fctx->data = NULL;
 
@@ -3706,7 +4007,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
 			   void *rock)
 {
     struct propfind_ctx *fctx = (struct propfind_ctx *) rock;
-    struct mboxlist_entry mbentry;
+    mbentry_t *mbentry = NULL;
     struct mailbox *mailbox = NULL;
     char *p;
     size_t len;
@@ -3725,7 +4026,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
 	goto done;
     }
 
-    rights = mbentry.acl ? cyrus_acl_myrights(httpd_authstate, mbentry.acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if ((rights & fctx->reqd_privs) != fctx->reqd_privs) goto done;
 
     /* Open mailbox for reading */
@@ -3801,6 +4102,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
     }
 
   done:
+    mboxlist_entry_free(&mbentry);
     if (mailbox) mailbox_close(&mailbox);
 
     return r;
@@ -3808,7 +4110,7 @@ int propfind_by_collection(char *mboxname, int matchlen,
 
 
 /* Perform a PROPFIND request */
-int meth_propfind(struct transaction_t *txn, void *params)
+EXPORTED int meth_propfind(struct transaction_t *txn, void *params)
 {
     struct meth_params *fparams = (struct meth_params *) params;
     int ret = 0, r;
@@ -3824,29 +4126,38 @@ int meth_propfind(struct transaction_t *txn, void *params)
     memset(&fctx, 0, sizeof(struct propfind_ctx));
 
     /* Parse the path */
-    if (fparams->parse_path &&
-	(r = fparams->parse_path(txn->req_uri->path,
-				 &txn->req_tgt, &txn->error.desc))) return r;
+    if (fparams->parse_path) {
+	r = fparams->parse_path(txn->req_uri->path, &txn->req_tgt, &txn->error.desc);
+	if (r) return r;
+    }
 
     /* Make sure method is allowed */
-    if (!(txn->req_tgt.allow & ALLOW_DAV)) return HTTP_NOT_ALLOWED;
+    if (!(txn->req_tgt.allow & ALLOW_DAV))
+	return HTTP_NOT_ALLOWED;
 
     /* Check Depth */
     hdr = spool_getheader(txn->req_hdrs, "Depth");
     if (!hdr || !strcmp(hdr[0], "infinity")) {
 	depth = 2;
     }
-    else if (hdr && ((sscanf(hdr[0], "%u", &depth) != 1) || (depth > 1))) {
+    else if (!strcmp(hdr[0], "1")) {
+	depth = 1;
+    }
+    else if (!strcmp(hdr[0], "0")) {
+	depth = 0;
+    }
+    else {
 	txn->error.desc = "Illegal Depth value\r\n";
 	return HTTP_BAD_REQUEST;
     }
 
     if ((txn->req_tgt.namespace != URL_NS_PRINCIPAL) && txn->req_tgt.user) {
-	char *server, *acl;
+	mbentry_t *mbentry = NULL;
 	int rights;
 
 	/* Locate the mailbox */
-	if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+	r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+	if (r) {
 	    syslog(LOG_ERR, "mlookup(%s) failed: %s",
 		   txn->req_tgt.mboxname, error_message(r));
 	    txn->error.desc = error_message(r);
@@ -3859,26 +4170,30 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	}
 
 	/* Check ACL for current user */
-	rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+	rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
 	if ((rights & DACL_READ) != DACL_READ) {
 	    /* DAV:need-privileges */
 	    txn->error.precond = DAV_NEED_PRIVS;
 	    txn->error.resource = txn->req_tgt.path;
 	    txn->error.rights = DACL_READ;
+	    mboxlist_entry_free(&mbentry);
 	    ret = HTTP_NO_PRIVS;
 	    goto done;
 	}
 
-	if (server) {
+	if (mbentry->server) {
 	    /* Remote mailbox */
 	    struct backend *be;
 
-	    be = proxy_findserver(server, &http_protocol, proxy_userid,
+	    be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
+	    mboxlist_entry_free(&mbentry);
 	    if (!be) return HTTP_UNAVAILABLE;
 
 	    return http_pipe_req_resp(be, txn);
 	}
+
+	mboxlist_entry_free(&mbentry);
 
 	/* Local Mailbox */
     }
@@ -3904,7 +4219,7 @@ int meth_propfind(struct transaction_t *txn, void *params)
 
 	/* Make sure its a propfind element */
 	if (xmlStrcmp(root->name, BAD_CAST "propfind")) {
-	    txn->error.desc = "Missing propfind element in PROFIND request\r\n";
+	    txn->error.desc = "Missing propfind element in PROPFIND request\r\n";
 	    ret = HTTP_BAD_REQUEST;
 	    goto done;
 	}
@@ -3913,16 +4228,18 @@ int meth_propfind(struct transaction_t *txn, void *params)
 	for (cur = root->children;
 	     cur && cur->type != XML_ELEMENT_NODE; cur = cur->next);
 
+	if (!cur) {
+	    txn->error.desc = "Missing child node element in PROPFIND request\r\n";
+	    ret = HTTP_BAD_REQUEST;
+	    goto done;
+	}
+
 	/* Add propfind type to our header cache */
 	spool_cache_header(xstrdup(":type"), xstrdup((const char *) cur->name),
 			   txn->req_hdrs);
 
 	/* Make sure its a known element */
-	if (!cur) {
-	    ret = HTTP_BAD_REQUEST;
-	    goto done;
-	}
-	else if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
+	if (!xmlStrcmp(cur->name, BAD_CAST "allprop")) {
 	    fctx.mode = PROPFIND_ALL;
 	}
 	else if (!xmlStrcmp(cur->name, BAD_CAST "propname")) {
@@ -3955,7 +4272,8 @@ int meth_propfind(struct transaction_t *txn, void *params)
     }
 
     /* Start construction of our multistatus response */
-    if (!(root = init_xml_response("multistatus", NS_DAV, root, ns))) {
+    root = init_xml_response("multistatus", NS_DAV, root, ns);
+    if (!root) {
 	ret = HTTP_SERVER_ERROR;
 	txn->error.desc = "Unable to create XML response\r\n";
 	goto done;
@@ -3967,8 +4285,8 @@ int meth_propfind(struct transaction_t *txn, void *params)
     fctx.req_tgt = &txn->req_tgt;
     fctx.depth = depth;
     fctx.prefer |= get_preferences(txn);
+    fctx.req_hdrs = txn->req_hdrs;
     fctx.userid = proxy_userid;
-    fctx.int_userid = httpd_userid;
     fctx.userisadmin = httpd_userisadmin;
     fctx.authstate = httpd_authstate;
     fctx.mailbox = NULL;
@@ -3996,23 +4314,20 @@ int meth_propfind(struct transaction_t *txn, void *params)
     if (!txn->req_tgt.collection &&
 	(!depth || !(fctx.prefer & PREFER_NOROOT))) {
 	/* Add response for principal or home-set collection */
-	struct mailbox *mailbox = NULL;
-
 	if (*txn->req_tgt.mboxname) {
 	    /* Open mailbox for reading */
-	    if ((r = mailbox_open_irl(txn->req_tgt.mboxname, &mailbox))) {
+	    if ((r = mailbox_open_irl(txn->req_tgt.mboxname, &fctx.mailbox))) {
 		syslog(LOG_INFO, "mailbox_open_irl(%s) failed: %s",
 		       txn->req_tgt.mboxname, error_message(r));
 		txn->error.desc = error_message(r);
 		ret = HTTP_SERVER_ERROR;
 		goto done;
 	    }
-	    fctx.mailbox = mailbox;
 	}
 
 	xml_add_response(&fctx, 0, 0);
 
-	mailbox_close(&mailbox);
+	mailbox_close(&fctx.mailbox);
     }
 
     if (depth > 0) {
@@ -4049,6 +4364,7 @@ int meth_propfind(struct transaction_t *txn, void *params)
     while (elist) {
 	struct propfind_entry_list *freeme = elist;
 	elist = elist->next;
+	xmlFree(freeme->name);
 	free(freeme);
     }
 
@@ -4069,15 +4385,18 @@ int meth_propfind(struct transaction_t *txn, void *params)
  *   DAV:cannot-modify-protected-property
  *   CALDAV:valid-calendar-data (CALDAV:calendar-timezone)
  */
-int meth_proppatch(struct transaction_t *txn,  void *params)
+int meth_proppatch(struct transaction_t *txn, void *params)
 {
     struct meth_params *pparams = (struct meth_params *) params;
     int ret = 0, r = 0, rights;
     xmlDocPtr indoc = NULL, outdoc = NULL;
     xmlNodePtr root, instr, resp;
     xmlNsPtr ns[NUM_NAMESPACE];
-    char *server, *acl;
+    struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct proppatch_ctx pctx;
+    struct index_record record;
+    void *davdb = NULL;
 
     memset(&pctx, 0, sizeof(struct proppatch_ctx));
 
@@ -4088,15 +4407,14 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     if ((r = pparams->parse_path(txn->req_uri->path,
 				 &txn->req_tgt, &txn->error.desc))) return r;
 
-    /* Make sure method is allowed (only allowed on collections) */
-    if (!(txn->req_tgt.allow & ALLOW_WRITECOL))  {
-	txn->error.desc =
-	    "Properties can only be updated on collections\r\n";
+    if (!txn->req_tgt.collection) {
+	txn->error.desc = "PROPPATCH requires a collection";
 	return HTTP_NOT_ALLOWED;
     }
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -4109,33 +4427,43 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     }
 
     /* Check ACL for current user */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if (!(rights & DACL_WRITEPROPS)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = txn->req_tgt.path;
 	txn->error.rights = DACL_WRITEPROPS;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
 
+    mboxlist_entry_free(&mbentry);
+
     /* Local Mailbox */
+
+    r = mailbox_open_iwl(txn->req_tgt.mboxname, &mailbox);
+    if (r) {
+	syslog(LOG_ERR, "IOERROR: failed to open mailbox %s for proppatch", txn->req_tgt.mboxname);
+	return HTTP_SERVER_ERROR;
+    }
 
     /* Parse the PROPPATCH body */
     ret = parse_xml_body(txn, &root);
     if (!ret && !root) {
 	txn->error.desc = "Missing request body\r\n";
-	return HTTP_BAD_REQUEST;
+	ret = HTTP_BAD_REQUEST;
     }
     if (ret) goto done;
 
@@ -4145,14 +4473,15 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     if (xmlStrcmp(root->name, BAD_CAST "propertyupdate")) {
 	txn->error.desc =
 	    "Missing propertyupdate element in PROPPATCH request\r\n";
-	return HTTP_BAD_REQUEST;
+	ret = HTTP_BAD_REQUEST;
+	goto done;
     }
     instr = root->children;
 
     /* Start construction of our multistatus response */
     if (!(root = init_xml_response("multistatus", NS_DAV, root, ns))) {
-	ret = HTTP_SERVER_ERROR;
 	txn->error.desc = "Unable to create XML response\r\n";
+	ret = HTTP_SERVER_ERROR;
 	goto done;
     }
 
@@ -4166,7 +4495,8 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     /* Populate our proppatch context */
     pctx.req_tgt = &txn->req_tgt;
     pctx.meth = txn->meth;
-    pctx.mailboxname = txn->req_tgt.mboxname;
+    pctx.mailbox = mailbox;
+    pctx.record = NULL;
     pctx.lprops = pparams->lprops;
     pctx.root = resp;
     pctx.ns = ns;
@@ -4174,19 +4504,33 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     pctx.err = &txn->error;
     pctx.ret = &r;
 
+    if (txn->req_tgt.resource) {
+	struct dav_data *ddata;
+	/* gotta find the resource */
+	/* Open the DAV DB corresponding to the mailbox */
+	davdb = pparams->davdb.open_db(mailbox);
+
+	/* Find message UID for the resource */
+	pparams->davdb.lookup_resource(davdb, txn->req_tgt.mboxname,
+				       txn->req_tgt.resource, 0, (void **) &ddata);
+	if (!ddata->imap_uid) {
+	    ret = HTTP_NOT_FOUND;
+	    goto done;
+	}
+
+	memset(&record, 0, sizeof(struct index_record));
+	/* Mapped URL - Fetch index record for the resource */
+	r = mailbox_find_index_record(mailbox, ddata->imap_uid, &record);
+	if (r) {
+	    ret = HTTP_NOT_FOUND;
+	    goto done;
+	}
+
+	pctx.record = &record;
+    }
+
     /* Execute the property patch instructions */
     ret = do_proppatch(&pctx, instr);
-
-    if (ret || r) {
-	/* Something failed.  Abort the txn and change the OK status */
-	annotatemore_abort(pctx.tid);
-
-	if (ret) goto done;
-    }
-    else {
-	/* Success.  Commit the txn */
-	annotatemore_commit(pctx.tid);
-    }
 
     /* Output the XML response */
     if (!ret) {
@@ -4195,6 +4539,8 @@ int meth_proppatch(struct transaction_t *txn,  void *params)
     }
 
   done:
+    if (davdb) pparams->davdb.close_db(davdb);
+    mailbox_close(&mailbox);
     buf_free(&pctx.buf);
 
     if (outdoc) xmlFreeDoc(outdoc);
@@ -4265,12 +4611,12 @@ int meth_put(struct transaction_t *txn, void *params)
     int ret, r, precond, rights;
     const char **hdr, *etag;
     struct mime_type_t *mime = NULL;
-    char *server, *acl;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record oldrecord;
+    quota_t qdiffs[QUOTA_NUMRESOURCES] = QUOTA_DIFFS_INITIALIZER;
     time_t lastmod;
-    uquota_t size = 0;
     unsigned flags = 0;
     void *davdb = NULL;
 
@@ -4304,7 +4650,8 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -4317,26 +4664,30 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     /* Check ACL for current user */
-    rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
     if (!(rights & DACL_WRITECONT) || !(rights & DACL_ADDRSRC)) {
 	/* DAV:need-privileges */
 	txn->error.precond = DAV_NEED_PRIVS;
 	txn->error.resource = txn->req_tgt.path;
 	txn->error.rights =
 	    !(rights & DACL_WRITECONT) ? DACL_WRITECONT : DACL_ADDRSRC;
+	mboxlist_entry_free(&mbentry);
 	return HTTP_NO_PRIVS;
     }
 
-    if (server) {
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     /* Local Mailbox */
 
@@ -4415,8 +4766,8 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     /* Make sure we have a body */
-    size = buf_len(&txn->req_body.payload);
-    if (!size) {
+    qdiffs[QUOTA_STORAGE] = buf_len(&txn->req_body.payload);
+    if (!qdiffs[QUOTA_STORAGE]) {
 	txn->error.desc = "Missing request body\r\n";
 	ret = HTTP_BAD_REQUEST;
 	goto done;
@@ -4424,7 +4775,7 @@ int meth_put(struct transaction_t *txn, void *params)
 
     /* Check if we can append a new message to mailbox */
     if ((r = append_check(txn->req_tgt.mboxname,
-			  httpd_authstate, ACL_INSERT, size))) {
+			  httpd_authstate, ACL_INSERT, qdiffs))) {
 	syslog(LOG_ERR, "append_check(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -4433,6 +4784,15 @@ int meth_put(struct transaction_t *txn, void *params)
     }
 
     if (get_preferences(txn) & PREFER_REP) flags |= PREFER_REP;
+
+    r = mailbox_lock_index(mailbox, LOCK_EXCLUSIVE);
+    if (r) {
+	syslog(LOG_ERR, "relock index(%s) failed: %s",
+	       txn->req_tgt.mboxname, error_message(r));
+	txn->error.desc = error_message(r);
+	ret = HTTP_SERVER_ERROR;
+	goto done;
+    }
 
     /* Parse, validate, and store the resource */
     ret = pparams->put.proc(txn, mime, mailbox, davdb, flags);
@@ -4449,8 +4809,8 @@ int meth_put(struct transaction_t *txn, void *params)
 static int map_modseq_cmp(const struct index_map *m1,
 			  const struct index_map *m2)
 {
-    if (m1->record.modseq < m2->record.modseq) return -1;
-    if (m1->record.modseq > m2->record.modseq) return 1;
+    if (m1->modseq < m2->modseq) return -1;
+    if (m1->modseq > m2->modseq) return 1;
     return 0;
 }
 
@@ -4459,18 +4819,25 @@ static int map_modseq_cmp(const struct index_map *m1,
 int report_sync_col(struct transaction_t *txn,
 		    xmlNodePtr inroot, struct propfind_ctx *fctx)
 {
-    int ret = 0, r, userflag;
+    int ret = 0, r, userflag, i;
     struct mailbox *mailbox = NULL;
     uint32_t uidvalidity = 0;
-    modseq_t syncmodseq = 0, basemodseq = 0, highestmodseq, respmodseq;
-    uint32_t limit = -1, recno, nresp;
+    modseq_t syncmodseq = 0;
+    modseq_t basemodseq = 0;
+    modseq_t highestmodseq = 0;
+    modseq_t respmodseq = 0;
+    uint32_t limit = -1;
+    uint32_t recno;
+    uint32_t msgno;
+    uint32_t nresp = 0;
     xmlNodePtr node;
     struct index_state istate;
-    struct index_record *record;
+    struct index_record record;
     char tokenuri[MAX_MAILBOX_PATH+1];
 
     /* XXX  Handle Depth (cal-home-set at toplevel) */
 
+    memset(&istate, 0, sizeof(struct index_state));
     istate.map = NULL;
 
     /* Open mailbox for reading */
@@ -4486,7 +4853,7 @@ int report_sync_col(struct transaction_t *txn,
     fctx->mailbox = mailbox;
 
     highestmodseq = mailbox->i.highestmodseq;
-    if (mailbox_user_flag(mailbox, DFLAG_UNBIND, &userflag)) userflag = -1;
+    if (mailbox_user_flag(mailbox, DFLAG_UNBIND, &userflag, 0)) userflag = -1;
 
     /* Parse children element of report */
     for (node = inroot->children; node; node = node->next) {
@@ -4578,30 +4945,31 @@ int report_sync_col(struct transaction_t *txn,
 			  sizeof(struct index_map));
 
     /* Find which resources we need to report */
-    for (nresp = 0, recno = 1; recno <= mailbox->i.num_records; recno++) {
-
-	record = &istate.map[nresp].record;
-	if (mailbox_read_index_record(mailbox, recno, record)) {
-	    /* XXX  Corrupted record?  Should we bail? */
+    for (recno = 1; recno <= mailbox->i.num_records; recno++) {
+	/* XXX  Corrupted record?  Should we bail? */
+	if (mailbox_read_index_record(mailbox, recno, &record))
 	    continue;
-	}
 
-	if (record->modseq <= syncmodseq) {
-	    /* Resource not added/removed since last sync */
+	/* Resource not added/removed since last sync */
+	if (record.modseq <= syncmodseq)
 	    continue;
-	}
 
+	/* Resource replaced by a PUT, COPY, or MOVE - ignore it */
 	if ((userflag >= 0) &&
-	    record->user_flags[userflag / 32] & (1 << (userflag & 31))) {
-	    /* Resource replaced by a PUT, COPY, or MOVE - ignore it */
+	    record.user_flags[userflag / 32] & (1 << (userflag & 31)))
 	    continue;
-	}
 
-	if ((record->modseq <= basemodseq) &&
-	    (record->system_flags & FLAG_EXPUNGED)) {
-	    /* Initial sync - ignore unmapped resources */
+	/* Initial sync - ignore unmapped resources */
+	if (record.modseq <= basemodseq && (record.system_flags & FLAG_EXPUNGED))
 	    continue;
-	}
+
+	/* copy data into map (just like index.c - XXX helper fn? */
+	istate.map[nresp].recno = recno;
+	istate.map[nresp].uid = record.uid;
+	istate.map[nresp].modseq = record.modseq;
+	istate.map[nresp].system_flags = record.system_flags;
+	for (i = 0; i < MAX_USER_FLAGS/32; i++)
+	    istate.map[nresp].user_flags[i] = record.user_flags[i];
 
 	nresp++;
     }
@@ -4616,7 +4984,7 @@ int report_sync_col(struct transaction_t *txn,
 
 	/* Our last response MUST be the last record with its modseq */
 	for (nresp = limit;
-	     nresp && map[nresp-1].record.modseq == map[nresp].record.modseq;
+	     nresp && map[nresp-1].modseq == map[nresp].modseq;
 	     nresp--);
 
 	if (!nresp) {
@@ -4628,7 +4996,7 @@ int report_sync_col(struct transaction_t *txn,
 	}
 
 	/* respmodseq will be modseq of last record we return */
-	respmodseq = map[nresp-1].record.modseq;
+	respmodseq = map[nresp-1].modseq;
 
 	/* Tell client we truncated the responses */
 	xml_add_response(fctx, HTTP_NO_STORAGE, DAV_OVER_LIMIT);
@@ -4639,14 +5007,15 @@ int report_sync_col(struct transaction_t *txn,
     }
 
     /* Report the resources within the client requested limit (if any) */
-    for (recno = 1; recno <= nresp; recno++) {
+    for (msgno = 1; msgno <= nresp; msgno++) {
 	char *p, *resource = NULL;
 	struct dav_data ddata;
 
-	record = &istate.map[recno-1].record;
+	if (mailbox_read_index_record(mailbox, istate.map[msgno-1].recno, &record))
+	    continue;
 
 	/* Get resource filename from Content-Disposition header */
-	if ((p = index_getheader(&istate, recno, "Content-Disposition"))) {
+	if ((p = index_getheader(&istate, msgno, "Content-Disposition"))) {
 	    resource = strstr(p, "filename=") + 9;
 	}
 	if (!resource) continue;  /* No filename */
@@ -4660,15 +5029,15 @@ int report_sync_col(struct transaction_t *txn,
 	memset(&ddata, 0, sizeof(struct dav_data));
 	ddata.resource = resource;
 
-	if (record->system_flags & FLAG_EXPUNGED) {
+	if (record.system_flags & FLAG_EXPUNGED) {
 	    /* report as NOT FOUND
 	       IMAP UID of 0 will cause index record to be ignored
 	       propfind_by_resource() will append our resource name */
 	    propfind_by_resource(fctx, &ddata);
 	}
 	else {
-	    fctx->record = record;
-	    ddata.imap_uid = record->uid;
+	    fctx->record = &record;
+	    ddata.imap_uid = record.uid;
 	    propfind_by_resource(fctx, &ddata);
 	}
     }
@@ -4690,6 +5059,121 @@ int report_sync_col(struct transaction_t *txn,
   done:
     if (istate.map) free(istate.map);
     mailbox_close(&mailbox);
+
+    return (ret ? ret : HTTP_MULTI_STATUS);
+}
+
+
+int expand_property(xmlNodePtr inroot, struct propfind_ctx *fctx,
+		    const char *href, parse_path_t parse_path,
+		    const struct prop_entry *lprops,
+		    xmlNodePtr root, int depth)
+{
+    int ret = 0, r;
+    struct propfind_ctx prev_ctx;
+    struct request_target_t req_tgt;
+
+    memcpy(&prev_ctx, fctx, sizeof(struct propfind_ctx));
+
+    fctx->mode = PROPFIND_EXPAND;
+    if (href) {
+	/* Parse the URL */
+	memset(&req_tgt, 0, sizeof(struct request_target_t));
+	parse_path(href, &req_tgt, &fctx->err->desc);
+
+	fctx->req_tgt = &req_tgt;
+    }
+    fctx->lprops = lprops;
+    fctx->elist = NULL;
+    fctx->root = root;
+    fctx->depth = depth;
+    fctx->mailbox = NULL;
+
+    ret = preload_proplist(inroot->children, fctx);
+    if (ret) goto done;
+
+    if (!fctx->req_tgt->collection && !fctx->depth) {
+	/* Add response for principal or home-set collection */
+	struct mailbox *mailbox = NULL;
+
+	if (*fctx->req_tgt->mboxname) {
+	    /* Open mailbox for reading */
+	    if ((r = mailbox_open_irl(fctx->req_tgt->mboxname, &mailbox))) {
+		syslog(LOG_INFO, "mailbox_open_irl(%s) failed: %s",
+		       fctx->req_tgt->mboxname, error_message(r));
+		fctx->err->desc = error_message(r);
+		ret = HTTP_SERVER_ERROR;
+		goto done;
+	    }
+	    fctx->mailbox = mailbox;
+	}
+
+	xml_add_response(fctx, 0, 0);
+
+	mailbox_close(&mailbox);
+    }
+
+    if (fctx->depth > 0) {
+	/* Calendar collection(s) */
+
+	if (fctx->req_tgt->collection) {
+	    /* Add response for target calendar collection */
+	    propfind_by_collection(fctx->req_tgt->mboxname, 0, 0, fctx);
+	}
+	else {
+	    /* Add responses for all contained calendar collections */
+	    strlcat(fctx->req_tgt->mboxname, ".%",
+		    sizeof(fctx->req_tgt->mboxname));
+	    r = mboxlist_findall(NULL,  /* internal namespace */
+				 fctx->req_tgt->mboxname, 1, httpd_userid, 
+				 httpd_authstate, propfind_by_collection, fctx);
+	}
+
+	if (fctx->davdb) fctx->close_db(fctx->davdb);
+
+	ret = *fctx->ret;
+    }
+
+  done:
+    /* Free the entry list */
+    while (fctx->elist) {
+	struct propfind_entry_list *freeme = fctx->elist;
+	fctx->elist = freeme->next;
+	xmlFree(freeme->name);
+	free(freeme);
+    }
+
+    fctx->mailbox = prev_ctx.mailbox;
+    fctx->depth = prev_ctx.depth;
+    fctx->root = prev_ctx.root;
+    fctx->elist = prev_ctx.elist;
+    fctx->lprops = prev_ctx.lprops;
+    fctx->req_tgt = prev_ctx.req_tgt;
+
+    if (root != fctx->root) {
+	/* Move any defined namespaces up to the previous parent */
+	xmlNsPtr nsDef;
+
+	if (fctx->root->nsDef) {
+	    /* Find last nsDef in list */
+	    for (nsDef = fctx->root->nsDef; nsDef->next; nsDef = nsDef->next);
+	    nsDef->next = root->nsDef;
+	}
+	else fctx->root->nsDef = root->nsDef;
+	root->nsDef = NULL;
+    }
+
+    return ret;
+}
+
+
+
+/* DAV:expand-property REPORT */
+int report_expand_prop(struct transaction_t *txn __attribute__((unused)),
+		       xmlNodePtr inroot, struct propfind_ctx *fctx)
+{
+    int ret = expand_property(inroot, fctx, NULL, NULL, fctx->lprops,
+			      fctx->root, fctx->depth);
 
     return (ret ? ret : HTTP_MULTI_STATUS);
 }
@@ -5006,11 +5490,11 @@ int meth_report(struct transaction_t *txn, void *params)
     }
 
     if (report->flags & REPORT_NEED_MBOX) {
-	char *server, *acl;
+	mbentry_t *mbentry = NULL;
 	int rights;
 
 	/* Locate the mailbox */
-	if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+	if ((r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL))) {
 	    syslog(LOG_ERR, "mlookup(%s) failed: %s",
 		   txn->req_tgt.mboxname, error_message(r));
 	    txn->error.desc = error_message(r);
@@ -5024,7 +5508,7 @@ int meth_report(struct transaction_t *txn, void *params)
 	}
 
 	/* Check ACL for current user */
-	rights = acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
+	rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
 	if ((rights & report->reqd_privs) != report->reqd_privs) {
 	    if (report->reqd_privs == DACL_READFB) ret = HTTP_NOT_FOUND;
 	    else {
@@ -5034,19 +5518,23 @@ int meth_report(struct transaction_t *txn, void *params)
 		txn->error.rights = report->reqd_privs;
 		ret = HTTP_NO_PRIVS;
 	    }
+	    mboxlist_entry_free(&mbentry);
 	    goto done;
 	}
 
-	if (server) {
+	if (mbentry->server) {
 	    /* Remote mailbox */
 	    struct backend *be;
 
-	    be = proxy_findserver(server, &http_protocol, proxy_userid,
+	    be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				  &backend_cached, NULL, NULL, httpd_in);
+	    mboxlist_entry_free(&mbentry);
 	    if (!be) ret = HTTP_UNAVAILABLE;
 	    else ret = http_pipe_req_resp(be, txn);
 	    goto done;
 	}
+
+	mboxlist_entry_free(&mbentry);
 
 	/* Local Mailbox */
     }
@@ -5094,8 +5582,8 @@ int meth_report(struct transaction_t *txn, void *params)
     fctx.req_tgt = &txn->req_tgt;
     fctx.depth = depth;
     fctx.prefer |= get_preferences(txn);
+    fctx.req_hdrs = txn->req_hdrs;
     fctx.userid = proxy_userid;
-    fctx.int_userid = httpd_userid;
     fctx.userisadmin = httpd_userisadmin;
     fctx.authstate = httpd_authstate;
     fctx.mailbox = NULL;
@@ -5140,6 +5628,7 @@ int meth_report(struct transaction_t *txn, void *params)
     while (elist) {
 	struct propfind_entry_list *freeme = elist;
 	elist = elist->next;
+	xmlFree(freeme->name);
 	free(freeme);
     }
 
@@ -5165,8 +5654,8 @@ int meth_unlock(struct transaction_t *txn, void *params)
     struct meth_params *lparams = (struct meth_params *) params;
     int ret = HTTP_NO_CONTENT, r, precond, rights;
     const char **hdr, *token;
-    char *server, *acl;
     struct mailbox *mailbox = NULL;
+    mbentry_t *mbentry = NULL;
     struct dav_data *ddata;
     struct index_record record;
     const char *etag;
@@ -5192,7 +5681,8 @@ int meth_unlock(struct transaction_t *txn, void *params)
     token = hdr[0];
 
     /* Locate the mailbox */
-    if ((r = http_mlookup(txn->req_tgt.mboxname, &server, &acl, NULL))) {
+    r = http_mlookup(txn->req_tgt.mboxname, &mbentry, NULL);
+    if (r) {
 	syslog(LOG_ERR, "mlookup(%s) failed: %s",
 	       txn->req_tgt.mboxname, error_message(r));
 	txn->error.desc = error_message(r);
@@ -5204,16 +5694,21 @@ int meth_unlock(struct transaction_t *txn, void *params)
 	}
     }
 
-    if (server) {
+    rights = mbentry->acl ? cyrus_acl_myrights(httpd_authstate, mbentry->acl) : 0;
+
+    if (mbentry->server) {
 	/* Remote mailbox */
 	struct backend *be;
 
-	be = proxy_findserver(server, &http_protocol, proxy_userid,
+	be = proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 			      &backend_cached, NULL, NULL, httpd_in);
+	mboxlist_entry_free(&mbentry);
 	if (!be) return HTTP_UNAVAILABLE;
 
 	return http_pipe_req_resp(be, txn);
     }
+
+    mboxlist_entry_free(&mbentry);
 
     /* Local Mailbox */
 
@@ -5249,7 +5744,6 @@ int meth_unlock(struct transaction_t *txn, void *params)
     /* Check if current user owns the lock */
     if (strcmp(ddata->lock_ownerid, httpd_userid)) {
 	/* Check ACL for current user */
-	rights =  acl ? cyrus_acl_myrights(httpd_authstate, acl) : 0;
 	if (!(rights & DACL_ADMIN)) {
 	    /* DAV:need-privileges */
 	    txn->error.precond = DAV_NEED_PRIVS;

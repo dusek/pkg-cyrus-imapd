@@ -40,8 +40,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: comparator.c,v 1.26 2010/01/06 17:01:59 murch Exp $
  */
 
 #ifdef HAVE_CONFIG_H
@@ -54,9 +52,9 @@
 
 #include "comparator.h"
 #include "tree.h"
-#include "sieve.h"
+#include "sieve/sieve_interface.h"
+#include "sieve/sieve.h"
 #include "bytecode.h"
-#include "xmalloc.h"
 #include "util.h"
 
 /*!!! uses B_CONTAINS not CONTAINS, etc, only works with bytecode*/
@@ -431,7 +429,7 @@ static comparator_t *lookup_rel(int relation)
     return ret;
 }
 
-comparator_t *lookup_comp(int comp, int mode, int relation,
+EXPORTED comparator_t *lookup_comp(int comp, int mode, int relation,
 			  void **comprock)
 {
     comparator_t *ret;

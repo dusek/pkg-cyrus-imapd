@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: lmtp_sieve.c,v 1.20 2010/01/06 17:01:35 murch Exp $
  */
 
 #include <config.h>
@@ -58,19 +56,20 @@
 
 #include "annotate.h"
 #include "append.h"
+#include "assert.h"
 #include "auth.h"
 #include "duplicate.h"
 #include "exitcodes.h"
 #include "global.h"
-#include "imap_err.h"
+#include "imap/imap_err.h"
 #include "lmtpd.h"
 #include "lmtp_sieve.h"
 #include "lmtpengine.h"
-#include "lmtpstats.h"
+#include "imap/lmtpstats.h"
 #include "notify.h"
 #include "prot.h"
-#include "rfc822date.h"
-#include "sieve_interface.h"
+#include "times.h"
+#include "sieve/sieve_interface.h"
 #include "smtpclient.h"
 #include "util.h"
 #include "version.h"
@@ -87,6 +86,9 @@ typedef struct script_data {
     const char *mailboxname;
     struct auth_state *authstate;
 } script_data_t;
+
+static int autosieve_createfolder(const char *userid, struct auth_state *auth_state,
+				  const char *internalname);
 
 static char *make_sieve_db(const char *user)
 {
@@ -223,7 +225,7 @@ static int send_rejection(const char *origid,
     char buf[8192], *namebuf;
     int i, sm_stat;
     time_t t;
-    char datestr[80];
+    char datestr[RFC822_DATETIME_MAX+1];
     pid_t sm_pid, p;
     duplicate_key_t dkey = DUPLICATE_INITIALIZER;
 
@@ -246,11 +248,13 @@ static int send_rejection(const char *origid,
     
     namebuf = make_sieve_db(mailreceip);
 
+    time_to_rfc822(t, datestr, sizeof(datestr));
+
     dkey.id = buf;
     dkey.to = namebuf;
-    rfc822date_gen(datestr, sizeof(datestr), t);
     dkey.date = datestr;
     duplicate_mark(&dkey, t, 0);
+
     fprintf(sm, "Message-ID: %s\r\n", buf);
     fprintf(sm, "Date: %s\r\n", datestr);
 
@@ -320,11 +324,10 @@ static int send_forward(const char *forwardto,
 
     smbuf[0] = "sendmail";
     smbuf[1] = "-i";		/* ignore dots */
+    smbuf[2] = "-f";
     if (return_path && *return_path) {
-	smbuf[2] = "-f";
 	smbuf[3] = return_path;
     } else {
-	smbuf[2] = "-f";
 	smbuf[3] = "<>";
     }
     smbuf[4] = "--";
@@ -498,10 +501,23 @@ static int sieve_fileinto(void *ac,
 						   sd->username, namebuf);
     if (!ret) {
 	ret = deliver_mailbox(md->f, mdata->content, mdata->stage, md->size,
-			      fc->imapflags->flag, fc->imapflags->nflags,
+			      fc->imapflags,
 			      (char *) sd->username, sd->authstate, md->id,
 			      sd->username, mdata->notifyheader,
 			      namebuf, md->date, quotaoverride, 0);
+    }
+
+    if (ret == IMAP_MAILBOX_NONEXISTENT) {
+	/* if "plus" folder under INBOX, then try to create it */
+	ret = autosieve_createfolder(sd->username, sd->authstate, namebuf);
+
+	/* Try to deliver the mail again. */
+	if (!ret)
+	    ret = deliver_mailbox(md->f, mdata->content, mdata->stage, md->size,
+				  fc->imapflags,
+				  (char *) sd->username, sd->authstate, md->id,
+				  sd->username, mdata->notifyheader,
+				  namebuf, md->date, quotaoverride, 0);
     }
 
     if (!ret) {
@@ -522,7 +538,7 @@ static int sieve_keep(void *ac,
     deliver_data_t *mydata = (deliver_data_t *) mc;
     int ret;
 
-    ret = deliver_local(mydata, kc->imapflags->flag, kc->imapflags->nflags,
+    ret = deliver_local(mydata, kc->imapflags,
 			(char *) sd->username, sd->mailboxname);
 
     if (!ret) {
@@ -605,7 +621,7 @@ static int autorespond(void *ac,
     }
 
     if (ret == SIEVE_OK) {
-	duplicate_mark(&dkey, now + arc->days * (24 * 60 * 60), 0);
+	duplicate_mark(&dkey, now + arc->seconds, 0);
     }
 
     free(id);
@@ -622,7 +638,7 @@ static int send_response(void *ac,
     char outmsgid[8192], *sievedb;
     int i, sl, sm_stat;
     time_t t;
-    char datestr[80];
+    char datestr[RFC822_DATETIME_MAX+1];
     pid_t sm_pid, p;
     sieve_send_response_context_t *src = (sieve_send_response_context_t *) ac;
     message_data_t *md = ((deliver_data_t *) mc)->m;
@@ -649,7 +665,7 @@ static int send_response(void *ac,
     
     fprintf(sm, "Message-ID: %s\r\n", outmsgid);
 
-    rfc822date_gen(datestr, sizeof(datestr), t);
+    time_to_rfc822(t, datestr, sizeof(datestr));
     fprintf(sm, "Date: %s\r\n", datestr);
     
     fprintf(sm, "X-Sieve: %s\r\n", SIEVE_VERSION);
@@ -703,16 +719,12 @@ static int send_response(void *ac,
 }
 
 /* vacation support */
-sieve_vacation_t vacation = {
-    1,				/* min response */
-    31,				/* max response */
+static sieve_vacation_t vacation = {
+    1 * DAY2SEC,		/* min response */
+    31 * DAY2SEC,		/* max response */
     &autorespond,		/* autorespond() */
     &send_response,		/* send_response() */
 };
-
-/* imapflags support */
-static char *markflags[] = { "\\flagged" };
-static sieve_imapflags_t mark = { markflags, 1 };
 
 static int sieve_parse_error_handler(int lineno, const char *msg, 
 				     void *ic __attribute__((unused)),
@@ -743,6 +755,10 @@ sieve_interp_t *setup_sieve(void)
 {
     sieve_interp_t *interp = NULL;
     int res;
+    static strarray_t mark = STRARRAY_INITIALIZER;
+
+    if (!mark.count)
+	strarray_append(&mark, "\\flagged");
 
     sieve_usehomedir = config_getswitch(IMAPOPT_SIEVEUSEHOMEDIR);
     if (!sieve_usehomedir) {
@@ -751,75 +767,22 @@ sieve_interp_t *setup_sieve(void)
 	sieve_dir = NULL;
     }
 
-    res = sieve_interp_alloc(&interp, NULL);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_interp_alloc() returns %d\n", res);
-	fatal("sieve_interp_alloc()", EC_SOFTWARE);
-    }
+    interp = sieve_interp_alloc(NULL);
+    assert(interp != NULL);
 
-    res = sieve_register_redirect(interp, &sieve_redirect);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_redirect() returns %d\n", res);
-	fatal("sieve_register_redirect()", EC_SOFTWARE);
-    }
-    res = sieve_register_discard(interp, &sieve_discard);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_discard() returns %d\n", res);
-	fatal("sieve_register_discard()", EC_SOFTWARE);
-    }
-    res = sieve_register_reject(interp, &sieve_reject);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_reject() returns %d\n", res);
-	fatal("sieve_register_reject()", EC_SOFTWARE);
-    }
-    res = sieve_register_fileinto(interp, &sieve_fileinto);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_fileinto() returns %d\n", res);
-	fatal("sieve_register_fileinto()", EC_SOFTWARE);
-    }
-    res = sieve_register_keep(interp, &sieve_keep);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_keep() returns %d\n", res);
-	fatal("sieve_register_keep()", EC_SOFTWARE);
-    }
-    res = sieve_register_imapflags(interp, &mark);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_imapflags() returns %d\n", res);
-	fatal("sieve_register_imapflags()", EC_SOFTWARE);
-    }
-    res = sieve_register_notify(interp, &sieve_notify);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_notify() returns %d\n", res);
-	fatal("sieve_register_notify()", EC_SOFTWARE);
-    }
-    res = sieve_register_size(interp, &getsize);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_size() returns %d\n", res);
-	fatal("sieve_register_size()", EC_SOFTWARE);
-    }
-    res = sieve_register_header(interp, &getheader);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_header() returns %d\n", res);
-	fatal("sieve_register_header()", EC_SOFTWARE);
-    }
+    sieve_register_redirect(interp, &sieve_redirect);
+    sieve_register_discard(interp, &sieve_discard);
+    sieve_register_reject(interp, &sieve_reject);
+    sieve_register_fileinto(interp, &sieve_fileinto);
+    sieve_register_keep(interp, &sieve_keep);
+    sieve_register_imapflags(interp, &mark);
+    sieve_register_notify(interp, &sieve_notify);
+    sieve_register_size(interp, &getsize);
+    sieve_register_header(interp, &getheader);
 
-    res = sieve_register_envelope(interp, &getenvelope);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR,"sieve_register_envelope() returns %d\n", res);
-	fatal("sieve_register_envelope()", EC_SOFTWARE);
-    }
-    
-    res = sieve_register_body(interp, &getbody);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR,"sieve_register_body() returns %d\n", res);
-	fatal("sieve_register_body()", EC_SOFTWARE);
-    }
-    
-    res = sieve_register_include(interp, &getinclude);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR,"sieve_register_include() returns %d\n", res);
-	fatal("sieve_register_include()", EC_SOFTWARE);
-    }
+    sieve_register_envelope(interp, &getenvelope);
+    sieve_register_body(interp, &getbody);
+    sieve_register_include(interp, &getinclude);
 
     res = sieve_register_vacation(interp, &vacation);
     if (res != SIEVE_OK) {
@@ -827,18 +790,8 @@ sieve_interp_t *setup_sieve(void)
 	fatal("sieve_register_vacation()", EC_SOFTWARE);
     }
 
-    res = sieve_register_parse_error(interp, &sieve_parse_error_handler);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_parse_error() returns %d\n", res);
-	fatal("sieve_register_parse_error()", EC_SOFTWARE);
-    }
- 
-    res = sieve_register_execute_error(interp, 
-				       &sieve_execute_error_handler);
-    if (res != SIEVE_OK) {
-	syslog(LOG_ERR, "sieve_register_execute_error() returns %d\n", res);
-	fatal("sieve_register_execute_error()", EC_SOFTWARE);
-    }
+    sieve_register_parse_error(interp, &sieve_parse_error_handler);
+    sieve_register_execute_error(interp, &sieve_execute_error_handler);
 
     return interp;
 }
@@ -894,7 +847,7 @@ int run_sieve(const char *user, const char *domain, const char *mailbox,
 	      sieve_interp_t *interp, deliver_data_t *msgdata)
 {
     char namebuf[MAX_MAILBOX_BUFFER] = "";
-    struct annotation_data attrib;
+    struct buf attrib = BUF_INITIALIZER;
     const char *script = NULL;
     char fname[MAX_MAILBOX_PATH+1];
     sieve_execute_t *bc = NULL;
@@ -911,19 +864,22 @@ int run_sieve(const char *user, const char *domain, const char *mailbox,
 
 	if (annotatemore_lookup(namebuf,
 				"/vendor/cmu/cyrus-imapd/sieve", "",
-				&attrib) != 0 || !attrib.value) {
+				&attrib) != 0 || !attrib.s) {
 	    /* no sieve script annotation */
 	    return 1; /* do normal delivery actions */
 	}
 
-	script = attrib.value;
+	script = buf_cstring(&attrib);
     }
 
     if (sieve_find_script(user, domain, script, fname, sizeof(fname)) != 0 ||
 	sieve_script_load(fname, &bc) != SIEVE_OK) {
+	buf_free(&attrib);
 	/* no sieve script */
 	return 1; /* do normal delivery actions */
     }
+    buf_free(&attrib);
+    script = NULL;
 
     if (user) strlcpy(userbuf, user, sizeof(userbuf));
     if (domain) {
@@ -973,3 +929,61 @@ int run_sieve(const char *user, const char *domain, const char *mailbox,
        we'll do normal delivery */
     return r;
 }
+
+
+#define SEP "|"
+
+static int autosieve_createfolder(const char *userid, struct auth_state *auth_state,
+				  const char *internalname)
+{
+    const char *subf ;
+    int createsievefolder = 0;
+    int r = 0;
+    int n;
+
+    /* Check if internalname or userid are NULL */
+    if (userid == NULL || internalname == NULL)
+	return IMAP_MAILBOX_NONEXISTENT;
+
+    syslog(LOG_DEBUG, "autosievefolder: autosieve_createfolder() was called for user %s, folder %s", 
+	   userid, internalname);
+
+    if (config_getswitch(IMAPOPT_ANYSIEVEFOLDER)) {
+	createsievefolder = 1;
+    }
+    else if ((subf = config_getstring(IMAPOPT_AUTOCREATE_SIEVE_FOLDERS)) != NULL) {
+	strarray_t *create = strarray_split(subf, SEP, STRARRAY_TRIM);
+
+	for (n = 0; n < create->count; n++) {
+	    const char *name = strarray_nth(create, n);
+	    char *foldername = mboxname_user_mbox(userid, name);
+
+	    if (!strcmp(foldername, internalname))
+		createsievefolder = 1;
+
+	    free(foldername);
+	    if (createsievefolder) break;
+	}
+
+	strarray_free(create);
+    }
+
+    if (createsievefolder) {
+	/* Folder is already in internal namespace format */
+	r = mboxlist_createmailbox(internalname, 0, NULL,
+				   1, userid, auth_state, 0, 0, 0, 1, NULL);
+	if (!r) {
+	    mboxlist_changesub(internalname, userid, auth_state, 1, 1, 1);
+	    syslog(LOG_DEBUG, "autosievefolder: User %s, folder %s creation succeeded",
+		   userid, internalname);
+	    return 0;
+	} else {
+	    syslog(LOG_ERR, "autosievefolder: User %s, folder %s creation failed. %s",
+		   userid, internalname, error_message(r));
+	    return r;
+	}
+    }
+
+    return IMAP_MAILBOX_NONEXISTENT;
+}
+

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: xmalloc.c,v 1.33 2010/01/06 17:01:47 murch Exp $
  */
 
 #include <config.h>
@@ -50,7 +48,7 @@
 
 #include "exitcodes.h"
 
-void* xmalloc(unsigned size)
+EXPORTED void* xmalloc(unsigned size)
 {
     void *ret;
 
@@ -61,7 +59,7 @@ void* xmalloc(unsigned size)
     return 0; /*NOTREACHED*/
 }
 
-void* xzmalloc(unsigned size)
+EXPORTED void* xzmalloc(unsigned size)
 {
     void *ret;
 
@@ -75,7 +73,12 @@ void* xzmalloc(unsigned size)
     return 0; /*NOTREACHED*/
 }
 
-void *xrealloc (void* ptr, unsigned size)
+EXPORTED void *xcalloc(unsigned nmemb, unsigned size)
+{
+    return xzmalloc(nmemb * size);
+}
+
+EXPORTED void *xrealloc (void* ptr, unsigned size)
 {
     void *ret;
 
@@ -87,17 +90,36 @@ void *xrealloc (void* ptr, unsigned size)
     return 0; /*NOTREACHED*/
 }
 
-char *xstrdup(const char* str)
+EXPORTED char *xstrdup(const char* str)
 {
     char *p = xmalloc(strlen(str)+1);
     strcpy(p, str);
     return p;
 }
 
-char *xstrndup(const char* str, unsigned len)
+/* return a malloced "" if NULL is passed */
+EXPORTED char *xstrdupsafe(const char *str)
+{
+    return str ? xstrdup(str) : xstrdup("");
+}
+
+/* return NULL if NULL is passed */
+EXPORTED char *xstrdupnull(const char *str)
+{
+    return str ? xstrdup(str) : NULL;
+}
+
+EXPORTED char *xstrndup(const char* str, unsigned len)
 {
     char *p = xmalloc(len+1);
-    strncpy(p, str, len);
+    if (len) strncpy(p, str, len);
     p[len] = '\0';
+    return p;
+}
+
+EXPORTED void *xmemdup(const void *ptr, unsigned size)
+{
+    void *p = xmalloc(size);
+    memcpy(p, ptr, size);
     return p;
 }

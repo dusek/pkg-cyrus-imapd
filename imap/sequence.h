@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: sequence.h,v 1.1 2010/06/28 12:05:04 brong Exp $
  */
 
 /* Header for internal usage of index.c + programs that make raw access
@@ -76,13 +74,13 @@ void seqset_add(struct seqset *seq, unsigned num, int ismember);
 extern struct seqset *seqset_parse(const char *sequence,
 				   struct seqset *set,
 				   unsigned maxval);
-extern void seqset_join(struct seqset *a, struct seqset *b);
+extern void seqset_join(struct seqset *a, const struct seqset *b);
 extern void seqset_append(struct seqset **l, char *sequence, unsigned maxval);
 extern int seqset_ismember(struct seqset *set, unsigned num);
 extern unsigned seqset_getnext(struct seqset *set);
-extern unsigned seqset_first(struct seqset *set);
-extern unsigned seqset_last(struct seqset *set);
-extern char *seqset_cstring(struct seqset *set);
-extern void seqset_free(struct seqset *l);
+extern unsigned seqset_first(const struct seqset *set);
+extern unsigned seqset_last(const struct seqset *set);
+extern char *seqset_cstring(const struct seqset *set);
+extern void seqset_free(struct seqset *set);
 
 #endif /* SEQUENCE_H */

@@ -38,53 +38,74 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: quota.h,v 1.5 2010/01/06 17:01:39 murch Exp $
  */
 
 #ifndef INCLUDED_QUOTA_H
 #define INCLUDED_QUOTA_H
+
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#elif defined(HAVE_STDINT_H)
+# include <stdint.h>
+#endif
 
 #include "cyrusdb.h"
 #include <config.h>
 
 #define FNAME_QUOTADB "/quotas.db"
 
-#define QUOTA_UNITS (1024)
-
-/* Define the proper quota type, it should either be a
- * long or a long long int depending upon what the
- * the compiler supports.
- */
-#ifdef HAVE_LONG_LONG_INT
-typedef unsigned long long int uquota_t;
+/* Define the proper quota type, which is 64 bit and signed */
 typedef long long int quota_t;
-#define UQUOTA_T_FMT     "%llu"
 #define QUOTA_T_FMT      "%lld"
-#define QUOTA_REPORT_FMT "%8llu"
-#else
-typedef unsigned long uquota_t;
-typedef long quota_t;
-#define UQUOTA_T_FMT     "%lu"
-#define QUOTA_T_FMT      "%ld"
-#define QUOTA_REPORT_FMT "%8lu"
-#endif
 
 extern struct db *qdb;
 
+enum quota_resource {
+    QUOTA_STORAGE	=0,
+    QUOTA_MESSAGE	=1,
+    QUOTA_ANNOTSTORAGE	=2,
+    QUOTA_NUMFOLDERS	=3,
+#define QUOTA_NUMRESOURCES  (QUOTA_NUMFOLDERS+1)
+};
+
+#define QUOTA_DIFFS_INITIALIZER \
+	{ 0, 0, 0, 0 }
+#define QUOTA_DIFFS_DONTCARE_INITIALIZER \
+	{ -1, -1, -1, -1 }
+
 struct quota {
-    const char *root;
+    char *root;
 
     /* Information in quota entry */
-    uquota_t used;
-    int limit;			/* in QUOTA_UNITS */
+    quota_t useds[QUOTA_NUMRESOURCES];
+    quota_t limits[QUOTA_NUMRESOURCES];		/* in QUOTA_UNITS */
+
+    /* information for scanning */
+    char *scanmbox;
+    quota_t scanuseds[QUOTA_NUMRESOURCES];
 };
+
+/* special value to indicate no limit applies */
+#define QUOTA_UNLIMITED	    (-1)
+
+extern const char * const quota_names[QUOTA_NUMRESOURCES];
+extern const quota_t quota_units[QUOTA_NUMRESOURCES];
+int quota_name_to_resource(const char *str);
 
 typedef int quotaproc_t(struct quota *quota, void *rock);
 
-extern void quota_setroot(struct quota *quota, const char *root);
+extern int quota_changelock(void);
+extern void quota_changelockrelease(void);
+
+extern void quota_init(struct quota *quota, const char *root);
+extern void quota_free(struct quota *quota);
 
 extern int quota_read(struct quota *quota, struct txn **tid, int wrlock);
+
+extern int quota_check(const struct quota *quota,
+		       enum quota_resource res, quota_t delta);
+extern void quota_use(struct quota *quota,
+		      enum quota_resource res, quota_t delta);
 
 extern void quota_commit(struct txn **tid);
 
@@ -92,13 +113,18 @@ extern void quota_abort(struct txn **tid);
 
 extern int quota_write(struct quota *quota, struct txn **tid);
 
+extern int quota_update_useds(const char *quotaroot,
+			      const quota_t diff[QUOTA_NUMRESOURCES],
+			      const char *mboxname);
+extern int quota_check_useds(const char *quotaroot,
+			     const quota_t diff[QUOTA_NUMRESOURCES]);
+
 extern int quota_deleteroot(const char *quotaroot);
 
 extern int quota_findroot(char *ret, size_t retlen, const char *name);
 
-extern int quota_foreach(const char *prefix, quotaproc_t *proc, void *rock);
-
-extern void quota_free(struct quota *quota);
+extern int quota_foreach(const char *prefix, quotaproc_t *proc,
+			 void *rock, struct txn **);
 
 /* open the quotas db */
 void quotadb_open(const char *fname);
@@ -113,4 +139,6 @@ void quotadb_init(int flags);
 /* done with database stuff */
 void quotadb_done(void);
 
+int quota_is_overquota(const struct quota *quota, enum quota_resource res,
+                       quota_t newquotas[QUOTA_NUMRESOURCES]);
 #endif /* INCLUDED_QUOTA_H */

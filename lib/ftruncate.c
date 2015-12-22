@@ -39,18 +39,14 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: ftruncate.c,v 1.10 2010/01/06 17:01:45 murch Exp $
  */
 
 #include <config.h>
 #include <errno.h>
 
-int
-ftruncate(fd, length)
-int fd;
-int length;
+int ftruncate(int fd, int length)
 {
+    (void)fd; (void)length;
     errno = EINVAL;
     return -1;
 }

@@ -38,8 +38,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Id: service.c,v 1.61 2010/06/28 12:03:54 brong Exp $
  */
 
 #include <config.h>
@@ -53,8 +51,6 @@
 #endif
 #include <fcntl.h>
 #include <signal.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -73,8 +69,12 @@
 #include "libconfig.h"
 #include "xmalloc.h"
 #include "xstrlcpy.h"
-#include "xstrlcat.h"
+#include "strarray.h"
 #include "signals.h"
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
 extern int optind, opterr;
 extern char *optarg;
@@ -102,35 +102,37 @@ void notify_master(int fd, int msg)
 int allow_severity = LOG_DEBUG;
 int deny_severity = LOG_ERR;
 
-static void libwrap_init(struct request_info *r, char *service)
+static void libwrap_init(struct request_info *req, char *service)
 {
-    request_init(r, RQ_DAEMON, service, 0);
+    request_init(req, RQ_DAEMON, service, 0);
 }
 
-static int libwrap_ask(struct request_info *r, int fd)
+static int libwrap_ask(struct request_info *req, int fd)
 {
+    struct sockaddr_storage sin_storage;
+    struct sockaddr *sin = (struct sockaddr *)&sin_storage;
+    socklen_t sinlen;
     int a;
-    struct sockaddr_storage sin;
-    socklen_t len = sizeof(sin);
 
     /* XXX: old FreeBSD didn't fill sockaddr correctly against AF_UNIX */
-    sin.ss_family = AF_UNIX;
+    sin->sa_family = AF_UNIX;
 
     /* is this a connection from the local host? */
-    if (getpeername(fd, (struct sockaddr *) &sin, &len) == 0) {
-	if (((struct sockaddr *)&sin)->sa_family == AF_UNIX) {
+    sinlen = sizeof(struct sockaddr_storage);
+    if (getpeername(fd, sin, &sinlen) == 0) {
+	if (sin->sa_family == AF_UNIX) {
 	    return 1;
 	}
     }
     
     /* i hope using the sock_* functions are legal; it certainly makes
        this code very easy! */
-    request_set(r, RQ_FILE, fd, 0);
-    sock_host(r);
+    request_set(req, RQ_FILE, fd, 0);
+    sock_host(req);
 
-    a = hosts_access(r);
+    a = hosts_access(req);
     if (!a) {
-	syslog(deny_severity, "refused connection from %s", eval_client(r));
+	syslog(deny_severity, "refused connection from %s", eval_client(req));
     }
 
     return a;
@@ -153,7 +155,7 @@ static int libwrap_ask(struct request_info *r __attribute__((unused)),
 
 #endif
 
-extern void cyrus_init(const char *, const char *, unsigned);
+extern void cyrus_init(const char *, const char *, unsigned, int);
 
 static int getlockfd(char *service, int id)
 {
@@ -240,7 +242,43 @@ static int unlockaccept(void)
     return 0;
 }
 
-#define ARGV_GROW 10
+static int safe_wait_readable(int fd)
+{
+    fd_set rfds;
+    int r;
+
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+
+    /* Waiting for incoming connection, we want to leave as soon as
+     * possible upon SIGHUP. Julien explains:
+     *
+     * The thing is SIGHUP handler is set as restartable, which is a good thing
+     * when we have received a connection and are processing client commands:
+     * we don't want to be interrupted by that signal.
+     *
+     * On the other hand, when we are waiting to receive a new connection, I
+     * needed a way to make the service instance holding the lock react faster.
+     * Without resetting SIGHUP as not restartable, the instance would just
+     * keep on waiting for a new connection (while the other instances -
+     * waiting for the lock - had received and processed the signal right
+     * away).
+     *
+     * Now that we have safe_wait_readable, Linux systems already react faster
+     * because there select/pselect always returns -1/EINTR even if SA_RESTART
+     * is set. But that may not be the case in other OSes (POSIX spec says it
+     * is implementation-defined whether it does restart or return -1/EINTR
+     * when SA_RESTART is set).
+     */
+    signals_reset_sighup_handler(0);
+
+    r = signals_select(fd+1, &rfds, NULL, NULL, NULL);
+
+    /* we don't want to be interrupted by SIGHUP anymore */
+    signals_reset_sighup_handler(1);
+
+    return r;
+}
 
 int main(int argc, char **argv, char **envp)
 {
@@ -255,8 +293,6 @@ int main(int argc, char **argv, char **envp)
     int reuse_timeout = REUSE_TIMEOUT;
     int soctype;
     socklen_t typelen = sizeof(soctype);
-    int newargc = 0;
-    char **newargv = (char **) xmalloc(ARGV_GROW * sizeof(char *));
     int id;
     char path[PATH_MAX];
     struct stat sbuf;
@@ -264,11 +300,26 @@ int main(int argc, char **argv, char **envp)
     off_t start_size;
     time_t start_mtime;
     
+    /*
+     * service_init and service_main need argv and argc, so they can process
+     * service-specific options.  They need argv[0] to point into the real argv
+     * memory space, so that setproctitle can work its magic.  But they also
+     * need the generic options handled here to be removed, because they don't
+     * know how to handle them.
+     *
+     * So, we create a strarray_t "service_argv", and populate it with the
+     * options that we aren't handling here, using strarray_appendm (which
+     * simply ptr-copies its argument), and pass that through, and everything
+     * is happy.
+     *
+     * Note that we don't need to strarray_free service_argv, because it
+     * doesn't contain any malloced memory.
+     */
+    strarray_t service_argv = STRARRAY_INITIALIZER;
+    strarray_appendm(&service_argv, argv[0]);
+
     opterr = 0; /* disable error reporting,
 		   since we don't know about service-specific options */
-
-    newargv[newargc++] = argv[0];
-
     while ((opt = getopt(argc, argv, "C:U:T:D")) != EOF) {
 	if (argv[optind-1][0] == '-' && strlen(argv[optind-1]) > 2) {
 	    /* we have merged options */
@@ -293,27 +344,18 @@ int main(int argc, char **argv, char **envp)
 	    call_debugger = 1;
 	    break;
 	default:
-	    if (!((newargc+1) % ARGV_GROW)) { /* time to alloc more */
-		newargv = (char **) xrealloc(newargv, (newargc + ARGV_GROW) * 
-					     sizeof(char *));
-	    }
-	    newargv[newargc++] = argv[optind-1];
+	    strarray_appendm(&service_argv, argv[optind-1]);
 
 	    /* option has an argument */
 	    if (optind < argc && argv[optind][0] != '-')
-		newargv[newargc++] = argv[optind++];
+		strarray_appendm(&service_argv, argv[optind++]);
 
 	    break;
 	}
     }
     /* grab the remaining arguments */
-    for (; optind < argc; optind++) {
-	if (!(newargc % ARGV_GROW)) { /* time to alloc more */
-	    newargv = (char **) xrealloc(newargv, (newargc + ARGV_GROW) * 
-					 sizeof(char *));
-	}
-	newargv[newargc++] = argv[optind];
-    }
+    for (; optind < argc; optind++)
+	strarray_appendm(&service_argv, argv[optind]);
 
     opterr = 1; /* enable error reporting */
     optind = 1; /* reset the option index for parsing by the service */
@@ -345,7 +387,8 @@ int main(int argc, char **argv, char **envp)
     srand(time(NULL) * getpid());
     reuse_timeout = reuse_timeout + (rand() % reuse_timeout);
 
-    cyrus_init(alt_config, service, 0);
+    extern const int config_need_data;
+    cyrus_init(alt_config, service, 0, config_need_data);
 
     if (call_debugger) {
 	char debugbuf[1024];
@@ -390,17 +433,17 @@ int main(int argc, char **argv, char **envp)
 	return 1;
     }
 
-    if (service_init(newargc, newargv, envp) != 0) {
+    if (service_init(service_argv.count, service_argv.data, envp) != 0) {
 	if (MESSAGE_MASTER_ON_EXIT) 
 	    notify_master(STATUS_FD, MASTER_SERVICE_UNAVAILABLE);
 	return 1;
     }
 
     /* determine initial process file inode, size and mtime */
-    if (newargv[0][0] == '/')
-	strlcpy(path, newargv[0], sizeof(path));
+    if (service_argv.data[0][0] == '/')
+	strlcpy(path, service_argv.data[0], sizeof(path));
     else
-	snprintf(path, sizeof(path), "%s/%s", SERVICE_PATH, newargv[0]);
+	snprintf(path, sizeof(path), "%s/%s", SERVICE_DIR, service_argv.data[0]);
 
     stat(path, &sbuf);
     start_ino= sbuf.st_ino;
@@ -425,7 +468,14 @@ int main(int argc, char **argv, char **envp)
 	fd = -1;
 	while (fd < 0 && !signals_poll()) { /* loop until we succeed */
 	    /* check current process file inode, size and mtime */
-	    stat(path, &sbuf);
+	    int r = stat(path, &sbuf);
+	    if (r < 0) {
+		/* This might happen transiently during a package
+		 * upgrade or permanently after package removal.
+		 * In either case, it's time to die. */
+		syslog(LOG_INFO, "cannot stat process file: %m");
+		break;
+	    }
 	    if (sbuf.st_ino != start_ino || sbuf.st_size != start_size ||
 		sbuf.st_mtime != start_mtime) {
 		syslog(LOG_INFO, "process file has changed");
@@ -434,6 +484,11 @@ int main(int argc, char **argv, char **envp)
 	    }
 
 	    if (soctype == SOCK_STREAM) {
+		/* Wait for the file descriptor to be connected to, in a
+		 * signal-safe manner.  This ensures the accept() does
+		 * not block and we don't need to make it signal-safe.  */
+		if (safe_wait_readable(LISTEN_FD) < 0)
+		    continue;
 		fd = accept(LISTEN_FD, NULL, NULL);
 		if (fd < 0) {
 		    switch (errno) {
@@ -470,11 +525,14 @@ int main(int argc, char **argv, char **envp)
 		socklen_t fromlen;
 		char ch;
 		int r;
- 
+
+		if (safe_wait_readable(LISTEN_FD) < 0)
+		    continue;
 		fromlen = sizeof(from);
 		r = recvfrom(LISTEN_FD, (void *) &ch, 1, MSG_PEEK,
 			     (struct sockaddr *) &from, &fromlen);
 		if (r == -1) {
+		    if (signals_poll() == SIGHUP) break;
 		    syslog(LOG_ERR, "recvfrom failed: %m");
 		    if (MESSAGE_MASTER_ON_EXIT) 
 			notify_master(STATUS_FD, MASTER_SERVICE_UNAVAILABLE);
@@ -579,7 +637,7 @@ int main(int argc, char **argv, char **envp)
 	
 	notify_master(STATUS_FD, MASTER_SERVICE_CONNECTION);
 	use_count++;
-	service_main(newargc, newargv, envp);
+	service_main(service_argv.count, service_argv.data, envp);
 	/* if we returned, we can service another client with this process */
 
 	if (signals_poll() || use_count >= max_use) {

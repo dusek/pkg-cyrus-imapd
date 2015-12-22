@@ -43,8 +43,6 @@
 
 #include <config.h>
 
-#ifdef WITH_DAV
-
 #include <stdlib.h>
 #include <syslog.h>
 #include <string.h>
@@ -62,6 +60,8 @@
 #include "util.h"
 #include "xmalloc.h"
 
+#define FNAME_DAVSUFFIX ".dav" /* per-user DAV DB extension */
+
 struct open_davdb {
     sqlite3 *db;
     char *path;
@@ -69,12 +69,11 @@ struct open_davdb {
     struct open_davdb *next;
 };
 
-static struct open_davdb *open_davdbs = NULL;
-
+static struct open_davdb *open_davdbs;
 
 static int dbinit = 0;
 
-int dav_init(void)
+EXPORTED int dav_init(void)
 {
     if (!dbinit++) {
 #if SQLITE_VERSION_NUMBER >= 3006000
@@ -88,7 +87,7 @@ int dav_init(void)
 }
 
 
-int dav_done(void)
+EXPORTED int dav_done(void)
 {
     if (--dbinit) {
 #if SQLITE_VERSION_NUMBER >= 3006000
@@ -108,26 +107,21 @@ static void dav_debug(void *fname, const char *sql)
     syslog(LOG_DEBUG, "dav_exec(%s): %s", (const char *) fname, sql);
 }
 
-
 static void free_dav_open(struct open_davdb *open)
 {
     free(open->path);
     free(open);
 }
 
-
-/* Open DAV DB corresponding to mailbox */
-sqlite3 *dav_open(struct mailbox *mailbox, const char *cmds)
+/* Open DAV DB corresponding in file */
+EXPORTED sqlite3 *dav_open(const char *fname, const char *cmds)
 {
     int rc = SQLITE_OK;
-    struct buf fname = BUF_INITIALIZER;
     struct stat sbuf;
     struct open_davdb *open;
 
-    dav_getpath(&fname, mailbox);
-
     for (open = open_davdbs; open; open = open->next) {
-	if (!strcmp(open->path, buf_cstring(&fname))) {
+	if (!strcmp(open->path, fname)) {
 	    /* already open! */
 	    open->refcount++;
 	    goto docmds;
@@ -135,7 +129,7 @@ sqlite3 *dav_open(struct mailbox *mailbox, const char *cmds)
     }
 
     open = xzmalloc(sizeof(struct open_davdb));
-    open->path = buf_release(&fname);
+    open->path = xstrdup(fname);
 
     rc = stat(open->path, &sbuf);
     if (rc == -1 && errno == ENOENT) {
@@ -159,7 +153,7 @@ sqlite3 *dav_open(struct mailbox *mailbox, const char *cmds)
 #if SQLITE_VERSION_NUMBER >= 3006000
 	sqlite3_extended_result_codes(open->db, 1);
 #endif
-	sqlite3_trace(open->db, dav_debug, (void *) open->path);
+	sqlite3_trace(open->db, dav_debug, open->path);
     }
 
     /* stitch on up */
@@ -177,14 +171,12 @@ sqlite3 *dav_open(struct mailbox *mailbox, const char *cmds)
 	}
     }
 
-    buf_free(&fname);
-
     return open->db;
 }
 
 
 /* Close DAV DB */
-int dav_close(sqlite3 *davdb)
+EXPORTED int dav_close(sqlite3 *davdb)
 {
     int rc, r = 0;
     struct open_davdb *open, *prev = NULL;
@@ -217,7 +209,7 @@ int dav_close(sqlite3 *davdb)
 }
 
 
-int dav_exec(sqlite3 *davdb, const char *cmd, struct bind_val bval[],
+EXPORTED int dav_exec(sqlite3 *davdb, const char *cmd, struct bind_val bval[],
 	     int (*cb)(sqlite3_stmt *stmt, void *rock), void *rock,
 	     sqlite3_stmt **stmt)
 {
@@ -271,7 +263,7 @@ int dav_exec(sqlite3 *davdb, const char *cmd, struct bind_val bval[],
 }
 
 
-int dav_delete(struct mailbox *mailbox)
+EXPORTED int dav_delete(struct mailbox *mailbox)
 {
     struct buf fname = BUF_INITIALIZER;
     int r = 0;
@@ -286,5 +278,3 @@ int dav_delete(struct mailbox *mailbox)
 
     return r;
 }
-
-#endif /* WITH_DAV */

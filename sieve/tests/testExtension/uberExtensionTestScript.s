@@ -1,4 +1,5 @@
-require ["regex", "relational", "comparator-i;ascii-numeric", "subaddress", "envelope"];
+require ["regex", "relational", "comparator-i;ascii-numeric", "subaddress",
+	"envelope", "date", "index", "imap4flags"];
 
 #this is for the extra thigns we have added to sieve
 #test extensions
@@ -145,3 +146,125 @@ if envelope :detail :contains "from" "k"
 
 if envelope :detail :matches "from" "e*k"
 {redirect "me+goodedetailmatches@blah.com";}
+
+######################################################################
+#DATE
+######################################################################
+
+if allof(header :is "from" "boss@example.com",
+         date :value "ge" :originalzone "date" "hour" "09",
+         date :value "lt" :originalzone "date" "hour" "17")
+{redirect "me+urgent@blah.com";}
+
+if anyof(date :is "received" "weekday" "0",
+         date :is "received" "weekday" "6")
+{redirect "me+weekend@blah.com";}
+
+if anyof(date :is :zone "-0800" "received" "weekday" "0",
+         date :is :zone "-0800" "received" "weekday" "6")
+{redirect "me+weekend(pst)@blah.com";}
+
+if date :is "received" "year" [ "1983", "1993", "2003", "2013" ]
+{redirect "me+yearsofthree@blah.com";}
+
+if date :is :index 2 "received" "day" "01"
+{redirect "me+firstofthemonth@blah.com";}
+
+if date :is :index 1 :last "received" "day" "01"
+{redirect "me+firstofthemonth@blah.com";}
+
+if currentdate :zone "-0800" :is "year" ["2003", "2013", "2023"]
+{redirect "me+currentdateis@blah.com";}
+
+if allof(currentdate :value "ge" "date" "2014-01-01",
+         currentdate :value "lt" "date" "2015-01-01")
+{redirect "me+cd2014@blah.com";}
+
+######################################################################
+#HASFLAG
+######################################################################
+
+if header :contains "subject" "imap4flags"
+{
+
+#
+# Positive :count tests
+#
+setflag "";
+
+if hasflag :count "lt" :comparator "i;ascii-numeric" ["1"]
+{redirect "me+good.hasflag.count.lt.1.pos@blah.com";}
+else
+{redirect "me+bad.hasflag.count.lt.1.pos@blah.com";}
+
+if hasflag :count "le" :comparator "i;ascii-numeric" ["0"]
+{redirect "me+good.hasflag.count.le.0.pos@blah.com";}
+else
+{redirect "me+bad.hasflag.count.le.0.pos@blah.com";}
+
+setflag "flag1 flag2";
+
+if hasflag :count "le" :comparator "i;ascii-numeric" ["2"]
+{redirect "me+good.hasflag.count.le.2.pos@blah.com";}
+else
+{redirect "me+bad.hasflag.count.le.2.pos@blah.com";}
+
+#
+# Negative :count tests
+#
+setflag "";
+
+if hasflag :count "lt" :comparator "i;ascii-numeric" ["0"]
+{redirect "me+bad.hasflag.count.lt.0.neg@blah.com";}
+else
+{redirect "me+good.hasflag.count.lt.0.neg@blah.com";}
+
+if hasflag :count "ge" :comparator "i;ascii-numeric" ["1"]
+{redirect "me+bad.hasflag.count.ge.1.neg@blah.com";}
+else
+{redirect "me+good.hasflag.count.ge.1.neg@blah.com";}
+
+setflag "flag1 flag2";
+
+if hasflag :count "lt" :comparator "i;ascii-numeric" ["2"]
+{redirect "me+bad.hasflag.count.lt.2.neg@blah.com";}
+else
+{redirect "me+good.hasflag.count.lt.2.neg@blah.com";}
+
+#
+# Positive tests
+#
+setflag "there";
+
+if hasflag :contains ["myflag", "here"]
+{redirect "me+good.hasflag.contains.pos@blah.com";}
+else
+{redirect "me+bad.hasflag.contains.pos@blah.com";}
+
+if hasflag :contains ""
+{redirect "me+good.hasflag.contains.null.pos@blah.com";}
+else
+{redirect "me+bad.hasflag.contains.null.pos@blah.com";}
+
+#
+# Negative tests
+#
+setflag "flag";
+
+if hasflag ""
+{redirect "me+bad.hasflag.null.neg@blah.com";}
+else
+{redirect "me+good.hasflag.null.neg@blah.com";}
+
+if hasflag :contains "flags"
+{redirect "me+bad.hasflag.contains.neg@blah.com";}
+else
+{redirect "me+good.hasflag.contains.neg@blah.com";}
+
+if hasflag "lag"
+{redirect "me+bad.hasflag.neg@blah.com";}
+else
+{redirect "me+good.hasflag.neg@blah.com";}
+
+}
+
