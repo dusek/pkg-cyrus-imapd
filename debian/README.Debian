@@ -15,11 +15,11 @@ IMPORTANT: Cyrus is a closed-box email system.  Your system will access your
 email through LMTP, IMAP and POP3 *only*.  No direct file access to the email
 store is supposed to take place.
 
-For more information, please consult http://cyrusimap.org/.
-There is also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the
-LDP HOWTO collection.  Upgrade hints are in UPGRADE.Debian.gz Outdated
-documentation will cause you much grief, so beware of that when
-hunting anywhere else than the Cyrus mailinglist for information.
+For more information, please consult http://cyrusimap.org/.  There is
+also Cyrus-HOWTO (Cyrus-IMAP.txt) available as part of the LDP HOWTO
+collection. Outdated documentation will cause you much grief, so
+beware of that when hunting anywhere else than the Cyrus mailinglist
+for information.
 
 Backports of the latest packages for Debian Stable are available from
 http://www.backports.org
@@ -33,43 +33,24 @@ file as well.  Start by reading README.Debian.simpleinstall.
 The Debian packaging of Cyrus has a few quirks which are important to know
 about:
 
-1. Renaming of some Cyrus IMAP utilities
+1. Relocation of many Cyrus IMAP files
 
-   The quota, reconstruct, master and deliver utilities have been renamed to
-   cyrquota, cyrreconstruct, cyrmaster and cyrdeliver, following the template
-   set by upstream with "cyradm".  This was done because both Cyrus Debian
-   maintainers found the original names to be too generic and likely to cause
-   namespace collisions later.
-
-   Since documentation may refer to these utilities using their original
-   name, you must be aware of this fact.  Also, installsieve is deprecated
-   and will be removed from the Debian package in the future; use sieveshell
-   instead.
-
-2. Relocation of many Cyrus IMAP files
-
-   The default Cyrus install scatters files all over the place.  The Debian
-   package installs only a few files in /usr/bin (cyradm, sieveshell).
-   IMAP/email administrator utilities are installed in /usr/sbin (such as
-   cyrreconstruct)[*].  Programs that must be run by cyrmaster are installed in
-   /usr/lib/cyrus (such as imapd and pop3d).  Sockets go into
-   /var/run/cyrus/socket, per FHS 2.2.  Sieve files go in /var/spool/sieve, but
-   an /etc/sieve compatibility symlink is also installed just in case.
-
-   * - As of cyrus-imapd (>= 2.4.6) there's a universal tool
-   called /usr/sbin/cyrus which can be used to call all cyrus
-   utilities.  Invoke /usr/sbin/cyrus --help without any argument
-   to learn more.
+   The default Cyrus install scatters files all over the place.  The
+   Debian package installs only a few files in /usr/bin (cyradm).  All
+   other programs are installed into /usr/lib/cyrus/bin with
+   convenience tool called /usr/sbin/cyrus which can be used to call
+   all cyrus utilities.  Invoke /usr/sbin/cyrus --help without any
+   argument to learn more.
 
    The imapd.conf and cyrus.conf configuration files are in /etc. The PAM
    policy files are in /etc/pam.d.
 
    Feel free to use dpkg-statoverride to change the permission of
    /var/run/cyrus/socket, the cyrus packages will not override your
-   configuration if dpkg-statoverride is used.  In fact, you will most likely
-   have to do so for postfix to deliver to Cyrus, for example.
+   configuration if dpkg-statoverride is used.  In fact, you will most
+   likely have to do so for postfix to deliver to Cyrus, for example.
 
-3. Cyrus Murder, the Cyrus IMAPd/POP3 aggregator is available.
+2. Cyrus Murder, the Cyrus IMAPd/POP3 aggregator is available.
 
    However, you will have to configure it yourself.  No pre-packaged
    configuration of Murder is available at this time...  The documentation is
@@ -84,7 +65,7 @@ about:
    use plaintext authentication methods.  The easiest thing to do is to put
    an entry for your mupdate user in sasldb2 and use DIGEST-MD5.
 
-4. Configurable idled support.
+3. Configurable idled support.
   
    Cyrus IMAPd supports three options of using IDLE in IMAP sessions. The first
    option is not to support IDLE at all. The second is to use internal polling
@@ -306,24 +287,5 @@ A daily maintenance cronjob uses ctl_mboxlist(8) to dump the mailboxes database
 to /var/backup. That backup copy can be used as a last-resort copy if the hot
 backups become corrupted somehow.
 
-
-Debian source package quirks
-----------------------------
-
-Patching is done using dpatch. Patches from upstream CVS are marked as such.
-
-
-THANKS
-------
-
-Thanks go to the CMU crew for producing Cyrus IMAPd in the first place;
-Michael-John Turner <mj@debian.org> for maintaining the v1.5 branch and setting
-the groundstones for the v2.1 package; David Parker <david@neongoat.com> and
-David D. Kilzer <ddkilzer@theracingworld.com> for their huge help in getting
-the v2.1 packages out-of-the-door, and the upgrade from v1.5 guide; Fabian
-Fagerholm <fabbe@paniq.net> for stress testing the daemons, and useful
-feedback; Gilles Bouthenot <gilles.bouthenot@fcomte.iufm.fr> for good
-feedback; and Henrique de Moraes Holschuh for maintaining the 2.1 branch.
-
- -- Ondřej Surý <ondrej@debian.org>, Tue, 22 Dec 2015 12:29:22 +0100
+ -- Ondřej Surý <ondrej@debian.org>, Tue, 22 Dec 2015 14:21:31 +0100
 
