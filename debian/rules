@@ -219,5 +219,4 @@ override_dh_installcron:
 	dh_installcron --name=cyrus-imapd
 
 override_dh_install:
-	rm $(TMPPKG)/usr/lib/cyrus/bin/*proxyd
 	dh_install --fail-missing -X.la
