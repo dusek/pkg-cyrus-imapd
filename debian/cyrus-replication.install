@@ -5,4 +5,4 @@ usr/lib/cyrus/bin/sync_server
 usr/share/man/man8/cyrus-cyr_synclog.8
 usr/share/man/man8/cyrus-sync_client.8
 usr/share/man/man8/cyrus-sync_reset.8
-usr/share/man/man8/sync_server.8
+usr/share/man/man8/cyrus-sync_server.8

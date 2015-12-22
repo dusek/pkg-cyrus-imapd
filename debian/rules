@@ -42,6 +42,18 @@ else
   CONFFLAGS += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
 endif
 
+MAN1 := imtest installsieve lmtptest mupdatetest nntptest \
+	pop3test sieveshell sivtest smtptest
+
+MAN8 := master reconstruct quota deliver \
+	mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
+	tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
+	cyr_expire unexpunge sync_client sync_reset cyr_synclog \
+	cyr_dbtool cyr_df ctl_zoneinfo cyr_deny cyr_info \
+	cyr_deny cyr_info fetchnews fud httpd idled imapd \
+	lmtpd mbexamine nntpd notifyd pop3d rmnews smmapd \
+	sync_server timsieved
+
 %:
 	dh $@ --with autoreconf --with autotools-dev --with systemd
 
@@ -49,7 +61,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 	 $(CONFFLAGS) \
 	 --with-extraident=$(EXTRA_IDENT) \
-	 --includedir=/usr/include/cyrus \
+	 --includedir=/usr/include \
 	 --datadir=/usr/share/cyrus \
 	 --sharedstatedir=/usr/share/cyrus \
 	 --localstatedir=/var/lib/cyrus \
@@ -164,13 +176,13 @@ override_dh_auto_install:
 	install -m 644 debian/cyrus-makedirs.8 debian/cyrus-arbitronsort.8 debian/cyrus-dump.8 \
 		$(TMPPKG)/usr/share/man/man8/
 
-	# We rename some utils, so we need to sort out the manpages
-	for i in master reconstruct quota deliver \
-	         mbpath ctl_mboxlist ctl_deliver ctl_cyrusdb squatter \
-	         tls_prune ipurge cyrdump cvt_cyrusdb chk_cyrus arbitron \
-		 cyr_expire unexpunge sync_client sync_reset cyr_synclog \
-		 cyr_dbtool cyr_df ctl_zoneinfo; do \
-		mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
+	# Prefix all manpages for cyrus binaries to cyrus-$1
+	for i in $(MAN1); do \
+	  mv $(TMPPKG)/usr/share/man/man1/$$i.1 $(TMPPKG)/usr/share/man/man1/cyrus-$$i.1; \
+	done
+
+	for i in $(MAN8); do \
+	  mv $(TMPPKG)/usr/share/man/man8/$$i.8 $(TMPPKG)/usr/share/man/man8/cyrus-$${i}.8 ; \
 	done
 
 	# SNMP files
@@ -180,19 +192,11 @@ override_dh_auto_install:
 	# Install the stuff needed for upgrades
 	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/upgrade
 	for i in convert-sieve.pl dohash rehash undohash translatesieve upgradesieve masssievec; do \
-	        install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
+	  install -m 755 tools/$$i $(TMPPKG)/usr/lib/cyrus/upgrade ;\
 	done
 
 	# And other misc useful tools
 	install -m 755 tools/arbitronsort.pl $(TMPPKG)/usr/lib/cyrus/bin/arbitronsort
-
-	# Install imtest and its symlinks
-	for i in $(TMPPKG)/usr/bin/*test ; do \
-	  if test "$$(basename $$i)" != "imtest"; then \
-	    rm -f "$$i" && \
-	    ln -s imtest $$i; \
-	  fi; \
-	done
 
 	# Install the html docs and examples
 	install -d -m 755 $(DOCDIR)/html

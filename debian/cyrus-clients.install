@@ -1,2 +1,2 @@
 usr/lib/cyrus/bin/*test
-usr/share/man/man1/*test.1
+usr/share/man/man1/cyrus-*test.1
