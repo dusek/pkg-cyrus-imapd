@@ -41,8 +41,8 @@ Build-Depends: autotools-dev,
                unicode-data,
                vim-common,
                xutils-dev
-Vcs-Git: git://anonscm.debian.org/pkg-cyrus-imapd/cyrus-imapd-2.4.git
-Vcs-Browser: http://anonscm.debian.org/?p=pkg-cyrus-imapd/cyrus-imapd-2.4.git
+Vcs-Git: git://anonscm.debian.org/pkg-cyrus-imapd/cyrus-imapd.git
+Vcs-Browser: http://anonscm.debian.org/?p=pkg-cyrus-imapd/cyrus-imapd.git
 Homepage: http://www.cyrusimap.org/
 
 Package: cyrus-common
