@@ -1,3 +1,11 @@
+cyrus-imapd (2.5.7-0+exp2) experimental; urgency=medium
+
+  [ John Treen ]
+  * Fix Vcs-* fields to point to correct repository
+  * Add 2.5 to supported versions in check_hardwired_config
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 25 Mar 2016 14:02:31 +0100
+
 cyrus-imapd (2.5.7-0+exp1) experimental; urgency=medium
 
   * Imported Upstream version 2.5.7
