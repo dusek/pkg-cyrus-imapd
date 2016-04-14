@@ -1,3 +1,10 @@
+cyrus-imapd (2.5.7-0+exp4) experimental; urgency=medium
+
+  * Convert d/copyright to machine readable format and add license for
+    tools/vzic/
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 14 Apr 2016 11:57:25 +0200
+
 cyrus-imapd (2.5.7-0+exp3) experimental; urgency=medium
 
   [ John Treen ]
