@@ -1,2 +1,13 @@
-usr/lib/cyrus/bin/*test
-usr/share/man/man1/cyrus-*test.1
+usr/lib/cyrus/bin/imtest
+usr/lib/cyrus/bin/lmtptest
+usr/lib/cyrus/bin/nntptest
+usr/lib/cyrus/bin/pop3test
+usr/lib/cyrus/bin/sivtest
+usr/lib/cyrus/bin/smtptest
+usr/lib/cyrus/bin/synctest
+usr/share/man/man1/cyrus-imtest.1
+usr/share/man/man1/cyrus-lmtptest.1
+usr/share/man/man1/cyrus-nntptest.1
+usr/share/man/man1/cyrus-pop3test.1
+usr/share/man/man1/cyrus-sivtest.1
+usr/share/man/man1/cyrus-smtptest.1
