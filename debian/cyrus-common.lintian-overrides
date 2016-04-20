@@ -1,3 +1,5 @@
 cyrus-common: script-in-etc-init.d-not-registered-via-update-rc.d etc/init.d/cyrus-imapd
 cyrus-common: init.d-script-not-marked-as-conffile etc/init.d/cyrus-imapd
 cyrus-common: init.d-script-not-included-in-package etc/init.d/cyrus-imapd
+cyrus-common: package-name-doesnt-match-sonames libcyrus0 libcyrus-com-err0 libcyrus-imap0 libcyrus-min0 libcyrus-sieve0
+cyrus-common: possible-gpl-code-linked-with-openssl
