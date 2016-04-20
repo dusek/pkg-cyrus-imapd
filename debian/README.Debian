@@ -84,7 +84,7 @@ General notes and hints:
    information.
 
  o QUOTAS ARE LIMITIED TO 2GB on some platforms.
-   Be careful to not set quotas over that ammount if your platform doesn't
+   Be careful to not set quotas over that amount if your platform doesn't
    support the C datatype "long long". Things will break in very bad ways.
    Yes, it is a big glitch, and no, there are no easy workarounds.
    see https://bugzilla.andrew.cmu.edu/show_bug.cgi?id=1212
@@ -287,5 +287,5 @@ A daily maintenance cronjob uses ctl_mboxlist(8) to dump the mailboxes database
 to /var/backup. That backup copy can be used as a last-resort copy if the hot
 backups become corrupted somehow.
 
- -- Ondřej Surý <ondrej@debian.org>, Tue, 22 Dec 2015 14:21:31 +0100
+ -- Ondřej Surý <ondrej@debian.org>, Wed, 20 Apr 2016 17:30:05 +0200
 
