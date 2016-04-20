@@ -5,8 +5,11 @@ cyrus-imapd (2.5.7-1) unstable; urgency=medium
   * Fix broken symlinks for installsieve and sieveshell in cyrus-admin
     package (Closes: #821743)
   * Upload to unstable
+  * Fix typo in README.Debian
+  * Add lintian override for possible-gpl-code-linked-with-openssl,
+    because we don't link with GPL code
 
- -- Ondřej Surý <ondrej@debian.org>  Wed, 20 Apr 2016 17:15:30 +0200
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 20 Apr 2016 17:32:10 +0200
 
 cyrus-imapd (2.5.7-0+exp4) experimental; urgency=medium
 
