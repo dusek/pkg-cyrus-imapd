@@ -1,3 +1,13 @@
+cyrus-imapd (2.5.7-1) unstable; urgency=medium
+
+  * Don't install mupdatetest to cyrus-clients and leave it in
+    cyrus-murder package (Closes: #821738)
+  * Fix broken symlinks for installsieve and sieveshell in cyrus-admin
+    package (Closes: #821743)
+  * Upload to unstable
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 20 Apr 2016 17:15:30 +0200
+
 cyrus-imapd (2.5.7-0+exp4) experimental; urgency=medium
 
   * Convert d/copyright to machine readable format and add license for
