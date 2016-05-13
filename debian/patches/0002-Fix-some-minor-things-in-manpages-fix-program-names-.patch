@@ -254,7 +254,7 @@ index 3e7c849..c0cab93 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/master.8 b/man/master.8
-index 80d03b6..5a4379f 100644
+index fb2f5ca..55fddaa 100644
 --- a/man/master.8
 +++ b/man/master.8
 @@ -1,5 +1,5 @@
@@ -325,7 +325,7 @@ index 80d03b6..5a4379f 100644
  rereads its configuration file when it receives a hangup signal,
  SIGHUP.  Services and events may be added, deleted or modified when the
  configuration file is reread.  Any active services removed from the
-@@ -160,9 +160,18 @@ generated for processes that have not been recycled whithin 30s.
+@@ -163,9 +163,18 @@ generated for processes that have not been recycled within 30s.
  The environment variable \fBCYRUS_VERBOSE\fR can be set to log additional
  debugging information. Setting the value to 1 results in base level logging. 
  Setting it higher results in more log messages being generated.

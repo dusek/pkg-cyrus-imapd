@@ -8,10 +8,10 @@ Subject: libisieve has to be noinst_LTLIBRARY for PIC code to compile
  2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 85a91a9..ed19c6e 100644
+index a5ed904..9224698 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -255,7 +255,7 @@ if SIEVE
+@@ -256,7 +256,7 @@ if SIEVE
  
  if PERL
  SUBDIRS += perl/sieve/managesieve
@@ -20,7 +20,7 @@ index 85a91a9..ed19c6e 100644
  endif # PERL
  
  BUILT_SOURCES += sieve/addr.c sieve/sieve.c sieve/sieve_err.c
-@@ -1384,7 +1384,7 @@ perl_libcyrus_la_LIBADD = $(lib_libcyrus_la_LIBADD)
+@@ -1389,7 +1389,7 @@ perl_libcyrus_la_LIBADD = $(lib_libcyrus_la_LIBADD)
  perl_libcyrus_min_la_SOURCES = $(lib_libcyrus_min_la_SOURCES)
  perl_libcyrus_min_la_LIBADD = $(lib_libcyrus_min_la_LIBADD)
  

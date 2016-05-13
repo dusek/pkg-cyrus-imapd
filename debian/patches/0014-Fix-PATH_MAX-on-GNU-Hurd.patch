@@ -24,7 +24,7 @@ index ebe4db3..ce93526 100644
  /* kerberos des is purported to conflict with OpenSSL DES */
  #define DES_DEFS
 diff --git a/master/master.c b/master/master.c
-index f04ca60..a2ea422 100644
+index 76a4570..f206c9e 100644
 --- a/master/master.c
 +++ b/master/master.c
 @@ -75,6 +75,10 @@
@@ -39,7 +39,7 @@ index f04ca60..a2ea422 100644
  #define INADDR_NONE 0xffffffff
  #endif
 diff --git a/master/service.c b/master/service.c
-index c8179b3..e58910a 100644
+index 9871d5e..14f10db 100644
 --- a/master/service.c
 +++ b/master/service.c
 @@ -76,6 +76,10 @@

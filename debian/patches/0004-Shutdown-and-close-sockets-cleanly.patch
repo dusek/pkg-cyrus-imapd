@@ -42,7 +42,7 @@ index fdd56e5..2b4b177 100644
  }
  
 diff --git a/imap/imapd.c b/imap/imapd.c
-index 97a7f5a..6a1367a 100644
+index dc542be..5f161e9 100644
 --- a/imap/imapd.c
 +++ b/imap/imapd.c
 @@ -1126,6 +1126,10 @@ void shut_down(int code)

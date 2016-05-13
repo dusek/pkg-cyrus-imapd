@@ -8,10 +8,10 @@ Subject: Disable runpath checking
  1 file changed, 3 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 255c0ed..3339468 100644
+index d012365..8e460d3 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -187,9 +187,6 @@ fi
+@@ -195,9 +195,6 @@ fi
  CMU_C___ATTRIBUTE__
  CMU_C_FPIC
  

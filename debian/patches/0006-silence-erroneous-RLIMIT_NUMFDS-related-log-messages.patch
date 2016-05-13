@@ -10,7 +10,7 @@ if getrlimit(RLIMIT_NUMFDS) failed.
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/master/master.c b/master/master.c
-index 5011fe1..f04ca60 100644
+index 8d2207d..76a4570 100644
 --- a/master/master.c
 +++ b/master/master.c
 @@ -1883,7 +1883,7 @@ static void limit_fds(rlim_t x)
