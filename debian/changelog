@@ -1,3 +1,10 @@
+cyrus-imapd (2.5.7-2) unstable; urgency=medium
+
+  * Require libical >= 2.0.0 and define the libical feature macros
+    according to that
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 13 May 2016 15:27:51 +0200
+
 cyrus-imapd (2.5.7-1) unstable; urgency=medium
 
   * Don't install mupdatetest to cyrus-clients and leave it in
