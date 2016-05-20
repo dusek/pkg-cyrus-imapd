@@ -428,7 +428,7 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(man5dir)" "$(DESTDIR)$(man8dir)" \
 	"$(DESTDIR)$(sysconfdir)" "$(DESTDIR)$(pkgconfigdir)" \
 	"$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)" \
-	"$(DESTDIR)$(includedir)"
+	"$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES) $(noinst_LTLIBRARIES)
 com_err_et_libcyrus_com_err_la_LIBADD =
 am_com_err_et_libcyrus_com_err_la_OBJECTS =  \
@@ -626,12 +626,12 @@ lib_libcyrus_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 LIBOBJDIR = lib/
 lib_libcyrus_min_la_DEPENDENCIES = $(LTLIBOBJS)
 am__lib_libcyrus_min_la_SOURCES_DIST = lib/arrayu64.c lib/assert.c \
-	lib/hash.c lib/hashu64.c lib/imapopts.c lib/libconfig.c \
-	lib/mpool.c lib/retry.c lib/strarray.c lib/strhash.c \
-	lib/util.c lib/vparse.c lib/xmalloc.c lib/xstrlcat.c \
-	lib/xstrlcpy.c lib/getaddrinfo.c lib/getnameinfo.c \
-	lib/lock_fcntl.c lib/lock_flock.c lib/map_shared.c \
-	lib/map_stupidshared.c lib/map_nommap.c
+	lib/hash.c lib/hashu64.c lib/libconfig.c lib/mpool.c \
+	lib/retry.c lib/strarray.c lib/strhash.c lib/util.c \
+	lib/vparse.c lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c \
+	lib/getaddrinfo.c lib/getnameinfo.c lib/lock_fcntl.c \
+	lib/lock_flock.c lib/map_shared.c lib/map_stupidshared.c \
+	lib/map_nommap.c
 @IPV6_noGETADDRINFO_TRUE@am__objects_9 = lib/lib_libcyrus_min_la-getaddrinfo.lo
 @IPV6_noGETNAMEINFO_TRUE@am__objects_10 = lib/lib_libcyrus_min_la-getnameinfo.lo
 @LOCK_FCNTL_TRUE@am__objects_11 =  \
@@ -646,7 +646,6 @@ am_lib_libcyrus_min_la_OBJECTS = lib/lib_libcyrus_min_la-arrayu64.lo \
 	lib/lib_libcyrus_min_la-assert.lo \
 	lib/lib_libcyrus_min_la-hash.lo \
 	lib/lib_libcyrus_min_la-hashu64.lo \
-	lib/lib_libcyrus_min_la-imapopts.lo \
 	lib/lib_libcyrus_min_la-libconfig.lo \
 	lib/lib_libcyrus_min_la-mpool.lo \
 	lib/lib_libcyrus_min_la-retry.lo \
@@ -659,7 +658,10 @@ am_lib_libcyrus_min_la_OBJECTS = lib/lib_libcyrus_min_la-arrayu64.lo \
 	lib/lib_libcyrus_min_la-xstrlcpy.lo $(am__objects_9) \
 	$(am__objects_10) $(am__objects_11) $(am__objects_12) \
 	$(am__objects_13) $(am__objects_14) $(am__objects_15)
-lib_libcyrus_min_la_OBJECTS = $(am_lib_libcyrus_min_la_OBJECTS)
+nodist_lib_libcyrus_min_la_OBJECTS =  \
+	lib/lib_libcyrus_min_la-imapopts.lo
+lib_libcyrus_min_la_OBJECTS = $(am_lib_libcyrus_min_la_OBJECTS) \
+	$(nodist_lib_libcyrus_min_la_OBJECTS)
 lib_libcyrus_min_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
 	$(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
@@ -703,12 +705,12 @@ perl_libcyrus_la_OBJECTS = $(am_perl_libcyrus_la_OBJECTS)
 @PERL_TRUE@am_perl_libcyrus_la_rpath =
 perl_libcyrus_min_la_DEPENDENCIES = $(lib_libcyrus_min_la_LIBADD)
 am__perl_libcyrus_min_la_SOURCES_DIST = lib/arrayu64.c lib/assert.c \
-	lib/hash.c lib/hashu64.c lib/imapopts.c lib/libconfig.c \
-	lib/mpool.c lib/retry.c lib/strarray.c lib/strhash.c \
-	lib/util.c lib/vparse.c lib/xmalloc.c lib/xstrlcat.c \
-	lib/xstrlcpy.c lib/getaddrinfo.c lib/getnameinfo.c \
-	lib/lock_fcntl.c lib/lock_flock.c lib/map_shared.c \
-	lib/map_stupidshared.c lib/map_nommap.c
+	lib/hash.c lib/hashu64.c lib/libconfig.c lib/mpool.c \
+	lib/retry.c lib/strarray.c lib/strhash.c lib/util.c \
+	lib/vparse.c lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c \
+	lib/getaddrinfo.c lib/getnameinfo.c lib/lock_fcntl.c \
+	lib/lock_flock.c lib/map_shared.c lib/map_stupidshared.c \
+	lib/map_nommap.c
 @IPV6_noGETADDRINFO_TRUE@am__objects_23 = lib/getaddrinfo.lo
 @IPV6_noGETNAMEINFO_TRUE@am__objects_24 = lib/getnameinfo.lo
 @LOCK_FCNTL_TRUE@am__objects_25 = lib/lock_fcntl.lo
@@ -718,9 +720,9 @@ am__perl_libcyrus_min_la_SOURCES_DIST = lib/arrayu64.c lib/assert.c \
 @MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@am__objects_29 =  \
 @MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@	lib/map_nommap.lo
 am__objects_30 = lib/arrayu64.lo lib/assert.lo lib/hash.lo \
-	lib/hashu64.lo lib/imapopts.lo lib/libconfig.lo lib/mpool.lo \
-	lib/retry.lo lib/strarray.lo lib/strhash.lo lib/util.lo \
-	lib/vparse.lo lib/xmalloc.lo lib/xstrlcat.lo lib/xstrlcpy.lo \
+	lib/hashu64.lo lib/libconfig.lo lib/mpool.lo lib/retry.lo \
+	lib/strarray.lo lib/strhash.lo lib/util.lo lib/vparse.lo \
+	lib/xmalloc.lo lib/xstrlcat.lo lib/xstrlcpy.lo \
 	$(am__objects_23) $(am__objects_24) $(am__objects_25) \
 	$(am__objects_26) $(am__objects_27) $(am__objects_28) \
 	$(am__objects_29)
@@ -1204,8 +1206,9 @@ SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(dist_imap_libcyrus_imap_la_SOURCES) \
 	$(nodist_imap_libcyrus_imap_la_SOURCES) \
 	$(lib_libcyrus_la_SOURCES) $(nodist_lib_libcyrus_la_SOURCES) \
-	$(lib_libcyrus_min_la_SOURCES) $(perl_libcyrus_la_SOURCES) \
-	$(perl_libcyrus_min_la_SOURCES) \
+	$(lib_libcyrus_min_la_SOURCES) \
+	$(nodist_lib_libcyrus_min_la_SOURCES) \
+	$(perl_libcyrus_la_SOURCES) $(perl_libcyrus_min_la_SOURCES) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
 	$(nodist_sieve_libcyrus_sieve_la_SOURCES) \
 	$(cunit_unit_SOURCES) doc/text/htmlstrip.c \
@@ -1299,7 +1302,8 @@ am__dist_sysconf_DATA_DIST = depot/rc.local.imap \
 	depot/rc.local.ptclient
 DATA = $(dist_sysconf_DATA) $(pkgconfig_DATA)
 HEADERS = $(include_HEADERS) $(nobase_include_HEADERS) \
-	$(nobase_nodist_include_HEADERS) $(noinst_HEADERS)
+	$(nobase_nodist_include_HEADERS) $(nodist_include_HEADERS) \
+	$(noinst_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 am__recursive_targets = \
@@ -1468,6 +1472,7 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LOCALDEFS = @LOCALDEFS@
 LTLIBOBJS = @LTLIBOBJS@
+LT_SYS_LIBRARY_PATH = @LT_SYS_LIBRARY_PATH@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MANIFEST_TOOL = @MANIFEST_TOOL@
@@ -1582,8 +1587,8 @@ AM_CPPFLAGS = $(COM_ERR_CPPFLAGS) -I${top_builddir} \
 	$(am__append_1) $(am__append_14)
 AM_LDFLAGS = $(COV_LDFLAGS) $(am__append_15)
 BUILT_SOURCES = xversion.h imap/imap_err.c lib/imapopts.c \
-	$(am__append_2) $(am__append_4) $(am__append_16) \
-	$(am__append_33) $(am__append_38)
+	lib/imapopts.h $(am__append_2) $(am__append_4) \
+	$(am__append_16) $(am__append_33) $(am__append_38)
 DISTCLEANFILES = \
 	imap/imap_err.c \
 	imap/imap_err.h \
@@ -1895,7 +1900,6 @@ include_HEADERS = \
 	lib/gmtoff.h \
 	lib/hash.h \
 	lib/hashu64.h \
-	lib/imapopts.h \
 	lib/imapurl.h \
 	lib/imclient.h \
 	lib/imparse.h \
@@ -1921,6 +1925,9 @@ include_HEADERS = \
 	lib/vparse.h \
 	lib/wildmat.h \
 	lib/xmalloc.h
+
+nodist_include_HEADERS = \
+	lib/imapopts.h
 
 nobase_include_HEADERS = sieve/sieve_interface.h
 nobase_nodist_include_HEADERS = sieve/sieve_err.h
@@ -2132,13 +2139,15 @@ lib_libcyrus_la_SOURCES = lib/acl.c lib/acl_afs.c lib/auth.c \
 	$(am__append_59) $(am__append_60) $(am__append_61)
 lib_libcyrus_la_LIBADD = $(LIB_RT) ${LIB_SASL} $(SSL_LIBS)
 lib_libcyrus_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
+nodist_lib_libcyrus_min_la_SOURCES = \
+	lib/imapopts.c
+
 lib_libcyrus_min_la_SOURCES = lib/arrayu64.c lib/assert.c lib/hash.c \
-	lib/hashu64.c lib/imapopts.c lib/libconfig.c lib/mpool.c \
-	lib/retry.c lib/strarray.c lib/strhash.c lib/util.c \
-	lib/vparse.c lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c \
-	$(am__append_62) $(am__append_63) $(am__append_64) \
-	$(am__append_65) $(am__append_66) $(am__append_67) \
-	$(am__append_68)
+	lib/hashu64.c lib/libconfig.c lib/mpool.c lib/retry.c \
+	lib/strarray.c lib/strhash.c lib/util.c lib/vparse.c \
+	lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c $(am__append_62) \
+	$(am__append_63) $(am__append_64) $(am__append_65) \
+	$(am__append_66) $(am__append_67) $(am__append_68)
 lib_libcyrus_min_la_LIBADD = $(LTLIBOBJS)
 lib_libcyrus_min_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 dist_man_MANS = man/imtest.1 man/installsieve.1 man/lmtptest.1 \
@@ -2654,8 +2663,6 @@ lib/lib_libcyrus_min_la-hash.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 lib/lib_libcyrus_min_la-hashu64.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
-lib/lib_libcyrus_min_la-imapopts.lo: lib/$(am__dirstamp) \
-	lib/$(DEPDIR)/$(am__dirstamp)
 lib/lib_libcyrus_min_la-libconfig.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 lib/lib_libcyrus_min_la-mpool.lo: lib/$(am__dirstamp) \
@@ -2689,6 +2696,8 @@ lib/lib_libcyrus_min_la-map_shared.lo: lib/$(am__dirstamp) \
 lib/lib_libcyrus_min_la-map_stupidshared.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 lib/lib_libcyrus_min_la-map_nommap.lo: lib/$(am__dirstamp) \
+	lib/$(DEPDIR)/$(am__dirstamp)
+lib/lib_libcyrus_min_la-imapopts.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 
 lib/libcyrus_min.la: $(lib_libcyrus_min_la_OBJECTS) $(lib_libcyrus_min_la_DEPENDENCIES) $(EXTRA_lib_libcyrus_min_la_DEPENDENCIES) lib/$(am__dirstamp)
@@ -2753,7 +2762,6 @@ lib/arrayu64.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/assert.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/hash.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/hashu64.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
-lib/imapopts.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/libconfig.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/mpool.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/retry.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
@@ -3727,7 +3735,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/gmtoff_tm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/hash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/hashu64.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imapopts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imapurl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imclient.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imparse.Plo@am__quote@
@@ -4725,13 +4732,6 @@ lib/lib_libcyrus_min_la-hashu64.lo: lib/hashu64.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -c -o lib/lib_libcyrus_min_la-hashu64.lo `test -f 'lib/hashu64.c' || echo '$(srcdir)/'`lib/hashu64.c
 
-lib/lib_libcyrus_min_la-imapopts.lo: lib/imapopts.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -MT lib/lib_libcyrus_min_la-imapopts.lo -MD -MP -MF lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Tpo -c -o lib/lib_libcyrus_min_la-imapopts.lo `test -f 'lib/imapopts.c' || echo '$(srcdir)/'`lib/imapopts.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Tpo lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/imapopts.c' object='lib/lib_libcyrus_min_la-imapopts.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -c -o lib/lib_libcyrus_min_la-imapopts.lo `test -f 'lib/imapopts.c' || echo '$(srcdir)/'`lib/imapopts.c
-
 lib/lib_libcyrus_min_la-libconfig.lo: lib/libconfig.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -MT lib/lib_libcyrus_min_la-libconfig.lo -MD -MP -MF lib/$(DEPDIR)/lib_libcyrus_min_la-libconfig.Tpo -c -o lib/lib_libcyrus_min_la-libconfig.lo `test -f 'lib/libconfig.c' || echo '$(srcdir)/'`lib/libconfig.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/$(DEPDIR)/lib_libcyrus_min_la-libconfig.Tpo lib/$(DEPDIR)/lib_libcyrus_min_la-libconfig.Plo
@@ -4850,6 +4850,13 @@ lib/lib_libcyrus_min_la-map_nommap.lo: lib/map_nommap.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/map_nommap.c' object='lib/lib_libcyrus_min_la-map_nommap.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -c -o lib/lib_libcyrus_min_la-map_nommap.lo `test -f 'lib/map_nommap.c' || echo '$(srcdir)/'`lib/map_nommap.c
+
+lib/lib_libcyrus_min_la-imapopts.lo: lib/imapopts.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -MT lib/lib_libcyrus_min_la-imapopts.lo -MD -MP -MF lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Tpo -c -o lib/lib_libcyrus_min_la-imapopts.lo `test -f 'lib/imapopts.c' || echo '$(srcdir)/'`lib/imapopts.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Tpo lib/$(DEPDIR)/lib_libcyrus_min_la-imapopts.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='lib/imapopts.c' object='lib/lib_libcyrus_min_la-imapopts.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_libcyrus_min_la_CFLAGS) $(CFLAGS) -c -o lib/lib_libcyrus_min_la-imapopts.lo `test -f 'lib/imapopts.c' || echo '$(srcdir)/'`lib/imapopts.c
 
 sieve/sieve_libcyrus_sieve_la-addr.lo: sieve/addr.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_la-addr.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr.Tpo -c -o sieve/sieve_libcyrus_sieve_la-addr.lo `test -f 'sieve/addr.c' || echo '$(srcdir)/'`sieve/addr.c
@@ -5287,6 +5294,27 @@ uninstall-nobase_nodist_includeHEADERS:
 	@list='$(nobase_nodist_include_HEADERS)'; test -n "$(includedir)" || list=; \
 	$(am__nobase_strip_setup); files=`$(am__nobase_strip)`; \
 	dir='$(DESTDIR)$(includedir)'; $(am__uninstall_files_from_dir)
+install-nodist_includeHEADERS: $(nodist_include_HEADERS)
+	@$(NORMAL_INSTALL)
+	@list='$(nodist_include_HEADERS)'; test -n "$(includedir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(includedir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(includedir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
+	done
+
+uninstall-nodist_includeHEADERS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(nodist_include_HEADERS)'; test -n "$(includedir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(includedir)'; $(am__uninstall_files_from_dir)
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run 'make' without going through this Makefile.
@@ -5596,7 +5624,7 @@ install-binPROGRAMS: install-libLTLIBRARIES
 
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(servicedir)" "$(DESTDIR)$(userdir)" "$(DESTDIR)$(man1dir)" "$(DESTDIR)$(man3dir)" "$(DESTDIR)$(man5dir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(sysconfdir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(servicedir)" "$(DESTDIR)$(userdir)" "$(DESTDIR)$(man1dir)" "$(DESTDIR)$(man3dir)" "$(DESTDIR)$(man5dir)" "$(DESTDIR)$(man8dir)" "$(DESTDIR)$(sysconfdir)" "$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: $(BUILT_SOURCES)
@@ -5695,7 +5723,8 @@ info-am:
 
 install-data-am: install-includeHEADERS install-man \
 	install-nobase_includeHEADERS \
-	install-nobase_nodist_includeHEADERS install-pkgconfigDATA \
+	install-nobase_nodist_includeHEADERS \
+	install-nodist_includeHEADERS install-pkgconfigDATA \
 	install-servicePROGRAMS install-userPROGRAMS
 	@$(NORMAL_INSTALL)
 	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
@@ -5750,7 +5779,8 @@ ps-am:
 uninstall-am: uninstall-binPROGRAMS uninstall-dist_sysconfDATA \
 	uninstall-includeHEADERS uninstall-libLTLIBRARIES \
 	uninstall-man uninstall-nobase_includeHEADERS \
-	uninstall-nobase_nodist_includeHEADERS uninstall-pkgconfigDATA \
+	uninstall-nobase_nodist_includeHEADERS \
+	uninstall-nodist_includeHEADERS uninstall-pkgconfigDATA \
 	uninstall-servicePROGRAMS uninstall-userPROGRAMS
 
 uninstall-man: uninstall-man1 uninstall-man3 uninstall-man5 \
@@ -5777,8 +5807,9 @@ uninstall-man: uninstall-man1 uninstall-man3 uninstall-man5 \
 	install-includeHEADERS install-info install-info-am \
 	install-libLTLIBRARIES install-man install-man1 install-man3 \
 	install-man5 install-man8 install-nobase_includeHEADERS \
-	install-nobase_nodist_includeHEADERS install-pdf \
-	install-pdf-am install-pkgconfigDATA install-ps install-ps-am \
+	install-nobase_nodist_includeHEADERS \
+	install-nodist_includeHEADERS install-pdf install-pdf-am \
+	install-pkgconfigDATA install-ps install-ps-am \
 	install-servicePROGRAMS install-strip install-userPROGRAMS \
 	installcheck installcheck-am installdirs installdirs-am \
 	maintainer-clean maintainer-clean-generic mostlyclean \
@@ -5788,7 +5819,8 @@ uninstall-man: uninstall-man1 uninstall-man3 uninstall-man5 \
 	uninstall-includeHEADERS uninstall-libLTLIBRARIES \
 	uninstall-man uninstall-man1 uninstall-man3 uninstall-man5 \
 	uninstall-man8 uninstall-nobase_includeHEADERS \
-	uninstall-nobase_nodist_includeHEADERS uninstall-pkgconfigDATA \
+	uninstall-nobase_nodist_includeHEADERS \
+	uninstall-nodist_includeHEADERS uninstall-pkgconfigDATA \
 	uninstall-servicePROGRAMS uninstall-userPROGRAMS
 
 .PRECIOUS: Makefile
@@ -5885,6 +5917,12 @@ lex-fix: sieve/addr-lex.c sieve/sieve-lex.c
 
 	grep -E ' yy_size_t  _yybytes_len ' sieve/addr-lex.c && \
     	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/addr-lex.c || :
+
+	grep -E '^static int yy_n_chars;' sieve/sieve-lex.c && \
+    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/sieve-lex.c || :
+
+	grep -E '^static int yy_n_chars;' sieve/addr-lex.c && \
+    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/addr-lex.c || :
 
 snapshot::
 	@echo "Creating snapshot $(PACKAGE_NAME)-$(GIT_VERSION)"

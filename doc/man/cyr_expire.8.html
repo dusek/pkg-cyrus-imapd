@@ -1,0 +1,288 @@
+<!-- Creator     : groff version 1.22.3 -->
+<!-- CreationDate: Fri May 20 06:10:04 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CYR_EXPIRE</title>
+
+</head>
+<body>
+
+<h1 align="center">CYR_EXPIRE</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#FILES">FILES</a><br>
+<a href="#SEE ALSO">SEE ALSO</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">cyr_expire
+&minus; expire messages and duplicate delivery database
+entries</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>cyr_expire</b>
+[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;D</b>
+<i>delete-duration</i> ] [ <b>&minus;E</b>
+<i>expire-duration</i> ] [ <b>&minus;X</b>
+<i>expunge-duration</i> ] [ <b>&minus;p</b>
+<i>mailbox-prefix</i> ] [ <b>&minus;u</b> <i>username</i> ]
+[ <b>&minus;t</b> ] [ <b>&minus;v</b> ]</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cyr_expire</b>
+is used to run a number of regular maintenance tasks on
+Cyrus databases, specifically:</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="86%">
+
+
+<p>expire messages from mailboxes, and</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="86%">
+
+
+<p>expire entries from the duplicate delivery database,
+and</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="86%">
+
+
+<p>cleanse mailboxes of partially expunged messages (when
+using the &quot;delayed&quot; expunge mode), and</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="1%">
+
+
+<p>&bull;</p></td>
+<td width="2%"></td>
+<td width="86%">
+
+
+<p>remove deleted mailboxes (when using the
+&quot;delayed&quot; delete mode).</p></td></tr>
+</table>
+
+<p style="margin-left:11%; margin-top: 1em">The expiration
+of messages is controlled by the
+<b>/vendor/cmu/cyrus-imapd/expire</b> mailbox annotation
+which specifies the age (in days) of messages in the given
+mailbox that should be deleted. A value of 0 means that no
+expiration is to be performed on that mailbox.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The value of
+the <b>/vendor/cmu/cyrus-imapd/expire</b> annotation is
+inherited by all children of the mailbox on which it is set,
+so an entire mailbox tree can be configured by setting a
+single annotation on the root of that tree. If a mailbox
+does not have a <b>/vendor/cmu/cyrus-imapd/expire</b>
+annotation set on it (or does not inherit one), then no
+messages are expired from the mailbox.</p>
+
+<p style="margin-left:11%; margin-top: 1em">The annotation
+can be examined using the <b>info</b> command of
+<b>cyradm(1p)</b>, and modified using the <b>mboxconfig</b>
+and <b>setinfo</b> commands of <b>cyradm(1p)</b>.</p>
+
+<p style="margin-left:11%; margin-top: 1em">Expiration of
+duplicate delivery database entries for a given mailbox is
+also controlled by the <b>/vendor/cmu/cyrus-imapd/expire</b>
+annotation which applies to that mailbox. Unlike message
+expiration, if no annotation applies to the mailbox then
+duplicate database entries are expired using the value given
+to the <b>-E</b> option.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cyr_expire</b>
+reads its configuration options out of the
+<i>imapd.conf</i>(5) file unless specified otherwise by
+<b>-C</b>.</p>
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>Cyr_expire</b>
+requires at least one of <b>-D -E -X</b> or <b>-t</b> to be
+supplied.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<i>config-file</i></p>
+
+<p style="margin-left:22%;">Read configuration options from
+<i>config-file</i>.</p>
+
+<p style="margin-left:11%;"><b>&minus;D</b>
+<i>delete-duration</i></p>
+
+<p style="margin-left:22%;">Remove previously deleted
+mailboxes older than <i>delete-duration</i> (when using the
+&quot;delayed&quot; delete mode). The value can be a
+floating point number, and may have a suffix to specify the
+unit of time. If no suffix, the value is number of days.
+Valid suffixes are <b>d</b> (days), <b>h</b> (hours),
+<b>m</b> (minutes) and <b>s</b> (seconds).</p>
+
+<p style="margin-left:11%;"><b>&minus;E</b>
+<i>expire-duration</i></p>
+
+<p style="margin-left:22%;">Prune the duplicate database of
+entries older than <i>expire-duration</i>. This value is
+only used for entries which do not have a corresponding
+<b>/vendor/cmu/cyrus-imapd/expire</b> mailbox annotation.
+Format is the same as delete-duration.</p>
+
+<p style="margin-left:11%;"><b>&minus;X</b>
+<i>expunge-duration</i></p>
+
+<p style="margin-left:22%;">Expunge previously deleted
+messages older than <i>expunge-duration</i> (when using the
+&quot;delayed&quot; expunge mode). Format is the same as
+delete-duration.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;x</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Do not expunge messages even if using delayed expunge
+mode. This reduces IO traffic considerably, allowing
+<b>cyr_expire</b> to be run frequently to clean up the
+duplicate database without overloading the machine.</p></td></tr>
+</table>
+
+<p style="margin-left:11%;"><b>&minus;p</b>
+<i>mailbox-prefix</i></p>
+
+<p style="margin-left:22%;">Only find mailboxes starting
+with this prefix, e.g.
+&quot;user.justgotspammedlots&quot;.</p>
+
+<p style="margin-left:11%;"><b>&minus;u</b>
+<i>userid</i></p>
+
+<p style="margin-left:22%;">Only find mailboxes belonging
+to this user, e.g.
+&quot;justgotspammedlots@example.com&quot;.</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;t</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Remove any user flags which are not used by remaining
+(not expunged) messages.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;v</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Enable verbose output.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>&minus;a</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Skip the annotation lookup, so all
+<b>/vendor/cmu/cyrus-imapd/expire</b> annotations are
+ignored entirely. It behaves as if they were not set, so
+only <i>expire-days</i> is considered for all mailboxes.</p></td></tr>
+</table>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>/etc/imapd.conf</b></p>
+
+<h2>SEE ALSO
+<a name="SEE ALSO"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>imapd.conf(5)</b>,
+<b>master(8)</b>, <b>cyradm(1p)</b></p>
+<hr>
+</body>
+</html>

@@ -44,12 +44,15 @@ dnl configure.ac for the Cyrus imapd
 dnl
 
 
-AC_INIT([cyrus-imapd], [2.5.7], [http://bugzilla.cyrusimap.org],,[http://www.cyrusimap.org])
+AC_INIT([cyrus-imapd], [2.5.8], [http://bugzilla.cyrusimap.org],,[http://www.cyrusimap.org])
 AC_PREREQ([2.63])
 AC_CONFIG_SRCDIR([imap/imapd.c])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_MACRO_DIR([cmulocal])
 AC_CANONICAL_SYSTEM
+
+dnl in case the first use of PKG_CHECK_MODULES is inside a conditional
+PKG_PROG_PKG_CONFIG
 
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign dist-bzip2 no-installinfo subdir-objects])
 AC_CONFIG_LIBOBJ_DIR([lib])
@@ -89,14 +92,19 @@ AC_ARG_WITH(extraident,
 
 AM_MAINTAINER_MODE
 
+dnl Coverage (disabled by default)
+COV_CFLAGS=
+COV_LDFLAGS=
+
 AC_ARG_ENABLE(coverage,
-	[AS_HELP_STRING([--enable-coverage],[enable C test coverage])],
-	[COV_CFLAGS="--coverage"
-	 COV_LDFLAGS="--coverage"
-	],[
-	 COV_CFLAGS=
-	 COV_LDFLAGS=
-	])
+    AS_HELP_STRING([--enable-coverage],[enable C test coverage])
+)
+
+AS_IF([test "x$enable_coverage" = "xyes"], [
+    COV_CFLAGS="--coverage"
+    COV_LDFLAGS="--coverage"
+])
+
 AC_SUBST(COV_CFLAGS)
 AC_SUBST(COV_LDFLAGS)
 

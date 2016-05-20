@@ -27,8 +27,8 @@
 
 #define FLEX_SCANNER
 #define YY_FLEX_MAJOR_VERSION 2
-#define YY_FLEX_MINOR_VERSION 5
-#define YY_FLEX_SUBMINOR_VERSION 39
+#define YY_FLEX_MINOR_VERSION 6
+#define YY_FLEX_SUBMINOR_VERSION 0
 #if YY_FLEX_SUBMINOR_VERSION > 0
 #define FLEX_BETA
 #endif
@@ -249,7 +249,7 @@ struct yy_buffer_state
 	/* Number of characters read into yy_ch_buf, not including EOB
 	 * characters.
 	 */
-	yy_size_t yy_n_chars;
+	int yy_n_chars;
 
 	/* Whether we "own" the buffer - i.e., we know we created it,
 	 * and can realloc() it to grow it, and should free() it to
@@ -319,7 +319,7 @@ static YY_BUFFER_STATE * yy_buffer_stack = 0; /**< Stack as an array. */
 
 /* yy_hold_char holds the character lost when sievetext is formed. */
 static char yy_hold_char;
-static yy_size_t yy_n_chars;		/* number of characters read into yy_ch_buf */
+static int yy_n_chars;		/* number of characters read into yy_ch_buf */
 yy_size_t sieveleng;
 
 /* Points to current character in buffer. */
@@ -380,7 +380,7 @@ void sievefree (void *  );
 
 /* Begin user sect3 */
 
-#define sievewrap() 1
+#define sievewrap() (/*CONSTCOND*/1)
 #define YY_SKIP_YYWRAP
 
 typedef unsigned char YY_CHAR;
@@ -394,11 +394,17 @@ extern int sievelineno;
 int sievelineno = 1;
 
 extern char *sievetext;
+#ifdef yytext_ptr
+#undef yytext_ptr
+#endif
 #define yytext_ptr sievetext
 
 static yy_state_type yy_get_previous_state (void );
 static yy_state_type yy_try_NUL_trans (yy_state_type current_state  );
 static int yy_get_next_buffer (void );
+#if defined(__GNUC__) && __GNUC__ >= 3
+__attribute__((__noreturn__))
+#endif
 static void yy_fatal_error (yyconst char msg[]  );
 
 /* Done after the current pattern has been matched and before the
@@ -470,7 +476,7 @@ static yyconst flex_int16_t yy_accept[416] =
         0,   79,    0,   83,    0
     } ;
 
-static yyconst flex_int32_t yy_ec[256] =
+static yyconst YY_CHAR yy_ec[256] =
     {   0,
         1,    1,    1,    1,    1,    1,    1,    1,    2,    3,
         1,    1,    4,    1,    1,    1,    1,    1,    1,    1,
@@ -502,7 +508,7 @@ static yyconst flex_int32_t yy_ec[256] =
         1,    1,    1,    1,    1
     } ;
 
-static yyconst flex_int32_t yy_meta[40] =
+static yyconst YY_CHAR yy_meta[40] =
     {   0,
         1,    1,    2,    1,    1,    1,    1,    1,    1,    1,
         1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
@@ -510,7 +516,7 @@ static yyconst flex_int32_t yy_meta[40] =
         1,    1,    1,    1,    1,    1,    1,    1,    1
     } ;
 
-static yyconst flex_int16_t yy_base[422] =
+static yyconst flex_uint16_t yy_base[422] =
     {   0,
         0,    0,  449,   37,   38,   39,  451,  453,  453,  453,
       453,    0,  443,   36,   49,   30,  421,  414,   36,   60,
@@ -612,7 +618,7 @@ static yyconst flex_int16_t yy_def[422] =
       415
     } ;
 
-static yyconst flex_int16_t yy_nxt[493] =
+static yyconst flex_uint16_t yy_nxt[493] =
     {   0,
         8,    9,   10,    9,   11,   12,    8,    8,   13,   14,
        15,    8,    8,   16,   17,   18,   19,   20,   21,    8,
@@ -818,7 +824,7 @@ static int mlbufsz, mlcur;
 extern void sieveerror(sieve_script_t *, char *);
 
 
-#line 822 "sieve/sieve-lex.c"
+#line 828 "sieve/sieve-lex.c"
 
 #define INITIAL 0
 #define MULTILINE 1
@@ -853,11 +859,11 @@ void sieveset_extra (YY_EXTRA_TYPE user_defined  );
 
 FILE *sieveget_in (void );
 
-void sieveset_in  (FILE * in_str  );
+void sieveset_in  (FILE * _in_str  );
 
 FILE *sieveget_out (void );
 
-void sieveset_out  (FILE * out_str  );
+void sieveset_out  (FILE * _out_str  );
 
 yy_size_t sieveget_leng (void );
 
@@ -865,7 +871,7 @@ char *sieveget_text (void );
 
 int sieveget_lineno (void );
 
-void sieveset_lineno (int line_number  );
+void sieveset_lineno (int _line_number  );
 
 /* Macros after this point can all be overridden by user definitions in
  * section 1.
@@ -877,6 +883,10 @@ extern "C" int sievewrap (void );
 #else
 extern int sievewrap (void );
 #endif
+#endif
+
+#ifndef YY_NO_UNPUT
+    
 #endif
 
 #ifndef yytext_ptr
@@ -991,7 +1001,7 @@ extern int sievelex (void);
 
 /* Code executed at the end of each rule. */
 #ifndef YY_BREAK
-#define YY_BREAK break;
+#define YY_BREAK /*LINTED*/break;
 #endif
 
 #define YY_RULE_SETUP \
@@ -1004,9 +1014,9 @@ extern int sievelex (void);
  */
 YY_DECL
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp, *yy_bp;
-	register int yy_act;
+	yy_state_type yy_current_state;
+	char *yy_cp, *yy_bp;
+	int yy_act;
     
 	if ( !(yy_init) )
 		{
@@ -1037,9 +1047,9 @@ YY_DECL
 	{
 #line 77 "sieve/sieve-lex.l"
 
-#line 1041 "sieve/sieve-lex.c"
+#line 1051 "sieve/sieve-lex.c"
 
-	while ( 1 )		/* loops until end-of-file is reached */
+	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
 		yy_cp = (yy_c_buf_p);
 
@@ -1056,7 +1066,7 @@ YY_DECL
 yy_match:
 		do
 			{
-			register YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
+			YY_CHAR yy_c = yy_ec[YY_SC_TO_UI(*yy_cp)] ;
 			if ( yy_accept[yy_current_state] )
 				{
 				(yy_last_accepting_state) = yy_current_state;
@@ -1582,7 +1592,7 @@ YY_RULE_SETUP
 #line 187 "sieve/sieve-lex.l"
 ECHO;
 	YY_BREAK
-#line 1586 "sieve/sieve-lex.c"
+#line 1596 "sieve/sieve-lex.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1725,9 +1735,9 @@ case YY_STATE_EOF(INITIAL):
  */
 static int yy_get_next_buffer (void)
 {
-    	register char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
-	register char *source = (yytext_ptr);
-	register int number_to_move, i;
+    	char *dest = YY_CURRENT_BUFFER_LVALUE->yy_ch_buf;
+	char *source = (yytext_ptr);
+	yy_size_t number_to_move, i;
 	int ret_val;
 
 	if ( (yy_c_buf_p) > &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[(yy_n_chars) + 1] )
@@ -1756,7 +1766,7 @@ static int yy_get_next_buffer (void)
 	/* Try to read more data. */
 
 	/* First move last chars to start of buffer. */
-	number_to_move = (int) ((yy_c_buf_p) - (yytext_ptr)) - 1;
+	number_to_move = (yy_size_t) ((yy_c_buf_p) - (yytext_ptr)) - 1;
 
 	for ( i = 0; i < number_to_move; ++i )
 		*(dest++) = *(source++);
@@ -1838,9 +1848,9 @@ static int yy_get_next_buffer (void)
 	else
 		ret_val = EOB_ACT_CONTINUE_SCAN;
 
-	if ((yy_size_t) ((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
+	if ((int) ((yy_n_chars) + number_to_move) > YY_CURRENT_BUFFER_LVALUE->yy_buf_size) {
 		/* Extend the array by 50%, plus the number we really need. */
-		yy_size_t new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
+		int new_size = (yy_n_chars) + number_to_move + ((yy_n_chars) >> 1);
 		YY_CURRENT_BUFFER_LVALUE->yy_ch_buf = (char *) sieverealloc((void *) YY_CURRENT_BUFFER_LVALUE->yy_ch_buf,new_size  );
 		if ( ! YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
 			YY_FATAL_ERROR( "out of dynamic memory in yy_get_next_buffer()" );
@@ -1859,15 +1869,15 @@ static int yy_get_next_buffer (void)
 
     static yy_state_type yy_get_previous_state (void)
 {
-	register yy_state_type yy_current_state;
-	register char *yy_cp;
+	yy_state_type yy_current_state;
+	char *yy_cp;
     
 	yy_current_state = (yy_start);
 	yy_current_state += YY_AT_BOL();
 
 	for ( yy_cp = (yytext_ptr) + YY_MORE_ADJ; yy_cp < (yy_c_buf_p); ++yy_cp )
 		{
-		register YY_CHAR yy_c = (*yy_cp ? yy_ec[YY_SC_TO_UI(*yy_cp)] : 1);
+		YY_CHAR yy_c = (*yy_cp ? yy_ec[YY_SC_TO_UI(*yy_cp)] : 1);
 		if ( yy_accept[yy_current_state] )
 			{
 			(yy_last_accepting_state) = yy_current_state;
@@ -1892,10 +1902,10 @@ static int yy_get_next_buffer (void)
  */
     static yy_state_type yy_try_NUL_trans  (yy_state_type yy_current_state )
 {
-	register int yy_is_jam;
-    	register char *yy_cp = (yy_c_buf_p);
+	int yy_is_jam;
+    	char *yy_cp = (yy_c_buf_p);
 
-	register YY_CHAR yy_c = 1;
+	YY_CHAR yy_c = 1;
 	if ( yy_accept[yy_current_state] )
 		{
 		(yy_last_accepting_state) = yy_current_state;
@@ -1912,6 +1922,10 @@ static int yy_get_next_buffer (void)
 
 		return yy_is_jam ? 0 : yy_current_state;
 }
+
+#ifndef YY_NO_UNPUT
+
+#endif
 
 #ifndef YY_NO_INPUT
 #ifdef __cplusplus
@@ -2068,7 +2082,7 @@ static void sieve_load_buffer_state  (void)
 	if ( ! b )
 		YY_FATAL_ERROR( "out of dynamic memory in sieve_create_buffer()" );
 
-	b->yy_buf_size = size;
+	b->yy_buf_size = (yy_size_t)size;
 
 	/* yy_ch_buf has to be 2 characters longer than the size given because
 	 * we need to put in 2 end-of-buffer characters.
@@ -2223,7 +2237,7 @@ static void sieveensure_buffer_stack (void)
 		 * scanner will even need a stack. We use 2 instead of 1 to avoid an
 		 * immediate realloc on the next call.
          */
-		num_to_alloc = 1;
+		num_to_alloc = 1; /* After all that talk, this was set to 1 anyways... */
 		(yy_buffer_stack) = (struct yy_buffer_state**)sievealloc
 								(num_to_alloc * sizeof(struct yy_buffer_state*)
 								);
@@ -2240,7 +2254,7 @@ static void sieveensure_buffer_stack (void)
 	if ((yy_buffer_stack_top) >= ((yy_buffer_stack_max)) - 1){
 
 		/* Increase the buffer to prepare for a possible push. */
-		int grow_size = 8 /* arbitrary grow size */;
+		yy_size_t grow_size = 8 /* arbitrary grow size */;
 
 		num_to_alloc = (yy_buffer_stack_max) + grow_size;
 		(yy_buffer_stack) = (struct yy_buffer_state**)sieverealloc
@@ -2348,7 +2362,7 @@ YY_BUFFER_STATE sieve_scan_bytes  (yyconst char * yybytes, yy_size_t  _yybytes_l
 
 static void yy_fatal_error (yyconst char* msg )
 {
-    	(void) fprintf( stderr, "%s\n", msg );
+			(void) fprintf( stderr, "%s\n", msg );
 	exit( YY_EXIT_FAILURE );
 }
 
@@ -2414,29 +2428,29 @@ char *sieveget_text  (void)
 }
 
 /** Set the current line number.
- * @param line_number
+ * @param _line_number line number
  * 
  */
-void sieveset_lineno (int  line_number )
+void sieveset_lineno (int  _line_number )
 {
     
-    sievelineno = line_number;
+    sievelineno = _line_number;
 }
 
 /** Set the input stream. This does not discard the current
  * input buffer.
- * @param in_str A readable stream.
+ * @param _in_str A readable stream.
  * 
  * @see sieve_switch_to_buffer
  */
-void sieveset_in (FILE *  in_str )
+void sieveset_in (FILE *  _in_str )
 {
-        sievein = in_str ;
+        sievein = _in_str ;
 }
 
-void sieveset_out (FILE *  out_str )
+void sieveset_out (FILE *  _out_str )
 {
-        sieveout = out_str ;
+        sieveout = _out_str ;
 }
 
 int sieveget_debug  (void)
@@ -2444,9 +2458,9 @@ int sieveget_debug  (void)
         return sieve_flex_debug;
 }
 
-void sieveset_debug (int  bdebug )
+void sieveset_debug (int  _bdebug )
 {
-        sieve_flex_debug = bdebug ;
+        sieve_flex_debug = _bdebug ;
 }
 
 static int yy_init_globals (void)
@@ -2509,7 +2523,8 @@ int sievelex_destroy  (void)
 #ifndef yytext_ptr
 static void yy_flex_strncpy (char* s1, yyconst char * s2, int n )
 {
-	register int i;
+		
+	int i;
 	for ( i = 0; i < n; ++i )
 		s1[i] = s2[i];
 }
@@ -2518,7 +2533,7 @@ static void yy_flex_strncpy (char* s1, yyconst char * s2, int n )
 #ifdef YY_NEED_STRLEN
 static int yy_flex_strlen (yyconst char * s )
 {
-	register int n;
+	int n;
 	for ( n = 0; s[n]; ++n )
 		;
 
@@ -2528,11 +2543,12 @@ static int yy_flex_strlen (yyconst char * s )
 
 void *sievealloc (yy_size_t  size )
 {
-	return (void *) malloc( size );
+			return (void *) malloc( size );
 }
 
 void *sieverealloc  (void * ptr, yy_size_t  size )
 {
+		
 	/* The cast to (char *) in the following accommodates both
 	 * implementations that use char* generic pointers, and those
 	 * that use void* generic pointers.  It works with the latter
@@ -2545,12 +2561,12 @@ void *sieverealloc  (void * ptr, yy_size_t  size )
 
 void sievefree (void * ptr )
 {
-	free( (char *) ptr );	/* see sieverealloc() for (char *) cast */
+			free( (char *) ptr );	/* see sieverealloc() for (char *) cast */
 }
 
 #define YYTABLES_NAME "yytables"
 
-#line 186 "sieve/sieve-lex.l"
+#line 187 "sieve/sieve-lex.l"
 
 
 /*  */

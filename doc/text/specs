@@ -1,0 +1,322 @@
+Cyrus IMAP Server Protocol Specifications
+
+IMAP
+
+    RFC 3501 Internet Message Access Protocol - version 4rev1 
+    being updated by rfc3501-errata
+
+    RFC 1730 Internet Message Access Protocol - version 4
+
+    RFC 4314 IMAP4 Access Control List (ACL) Extension
+
+    RFC 2087 IMAP4 QUOTA extension
+
+    RFC 2088 IMAP4 non-synchronizing literals
+
+    RFC 2177 IMAP4 IDLE command
+
+    RFC 2192 IMAP URL Scheme 
+    being updated by draft-ietf-lemonade-rfc2192bis
+
+    RFC 2193 IMAP4 Mailbox Referrals
+
+    RFC 2342 IMAP4 Namespace
+
+    RFC 4315 Internet Message Access Protocol (IMAP) - UIDPLUS extension
+
+    RFC 2971 IMAP4 ID extension
+
+    RFC 3348 IMAP4 Child Mailbox Extension
+
+    RFC 3502 IMAP MULTIAPPEND extension
+
+    RFC 3516 IMAP4 Binary Content Extension
+
+    RFC 3691 Internet Message Access Protocol (IMAP) UNSELECT command
+
+    RFC 4466 Collected Extensions to IMAP4 ABNF
+
+    RFC 4467 Internet Message Access Protocol (IMAP) - URLAUTH Extension
+
+    RFC 4469 Internet Message Access Protocol (IMAP) CATENATE Extension
+
+    RFC 4550 Internet Email to Support Diverse Service Environments
+    (Lemonade) Profile
+
+    RFC 4551 IMAP Extension for Conditional STORE operation
+
+    RFC 4731 IMAP4 Extension to SEARCH Command for Controlling What Kind of
+    Information Is Returned
+
+    RFC 4959 IMAP Extension for Simple Authentication and Security Layer
+    (SASL) Initial Client Response
+
+    RFC 4978 The IMAP COMPRESS Extension
+
+    RFC 5032 WITHIN Search Extension to the IMAP Protocol
+
+    RFC 5161 The IMAP ENABLE Extension
+
+    RFC 5162 IMAP4 Extensions for Quick Mailbox Resynchronization
+
+    RFC 5256 Internet Message Access Protocol - SORT and THREAD Extensions
+
+    RFC 5258 Internet Message Access Protocol version 4 - LIST Command
+    Extensions
+
+    RFC 5524 Extended URLFETCH for Binary and Converted Parts
+
+    draft-daboo-imap-annotatemore ANNOTATEMORE Draft
+
+    RFC 5464 The IMAP METADATA Extension
+
+    draft-ietf-morg-list-specialuse IMAP SPECIALUSE Draft (And non-standard
+    Google XLIST support)
+
+    RFC 5819 IMAP4 Extension for Returning STATUS Information in Extended
+    LIST
+
+    RFC 5957 Display-Based Address Sorting for the IMAP4 SORT Extension
+
+POP
+
+    RFC 1939 Post Office Protocol - Version 3 (POP3)
+
+    RFC 2449 POP3 Extension Mechanism
+
+    RFC 2595 Using TLS with IMAP, POP3 and ACAP
+
+    RFC 5034 The Post Office Protocol (POP3) Simple Authentication and
+    Security Layer (SASL) Authentication Mechanism
+
+    RFC 3206The SYS and AUTH POP Response Codes
+
+NNTP
+
+    RFC 3977 Network News Transfer Protocol (NNTP)
+
+    RFC 4642 Using Transport Layer Security (TLS) with Network News
+    Transfer Protocol (NNTP)
+
+    RFC 4643 Network News Transfer Protocol (NNTP) Extension for
+    Authentication
+
+    RFC 4644 Network News Transfer Protocol (NNTP) Extension for Streaming
+    Feeds
+
+    RFC 2980 Common NNTP Extensions
+
+SASL
+
+    RFC 4422 Simple Authentication and Security Layer (SASL)
+
+    RFC 4505 Anonymous Simple Authentication and Security Layer (SASL)
+    Mechanism
+
+    RFC 4616 The PLAIN Simple Authentication and Security Layer (SASL)
+    Mechanism
+
+    RFC 2195 IMAP/POP AUTHorize Extension for Simple Challenge/Response 
+    being revised by draft-ietf-sasl-crammd5
+
+    RFC 2444 The One-Time-Password SASL Mechanism
+
+    RFC 2831 Using Digest Authentication as a SASL Mechanism
+
+TLS/SSL
+
+    RFC 4346 The Transport Layer Security (TLS) Protocol Version 1.1
+
+    RFC 2246 The TLS Protocol Version 1.0
+
+    draft-freier-ssl-version3 The SSL Protocol Version 3.0
+
+    draft-hickman-netscape-ssl The SSL Protocol Version 2.0
+
+LMTP
+
+    RFC 2033 Local Mail Transfer Protocol 
+
+    RFC 5321 Simple Mail Transfer Protocol
+
+    RFC 1869 SMTP Service Extensions
+
+    RFC 1652 SMTP Service Extension for 8bit-MIMEtransport
+
+    RFC 1870 SMTP Service Extension for Message Size Declaration
+
+    RFC 2034 SMTP Service Extension for Returning Enhanced Error Codes
+
+    RFC 3463 Enhanced Mail System Status Codes
+
+    RFC 3207 SMTP Service Extension for Secure SMTP over TLS
+
+    RFC 4954 SMTP Service Extension for Authentication
+
+    RFC 2920 SMTP Service Extension for Command Pipelining
+
+    RFC 3848 ESMTP and LMTP Transmission Types Registration
+
+    draft-murchison-lmtp-ignorequota LMTP Service Extension for Ignoring
+    Recipient Quotas
+
+Sieve
+
+    RFC 5228 Sieve: A Mail Filtering Language
+
+    RFC 5230 Sieve Email Filtering: Vacation Extension
+
+    RFC 5231 Sieve Email Filtering: Relational Extension
+
+    RFC 5232 Sieve Email Filtering: Imap4flags Extension
+
+    RFC 5233 Sieve Email Filtering: Subaddress Extension
+
+    RFC 5260 Sieve Email Filtering: Date and Index Extensions
+
+    RFC 5173 Sieve Email Filtering: Body Extension
+
+    RFC 3894 Sieve Extension: Copying Without Side Effects
+
+    RFC 2298 Extensible Message Format for Message Disposition
+    Notifications (MDNs)
+
+    RFC 6131 Sieve Vacation Extension: "Seconds" Parameter
+
+    RFC 6609 Sieve Email Filtering: Include Extension
+
+    draft-ietf-sieve-regex Sieve Email Filtering -- Regular Expression
+    Extension
+
+    draft-melnikov-sieve-imapflags Sieve -- IMAP flag Extension
+
+    draft-martin-sieve-notify Sieve -- An extension for providing instant
+    notifications
+
+    draft-ietf-sieve-managesieve A Protocol for Remotely Managing Sieve
+    Scripts
+
+HTTP
+
+    RFC 7230 Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and
+    Routing
+
+    RFC 7231 Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content
+
+    RFC 7232 Hypertext Transfer Protocol (HTTP/1.1): Conditional Requests
+
+    RFC 7233 Hypertext Transfer Protocol (HTTP/1.1): Range Requests
+
+    RFC 7234 Hypertext Transfer Protocol (HTTP/1.1): Caching
+
+    RFC 7235 Hypertext Transfer Protocol (HTTP/1.1): Authentication
+
+    RFC 2617 
+    being updated by 
+    draft-ietf-httpauth-basicauth-update 
+    draft-ietf-httpauth-digest HTTP Authentication: Basic and Digest Access
+    Authentication
+
+    RFC 4559 SPNEGO-based Kerberos and NTLM HTTP Authentication in
+    Microsoft Windows
+
+    [MS-NTHT] NTLM Over HTTP Protocol Specification
+
+    RFC 2817 HTTP Upgrading to TLS Within HTTP/1.1
+
+    RFC 2818 HTTP Over TLS
+
+    RFC 6797 HTTP Strict Transport Security (HSTS)
+
+    RFC 7239 Forwarded HTTP Extension
+
+    RFC 7240 Prefer Header for HTTP
+
+    RFC 4918 HTTP Extensions for Web Distributed Authoring and Versioning
+    (WebDAV)
+
+    RFC 3253 Versioning Extensions to WebDAV (Web Distributed Authoring and
+    Versioning)
+
+    RFC 3744 Web Distributed Authoring and Versioning (WebDAV) Access
+    Control Protocol
+
+    RFC 4331 Quota and Size Properties for Distributed Authoring and
+    Versioning (DAV) Collections
+
+    RFC 5397 WebDAV Current Principal Extension
+
+    RFC 5689 Extended MKCOL for Web Distributed Authoring and Versioning
+    (WebDAV)
+
+    RFC 5995 Using POST to Add Members to Web Distributed Authoring and
+    Versioning (WebDAV) Collections
+
+    RFC 6578 Collection Synchronization for Web Distributed Authoring and
+    Versioning (WebDAV)
+
+    RFC 4791 Calendaring Extensions to WebDAV (CalDAV)
+
+    RFC 6638 Scheduling Extensions to CalDAV
+
+    RFC 6352 CardDAV: vCard Extensions to Web Distributed Authoring and
+    Versioning (WebDAV)
+
+    RFC 6764 Locating Services for Calendaring Extensions to WebDAV
+    (CalDAV) and vCard Extensions to WebDAV (CardDAV)
+
+    draft-ietf-tzdist-service Time Zone Data Distribution Service
+
+    draft-ietf-tzdist-caldav-timezone-ref CalDAV: Time Zones by Reference
+
+    draft-ietf-calext-rscale Non-Gregorian Recurrence Rules in iCalendar
+
+    draft-daboo-calendar-availability Calendar Availability
+
+    draft-york-vpoll VPOLL: Consensus Scheduling Component for iCalendar
+
+    draft-desruisseaux-ischedule Internet Calendar Scheduling Protocol
+    (iSchedule)
+
+    draft-thomson-hybi-http-timeout Hypertext Transfer Protocol (HTTP)
+    Keep-Alive Header
+
+    draft-murchison-webdav-prefer Use of the Prefer Header Field in Web
+    Distributed Authoring and Versioning (WebDAV)
+
+    caldav-ctag Calendar Collection Entity Tag (CTag) in CalDAV
+
+    Brief HeaderMicrosoft 'Brief' header extension
+
+Other
+
+    RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+
+    RFC 5322 Internet Message Format
+
+    RFC 5536 Netnews Article Format
+
+    RFC 5537 Netnews Architecture and Protocols
+
+    RFC 3656 MUPDATE Protocol (For Cyrus Murder)
+
+    RFC 5423 Internet Message Store Events
+
+    RFC 4287 The Atom Syndication Format
+
+    RFC 5545 Internet Calendaring and Scheduling Core Object Specification
+    (iCalendar) 
+
+    RFC 5546 iCalendar Transport-Independent Interoperability Protocol
+    (iTIP) 
+
+    RFC 6047 iCalendar Message-Based Interoperability Protocol (iMIP)
+
+    RFC 6231 xCal: The XML Format for iCalendar
+
+    RFC 7265 jCal: The JSON Format for iCalendar
+
+    RFC 6350 vCard Format Specification
+
+    RFC 6376 DomainKeys Identified Mail (DKIM) Signatures
+

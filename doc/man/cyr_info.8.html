@@ -1,0 +1,151 @@
+<!-- Creator     : groff version 1.22.3 -->
+<!-- CreationDate: Fri May 20 06:10:04 2016 -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+"http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta name="generator" content="groff -Thtml, see www.gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="Content-Style" content="text/css">
+<style type="text/css">
+       p       { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       pre     { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       table   { margin-top: 0; margin-bottom: 0; vertical-align: top }
+       h1      { text-align: center }
+</style>
+<title>CYR_INFO</title>
+
+</head>
+<body>
+
+<h1 align="center">CYR_INFO</h1>
+
+<a href="#NAME">NAME</a><br>
+<a href="#SYNOPSIS">SYNOPSIS</a><br>
+<a href="#DESCRIPTION">DESCRIPTION</a><br>
+<a href="#OPTIONS">OPTIONS</a><br>
+<a href="#COMMANDS">COMMANDS</a><br>
+<a href="#FILES">FILES</a><br>
+
+<hr>
+
+
+<h2>NAME
+<a name="NAME"></a>
+</h2>
+
+
+<p style="margin-left:11%; margin-top: 1em">cyr_info
+&minus; general cyrus inspection tool</p>
+
+<h2>SYNOPSIS
+<a name="SYNOPSIS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>cyr_info</b>
+[ <b>&minus;C</b> <i>alt imapd.conf</i> ] [ <b>&minus;M</b>
+<i>alt cyrus.conf</i> ] command</p>
+
+<h2>DESCRIPTION
+<a name="DESCRIPTION"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><i>Cyr_info</i>
+is a tool for getting information from Cyrus. The intent is
+to extend this tool with useful commands to make managing
+and configuring Cyrus easier. <i>Cyr_info</i> reads its
+configuration options out of the <i>imapd.conf</i>(5) file
+unless specified otherwise by <b>-C</b>.</p>
+
+<h2>OPTIONS
+<a name="OPTIONS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<i>file</i></p>
+
+<p style="margin-left:22%;">Read configuration options from
+<i>file</i> (imapd.conf format).</p>
+
+<p style="margin-left:11%;"><b>&minus;M</b> <i>file</i></p>
+
+<p style="margin-left:22%;">Read service specifications
+from <i>file</i> (cyrus.conf format).</p>
+
+<p style="margin-left:11%;"><b>&minus;n</b> <i>name</i></p>
+
+<p style="margin-left:22%;">Read the configuration as if
+for the service named <i>name</i>.</p>
+
+<h2>COMMANDS
+<a name="COMMANDS"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>allconf</b></p>
+
+<p style="margin-left:22%;">print ALL configuration options
+- including default options</p>
+
+<table width="100%" border="0" rules="none" frame="void"
+       cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>conf</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>print only the configuration options which are not the
+same as default (regardless of whether you have specified
+them or not)</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>lint</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>print only configuration options which are NOT
+recognised. This command should not print anything. It uses
+cyrus.conf to find the names of configured services to avoid
+displaying any known configuration options for the named
+service.</p> </td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="6%">
+
+
+<p><b>proc</b></p></td>
+<td width="5%"></td>
+<td width="78%">
+
+
+<p>print all currently connected processes in the proc
+directory</p> </td></tr>
+</table>
+
+<h2>FILES
+<a name="FILES"></a>
+</h2>
+
+
+
+<p style="margin-left:11%; margin-top: 1em"><b>/etc/imapd.conf
+/etc/cyrus.conf</b></p>
+<hr>
+</body>
+</html>
