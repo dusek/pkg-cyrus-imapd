@@ -63,7 +63,8 @@ AM_LDFLAGS = $(COV_LDFLAGS)
 BUILT_SOURCES = \
 	xversion.h \
 	imap/imap_err.c \
-	lib/imapopts.c
+	lib/imapopts.c \
+	lib/imapopts.h
 
 DISTCLEANFILES = \
 	imap/imap_err.c \
@@ -682,7 +683,6 @@ include_HEADERS = \
 	lib/gmtoff.h \
 	lib/hash.h \
 	lib/hashu64.h \
-	lib/imapopts.h \
 	lib/imapurl.h \
 	lib/imclient.h \
 	lib/imparse.h \
@@ -708,6 +708,9 @@ include_HEADERS = \
 	lib/vparse.h \
 	lib/wildmat.h \
 	lib/xmalloc.h
+
+nodist_include_HEADERS = \
+	lib/imapopts.h
 
 nobase_include_HEADERS = sieve/sieve_interface.h
 nobase_nodist_include_HEADERS = sieve/sieve_err.h
@@ -1209,12 +1212,14 @@ endif
 lib_libcyrus_la_LIBADD = $(LIB_RT) ${LIB_SASL} $(SSL_LIBS)
 lib_libcyrus_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 
+nodist_lib_libcyrus_min_la_SOURCES = \
+	lib/imapopts.c
+
 lib_libcyrus_min_la_SOURCES = \
 	lib/arrayu64.c \
 	lib/assert.c \
 	lib/hash.c \
 	lib/hashu64.c \
-	lib/imapopts.c \
 	lib/libconfig.c \
 	lib/mpool.c \
 	lib/retry.c \
@@ -1488,6 +1493,12 @@ lex-fix: sieve/addr-lex.c sieve/sieve-lex.c
 
 	grep -E ' yy_size_t  _yybytes_len ' sieve/addr-lex.c && \
     	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/addr-lex.c || :
+
+	grep -E '^static int yy_n_chars;' sieve/sieve-lex.c && \
+    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/sieve-lex.c || :
+
+	grep -E '^static int yy_n_chars;' sieve/addr-lex.c && \
+    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/addr-lex.c || :
 
 GIT_VERSION = $(PACKAGE_VERSION)@git_version@
 

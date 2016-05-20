@@ -1,0 +1,13 @@
+Upgrading From Previous Versions
+
+Upgrading from all 2.4 series to 2.5
+
+      * It is strongly advised to shut down the server completely while
+        performing the upgrade, because newer daemons will write
+        mailboxes.db entries which aren't compatible with the old daemons,
+        and may cause crashes if you try to upgrade a running server. You
+        can start the server again immediately with the new daemons
+        installed. 
+      * The most important change is that index file upgrades are no longer
+        automatic. This avoids the IO storm caused by upgrades from 2.3 to
+        2.4. Even if you are upgrading from Cyrus 2.2, it won't cause an IO
