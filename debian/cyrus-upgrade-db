@@ -63,6 +63,11 @@ removedb() {
     rm -f $CONFIG_DIR/$1
 }
 
+touchdb() {
+    touch $CONFIG_DIR/$1
+    chown cyrus:mail $CONFIG_DIR/$1
+}    
+
 upgradealldb() {
     OLD_LIST=$2
     NEW_LIST=$1
@@ -124,13 +129,13 @@ upgradealldb() {
 	    MBOX)
 		DBFILE=mailboxes.db
 		;;
-	    QUOTA|SEEN|SUBS)
+	    QUOTA|SUBS)
 		if [ -n "${DO_UPGRADE_DB}" ]; then
 		    echo "$0: Cannot upgrade ${OLD_DBKEY} database from ${OLD_DBVALUE} to ${NEW_DBVALUE} yet" 1>&2
 		    return 1
 		fi
 		;;
-	    PTS|STATUSCACHE|TLS|ZONEINFO)
+	    PTS|STATUSCACHE|TLS|ZONEINFO|SEEN)
 		;;
 	    USERDENY)
 		DBFILE=user_deny.db
@@ -150,10 +155,14 @@ upgradealldb() {
 		    ;;
 		TLS)
 		    removedb tls_sessions.db
+		    touchdb tls_sessions.db
 		    continue
 		    ;;
 		STATUSCACHE)
 		    removedb statuscache.db
+		    continue
+		    ;;
+		SEEN)
 		    continue
 		    ;;
 	    esac
