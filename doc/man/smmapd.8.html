@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:09 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:07 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,7 +34,7 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">SMMAPD &minus;
+<p style="margin-left:11%; margin-top: 1em">SMMAPD -
 Sendmail socket map daemon</p>
 
 <h2>SYNOPSIS
@@ -43,9 +43,9 @@ Sendmail socket map daemon</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>smmapd</b> [
-<b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;U</b>
-<i>uses</i> ] [ <b>&minus;T</b> <i>timeout</i> ] <br>
-[ <b>&minus;D</b> ]</p>
+<b>-C</b> <i>config-file</i> ] [ <b>-U</b> <i>uses</i> ] [
+<b>-T</b> <i>timeout</i> ] <br>
+[ <b>-D</b> ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -70,21 +70,19 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;U</b> <i>uses</i></p>
+<p style="margin-left:11%;"><b>-U</b> <i>uses</i></p>
 
 <p style="margin-left:22%;">The maximum number of times
 that the process should be used for new connections before
 shutting down. The default is 250.</p>
 
-<p style="margin-left:11%;"><b>&minus;T</b>
-<i>timeout</i></p>
+<p style="margin-left:11%;"><b>-T</b> <i>timeout</i></p>
 
 <p style="margin-left:22%;">The number of seconds that the
 process will wait for a new connection before shutting down.
@@ -98,7 +96,7 @@ default is 60.</p>
 <td width="3%">
 
 
-<p><b>&minus;D</b></p></td>
+<p><b>-D</b></p></td>
 <td width="8%"></td>
 <td width="75%">
 

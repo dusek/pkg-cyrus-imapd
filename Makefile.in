@@ -138,7 +138,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 @HAVE_LDAP_TRUE@am__append_1 = $(LDAP_CPPFLAGS)
-EXTRA_PROGRAMS = doc/text/htmlstrip$(EXEEXT)
+EXTRA_PROGRAMS = tools/htmlstrip$(EXEEXT)
 check_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3)
 service_PROGRAMS = $(am__EXEEXT_4) $(am__EXEEXT_5) $(am__EXEEXT_6) \
 	$(am__EXEEXT_7) $(am__EXEEXT_8) $(am__EXEEXT_9) \
@@ -849,9 +849,6 @@ am__DEPENDENCIES_5 = imap/libcyrus_imap.la $(am__DEPENDENCIES_4) \
 	$(am__DEPENDENCIES_1)
 @CUNIT_TRUE@cunit_unit_DEPENDENCIES = $(am__append_42) \
 @CUNIT_TRUE@	$(am__DEPENDENCIES_5)
-doc_text_htmlstrip_SOURCES = doc/text/htmlstrip.c
-doc_text_htmlstrip_OBJECTS = doc/text/htmlstrip.$(OBJEXT)
-doc_text_htmlstrip_LDADD = $(LDADD)
 am_imap_arbitron_OBJECTS = imap/arbitron.$(OBJEXT) \
 	imap/cli_fatal.$(OBJEXT) imap/mutex_fake.$(OBJEXT)
 imap_arbitron_OBJECTS = $(am_imap_arbitron_OBJECTS)
@@ -1146,6 +1143,9 @@ am_timsieved_timsieved_OBJECTS = imap/mutex_fake.$(OBJEXT) \
 timsieved_timsieved_OBJECTS = $(am_timsieved_timsieved_OBJECTS)
 timsieved_timsieved_DEPENDENCIES = sieve/libcyrus_sieve.la \
 	$(am__DEPENDENCIES_6)
+tools_htmlstrip_SOURCES = tools/htmlstrip.c
+tools_htmlstrip_OBJECTS = tools/htmlstrip.$(OBJEXT)
+tools_htmlstrip_LDADD = $(LDADD)
 SCRIPTS = $(dist_noinst_SCRIPTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -1211,34 +1211,34 @@ SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(perl_libcyrus_la_SOURCES) $(perl_libcyrus_min_la_SOURCES) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
 	$(nodist_sieve_libcyrus_sieve_la_SOURCES) \
-	$(cunit_unit_SOURCES) doc/text/htmlstrip.c \
-	$(imap_arbitron_SOURCES) $(imap_chk_cyrus_SOURCES) \
-	$(imap_ctl_cyrusdb_SOURCES) $(imap_ctl_deliver_SOURCES) \
-	$(imap_ctl_mboxlist_SOURCES) $(imap_ctl_zoneinfo_SOURCES) \
-	$(imap_cvt_cyrusdb_SOURCES) $(imap_cyr_dbtool_SOURCES) \
-	$(imap_cyr_deny_SOURCES) $(imap_cyr_df_SOURCES) \
-	$(imap_cyr_expire_SOURCES) $(imap_cyr_info_SOURCES) \
-	$(imap_cyr_sequence_SOURCES) $(imap_cyr_synclog_SOURCES) \
-	$(imap_cyr_userseen_SOURCES) $(imap_cyr_virusscan_SOURCES) \
-	$(imap_cyrdump_SOURCES) $(imap_dav_reconstruct_SOURCES) \
-	$(imap_deliver_SOURCES) $(imap_fetchnews_SOURCES) \
-	$(imap_fud_SOURCES) $(imap_httpd_SOURCES) \
-	$(nodist_imap_httpd_SOURCES) $(imap_idled_SOURCES) \
-	$(imap_imapd_SOURCES) $(imap_ipurge_SOURCES) \
-	$(imap_lmtpd_SOURCES) $(imap_mbexamine_SOURCES) \
-	$(imap_mbpath_SOURCES) $(imap_mbtool_SOURCES) \
-	$(imap_mupdate_SOURCES) $(imap_nntpd_SOURCES) \
-	$(nodist_imap_nntpd_SOURCES) $(imap_pop3d_SOURCES) \
-	$(imap_quota_SOURCES) $(imap_reconstruct_SOURCES) \
-	$(imap_smmapd_SOURCES) $(imap_squatter_SOURCES) \
-	$(imap_sync_client_SOURCES) $(imap_sync_reset_SOURCES) \
-	$(imap_sync_server_SOURCES) $(imap_tls_prune_SOURCES) \
-	$(imap_unexpunge_SOURCES) $(imtest_imtest_SOURCES) \
-	$(master_master_SOURCES) $(netnews_remotepurge_SOURCES) \
-	$(notifyd_notifyd_SOURCES) $(notifyd_notifytest_SOURCES) \
-	$(ptclient_ptdump_SOURCES) $(ptclient_ptexpire_SOURCES) \
-	$(ptclient_ptloader_SOURCES) sieve/sievec.c sieve/sieved.c \
-	$(sieve_test_SOURCES) $(timsieved_timsieved_SOURCES)
+	$(cunit_unit_SOURCES) $(imap_arbitron_SOURCES) \
+	$(imap_chk_cyrus_SOURCES) $(imap_ctl_cyrusdb_SOURCES) \
+	$(imap_ctl_deliver_SOURCES) $(imap_ctl_mboxlist_SOURCES) \
+	$(imap_ctl_zoneinfo_SOURCES) $(imap_cvt_cyrusdb_SOURCES) \
+	$(imap_cyr_dbtool_SOURCES) $(imap_cyr_deny_SOURCES) \
+	$(imap_cyr_df_SOURCES) $(imap_cyr_expire_SOURCES) \
+	$(imap_cyr_info_SOURCES) $(imap_cyr_sequence_SOURCES) \
+	$(imap_cyr_synclog_SOURCES) $(imap_cyr_userseen_SOURCES) \
+	$(imap_cyr_virusscan_SOURCES) $(imap_cyrdump_SOURCES) \
+	$(imap_dav_reconstruct_SOURCES) $(imap_deliver_SOURCES) \
+	$(imap_fetchnews_SOURCES) $(imap_fud_SOURCES) \
+	$(imap_httpd_SOURCES) $(nodist_imap_httpd_SOURCES) \
+	$(imap_idled_SOURCES) $(imap_imapd_SOURCES) \
+	$(imap_ipurge_SOURCES) $(imap_lmtpd_SOURCES) \
+	$(imap_mbexamine_SOURCES) $(imap_mbpath_SOURCES) \
+	$(imap_mbtool_SOURCES) $(imap_mupdate_SOURCES) \
+	$(imap_nntpd_SOURCES) $(nodist_imap_nntpd_SOURCES) \
+	$(imap_pop3d_SOURCES) $(imap_quota_SOURCES) \
+	$(imap_reconstruct_SOURCES) $(imap_smmapd_SOURCES) \
+	$(imap_squatter_SOURCES) $(imap_sync_client_SOURCES) \
+	$(imap_sync_reset_SOURCES) $(imap_sync_server_SOURCES) \
+	$(imap_tls_prune_SOURCES) $(imap_unexpunge_SOURCES) \
+	$(imtest_imtest_SOURCES) $(master_master_SOURCES) \
+	$(netnews_remotepurge_SOURCES) $(notifyd_notifyd_SOURCES) \
+	$(notifyd_notifytest_SOURCES) $(ptclient_ptdump_SOURCES) \
+	$(ptclient_ptexpire_SOURCES) $(ptclient_ptloader_SOURCES) \
+	sieve/sievec.c sieve/sieved.c $(sieve_test_SOURCES) \
+	$(timsieved_timsieved_SOURCES) tools/htmlstrip.c
 DIST_SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(com_err_et_libcyrus_com_err_la_SOURCES) \
 	$(am__imap_libcyrus_imap_la_SOURCES_DIST) \
@@ -1248,10 +1248,9 @@ DIST_SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(am__perl_libcyrus_la_SOURCES_DIST) \
 	$(am__perl_libcyrus_min_la_SOURCES_DIST) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
-	$(am__cunit_unit_SOURCES_DIST) doc/text/htmlstrip.c \
-	$(imap_arbitron_SOURCES) $(imap_chk_cyrus_SOURCES) \
-	$(imap_ctl_cyrusdb_SOURCES) $(imap_ctl_deliver_SOURCES) \
-	$(imap_ctl_mboxlist_SOURCES) \
+	$(am__cunit_unit_SOURCES_DIST) $(imap_arbitron_SOURCES) \
+	$(imap_chk_cyrus_SOURCES) $(imap_ctl_cyrusdb_SOURCES) \
+	$(imap_ctl_deliver_SOURCES) $(imap_ctl_mboxlist_SOURCES) \
 	$(am__imap_ctl_zoneinfo_SOURCES_DIST) \
 	$(imap_cvt_cyrusdb_SOURCES) $(imap_cyr_dbtool_SOURCES) \
 	$(imap_cyr_deny_SOURCES) $(imap_cyr_df_SOURCES) \
@@ -1278,7 +1277,7 @@ DIST_SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(ptclient_ptexpire_SOURCES) \
 	$(am__ptclient_ptloader_SOURCES_DIST) sieve/sievec.c \
 	sieve/sieved.c $(sieve_test_SOURCES) \
-	$(timsieved_timsieved_SOURCES)
+	$(timsieved_timsieved_SOURCES) tools/htmlstrip.c
 RECURSIVE_TARGETS = all-recursive check-recursive cscopelist-recursive \
 	ctags-recursive dvi-recursive html-recursive info-recursive \
 	install-data-recursive install-dvi-recursive \
@@ -1656,10 +1655,11 @@ EXTRA_DIST = $(wildcard tools/vzic/*) $(am__append_25) \
 	contrib/notify_unix/simple_notify.pl contrib/squatrunner.pl \
 	contrib/mupdate-test.pl contrib/squatrunner.txt \
 	cunit/cacert.pem cunit/cert.pem cunit/cunit.pl \
-	cunit/cunit-to-junit.pl cunit/key.pem cunit/vg.supp doc \
-	imap/dav_util.h imap/http_err.et imap/imap_err.et \
-	imap/mupdate_err.et imap/nntp_err.et imap/rfc822_header.st \
-	imap/tz_err.et lib/charset/aliases.txt lib/charset/big5.t \
+	cunit/cunit-to-junit.pl cunit/key.pem cunit/vg.supp \
+	doc/murder.png doc/netnews.png doc imap/dav_util.h \
+	imap/http_err.et imap/imap_err.et imap/mupdate_err.et \
+	imap/nntp_err.et imap/rfc822_header.st imap/tz_err.et \
+	lib/charset/aliases.txt lib/charset/big5.t \
 	lib/charset/gb2312.t lib/charset/iso-2022-jp.t \
 	lib/charset/iso-2022-kr.t lib/charset/iso-8859-10.t \
 	lib/charset/iso-8859-11.t lib/charset/iso-8859-13.t \
@@ -1880,7 +1880,7 @@ LD_SERVER_ADD = $(LD_UTILITY_ADD) $(LIB_WRAP)
 
 # To run under Valgrind, do: make VG=1 check
 @CUNIT_TRUE@VALGRIND = valgrind --tool=memcheck --leak-check=full --suppressions=vg.supp
-doc_text_htmlstrip_SOURCE = doc/text/htmlstrip.c
+tools_htmlstrip_SOURCE = tools/htmlstrip.c
 include_HEADERS = \
 	lib/acl.h \
 	lib/arrayu64.h \
@@ -3066,18 +3066,6 @@ imap/spool.$(OBJEXT): imap/$(am__dirstamp) \
 cunit/unit$(EXEEXT): $(cunit_unit_OBJECTS) $(cunit_unit_DEPENDENCIES) $(EXTRA_cunit_unit_DEPENDENCIES) cunit/$(am__dirstamp)
 	@rm -f cunit/unit$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(cunit_unit_OBJECTS) $(cunit_unit_LDADD) $(LIBS)
-doc/text/$(am__dirstamp):
-	@$(MKDIR_P) doc/text
-	@: > doc/text/$(am__dirstamp)
-doc/text/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) doc/text/$(DEPDIR)
-	@: > doc/text/$(DEPDIR)/$(am__dirstamp)
-doc/text/htmlstrip.$(OBJEXT): doc/text/$(am__dirstamp) \
-	doc/text/$(DEPDIR)/$(am__dirstamp)
-
-doc/text/htmlstrip$(EXEEXT): $(doc_text_htmlstrip_OBJECTS) $(doc_text_htmlstrip_DEPENDENCIES) $(EXTRA_doc_text_htmlstrip_DEPENDENCIES) doc/text/$(am__dirstamp)
-	@rm -f doc/text/htmlstrip$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(doc_text_htmlstrip_OBJECTS) $(doc_text_htmlstrip_LDADD) $(LIBS)
 imap/arbitron.$(OBJEXT): imap/$(am__dirstamp) \
 	imap/$(DEPDIR)/$(am__dirstamp)
 imap/cli_fatal.$(OBJEXT): imap/$(am__dirstamp) \
@@ -3530,13 +3518,24 @@ timsieved/timsieved.$(OBJEXT): timsieved/$(am__dirstamp) \
 timsieved/timsieved$(EXEEXT): $(timsieved_timsieved_OBJECTS) $(timsieved_timsieved_DEPENDENCIES) $(EXTRA_timsieved_timsieved_DEPENDENCIES) timsieved/$(am__dirstamp)
 	@rm -f timsieved/timsieved$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(timsieved_timsieved_OBJECTS) $(timsieved_timsieved_LDADD) $(LIBS)
+tools/$(am__dirstamp):
+	@$(MKDIR_P) tools
+	@: > tools/$(am__dirstamp)
+tools/$(DEPDIR)/$(am__dirstamp):
+	@$(MKDIR_P) tools/$(DEPDIR)
+	@: > tools/$(DEPDIR)/$(am__dirstamp)
+tools/htmlstrip.$(OBJEXT): tools/$(am__dirstamp) \
+	tools/$(DEPDIR)/$(am__dirstamp)
+
+tools/htmlstrip$(EXEEXT): $(tools_htmlstrip_OBJECTS) $(tools_htmlstrip_DEPENDENCIES) $(EXTRA_tools_htmlstrip_DEPENDENCIES) tools/$(am__dirstamp)
+	@rm -f tools/htmlstrip$(EXEEXT)
+	$(AM_V_CCLD)$(LINK) $(tools_htmlstrip_OBJECTS) $(tools_htmlstrip_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f com_err/et/*.$(OBJEXT)
 	-rm -f com_err/et/*.lo
 	-rm -f cunit/*.$(OBJEXT)
-	-rm -f doc/text/*.$(OBJEXT)
 	-rm -f imap/*.$(OBJEXT)
 	-rm -f imap/*.lo
 	-rm -f imtest/*.$(OBJEXT)
@@ -3550,6 +3549,7 @@ mostlyclean-compile:
 	-rm -f sieve/*.$(OBJEXT)
 	-rm -f sieve/*.lo
 	-rm -f timsieved/*.$(OBJEXT)
+	-rm -f tools/*.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
@@ -3561,7 +3561,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@cunit/$(DEPDIR)/syslog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@cunit/$(DEPDIR)/timeout.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@cunit/$(DEPDIR)/unit.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@doc/text/$(DEPDIR)/htmlstrip.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@imap/$(DEPDIR)/arbitron.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@imap/$(DEPDIR)/autocreate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@imap/$(DEPDIR)/caldav_db.Po@am__quote@
@@ -3888,6 +3887,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@timsieved/$(DEPDIR)/parser.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@timsieved/$(DEPDIR)/scripttest.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@timsieved/$(DEPDIR)/timsieved.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@tools/$(DEPDIR)/htmlstrip.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -4997,7 +4997,6 @@ clean-libtool:
 	-rm -rf .libs _libs
 	-rm -rf com_err/et/.libs com_err/et/_libs
 	-rm -rf cunit/.libs cunit/_libs
-	-rm -rf doc/text/.libs doc/text/_libs
 	-rm -rf imap/.libs imap/_libs
 	-rm -rf imtest/.libs imtest/_libs
 	-rm -rf lib/.libs lib/_libs
@@ -5008,6 +5007,7 @@ clean-libtool:
 	-rm -rf ptclient/.libs ptclient/_libs
 	-rm -rf sieve/.libs sieve/_libs
 	-rm -rf timsieved/.libs timsieved/_libs
+	-rm -rf tools/.libs tools/_libs
 
 distclean-libtool:
 	-rm -f libtool config.lt
@@ -5479,9 +5479,6 @@ distdir: $(DISTFILES)
 	      || exit 1; \
 	  fi; \
 	done
-	$(MAKE) $(AM_MAKEFLAGS) \
-	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
-	  dist-hook
 	-test -n "$(am__skip_mode_fix)" \
 	|| find "$(distdir)" -type d ! -perm -755 \
 		-exec chmod u+rwx,go+rx {} \; -o \
@@ -5661,8 +5658,6 @@ distclean-generic:
 	-rm -f com_err/et/$(am__dirstamp)
 	-rm -f cunit/$(DEPDIR)/$(am__dirstamp)
 	-rm -f cunit/$(am__dirstamp)
-	-rm -f doc/text/$(DEPDIR)/$(am__dirstamp)
-	-rm -f doc/text/$(am__dirstamp)
 	-rm -f imap/$(DEPDIR)/$(am__dirstamp)
 	-rm -f imap/$(am__dirstamp)
 	-rm -f imtest/$(DEPDIR)/$(am__dirstamp)
@@ -5684,6 +5679,8 @@ distclean-generic:
 	-rm -f sieve/$(am__dirstamp)
 	-rm -f timsieved/$(DEPDIR)/$(am__dirstamp)
 	-rm -f timsieved/$(am__dirstamp)
+	-rm -f tools/$(DEPDIR)/$(am__dirstamp)
+	-rm -f tools/$(am__dirstamp)
 	-test -z "$(DISTCLEANFILES)" || rm -f $(DISTCLEANFILES)
 
 maintainer-clean-generic:
@@ -5704,7 +5701,7 @@ clean-am: clean-binPROGRAMS clean-checkPROGRAMS clean-generic \
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf com_err/et/$(DEPDIR) cunit/$(DEPDIR) doc/text/$(DEPDIR) imap/$(DEPDIR) imtest/$(DEPDIR) lib/$(DEPDIR) master/$(DEPDIR) netnews/$(DEPDIR) notifyd/$(DEPDIR) perl/sieve/lib/$(DEPDIR) ptclient/$(DEPDIR) sieve/$(DEPDIR) timsieved/$(DEPDIR)
+	-rm -rf com_err/et/$(DEPDIR) cunit/$(DEPDIR) imap/$(DEPDIR) imtest/$(DEPDIR) lib/$(DEPDIR) master/$(DEPDIR) netnews/$(DEPDIR) notifyd/$(DEPDIR) perl/sieve/lib/$(DEPDIR) ptclient/$(DEPDIR) sieve/$(DEPDIR) timsieved/$(DEPDIR) tools/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-libtool distclean-tags
@@ -5759,7 +5756,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf com_err/et/$(DEPDIR) cunit/$(DEPDIR) doc/text/$(DEPDIR) imap/$(DEPDIR) imtest/$(DEPDIR) lib/$(DEPDIR) master/$(DEPDIR) netnews/$(DEPDIR) notifyd/$(DEPDIR) perl/sieve/lib/$(DEPDIR) ptclient/$(DEPDIR) sieve/$(DEPDIR) timsieved/$(DEPDIR)
+	-rm -rf com_err/et/$(DEPDIR) cunit/$(DEPDIR) imap/$(DEPDIR) imtest/$(DEPDIR) lib/$(DEPDIR) master/$(DEPDIR) netnews/$(DEPDIR) notifyd/$(DEPDIR) perl/sieve/lib/$(DEPDIR) ptclient/$(DEPDIR) sieve/$(DEPDIR) timsieved/$(DEPDIR) tools/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -5795,18 +5792,18 @@ uninstall-man: uninstall-man1 uninstall-man3 uninstall-man5 \
 	clean-libLTLIBRARIES clean-libtool clean-noinstLIBRARIES \
 	clean-noinstLTLIBRARIES clean-servicePROGRAMS \
 	clean-userPROGRAMS cscope cscopelist-am ctags ctags-am dist \
-	dist-all dist-bzip2 dist-gzip dist-hook dist-lzip dist-shar \
-	dist-tarZ dist-xz dist-zip distcheck distclean \
-	distclean-compile distclean-generic distclean-hdr \
-	distclean-libtool distclean-tags distcleancheck distdir \
-	distuninstallcheck dvi dvi-am html html-am info info-am \
-	install install-am install-binPROGRAMS install-data \
-	install-data-am install-data-hook install-dist_sysconfDATA \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-exec-hook install-html install-html-am \
-	install-includeHEADERS install-info install-info-am \
-	install-libLTLIBRARIES install-man install-man1 install-man3 \
-	install-man5 install-man8 install-nobase_includeHEADERS \
+	dist-all dist-bzip2 dist-gzip dist-lzip dist-shar dist-tarZ \
+	dist-xz dist-zip distcheck distclean distclean-compile \
+	distclean-generic distclean-hdr distclean-libtool \
+	distclean-tags distcleancheck distdir distuninstallcheck dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-binPROGRAMS install-data install-data-am \
+	install-data-hook install-dist_sysconfDATA install-dvi \
+	install-dvi-am install-exec install-exec-am install-exec-hook \
+	install-html install-html-am install-includeHEADERS \
+	install-info install-info-am install-libLTLIBRARIES \
+	install-man install-man1 install-man3 install-man5 \
+	install-man8 install-nobase_includeHEADERS \
 	install-nobase_nodist_includeHEADERS \
 	install-nodist_includeHEADERS install-pdf install-pdf-am \
 	install-pkgconfigDATA install-ps install-ps-am \
@@ -5991,7 +5988,9 @@ xversion xversion.h:
 	@cmp -s xversion.h.tmp xversion.h || mv xversion.h.tmp xversion.h
 	@rm -f xversion.h.tmp
 
-dist-hook: doc/text/htmlstrip doc/man/cyradm.1.html doc/man/sieveshell.1.html
+.PHONY: doc
+
+doc: tools/htmlstrip doc/man/cyradm.1.html doc/man/sieveshell.1.html
 	@$(MKDIR_P) doc/text doc/man
 	for man in $(top_builddir)/man/*.[1-9] $(top_srcdir)/man/*.[1-9]; \
 	do \
@@ -6003,9 +6002,8 @@ dist-hook: doc/text/htmlstrip doc/man/cyradm.1.html doc/man/sieveshell.1.html
 	for file in $(top_srcdir)/doc/*.html; \
 	do \
 		echo "=== $$file ==="; \
-		doc/text/htmlstrip $$file > doc/text/`basename $$file .html`; \
+		tools/htmlstrip $$file > doc/text/`basename $$file .html`; \
 	done
-	@rm doc/text/htmlstrip doc/text/htmlstrip.o doc/text/.dirstamp
 	@echo "== done =="
 
 install-data-hook:

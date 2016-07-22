@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:04 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:02 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,9 +35,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">cyr_expire
-&minus; expire messages and duplicate delivery database
-entries</p>
+<p style="margin-left:11%; margin-top: 1em">cyr_expire -
+expire messages and duplicate delivery database entries</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -46,12 +45,11 @@ entries</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>cyr_expire</b>
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;D</b>
-<i>delete-duration</i> ] [ <b>&minus;E</b>
-<i>expire-duration</i> ] [ <b>&minus;X</b>
-<i>expunge-duration</i> ] [ <b>&minus;p</b>
-<i>mailbox-prefix</i> ] [ <b>&minus;u</b> <i>username</i> ]
-[ <b>&minus;t</b> ] [ <b>&minus;v</b> ]</p>
+[ <b>-C</b> <i>config-file</i> ] [ <b>-D</b>
+<i>delete-duration</i> ] [ <b>-E</b> <i>expire-duration</i>
+] [ <b>-X</b> <i>expunge-duration</i> ] [ <b>-p</b>
+<i>mailbox-prefix</i> ] [ <b>-u</b> <i>username</i> ] [
+<b>-t</b> ] [ <b>-v</b> ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -159,14 +157,13 @@ supplied.</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;D</b>
+<p style="margin-left:11%;"><b>-D</b>
 <i>delete-duration</i></p>
 
 <p style="margin-left:22%;">Remove previously deleted
@@ -177,7 +174,7 @@ unit of time. If no suffix, the value is number of days.
 Valid suffixes are <b>d</b> (days), <b>h</b> (hours),
 <b>m</b> (minutes) and <b>s</b> (seconds).</p>
 
-<p style="margin-left:11%;"><b>&minus;E</b>
+<p style="margin-left:11%;"><b>-E</b>
 <i>expire-duration</i></p>
 
 <p style="margin-left:22%;">Prune the duplicate database of
@@ -186,7 +183,7 @@ only used for entries which do not have a corresponding
 <b>/vendor/cmu/cyrus-imapd/expire</b> mailbox annotation.
 Format is the same as delete-duration.</p>
 
-<p style="margin-left:11%;"><b>&minus;X</b>
+<p style="margin-left:11%;"><b>-X</b>
 <i>expunge-duration</i></p>
 
 <p style="margin-left:22%;">Expunge previously deleted
@@ -201,7 +198,7 @@ delete-duration.</p>
 <td width="3%">
 
 
-<p><b>&minus;x</b></p></td>
+<p><b>-x</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -212,15 +209,14 @@ mode. This reduces IO traffic considerably, allowing
 duplicate database without overloading the machine.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;p</b>
+<p style="margin-left:11%;"><b>-p</b>
 <i>mailbox-prefix</i></p>
 
 <p style="margin-left:22%;">Only find mailboxes starting
 with this prefix, e.g.
 &quot;user.justgotspammedlots&quot;.</p>
 
-<p style="margin-left:11%;"><b>&minus;u</b>
-<i>userid</i></p>
+<p style="margin-left:11%;"><b>-u</b> <i>userid</i></p>
 
 <p style="margin-left:22%;">Only find mailboxes belonging
 to this user, e.g.
@@ -233,7 +229,7 @@ to this user, e.g.
 <td width="3%">
 
 
-<p><b>&minus;t</b></p></td>
+<p><b>-t</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -245,7 +241,7 @@ to this user, e.g.
 <td width="3%">
 
 
-<p><b>&minus;v</b></p></td>
+<p><b>-v</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -256,7 +252,7 @@ to this user, e.g.
 <td width="3%">
 
 
-<p><b>&minus;a</b></p></td>
+<p><b>-a</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 

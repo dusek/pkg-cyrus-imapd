@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:09 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:07 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -36,9 +36,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">sync_client
-&minus; client side of the synchronization (replication)
-engine</p>
+<p style="margin-left:11%; margin-top: 1em">sync_client -
+client side of the synchronization (replication) engine</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -47,16 +46,14 @@ engine</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>sync_client</b>
-[ <b>&minus;v</b> ] [ <b>&minus;l</b> ] [ <b>&minus;z</b> ]
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;S</b>
-<i>servername</i> ] <br>
-[ <b>&minus;f</b> <i>input-file</i> ] [ <b>&minus;F</b>
-<i>shutdown_file</i> ] [ <b>&minus;w</b>
-<i>wait_interval</i> ] <br>
-[ <b>&minus;t</b> <i>timeout</i> ] [ <b>&minus;d</b>
-<i>delay</i> ] [ <b>&minus;r</b> ] [ <b>&minus;u</b> ] [
-<b>&minus;m</b> ] [ <b>&minus;A</b> ] <br>
-[ <b>&minus;s</b> ] <i>objects</i>...</p>
+[ <b>-v</b> ] [ <b>-l</b> ] [ <b>-z</b> ] [ <b>-C</b>
+<i>config-file</i> ] [ <b>-S</b> <i>servername</i> ] <br>
+[ <b>-f</b> <i>input-file</i> ] [ <b>-F</b>
+<i>shutdown_file</i> ] [ <b>-w</b> <i>wait_interval</i> ]
+<br>
+[ <b>-t</b> <i>timeout</i> ] [ <b>-d</b> <i>delay</i> ] [
+<b>-r</b> ] [ <b>-u</b> ] [ <b>-m</b> ] [ <b>-A</b> ] <br>
+[ <b>-s</b> ] <i>objects</i>...</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -83,7 +80,7 @@ system.</p>
 <td width="3%">
 
 
-<p style="margin-top: 1em"><b>&minus;v</b></p></td>
+<p style="margin-top: 1em"><b>-v</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -95,7 +92,7 @@ to log all protocol traffic to stderr.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;l</b></p></td>
+<p><b>-l</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -106,7 +103,7 @@ to log all protocol traffic to stderr.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;o</b></p></td>
+<p><b>-o</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -118,7 +115,7 @@ rather than waiting up to 1000 seconds before giving up.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;z</b></p></td>
+<p><b>-z</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -129,21 +126,19 @@ support it. Set this flag when you want to abort if
 compression is not available.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;C</b>
+<p style="margin-left:11%;"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;S</b>
-<i>servername</i></p>
+<p style="margin-left:11%;"><b>-S</b> <i>servername</i></p>
 
 <p style="margin-left:22%;">Tells <b>sync_client</b> which
 server to communicate with. Overrides the <i>sync_host</i>
 configuration option.</p>
 
-<p style="margin-left:11%;"><b>&minus;f</b>
-<i>input-file</i></p>
+<p style="margin-left:11%;"><b>-f</b> <i>input-file</i></p>
 
 <p style="margin-left:22%;">In mailbox or user replication
 mode: provides list of users or mailboxes to replicate. In
@@ -151,7 +146,7 @@ rolling replication mode, specifies an alternate log file
 (<b>sync_client</b> will exit after processing the log
 file).</p>
 
-<p style="margin-left:11%;"><b>&minus;F</b>
+<p style="margin-left:11%;"><b>-F</b>
 <i>shutdown-file</i></p>
 
 <p style="margin-left:22%;">Rolling replication checks for
@@ -161,24 +156,21 @@ at the first convenient point. The file is removed on
 shutdown. Overrides <i>sync_shutdown_file</i> option in
 <i>imapd.conf</i></p>
 
-<p style="margin-left:11%;"><b>&minus;w</b>
-<i>interval</i></p>
+<p style="margin-left:11%;"><b>-w</b> <i>interval</i></p>
 
 <p style="margin-left:22%;">Wait this long before starting.
 This option is typically used so that we can attach a
 debugger to one end of the replication system or the
 other.</p>
 
-<p style="margin-left:11%;"><b>&minus;t</b>
-<i>timeout</i></p>
+<p style="margin-left:11%;"><b>-t</b> <i>timeout</i></p>
 
 <p style="margin-left:22%;">Timeout for single replication
 run in rolling replication. <b>sync_client</b> will
 negotiate a restart after this many seconds. Default: 600
 seconds</p>
 
-<p style="margin-left:11%;"><b>&minus;d</b>
-<i>delay</i></p>
+<p style="margin-left:11%;"><b>-d</b> <i>delay</i></p>
 
 <p style="margin-left:22%;">Minimum delay between
 replication runs in rolling replication mode. Larger values
@@ -195,7 +187,7 @@ seconds.</p>
 <td width="3%">
 
 
-<p><b>&minus;r</b></p></td>
+<p><b>-r</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -210,7 +202,7 @@ specified in <i>sync_log_file</i>. Repeat until
 <td width="3%">
 
 
-<p><b>&minus;n</b></p></td>
+<p><b>-n</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -218,14 +210,14 @@ specified in <i>sync_log_file</i>. Repeat until
 <p>Use the named channel for rolling replication mode. If
 multiple channels are specified in <i>sync_log_channels</i>
 then use one of them. This option is probably best combined
-with <b>&minus;S</b> to connect to a different server with
-each channel.</p></td></tr>
+with <b>-S</b> to connect to a different server with each
+channel.</p> </td></tr>
 <tr valign="top" align="left">
 <td width="11%"></td>
 <td width="3%">
 
 
-<p><b>&minus;u</b></p></td>
+<p><b>-u</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -237,7 +229,7 @@ should be replicated.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;A</b></p></td>
+<p><b>-A</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -251,7 +243,7 @@ mailboxes independently)</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;m</b></p></td>
+<p><b>-m</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -263,7 +255,7 @@ which should be replicated.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;s</b></p></td>
+<p><b>-s</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 

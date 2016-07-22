@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:05 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:02 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -36,8 +36,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">cyr_synclog
-&minus; add entries to the replication log</p>
+<p style="margin-left:11%; margin-top: 1em">cyr_synclog -
+add entries to the replication log</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -46,8 +46,8 @@
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>cyr_synclog</b>
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;type</b>
-] &lt;value&gt;</p>
+[ <b>-C</b> <i>config-file</i> ] [ <b>-type</b> ]
+&lt;value&gt;</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -59,37 +59,29 @@
 is used to append a value to the log file. You can either
 specify the log type and value, or an entire log line.</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;u
-USER</p>
+<p style="margin-left:11%; margin-top: 1em">-u USER</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;U
-UNUSER</p>
+<p style="margin-left:11%; margin-top: 1em">-U UNUSER</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;v
-SIEVE</p>
+<p style="margin-left:11%; margin-top: 1em">-v SIEVE</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;m
-MAILBOX</p>
+<p style="margin-left:11%; margin-top: 1em">-m MAILBOX</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;M
+<p style="margin-left:11%; margin-top: 1em">-M
 UNMAILBOX</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;a
-APPEND</p>
+<p style="margin-left:11%; margin-top: 1em">-a APPEND</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;c
-ACL</p>
+<p style="margin-left:11%; margin-top: 1em">-c ACL</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;q
-QUOTA</p>
+<p style="margin-left:11%; margin-top: 1em">-q QUOTA</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;n
+<p style="margin-left:11%; margin-top: 1em">-n
 ANNOTATION</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;s
-SEEN</p>
+<p style="margin-left:11%; margin-top: 1em">-s SEEN</p>
 
-<p style="margin-left:11%; margin-top: 1em">&minus;b
+<p style="margin-left:11%; margin-top: 1em">-b
 SUBSCRIPTION</p>
 
 <p style="margin-left:11%; margin-top: 1em">Running without
@@ -109,15 +101,14 @@ reads any applicable configuration options out of the
 <p style="margin-left:11%; margin-top: 1em">Here are some
 example ways to use cyr_synclog:</p>
 
-<p style="margin-left:11%; margin-top: 1em">cyr_synclog
-&minus;m user.brong</p>
+<p style="margin-left:11%; margin-top: 1em">cyr_synclog -m
+user.brong</p>
 
-<p style="margin-left:11%; margin-top: 1em">cyr_synclog
-&minus;u brong</p>
-
-<p style="margin-left:11%; margin-top: 1em">cyr_synclog
-&minus;C /etc/imapd-special.conf &minus;s user.brong
+<p style="margin-left:11%; margin-top: 1em">cyr_synclog -u
 brong</p>
+
+<p style="margin-left:11%; margin-top: 1em">cyr_synclog -C
+/etc/imapd-special.conf -s user.brong brong</p>
 
 <p style="margin-left:11%; margin-top: 1em">cyr_synclog
 &quot;SEEN user.brong brong&quot;</p>
@@ -127,8 +118,7 @@ brong</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from

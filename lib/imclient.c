@@ -1552,9 +1552,9 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
 	    verify_error = X509_V_ERR_CERT_CHAIN_TOO_LONG;
 	}
     }
-    switch (ctx->error) {
+    switch (err) {
     case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
-	X509_NAME_oneline(X509_get_issuer_name(ctx->current_cert),
+	X509_NAME_oneline(X509_get_issuer_name(err_cert),
 			  buf, sizeof(buf));
 	printf("issuer= %s\n", buf);
 	break;
@@ -1575,6 +1575,7 @@ static int verify_callback(int ok, X509_STORE_CTX * ctx)
 }
 
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 /* taken from OpenSSL apps/s_cb.c */
 static RSA *tmp_rsa_cb(SSL *s __attribute__((unused)),
 		       int export __attribute__((unused)),
@@ -1587,6 +1588,7 @@ static RSA *tmp_rsa_cb(SSL *s __attribute__((unused)),
     }
     return (rsa_tmp);
 }
+#endif
 
 /*
  * Seed the random number generator.
@@ -1675,7 +1677,10 @@ static int tls_init_clientengine(struct imclient *imclient,
             printf("[ TLS engine: cannot load cert/key data, may be a cert/key mismatch]\n");
 	    return -1;
 	}
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     SSL_CTX_set_tmp_rsa_callback(imclient->tls_ctx, tmp_rsa_cb);
+#endif
 
     verify_depth = verifydepth;
     SSL_CTX_set_verify(imclient->tls_ctx, verify_flags, verify_callback);

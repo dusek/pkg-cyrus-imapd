@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:09 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:06 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,8 +35,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">sieveshell
-&minus; remotely manipulate sieve scripts</p>
+<p style="margin-left:11%; margin-top: 1em">sieveshell -
+remotely manipulate sieve scripts</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -44,14 +44,13 @@
 
 
 <p style="margin-left:11%; margin-top: 1em">sieveshell
-[<b>&minus;&minus;user</b>=<i>user</i>]
-[<b>&minus;&minus;authname</b>=<i>authname</i>]
-[<b>&minus;&minus;realm</b>=<i>realm</i>]
-[<b>&minus;&minus;exec</b>=<i>script</i>]
+[<b>--user</b>=<i>user</i>]
+[<b>--authname</b>=<i>authname</i>]
+[<b>--realm</b>=<i>realm</i>] [<b>--exec</b>=<i>script</i>]
 <i>server</i>[<b>:</b><i>port</i>]</p>
 
 <p style="margin-left:11%; margin-top: 1em">sieveshell
-<b>&minus;&minus;help</b></p>
+<b>--help</b></p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -93,29 +92,27 @@ deactivate all scripts.</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;u</b>
-<i>user</i>, <b>&minus;&minus;user</b>=<i>user</i></p>
+<p style="margin-left:11%; margin-top: 1em"><b>-u</b>
+<i>user</i>, <b>--user</b>=<i>user</i></p>
 
 <p style="margin-left:17%;">The authorization name to
 request; by default, derived from the authentication
 credentials.</p>
 
-<p style="margin-left:11%;"><b>&minus;a</b>
-<i>authname</i>,
-<b>&minus;&minus;authname</b>=<i>authname</i></p>
+<p style="margin-left:11%;"><b>-a</b> <i>authname</i>,
+<b>--authname</b>=<i>authname</i></p>
 
 <p style="margin-left:17%;">The user to use for
 authentication (defaults to current user).</p>
 
-<p style="margin-left:11%;"><b>&minus;r</b> <i>realm</i>,
-<b>&minus;&minus;realm</b>=<i>realm</i></p>
+<p style="margin-left:11%;"><b>-r</b> <i>realm</i>,
+<b>--realm</b>=<i>realm</i></p>
 
 <p style="margin-left:17%;">The realm to attempt
 authentication in.</p>
 
-<p style="margin-left:11%;"><b>&minus;e</b> <i>script</i>,
-<b>&minus;&minus;exec</b>=<i>script</i></p>
+<p style="margin-left:11%;"><b>-e</b> <i>script</i>,
+<b>--exec</b>=<i>script</i></p>
 
 <p style="margin-left:17%;">Instead of working
 interactively, run commands from <i>script</i>, and exit
@@ -129,8 +126,8 @@ when done.</p>
 <p style="margin-left:11%; margin-top: 1em">[
 <small>MANAGESIEVE</small> ] Martin, T.; &quot;A Protocol
 for Remotely Managing Sieve Scripts&quot;,
-draft&minus;ietf&minus;managesieve&minus;03.txt, Mirapoint,
-Inc.; May 2001, work in progress.</p>
+draft-ietf-managesieve-03.txt, Mirapoint, Inc.; May 2001,
+work in progress.</p>
 
 <h2>AUTHOR
 <a name="AUTHOR"></a>
@@ -139,7 +136,7 @@ Inc.; May 2001, work in progress.</p>
 
 <p style="margin-left:11%; margin-top: 1em">Tim Martin
 &lt;tmartin@mirapoint.com&gt;, and the rest of the Cyrus
-team &lt;cyrus&minus;bugs@andrew.cmu.edu&gt;.</p>
+team &lt;cyrus-bugs@andrew.cmu.edu&gt;.</p>
 <hr>
 </body>
 </html>

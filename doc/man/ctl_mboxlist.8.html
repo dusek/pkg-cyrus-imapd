@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:04 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:01 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,8 +35,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">ctl_mboxlist
-&minus; perform operations on the mailbox list database</p>
+<p style="margin-left:11%; margin-top: 1em">ctl_mboxlist -
+perform operations on the mailbox list database</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -45,17 +45,16 @@
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>ctl_mboxlist</b>
-[ <b>&minus;C</b> <i>config-file</i> ] <b>&minus;d</b> [
-<b>&minus;x</b> ] [ <b>&minus;p</b> <i>partition</i> ] <br>
-[ <b>&minus;f</b> <i>filename</i> ] <b><br>
-ctl_mboxlist</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;u</b> [ <b>&minus;f</b> <i>filename</i> ] <b><br>
-ctl_mboxlist</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;m</b> [ <b>&minus;a</b> ] [ <b>&minus;w</b> ] [
-<b>&minus;i</b> ] <br>
-[ <b>&minus;f</b> <i>filename</i> ] <b><br>
-ctl_mboxlist</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;v</b> [ <b>&minus;f</b> <i>filename</i> ]</p>
+[ <b>-C</b> <i>config-file</i> ] <b>-d</b> [ <b>-x</b> ] [
+<b>-p</b> <i>partition</i> ] <br>
+[ <b>-f</b> <i>filename</i> ] <b><br>
+ctl_mboxlist</b> [ <b>-C</b> <i>config-file</i> ] <b>-u</b>
+[ <b>-f</b> <i>filename</i> ] <b><br>
+ctl_mboxlist</b> [ <b>-C</b> <i>config-file</i> ] <b>-m</b>
+[ <b>-a</b> ] [ <b>-w</b> ] [ <b>-i</b> ] <br>
+[ <b>-f</b> <i>filename</i> ] <b><br>
+ctl_mboxlist</b> [ <b>-C</b> <i>config-file</i> ] <b>-v</b>
+[ <b>-f</b> <i>filename</i> ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -81,7 +80,7 @@ database.</p>
 
 
 
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C&nbsp;</b><i>config-file</i></p>
+<p style="margin-left:11%; margin-top: 1em"><b>-C&nbsp;</b><i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
@@ -93,7 +92,7 @@ database.</p>
 <td width="3%">
 
 
-<p><b>&minus;d</b></p></td>
+<p><b>-d</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -108,7 +107,7 @@ master, unified backends) when undumped.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;x</b></p></td>
+<p><b>-x</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -118,7 +117,7 @@ the mailbox list (mostly useful when specified with -p)</p></td></tr>
 </table>
 
 
-<p style="margin-left:11%;"><b>&minus;p&nbsp;</b><i>partition</i></p>
+<p style="margin-left:11%;"><b>-p&nbsp;</b><i>partition</i></p>
 
 <p style="margin-left:22%;">When performing a dump, dump
 only thise mailboxes that live on <i>partition</i></p>
@@ -130,22 +129,21 @@ only thise mailboxes that live on <i>partition</i></p>
 <td width="3%">
 
 
-<p><b>&minus;u</b></p></td>
+<p><b>-u</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
 
 <p>Load the contents of the database from standard input.
-The input MUST be in the format output using the
-<b>&minus;d</b> option. NOTE: Both the old and new formats
-can be loaded, but the old format will break remote
-mailboxes.</p> </td></tr>
+The input MUST be in the format output using the <b>-d</b>
+option. NOTE: Both the old and new formats can be loaded,
+but the old format will break remote mailboxes.</p></td></tr>
 <tr valign="top" align="left">
 <td width="11%"></td>
 <td width="3%">
 
 
-<p><b>&minus;m</b></p></td>
+<p><b>-m</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -157,7 +155,7 @@ local mailbox list file with the MUPDATE server.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;a</b></p></td>
+<p><b>-a</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -171,7 +169,7 @@ as it allows namespace collisions into the murder.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;w</b></p></td>
+<p><b>-w</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -183,7 +181,7 @@ not perform the operations.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;i</b></p></td>
+<p><b>-i</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -195,7 +193,7 @@ local mailboxes.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;v</b></p></td>
+<p><b>-v</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -208,8 +206,7 @@ file) and not present in the database will be reported. Note
 that this function is very I/O intensive.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;f</b>
-<i>filename</i></p>
+<p style="margin-left:11%;"><b>-f</b> <i>filename</i></p>
 
 <p style="margin-left:22%;">Use the database specified by
 <i>filename</i> instead of the default

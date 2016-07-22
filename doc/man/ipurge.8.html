@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:07 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:04 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,9 +34,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">ipurge &minus;
-delete mail from IMAP mailbox or partition based on age or
-size</p>
+<p style="margin-left:11%; margin-top: 1em">ipurge - delete
+mail from IMAP mailbox or partition based on age or size</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -44,12 +43,11 @@ size</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>ipurge</b> [
-<b>&minus;f</b> ] [ <b>&minus;C</b> <i>config-file</i> ] [
-<b>&minus;x</b> ] [ <b>&minus;X</b> ] [ <b>&minus;i</b> ] [
-<b>&minus;s</b> ] [ <b>&minus;o</b> ] <br>
-[ <b>&minus;d</b> <i>days</i> | <b>&minus;b</b> <i>bytes</i>
-| <b>&minus;k</b> <i>Kbytes</i> | <b>&minus;m</b>
-<i>Mbytes</i> ] <br>
+<b>-f</b> ] [ <b>-C</b> <i>config-file</i> ] [ <b>-x</b> ] [
+<b>-X</b> ] [ <b>-i</b> ] [ <b>-s</b> ] [ <b>-o</b> ] [
+<b>-n</b> ] <br>
+[ <b>-d</b> <i>days</i> | <b>-b</b> <i>bytes</i> | <b>-k</b>
+<i>Kbytes</i> | <b>-m</b> <i>Mbytes</i> ] <br>
 [ <i>mailbox-pattern</i>... ]</p>
 
 <h2>DESCRIPTION
@@ -92,7 +90,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p style="margin-top: 1em"><b>&minus;f</b></p></td>
+<p style="margin-top: 1em"><b>-f</b></p></td>
 <td width="8%"></td>
 <td width="61%">
 
@@ -103,31 +101,28 @@ reads its configuration options out of the
 </td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;C</b>
+<p style="margin-left:11%;"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;d</b> <i>days</i></p>
+<p style="margin-left:11%;"><b>-d</b> <i>days</i></p>
 
 <p style="margin-left:22%;">Age of message in
 <i>days</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;b</b>
-<i>bytes</i></p>
+<p style="margin-left:11%;"><b>-b</b> <i>bytes</i></p>
 
 <p style="margin-left:22%;">Size of message in
 <i>bytes</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;k</b>
-<i>Kbytes</i></p>
+<p style="margin-left:11%;"><b>-k</b> <i>Kbytes</i></p>
 
 <p style="margin-left:22%;">Size of message in
 <i>Kbytes</i> (2^10 bytes).</p>
 
-<p style="margin-left:11%;"><b>&minus;m</b>
-<i>Mbytes</i></p>
+<p style="margin-left:11%;"><b>-m</b> <i>Mbytes</i></p>
 
 <p style="margin-left:22%;">Size of message in
 <i>Mbytes</i> (2^20 bytes).</p>
@@ -139,7 +134,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;x</b></p></td>
+<p><b>-x</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -151,7 +146,7 @@ or larger).</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;X</b></p></td>
+<p><b>-X</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -163,7 +158,7 @@ matches</p> </td></tr>
 <td width="3%">
 
 
-<p><b>&minus;i</b></p></td>
+<p><b>-i</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -175,7 +170,7 @@ newer, size is for smaller</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;s</b></p></td>
+<p><b>-s</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -186,12 +181,23 @@ newer, size is for smaller</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;o</b></p></td>
+<p><b>-o</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
 
 <p>Only purge messages that have the \Deleted flag set.</p></td></tr>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="3%">
+
+
+<p><b>-n</b></p></td>
+<td width="8%"></td>
+<td width="78%">
+
+
+<p>Only print messages that would be deleted (dry run).</p></td></tr>
 </table>
 
 <h2>FILES

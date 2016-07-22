@@ -175,6 +175,9 @@
 /* Define if your GSSAPI implementation supports SPNEGO */
 #undef HAVE_GSS_SPNEGO
 
+/* Do we have support for IANA params? */
+#undef HAVE_IANA_PARAMS
+
 /* Build in ical support? */
 #undef HAVE_ICAL
 

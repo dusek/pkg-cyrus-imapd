@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:05 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:02 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -36,7 +36,7 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">deliver &minus;
+<p style="margin-left:11%; margin-top: 1em">deliver -
 deliver mail to an IMAP mailbox</p>
 
 <h2>SYNOPSIS
@@ -45,13 +45,12 @@ deliver mail to an IMAP mailbox</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>deliver</b>
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;d</b> ] [
-<b>&minus;r</b> <i>address</i> ] <br>
-[ <b>&minus;f</b> <i>address</i> ] [ <b>&minus;m</b>
-<i>mailbox</i> ] [ <b>&minus;a</b> <i>auth-id</i> ] <br>
-[ <b>&minus;q</b> ] [ <i>userid</i> ]... <b><br>
-deliver</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;l</b></p>
+[ <b>-C</b> <i>config-file</i> ] [ <b>-d</b> ] [ <b>-r</b>
+<i>address</i> ] <br>
+[ <b>-f</b> <i>address</i> ] [ <b>-m</b> <i>mailbox</i> ] [
+<b>-a</b> <i>auth-id</i> ] <br>
+[ <b>-q</b> ] [ <i>userid</i> ]... <b><br>
+deliver</b> [ <b>-C</b> <i>config-file</i> ] <b>-l</b></p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -73,8 +72,7 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
@@ -87,7 +85,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;d</b></p></td>
+<p><b>-d</b></p></td>
 <td width="8%"></td>
 <td width="63%">
 
@@ -97,36 +95,32 @@ reads its configuration options out of the
 </td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;r</b>
-<i>address</i></p>
+<p style="margin-left:11%;"><b>-r</b> <i>address</i></p>
 
 <p style="margin-left:22%;">Insert a <b>Return-Path:</b>
 header containing <i>address</i></p>
 
-<p style="margin-left:11%;"><b>&minus;f</b>
-<i>address</i></p>
+<p style="margin-left:11%;"><b>-f</b> <i>address</i></p>
 
 <p style="margin-left:22%;">Insert a <b>Return-Path:</b>
 header containing <i>address</i></p>
 
-<p style="margin-left:11%;"><b>&minus;m</b>
-<i>mailbox</i></p>
+<p style="margin-left:11%;"><b>-m</b> <i>mailbox</i></p>
 
 <p style="margin-left:22%;">Deliver to <i>mailbox</i>. If
 any <i>userid</i>s are specified, attempts to deliver to
 user.<i>userid</i>.<i>mailbox</i> for each <i>userid</i>. If
 the ACL on any such mailbox does not grant the sender the
-&quot;p&quot; right or if <b>&minus;m</b> is not specified,
-then delivers to the INBOX for the <i>userid</i>, regardless
-of the ACL on the INBOX.</p>
+&quot;p&quot; right or if <b>-m</b> is not specified, then
+delivers to the INBOX for the <i>userid</i>, regardless of
+the ACL on the INBOX.</p>
 
 <p style="margin-left:22%; margin-top: 1em">If no
 <i>userid</i>s are specified, attempts to deliver to
 <i>mailbox</i>. If the ACL on <i>mailbox</i> does not grant
 the sender the &quot;p&quot; right, the delivery fails.</p>
 
-<p style="margin-left:11%;"><b>&minus;a</b>
-<i>auth-id</i></p>
+<p style="margin-left:11%;"><b>-a</b> <i>auth-id</i></p>
 
 <p style="margin-left:22%;">Specify the authorization id of
 the sender. Defaults to &quot;anonymous&quot;.</p>
@@ -138,7 +132,7 @@ the sender. Defaults to &quot;anonymous&quot;.</p>
 <td width="3%">
 
 
-<p><b>&minus;q</b></p></td>
+<p><b>-q</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -150,7 +144,7 @@ quota.</p> </td></tr>
 <td width="3%">
 
 
-<p><b>&minus;l</b></p></td>
+<p><b>-l</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 

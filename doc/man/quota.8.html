@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:08 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:06 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,8 +34,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">quota &minus;
-report and optionally fix quota usage</p>
+<p style="margin-left:11%; margin-top: 1em">quota - report
+and optionally fix quota usage</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -43,9 +43,8 @@ report and optionally fix quota usage</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>quota</b> [
-<b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;d</b>
-<i>domain</i> ] [ <b>&minus;f</b> ] [
-<i>mailbox-prefix</i>... ]</p>
+<b>-C</b> <i>config-file</i> ] [ <b>-d</b> <i>domain</i> ] [
+<b>-f</b> ] [ <i>mailbox-prefix</i>... ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -54,19 +53,19 @@ report and optionally fix quota usage</p>
 
 <p style="margin-left:11%; margin-top: 1em"><i>Quota</i>
 generates a report listing quota roots, giving their limits
-and usage. If the <i>&minus;f</i> option is given,
-<i>quota</i> first fixes any inconsistencies in the quota
-subsystem, such as mailboxes with the wrong quota root or
-quota roots with the wrong quota usage reported. If an
-optional <i>domain</i> is given, the quota listing (and
-inconsistency fixing) is performed in that domain rather
-than the default domain. If any optional
-<i>mailbox-prefix</i> arguments are given, the quota listing
-(and inconsistency fixing) is limited to quota roots with
-names that start with one of the given prefixes.</p>
+and usage. If the <i>-f</i> option is given, <i>quota</i>
+first fixes any inconsistencies in the quota subsystem, such
+as mailboxes with the wrong quota root or quota roots with
+the wrong quota usage reported. If an optional <i>domain</i>
+is given, the quota listing (and inconsistency fixing) is
+performed in that domain rather than the default domain. If
+any optional <i>mailbox-prefix</i> arguments are given, the
+quota listing (and inconsistency fixing) is limited to quota
+roots with names that start with one of the given
+prefixes.</p>
 
 <p style="margin-left:11%; margin-top: 1em">Running
-<i>quota</i> with both the <i>&minus;f</i> option and
+<i>quota</i> with both the <i>-f</i> option and
 <i>mailbox-prefix</i> arguments is not recommended.</p>
 
 <p style="margin-left:11%; margin-top: 1em"><i>Quota</i>
@@ -79,15 +78,13 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;d</b>
-<i>domain</i></p>
+<p style="margin-left:11%;"><b>-d</b> <i>domain</i></p>
 
 <p style="margin-left:22%;">List/fix quotas in
 <i>domain</i>.</p>
@@ -99,7 +96,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;f</b></p></td>
+<p><b>-f</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -111,7 +108,7 @@ generating a report.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;q</b></p></td>
+<p><b>-q</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 

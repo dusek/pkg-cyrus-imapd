@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:10 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:08 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,8 +35,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">unexpunge
-&minus; restore expunged (but yet unremoved) messages</p>
+<p style="margin-left:11%; margin-top: 1em">unexpunge -
+restore expunged (but yet unremoved) messages</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -45,18 +45,17 @@
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>unexpunge</b>
-[ <b>&minus;C</b> <i>config-file</i> ] <b>&minus;l</b>
+[ <b>-C</b> <i>config-file</i> ] <b>-l</b> <i>mailbox</i>
+<b><br>
+unexpunge</b> [ <b>-C</b> <i>config-file</i> ] <b>-t
+time-interval</b> [ <b>-d</b> ] [ <b>-v</b> ] [ <b>-f</b>
+<i>flagname</i> ] <i>mailbox</i> <b><br>
+unexpunge</b> [ <b>-C</b> <i>config-file</i> ] <b>-a</b> [
+<b>-d</b> ] [ <b>-v</b> ] [ <b>-f</b> <i>flagname</i> ]
 <i>mailbox</i> <b><br>
-unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;t time-interval</b> [ <b>&minus;d</b> ] [
-<b>&minus;v</b> ] [ <b>&minus;f</b> <i>flagname</i> ]
-<i>mailbox</i> <b><br>
-unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;a</b> [ <b>&minus;d</b> ] [ <b>&minus;v</b> ] [
-<b>&minus;f</b> <i>flagname</i> ] <i>mailbox</i> <b><br>
-unexpunge</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;u</b> [ <b>&minus;d</b> ] [ <b>&minus;v</b> ] [
-<b>&minus;f</b> <i>flagname</i> ] <i>mailbox uid</i>...</p>
+unexpunge</b> [ <b>-C</b> <i>config-file</i> ] <b>-u</b> [
+<b>-d</b> ] [ <b>-v</b> ] [ <b>-f</b> <i>flagname</i> ]
+<i>mailbox uid</i>...</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -81,8 +80,7 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
@@ -95,7 +93,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;l</b></p></td>
+<p><b>-l</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -104,7 +102,7 @@ reads its configuration options out of the
 which are available for restoration.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;t</b>
+<p style="margin-left:11%;"><b>-t</b>
 <i>time-interval</i></p>
 
 <p style="margin-left:22%;">Unexpunge messages which were
@@ -118,7 +116,7 @@ minutes, h: hours, d: days, w: weeks).</p>
 <td width="3%">
 
 
-<p><b>&minus;a</b></p></td>
+<p><b>-a</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -130,7 +128,7 @@ specified mailbox.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;u</b></p></td>
+<p><b>-u</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -142,7 +140,7 @@ the specified mailbox.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;d</b></p></td>
+<p><b>-d</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -151,8 +149,7 @@ the specified mailbox.</p></td></tr>
 messages.</p> </td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;f</b>
-<i>flagname</i></p>
+<p style="margin-left:11%;"><b>-f</b> <i>flagname</i></p>
 
 <p style="margin-left:22%;">Set the user flag
 <i>flagname</i> on any restored messages. This can make it
@@ -166,7 +163,7 @@ afterwards.</p>
 <td width="3%">
 
 
-<p><b>&minus;v</b></p></td>
+<p><b>-v</b></p></td>
 <td width="8%"></td>
 <td width="46%">
 
