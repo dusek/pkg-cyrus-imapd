@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:07 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:05 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -37,8 +37,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">master &minus;
-master Cyrus process</p>
+<p style="margin-left:11%; margin-top: 1em">master - master
+Cyrus process</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -46,13 +46,12 @@ master Cyrus process</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>master</b> [
-<b>&minus;C</b> <i>alternate imapd.conf</i> ] [
-<b>&minus;M</b> <i>alternate cyrus.conf</i> ] [
-<b>&minus;l</b> <i>listen queue</i> ] [ <b>&minus;p</b>
-<i>pidfile</i> ] [ <b>&minus;P</b> <i>snmp agentx ping
-interval</i> ] [ <b>&minus;j</b> <i>janitor period</i> ] [
-<b>&minus;d</b> ] [ <b>&minus;D</b> ] [ <b>&minus;x</b>
-<i>snmp agentx socket</i> ]</p>
+<b>-C</b> <i>alternate imapd.conf</i> ] [ <b>-M</b>
+<i>alternate cyrus.conf</i> ] [ <b>-l</b> <i>listen
+queue</i> ] [ <b>-p</b> <i>pidfile</i> ] [ <b>-P</b> <i>snmp
+agentx ping interval</i> ] [ <b>-j</b> <i>janitor period</i>
+] [ <b>-d</b> ] [ <b>-D</b> ] [ <b>-x</b> <i>snmp agentx
+socket</i> ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -77,8 +76,7 @@ and all child processes when it receives a SIGTERM.</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>alternate imapd.conf</i></p>
 
 <p style="margin-left:22%;">Specifies an alternate
@@ -87,13 +85,13 @@ any sub-processes spawned by master, you should specify
 those specifically in the respective entries in
 cyrus.conf).</p>
 
-<p style="margin-left:11%;"><b>&minus;M</b> <i>alternate
+<p style="margin-left:11%;"><b>-M</b> <i>alternate
 cyrus.conf</i></p>
 
 <p style="margin-left:22%;">Specifies an alternate
 cyrus.conf for use by master.</p>
 
-<p style="margin-left:11%;"><b>&minus;l</b> <i>listen queue
+<p style="margin-left:11%;"><b>-l</b> <i>listen queue
 backlog</i></p>
 
 <p style="margin-left:22%;">Increase the listen queue
@@ -102,7 +100,7 @@ systems with a high connection rate, it may be desirable to
 increase this value. refer to <b>listen(2)</b> for
 details.</p>
 
-<p style="margin-left:11%;"><b>&minus;j</b> <i>janitor
+<p style="margin-left:11%;"><b>-j</b> <i>janitor
 full-sweeps per second</i></p>
 
 <p style="margin-left:22%;">Sets the amount of times per
@@ -112,15 +110,14 @@ fork rate (and you have not increased the child hash table
 size when you compiled Cyrus from its default of 10000
 entries).</p>
 
-<p style="margin-left:11%;"><b>&minus;p</b>
-<i>pidfile</i></p>
+<p style="margin-left:11%;"><b>-p</b> <i>pidfile</i></p>
 
 <p style="margin-left:22%;">Use <i>pidfile</i> as the
 pidfile. If not specified, defaults to
 /var/run/cyrus-master.pid</p>
 
-<p style="margin-left:11%;"><b>&minus;P</b> <i>snmp agentx
-ping interval</i></p>
+<p style="margin-left:11%;"><b>-P</b> <i>snmp agentx ping
+interval</i></p>
 
 <p style="margin-left:22%;">Sets the amount on time in
 seconds the subagent will try and reconnect to the master
@@ -134,7 +131,7 @@ Requires net-snmp 5.0 or higher.</p>
 <td width="3%">
 
 
-<p><b>&minus;d</b></p></td>
+<p><b>-d</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -146,7 +143,7 @@ from controlling terminal).</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;D</b></p></td>
+<p><b>-D</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -156,13 +153,12 @@ for debugging. Note that -d and -D cannot be used together;
 consider using -L instead.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;L</b>
-<i>logfile</i></p>
+<p style="margin-left:11%;"><b>-L</b> <i>logfile</i></p>
 
 <p style="margin-left:22%;">Redirect stdout and stderr to
 the given <i>logfile</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;x</b> <i>snmp agentx
+<p style="margin-left:11%;"><b>-x</b> <i>snmp agentx
 socket</i></p>
 
 <p style="margin-left:22%;">Address the master agent (most

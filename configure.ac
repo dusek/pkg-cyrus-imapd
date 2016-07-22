@@ -44,7 +44,7 @@ dnl configure.ac for the Cyrus imapd
 dnl
 
 
-AC_INIT([cyrus-imapd], [2.5.8], [http://bugzilla.cyrusimap.org],,[http://www.cyrusimap.org])
+AC_INIT([cyrus-imapd], [2.5.9], [http://bugzilla.cyrusimap.org],,[http://www.cyrusimap.org])
 AC_PREREQ([2.63])
 AC_CONFIG_SRCDIR([imap/imapd.c])
 AC_CONFIG_HEADERS(config.h)
@@ -1219,6 +1219,11 @@ dnl
 	HTTP_LIBS="${XML2_LIBS} ${ICAL_LIBS} ${SQLITE3_LIBS} ${JSON_LIBS}"
 	HTTP_CPPFLAGS="${JSON_CFLAGS} ${SQLITE3_CFLAGS} ${ICAL_CFLAGS} ${XML2_CFLAGS}"
 
+	saved_LIBS=${LIBS}
+	saved_CPPFLAGS="${CPPFLAGS}"
+	LIBS="${LIBS} ${HTTP_LIBS}"
+	CPPFLAGS="${CPPFLAGS} ${HTTP_CPPFLAGS}"
+
 	AC_DEFINE(HAVE_XML2,[],[Build in libxml support?])
 	AC_DEFINE(HAVE_ICAL,[],[Build in ical support?])
 	AC_DEFINE(HAVE_SQLITE3,[],[Build in SQLite support?])
@@ -1230,7 +1235,7 @@ dnl
 		AC_DEFINE(HAVE_TZ_BY_REF,[],
 			[Build TZ by ref support into httpd?]))
 
-	AC_EGREP_HEADER(ICAL_TZUNTIL_PROPERTY, ical.h,
+	AC_EGREP_HEADER(ICAL_TZUNTIL_PROPERTY, [libical/ical.h],
 		AC_DEFINE(HAVE_TZDIST_PROPS,[],
 			[Do we have built-in support for TZdist props?]))
 
@@ -1241,15 +1246,20 @@ dnl
 	    AC_DEFINE(WITH_DKIM,[],[Build DKIM support into iSchedule?]) 
 	fi
 
-	AC_EGREP_HEADER(ICAL_SCHEDULESTATUS_PARAMETER, ical.h,
+	AC_EGREP_HEADER(ICAL_IANA_PARAMETER, [libical/ical.h],
+		AC_DEFINE(HAVE_IANA_PARAMS,[],
+			[Do we have support for IANA params?]),
+		AC_MSG_WARN([Your version of libical can not support scheduling or managed attachments.  Consider upgrading to libical >= 0.48]))
+
+	AC_EGREP_HEADER(ICAL_SCHEDULESTATUS_PARAMETER, [libical/ical.h],
 		AC_DEFINE(HAVE_SCHEDULING_PARAMS,[],
 			[Do we have built-in support for scheduling params?]))
 
-	AC_EGREP_HEADER(ICAL_VAVAILABILITY_COMPONENT, ical.h,
+	AC_EGREP_HEADER(ICAL_VAVAILABILITY_COMPONENT, [libical/ical.h],
 		AC_DEFINE(HAVE_VAVAILABILITY,[],
 			[Build VAVAILABILITY support into httpd?]))
 
-	AC_EGREP_HEADER(ICAL_VPOLL_COMPONENT, ical.h,
+	AC_EGREP_HEADER(ICAL_VPOLL_COMPONENT, [libical/ical.h],
 		AC_DEFINE(HAVE_VPOLL,[],
 			[Build VPOLL support into httpd?]))
 
@@ -1258,9 +1268,12 @@ dnl
 	if test "$ENABLE_RSCALE" != no; then
 	     AC_SUBST(ICU_CFLAGS)
 	     AC_SUBST(ICU_LIBS)
-	     AC_CHECK_LIB(ical, icalrecur_rscale_token_handling_is_supported,
+	     AC_CHECK_LIB(ical, icalrecurrencetype_rscale_is_supported,
 		    AC_DEFINE(HAVE_RSCALE,[], [Build RSCALE support into httpd?]))
 	fi
+
+	LIBS="${saved_LIBS}"
+	CPPFLAGS="${saved_CPPFLAGS}"
 fi
 AC_SUBST(HTTP_CPPFLAGS)
 AC_SUBST(HTTP_LIBS)

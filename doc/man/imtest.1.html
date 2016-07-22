@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:06 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:04 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,7 +34,7 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">imtest &minus;
+<p style="margin-left:11%; margin-top: 1em">imtest -
 interactive IMAP test program</p>
 
 <h2>SYNOPSIS
@@ -43,18 +43,15 @@ interactive IMAP test program</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>imtest</b> [
-<b>&minus;t</b> <i>keyfile</i> ] [ <b>&minus;p</b>
-<i>port</i> ] [ <b>&minus;m</b> <i>mechanism</i> ] <br>
-[ <b>&minus;a</b> <i>userid</i> ] [ <b>&minus;u</b>
-<i>userid</i> ] [ <b>&minus;k</b> <i>num</i> ] [
-<b>&minus;l</b> <i>num</i> ] <br>
-[ <b>&minus;r</b> <i>realm</i> ] [ <b>&minus;f</b>
-<i>file</i> ] [ <b>&minus;n</b> <i>num</i> ] [
-<b>&minus;s</b> ] [ <b>&minus;q</b> ] <br>
-[ <b>&minus;c</b> ] [ <b>&minus;i</b> ] [ <b>&minus;z</b> ]
-[ <b>&minus;v</b> ] [ <b>&minus;I</b> <i>file</i> ] [
-<b>&minus;x</b> <i>file</i> ] <br>
-[ <b>&minus;X</b> <i>file</i> ] [ <b>&minus;o</b>
+<b>-t</b> <i>keyfile</i> ] [ <b>-p</b> <i>port</i> ] [
+<b>-m</b> <i>mechanism</i> ] <br>
+[ <b>-a</b> <i>userid</i> ] [ <b>-u</b> <i>userid</i> ] [
+<b>-k</b> <i>num</i> ] [ <b>-l</b> <i>num</i> ] <br>
+[ <b>-r</b> <i>realm</i> ] [ <b>-f</b> <i>file</i> ] [
+<b>-n</b> <i>num</i> ] [ <b>-s</b> ] [ <b>-q</b> ] <br>
+[ <b>-c</b> ] [ <b>-i</b> ] [ <b>-z</b> ] [ <b>-v</b> ] [
+<b>-I</b> <i>file</i> ] [ <b>-x</b> <i>file</i> ] <br>
+[ <b>-X</b> <i>file</i> ] [ <b>-o</b>
 <i>option</i><b>=</b><i>value</i> ] <i>hostname</i></p>
 
 <h2>DESCRIPTION
@@ -77,8 +74,7 @@ IMAP clients find it useful.</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;t</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-t</b>
 <i>keyfile</i></p>
 
 <p style="margin-left:22%;">Enable TLS. <i>keyfile</i>
@@ -86,7 +82,7 @@ contains the TLS public and private keys. Specify
 <b>&quot;&quot;</b> to negotiate a TLS encryption layer but
 not use TLS authentication.</p>
 
-<p style="margin-left:11%;"><b>&minus;p</b> <i>port</i></p>
+<p style="margin-left:11%;"><b>-p</b> <i>port</i></p>
 
 <p style="margin-left:22%;">Port to connect to. If left off
 this defaults to <b>imap</b> as defined in

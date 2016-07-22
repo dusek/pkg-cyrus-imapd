@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:07 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:05 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,7 +34,7 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">mbpath &minus;
+<p style="margin-left:11%; margin-top: 1em">mbpath -
 translate mailbox names to filesystem paths</p>
 
 <h2>SYNOPSIS
@@ -43,9 +43,8 @@ translate mailbox names to filesystem paths</p>
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>mbpath</b> [
-<b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;q</b> ] [
-<b>&minus;s</b> ] [ <b>&minus;m</b> ] [
-<i>mailbox-names</i>... ]</p>
+<b>-C</b> <i>config-file</i> ] [ <b>-q</b> ] [ <b>-s</b> ] [
+<b>-m</b> ] [ <i>mailbox-names</i>... ]</p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -67,24 +66,20 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-
-<p style="margin-left:11%; margin-top: 1em"><i>&minus;q</i>
+<p style="margin-left:11%; margin-top: 1em"><i>-q</i>
 suppress any error output.</p>
 
+<p style="margin-left:11%; margin-top: 1em"><i>-s</i> if
+any error occurs, stop processing the list of mailboxes and
+exit.</p>
 
-<p style="margin-left:11%; margin-top: 1em"><i>&minus;s</i>
-if any error occurs, stop processing the list of mailboxes
-and exit.</p>
-
-
-<p style="margin-left:11%; margin-top: 1em"><i>&minus;m</i>
+<p style="margin-left:11%; margin-top: 1em"><i>-m</i>
 output the path to the metadata files (if different from the
 message files).</p>
 

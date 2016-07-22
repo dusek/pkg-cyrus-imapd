@@ -1,17 +1,7 @@
-Changes to the Cyrus IMAP Server since 2.5.7
+Changes to the Cyrus IMAP Server since 2.5.8
 
-Murder changes
+Dependency changes
 
-      * Allow replicated backends in a discrete Murder to both actively
-        participate in the Murder. 
-      * When choosing between ANNOTATEMORE and METADATA, favour what the
-        client used. 
+      * Libical 2.0.0 is now supported. 
+      * preliminary support for OpenSSL 1.1.0 (not yet released) 
 
-Other changes
-
-      * cyr_dbtool now supports improved_mboxlist_sort (-M) 
-
-Bug fixes
-
-      * Fixed: master on pselect systems no longer chokes on repeated
-        interrupts (thanks Jens Erat and team) 

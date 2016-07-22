@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:03 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:01 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -34,8 +34,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">arbitron
-&minus; arbitron mailboxes</p>
+<p style="margin-left:11%; margin-top: 1em">arbitron -
+arbitron mailboxes</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -44,10 +44,9 @@
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>arbitron</b>
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;o</b> ] [
-<b>&minus;u</b> ] [ <b>&minus;l</b> ] [ <b>&minus;p</b>
-<i>months</i> ] <br>
-[ <b>&minus;d</b> <i>days</i> | <b>&minus;D</b>
+[ <b>-C</b> <i>config-file</i> ] [ <b>-o</b> ] [ <b>-u</b> ]
+[ <b>-l</b> ] [ <b>-p</b> <i>months</i> ] <br>
+[ <b>-d</b> <i>days</i> | <b>-D</b>
 <i>mmddyyyy</i>[<b>:</b><i>mmddyyyy</i>] ]
 <i>mailbox</i>...</p>
 
@@ -94,8 +93,7 @@ reads its configuration options out of the
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
@@ -108,7 +106,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;o</b></p></td>
+<p><b>-o</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -119,7 +117,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;u</b></p></td>
+<p><b>-u</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -130,7 +128,7 @@ reads its configuration options out of the
 <td width="3%">
 
 
-<p><b>&minus;l</b></p></td>
+<p><b>-l</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -139,13 +137,13 @@ reads its configuration options out of the
 of mbox, userid, r/s, start time, end time).</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;d</b> <i>days</i></p>
+<p style="margin-left:11%;"><b>-d</b> <i>days</i></p>
 
 <p style="margin-left:22%;">Count as a reader an
 authentication identity which has SELECTed the mailbox
 within <i>days</i> days. Default is 30.</p>
 
-<p style="margin-left:11%;"><b>&minus;D</b>
+<p style="margin-left:11%;"><b>-D</b>
 <i>mmddyyyy</i>[<b>:</b><i>mmddyyyy</i>]</p>
 
 <p style="margin-left:22%;">Count as a reader an
@@ -156,8 +154,7 @@ of the month, and 4-digit year. If the end date is not
 specified, then the current system time is used as the end
 time.</p>
 
-<p style="margin-left:11%;"><b>&minus;p</b>
-<i>months</i></p>
+<p style="margin-left:11%;"><b>-p</b> <i>months</i></p>
 
 <p style="margin-left:22%;">Prune \Seen state for users who
 have not SELECTed the mailbox within <i>months</i> months.

@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:08 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:06 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,8 +35,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">reconstruct
-&minus; reconstruct mailboxes</p>
+<p style="margin-left:11%; margin-top: 1em">reconstruct -
+reconstruct mailboxes</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -45,14 +45,14 @@
 
 
 <p style="margin-left:11%; margin-top: 1em"><b>reconstruct</b>
-[ <b>&minus;C</b> <i>config-file</i> ] [ <b>&minus;p</b>
-<i>partition</i> ] [ <b>&minus;x</b> ] [ <b>&minus;r</b> ] [
-<b>&minus;f</b> ] <br>
-[ <b>&minus;k</b> ] [ <b>&minus;s</b> ] [ <b>&minus;g</b> ]
-[ <b>&minus;G</b> ] [ <b>&minus;R</b> ] [ <b>&minus;o</b> ]
-[ <b>&minus;O</b> ] <i>mailbox</i>... <b><br>
-reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;m</b></p>
+[ <b>-C</b> <i>config-file</i> ] [ <b>-p</b>
+<i>partition</i> ] [ <b>-x</b> ] [ <b>-r</b> ] [ <b>-f</b> ]
+<br>
+[ <b>-k</b> ] [ <b>-s</b> ] [ <b>-g</b> ] [ <b>-G</b> ] [
+<b>-R</b> ] [ <b>-o</b> ] [ <b>-O</b> ] <i>mailbox</i>...
+<b><br>
+reconstruct</b> [ <b>-C</b> <i>config-file</i> ]
+<b>-m</b></p>
 
 <h2>DESCRIPTION
 <a name="DESCRIPTION"></a>
@@ -62,8 +62,8 @@ reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
 
 <p style="margin-left:11%; margin-top: 1em"><b><i>Reconstruct</i></b>
 rebuilds one or more IMAP mailboxes. When invoked with the
-<b>&minus;m</b> switch, it rebuilds the master mailboxes
-file. It can be used to recover from almost any sort of data
+<b>-m</b> switch, it rebuilds the master mailboxes file. It
+can be used to recover from almost any sort of data
 corruption.</p>
 
 <p style="margin-left:11%; margin-top: 1em">If
@@ -86,23 +86,21 @@ is assumed to be in news format.</p>
 <p style="margin-left:11%; margin-top: 1em"><i>Reconstruct</i>
 does not adjust the quota usage recorded in any quota root
 files. After running <i>reconstruct</i>, it is advisable to
-run <i>quota</i>(8) with the <i>&minus;f</i> switch in order
-to fix the quota root files.</p>
+run <i>quota</i>(8) with the <i>-f</i> switch in order to
+fix the quota root files.</p>
 
 <h2>OPTIONS
 <a name="OPTIONS"></a>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;C</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-C</b>
 <i>config-file</i></p>
 
 <p style="margin-left:22%;">Read configuration options from
 <i>config-file</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;p</b>
-<i>partition</i></p>
+<p style="margin-left:11%;"><b>-p</b> <i>partition</i></p>
 
 <p style="margin-left:22%;">Search for the listed
 (non-existant) mailboxes on the indicated partition. Create
@@ -116,7 +114,7 @@ them. (not compatible with the use of wildcards)</p>
 <td width="3%">
 
 
-<p><b>&minus;x</b></p></td>
+<p><b>-x</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -131,7 +129,7 @@ unique identifier, user flags, and ACL).</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;r</b></p></td>
+<p><b>-r</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -143,7 +141,7 @@ mailboxes or mailbox prefixes given as arguments.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;f</b></p></td>
+<p><b>-f</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -156,7 +154,7 @@ mailboxes. Useful for restoring mailboxes from backups.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;s</b></p></td>
+<p><b>-s</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -170,7 +168,7 @@ issues (like zero byte files or size mistmatches).
 <td width="3%">
 
 
-<p><b>&minus;q</b></p></td>
+<p><b>-q</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -181,7 +179,7 @@ issues (like zero byte files or size mistmatches).
 <td width="3%">
 
 
-<p><b>&minus;n</b></p></td>
+<p><b>-n</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -194,7 +192,7 @@ but not fixed.</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;G</b></p></td>
+<p><b>-G</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -208,7 +206,7 @@ files.</p> </td></tr>
 <td width="3%">
 
 
-<p><b>&minus;R</b></p></td>
+<p><b>-R</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -223,7 +221,7 @@ files.</p> </td></tr>
 <td width="3%">
 
 
-<p><b>&minus;U</b></p></td>
+<p><b>-U</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -260,8 +258,7 @@ additional tracking files.</p></td></tr>
 &rsquo;-o&rsquo;.</p> </td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;V</b>
-<i>version</i></p>
+<p style="margin-left:11%;"><b>-V</b> <i>version</i></p>
 
 <p style="margin-left:22%;">Change the cyrus.index minor
 version to a specific version. This can be useful for
@@ -288,7 +285,7 @@ command line</p></td></tr>
 <td width="3%">
 
 
-<p><b>&minus;m</b></p></td>
+<p><b>-m</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 

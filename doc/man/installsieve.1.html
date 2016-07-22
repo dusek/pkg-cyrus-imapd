@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Fri May 20 06:10:06 2016 -->
+<!-- CreationDate: Fri Jul 22 02:16:04 2016 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -33,8 +33,8 @@
 </h2>
 
 
-<p style="margin-left:11%; margin-top: 1em">installsieve
-&minus; user utility for managing sieve scripts</p>
+<p style="margin-left:11%; margin-top: 1em">installsieve -
+user utility for managing sieve scripts</p>
 
 <h2>SYNOPSIS
 <a name="SYNOPSIS"></a>
@@ -59,8 +59,7 @@ kept on the server.</p>
 </h2>
 
 
-
-<p style="margin-left:11%; margin-top: 1em"><b>&minus;v</b>
+<p style="margin-left:11%; margin-top: 1em"><b>-v</b>
 <i>name</i></p>
 
 <p style="margin-left:22%;">View script with the given
@@ -74,7 +73,7 @@ standard output.</p>
 <td width="3%">
 
 
-<p><b>&minus;l</b></p></td>
+<p><b>-l</b></p></td>
 <td width="8%"></td>
 <td width="78%">
 
@@ -84,13 +83,13 @@ of the scripts is active a arrow is printed indicating that
 it is the active script.</p></td></tr>
 </table>
 
-<p style="margin-left:11%;"><b>&minus;p</b> <i>port</i></p>
+<p style="margin-left:11%;"><b>-p</b> <i>port</i></p>
 
 <p style="margin-left:22%;">Port to connect to. If left off
 this defaults to &quot;sieve&quot; as defined in
 /etc/services.</p>
 
-<p style="margin-left:11%;"><b>&minus;i</b> <i>file</i></p>
+<p style="margin-left:11%;"><b>-i</b> <i>file</i></p>
 
 <p style="margin-left:22%;">Install a file onto the server.
 If a script with the same name already exists on the server
@@ -99,32 +98,31 @@ the server the script is set active. If <i>file</i> has the
 extension .script it is chopped when put on the server since
 sieve names may not contain a &rsquo;.&rsquo;.</p>
 
-<p style="margin-left:11%;"><b>&minus;a</b> <i>name</i></p>
+<p style="margin-left:11%;"><b>-a</b> <i>name</i></p>
 
 <p style="margin-left:22%;">Set <i>name</i> as the active
 script. The list of available names can be obtained from the
 <b>-l</b> option.</p>
 
-<p style="margin-left:11%;"><b>&minus;d</b> <i>name</i></p>
+<p style="margin-left:11%;"><b>-d</b> <i>name</i></p>
 
 <p style="margin-left:22%;">Delete the sieve script on the
 server with <i>name</i>.</p>
 
-<p style="margin-left:11%;"><b>&minus;m</b>
-<i>mechanism</i></p>
+<p style="margin-left:11%;"><b>-m</b> <i>mechanism</i></p>
 
 <p style="margin-left:22%;">Force installsieve to use
 <i>mechanism</i> for authentication. If not specified the
 strongest authentication mechanism is chosen.</p>
 
-<p style="margin-left:11%;"><b>&minus;g</b> <i>name</i></p>
+<p style="margin-left:11%;"><b>-g</b> <i>name</i></p>
 
 <p style="margin-left:22%;">Get the sieve script with
 <i>name</i> and save it to disk with a &quot;.script&quot;
 extension. If a file with that name already exists it is
 overwritten.</p>
 
-<p style="margin-left:11%;"><b>&minus;u</b> <i>user</i></p>
+<p style="margin-left:11%;"><b>-u</b> <i>user</i></p>
 
 <p style="margin-left:22%;">Userid/Authname to use for
 authentication; by default, the current user.</p>

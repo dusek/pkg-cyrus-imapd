@@ -85,27 +85,27 @@ const char *snmp_getdescription(lmtpstats_t evt)
 
     switch (evt) {
 
-        case mtaReceivedMessages: return "Messages we've received";
-        case ACTIVE_CONNECTIONS: return "Count of the active number of connections";
         case TOTAL_CONNECTIONS: return "Count of the total number of connections since the beginning of time";
-        case SIEVE_FILEINTO: return "sieve fileintos";
-        case SIEVE_DISCARD: return "sieve discards";
-        case SIEVE_VACATION_REPLIED: return "vacation messages sent";
-        case mtaReceivedRecipients: return "Recipients accepted";
-        case AUTHENTICATION_YES: return "Successful authentication of given mechanism";
-        case mtaReceivedVolume: return "Kbytes received";
-        case SIEVE_MESSAGES_PROCESSED: return "Number of messages processed by Sieve scripts";
-        case AUTHENTICATION_NO: return "Failed authentication of given mechanism";
-        case mtaSuccessfulConvertedMessages: return "Messages converted because of 8bit foo";
-        case SIEVE_NOTIFY: return "sieve notifications sent";
+        case mtaReceivedMessages: return "Messages we've received";
         case SIEVE_VACATION_TOTAL: return "vacation messages considered";
+        case SIEVE_VACATION_REPLIED: return "vacation messages sent";
+        case SIEVE_NOTIFY: return "sieve notifications sent";
+        case SIEVE_MESSAGES_PROCESSED: return "Number of messages processed by Sieve scripts";
+        case SIEVE_FILEINTO: return "sieve fileintos";
+        case SIEVE_KEEP: return "sieve messages kept";
+        case mtaReceivedRecipients: return "Recipients accepted";
+        case SIEVE_REDIRECT: return "sieve redirects";
+        case mtaTransmittedMessages: return "Messages stored to disk";
+        case SIEVE_DISCARD: return "sieve discards";
+        case ACTIVE_CONNECTIONS: return "Count of the active number of connections";
+        case mtaReceivedVolume: return "Kbytes received";
+        case SIEVE_REJECT: return "sieve rejects";
+        case mtaSuccessfulConvertedMessages: return "Messages converted because of 8bit foo";
+        case mtaTransmittedVolume: return "Kbytes stored to disk";
+        case AUTHENTICATION_YES: return "Successful authentication of given mechanism";
         case SERVER_UPTIME: return "Amount of time server has been running";
         case SERVER_NAME_VERSION: return "Name and version string for server";
-        case SIEVE_KEEP: return "sieve messages kept";
-        case SIEVE_REDIRECT: return "sieve redirects";
-        case SIEVE_REJECT: return "sieve rejects";
-        case mtaTransmittedVolume: return "Kbytes stored to disk";
-        case mtaTransmittedMessages: return "Messages stored to disk";
+        case AUTHENTICATION_NO: return "Failed authentication of given mechanism";
 
     }
 
@@ -123,27 +123,27 @@ const char *snmp_getoid(const char *name __attribute__((unused)),
 
     switch (evt) {
 
-        case mtaReceivedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.1",varvalue(VARIABLE_MTA)); return buf;
-        case ACTIVE_CONNECTIONS: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.1.2"); return buf;
         case TOTAL_CONNECTIONS: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.1.1"); return buf;
-        case SIEVE_FILEINTO: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.4"); return buf;
-        case SIEVE_DISCARD: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.2"); return buf;
-        case SIEVE_VACATION_REPLIED: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.7"); return buf;
-        case mtaReceivedRecipients: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.7",varvalue(VARIABLE_MTA)); return buf;
-        case AUTHENTICATION_YES: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.2.%d.0",varvalue(VARIABLE_AUTH)); return buf;
-        case mtaReceivedVolume: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.4",varvalue(VARIABLE_MTA)); return buf;
-        case SIEVE_MESSAGES_PROCESSED: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.0"); return buf;
-        case AUTHENTICATION_NO: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.2.%d.1",varvalue(VARIABLE_AUTH)); return buf;
-        case mtaSuccessfulConvertedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.10",varvalue(VARIABLE_MTA)); return buf;
-        case SIEVE_NOTIFY: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.6"); return buf;
+        case mtaReceivedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.1",varvalue(VARIABLE_MTA)); return buf;
         case SIEVE_VACATION_TOTAL: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.8"); return buf;
+        case SIEVE_VACATION_REPLIED: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.7"); return buf;
+        case SIEVE_NOTIFY: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.6"); return buf;
+        case SIEVE_MESSAGES_PROCESSED: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.0"); return buf;
+        case SIEVE_FILEINTO: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.4"); return buf;
+        case SIEVE_KEEP: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.5"); return buf;
+        case mtaReceivedRecipients: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.7",varvalue(VARIABLE_MTA)); return buf;
+        case SIEVE_REDIRECT: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.1"); return buf;
+        case mtaTransmittedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.3",varvalue(VARIABLE_MTA)); return buf;
+        case SIEVE_DISCARD: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.2"); return buf;
+        case ACTIVE_CONNECTIONS: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.1.2"); return buf;
+        case mtaReceivedVolume: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.4",varvalue(VARIABLE_MTA)); return buf;
+        case SIEVE_REJECT: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.3"); return buf;
+        case mtaSuccessfulConvertedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.10",varvalue(VARIABLE_MTA)); return buf;
+        case mtaTransmittedVolume: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.6",varvalue(VARIABLE_MTA)); return buf;
+        case AUTHENTICATION_YES: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.2.%d.0",varvalue(VARIABLE_AUTH)); return buf;
         case SERVER_UPTIME: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.3.1"); return buf;
         case SERVER_NAME_VERSION: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.3.0"); return buf;
-        case SIEVE_KEEP: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.5"); return buf;
-        case SIEVE_REDIRECT: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.1"); return buf;
-        case SIEVE_REJECT: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.3.4.3"); return buf;
-        case mtaTransmittedVolume: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.6",varvalue(VARIABLE_MTA)); return buf;
-        case mtaTransmittedMessages: snprintf(buf,buflen,"1.3.6.1.2.1.28.1.%d.3",varvalue(VARIABLE_MTA)); return buf;
+        case AUTHENTICATION_NO: snprintf(buf,buflen,"1.3.6.1.4.1.3.2.2.3.2.2.%d.1",varvalue(VARIABLE_AUTH)); return buf;
 
     }
 
