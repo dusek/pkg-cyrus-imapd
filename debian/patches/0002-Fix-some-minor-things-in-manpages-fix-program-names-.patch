@@ -29,11 +29,9 @@ Subject: Fix some minor things in manpages,
  man/tls_prune.8    |  2 +-
  23 files changed, 71 insertions(+), 62 deletions(-)
 
-diff --git a/imap/deliver.c b/imap/deliver.c
-index d5f17d6..0adc267 100644
---- a/imap/deliver.c
-+++ b/imap/deliver.c
-@@ -111,7 +111,7 @@ static struct backend *init_net(const char *sockaddr);
+--- cyrus-imapd.orig/imap/deliver.c
++++ cyrus-imapd/imap/deliver.c
+@@ -111,7 +111,7 @@ static struct backend *init_net(const ch
  static void usage(void)
  {
      fprintf(stderr, 
@@ -42,10 +40,8 @@ index d5f17d6..0adc267 100644
  	    " [-a auth] [-r return_path] [-l] [-D]\r\n");
      fprintf(stderr, "421 4.3.0 %s\n", cyrus_version());
      exit(EC_USAGE);
-diff --git a/imap/quota.c b/imap/quota.c
-index 3f8363b..6d0ea6c 100644
---- a/imap/quota.c
-+++ b/imap/quota.c
+--- cyrus-imapd.orig/imap/quota.c
++++ cyrus-imapd/imap/quota.c
 @@ -218,7 +218,7 @@ int main(int argc,char **argv)
  static void usage(void)
  {
@@ -55,10 +51,8 @@ index 3f8363b..6d0ea6c 100644
      exit(EC_USAGE);
  }
  
-diff --git a/imap/reconstruct.c b/imap/reconstruct.c
-index 5ad1347..674def3 100644
---- a/imap/reconstruct.c
-+++ b/imap/reconstruct.c
+--- cyrus-imapd.orig/imap/reconstruct.c
++++ cyrus-imapd/imap/reconstruct.c
 @@ -410,7 +410,7 @@ int main(int argc, char **argv)
  static void usage(void)
  {
@@ -68,60 +62,48 @@ index 5ad1347..674def3 100644
      fprintf(stderr, "       reconstruct [-C <alt_config>] -m\n");
      exit(EC_USAGE);
  }
-diff --git a/man/chk_cyrus.8 b/man/chk_cyrus.8
-index 97be909..ffcd902 100644
---- a/man/chk_cyrus.8
-+++ b/man/chk_cyrus.8
+--- cyrus-imapd.orig/man/chk_cyrus.8
++++ cyrus-imapd/man/chk_cyrus.8
 @@ -83,4 +83,4 @@ May not be specified with -P.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/ctl_cyrusdb.8 b/man/ctl_cyrusdb.8
-index 839341e..5b8b8af 100644
---- a/man/ctl_cyrusdb.8
-+++ b/man/ctl_cyrusdb.8
+--- cyrus-imapd.orig/man/ctl_cyrusdb.8
++++ cyrus-imapd/man/ctl_cyrusdb.8
 @@ -97,4 +97,4 @@ removed.
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/ctl_deliver.8 b/man/ctl_deliver.8
-index 432f45c..5619b0d 100644
---- a/man/ctl_deliver.8
-+++ b/man/ctl_deliver.8
-@@ -77,4 +77,4 @@ Use the database specified by \fIfilename\fR instead of the default
+--- cyrus-imapd.orig/man/ctl_deliver.8
++++ cyrus-imapd/man/ctl_deliver.8
+@@ -77,4 +77,4 @@ Use the database specified by \fIfilenam
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/ctl_mboxlist.8 b/man/ctl_mboxlist.8
-index 546d56c..b55e466 100644
---- a/man/ctl_mboxlist.8
-+++ b/man/ctl_mboxlist.8
-@@ -164,4 +164,4 @@ Use the database specified by \fIfilename\fR instead of the default
+--- cyrus-imapd.orig/man/ctl_mboxlist.8
++++ cyrus-imapd/man/ctl_mboxlist.8
+@@ -164,4 +164,4 @@ Use the database specified by \fIfilenam
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/cyr_expire.8 b/man/cyr_expire.8
-index 73302df..95f68fe 100644
---- a/man/cyr_expire.8
-+++ b/man/cyr_expire.8
-@@ -162,4 +162,4 @@ only \fIexpire-days\fR is considered for all mailboxes.
+--- cyrus-imapd.orig/man/cyr_expire.8
++++ cyrus-imapd/man/cyr_expire.8
+@@ -162,4 +162,4 @@ only \fIexpire-days\fR is considered for
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR, \fBcyradm(1p)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR, \fBcyradm(1p)\fR
-diff --git a/man/cyrus.conf.5 b/man/cyrus.conf.5
-index bbab4b9..2c70fd7 100644
---- a/man/cyrus.conf.5
-+++ b/man/cyrus.conf.5
+--- cyrus-imapd.orig/man/cyrus.conf.5
++++ cyrus-imapd/man/cyrus.conf.5
 @@ -43,9 +43,9 @@
  cyrus.conf \- Cyrus configuration file
  .SH DESCRIPTION
@@ -134,7 +116,7 @@ index bbab4b9..2c70fd7 100644
  .PP
  The \fB/etc/cyrus.conf\fR file consists of a series of entries divided
  into sections of the form
-@@ -110,7 +110,7 @@ string field is required and takes one of the following forms:
+@@ -110,7 +110,7 @@ string field is required and takes one o
  \fR[ \fIhost\fR \fB: \fR] \fIport\fR
  .br
  .sp
@@ -143,7 +125,7 @@ index bbab4b9..2c70fd7 100644
  either the hostname or bracket-enclosed IP address of a network
  interface, and \fIport\fR is either a port number or service name (as listed
  in \fB/etc/services\fR).
-@@ -187,6 +187,6 @@ different modes or configurations (i.e., SSL and non-SSL enabled) yet
+@@ -187,6 +187,6 @@ different modes or configurations (i.e.,
  still have separate access control rules.
  .SH SEE ALSO
  .PP
@@ -151,10 +133,8 @@ index bbab4b9..2c70fd7 100644
 +\fBcyrmaster(8)\fR, \fBimapd(8)\fR, \fBpop3d(8)\fR, \fBlmtpd(8)\fR,
  \fBtimsieved(8)\fR, \fBidled(8)\fR, \fBnotifyd(8)\fR, \fBctl_cyrusdb(8)\fR,
  \fBctl_deliver(8)\fR, \fBtls_prune(8)\fR, \fBhosts_access(5)\fR
-diff --git a/man/deliver.8 b/man/deliver.8
-index b0a9a4a..b621853 100644
---- a/man/deliver.8
-+++ b/man/deliver.8
+--- cyrus-imapd.orig/man/deliver.8
++++ cyrus-imapd/man/deliver.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH DELIVER 8 "Project Cyrus" CMU
@@ -174,7 +154,7 @@ index b0a9a4a..b621853 100644
  [
  .B \-C
  .I config-file
-@@ -75,7 +75,7 @@ deliver \- deliver mail to an IMAP mailbox
+@@ -75,7 +75,7 @@ deliver \- deliver mail to an IMAP mailb
  .I userid
  ]...
  .br
@@ -183,11 +163,9 @@ index b0a9a4a..b621853 100644
  [
  .B \-C
  .I config-file
-diff --git a/man/fud.8 b/man/fud.8
-index 2801298..84ddf7f 100644
---- a/man/fud.8
-+++ b/man/fud.8
-@@ -60,7 +60,7 @@ FUD \- provide information about user mailboxes
+--- cyrus-imapd.orig/man/fud.8
++++ cyrus-imapd/man/fud.8
+@@ -60,7 +60,7 @@ FUD \- provide information about user ma
  ]
  .SH DESCRIPTION
  .B FUD
@@ -196,11 +174,9 @@ index 2801298..84ddf7f 100644
  information about when a user last
  read their mail, when mail last arrived in a user's mailbox, and how
  many messages are recent for that user.
-diff --git a/man/idled.8 b/man/idled.8
-index ca2c287..137f648 100644
---- a/man/idled.8
-+++ b/man/idled.8
-@@ -55,7 +55,7 @@ mailbox changes and signals the appropriate
+--- cyrus-imapd.orig/man/idled.8
++++ cyrus-imapd/man/idled.8
+@@ -55,7 +55,7 @@ mailbox changes and signals the appropri
  to report the changes to the client.
  .I Idled
  is usually started from
@@ -209,16 +185,14 @@ index ca2c287..137f648 100644
  .PP
  .I Idled
  reads its configuration options out of the
-@@ -74,4 +74,4 @@ Read configuration options from \fIconfig-file\fR.
+@@ -74,4 +74,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/imapd.8 b/man/imapd.8
-index ce9e884..95f14c0 100644
---- a/man/imapd.8
-+++ b/man/imapd.8
+--- cyrus-imapd.orig/man/imapd.8
++++ cyrus-imapd/man/imapd.8
 @@ -74,7 +74,7 @@ imapd \- IMAP server process
  is an IMAP4rev1 server.
  It accepts commands on its standard input and responds on its standard output.
@@ -234,10 +208,8 @@ index ce9e884..95f14c0 100644
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/lmtpd.8 b/man/lmtpd.8
-index 3e7c849..c0cab93 100644
---- a/man/lmtpd.8
-+++ b/man/lmtpd.8
+--- cyrus-imapd.orig/man/lmtpd.8
++++ cyrus-imapd/man/lmtpd.8
 @@ -67,7 +67,7 @@ lmtpd \- LMTP server process
  is an LMTP server used to deliver mail to the IMAP mailstore.
  It accepts commands on its standard input and responds on its standard output.
@@ -253,10 +225,8 @@ index 3e7c849..c0cab93 100644
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/master.8 b/man/master.8
-index fb2f5ca..55fddaa 100644
---- a/man/master.8
-+++ b/man/master.8
+--- cyrus-imapd.orig/man/master.8
++++ cyrus-imapd/man/master.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH MASTER 8 "Project Cyrus" CMU
@@ -301,16 +271,16 @@ index fb2f5ca..55fddaa 100644
  .TP
  .BI \-l " listen queue backlog"
  Increase the listen queue backlog. By default, the listen queue is set
-@@ -112,7 +112,7 @@ compiled Cyrus from its default of 10000 entries).
+@@ -112,7 +112,7 @@ compiled Cyrus from its default of 10000
  .BI \-p " pidfile"
  Use
  .I pidfile
 -as the pidfile.  If not specified, defaults to /var/run/cyrus-master.pid
-+as the pidfile.  If not specified, defaults to /var/run/cyrmaster.pid
++as the pidfile.  If not specified, defaults to /run/cyrus-master.pid
  .TP
  .BI \-P " snmp agentx ping interval"
  Sets the amount on time in seconds the subagent will try and reconnect to the
-@@ -135,12 +135,12 @@ Address the master agent (most likely snmpd) listens on.
+@@ -135,12 +135,12 @@ Address the master agent (most likely sn
  Requires net-snmp 5.0 or higher.
  .SH CONFIGURATION
  Upon execution,
@@ -325,7 +295,7 @@ index fb2f5ca..55fddaa 100644
  rereads its configuration file when it receives a hangup signal,
  SIGHUP.  Services and events may be added, deleted or modified when the
  configuration file is reread.  Any active services removed from the
-@@ -163,9 +163,18 @@ generated for processes that have not been recycled within 30s.
+@@ -163,9 +163,18 @@ generated for processes that have not be
  The environment variable \fBCYRUS_VERBOSE\fR can be set to log additional
  debugging information. Setting the value to 1 results in base level logging. 
  Setting it higher results in more log messages being generated.
@@ -345,10 +315,8 @@ index fb2f5ca..55fddaa 100644
  .SH SEE ALSO
  .PP
  \fBcyrus.conf(5)\fR, \fBimapd.conf(5)\fR, \fBimapd(8)\fR,
-diff --git a/man/nntpd.8 b/man/nntpd.8
-index 413dadf..99c5fa1 100644
---- a/man/nntpd.8
-+++ b/man/nntpd.8
+--- cyrus-imapd.orig/man/nntpd.8
++++ cyrus-imapd/man/nntpd.8
 @@ -77,7 +77,7 @@ nntpd \- NNTP server process
  is a NNTP server.
  It accepts commands on its standard input and responds on its standard output.
@@ -364,10 +332,8 @@ index 413dadf..99c5fa1 100644
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/notifyd.8 b/man/notifyd.8
-index cad4819..cd30798 100644
---- a/man/notifyd.8
-+++ b/man/notifyd.8
+--- cyrus-imapd.orig/man/notifyd.8
++++ cyrus-imapd/man/notifyd.8
 @@ -61,7 +61,7 @@ notifyd \- Cyrus notification server
  ]
  .SH DESCRIPTION
@@ -383,10 +349,8 @@ index cad4819..cd30798 100644
  .PP
 -\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBmaster(8)\fR, \fBlmtpd(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrus.conf\fR, \fBcyrmaster(8)\fR, \fBlmtpd(8)\fR
-diff --git a/man/pop3d.8 b/man/pop3d.8
-index eb6771f..93962ce 100644
---- a/man/pop3d.8
-+++ b/man/pop3d.8
+--- cyrus-imapd.orig/man/pop3d.8
++++ cyrus-imapd/man/pop3d.8
 @@ -74,7 +74,7 @@ pop3d \- POP3 server process
  is a POP3 server.
  It accepts commands on its standard input and responds on its standard output.
@@ -402,10 +366,8 @@ index eb6771f..93962ce 100644
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/quota.8 b/man/quota.8
-index 1ea5e11..3e3cbe9 100644
---- a/man/quota.8
-+++ b/man/quota.8
+--- cyrus-imapd.orig/man/quota.8
++++ cyrus-imapd/man/quota.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH QUOTA 8 "Project Cyrus" CMU
@@ -425,7 +387,7 @@ index 1ea5e11..3e3cbe9 100644
  [
  .B \-C
  .I config-file
-@@ -58,12 +58,12 @@ quota \- report and optionally fix quota usage
+@@ -58,12 +58,12 @@ quota \- report and optionally fix quota
  .IR mailbox-prefix ...
  ]
  .SH DESCRIPTION
@@ -440,7 +402,7 @@ index 1ea5e11..3e3cbe9 100644
  first fixes any inconsistencies in the quota subsystem, such as
  mailboxes with the wrong quota root or quota roots with the wrong
  quota usage reported.
-@@ -78,14 +78,14 @@ limited to quota roots with names that start with one of the given
+@@ -78,14 +78,14 @@ limited to quota roots with names that s
  prefixes.
  .PP
  Running
@@ -457,10 +419,8 @@ index 1ea5e11..3e3cbe9 100644
  reads its configuration options out of the
  .IR imapd.conf (5)
  file unless specified otherwise by \fB-C\fR.
-diff --git a/man/reconstruct.8 b/man/reconstruct.8
-index 8e2b262..fc9e194 100644
---- a/man/reconstruct.8
-+++ b/man/reconstruct.8
+--- cyrus-imapd.orig/man/reconstruct.8
++++ cyrus-imapd/man/reconstruct.8
 @@ -1,5 +1,5 @@
  .\" -*- nroff -*-
 -.TH RECONSTRUCT 8 "Project Cyrus" CMU
@@ -497,7 +457,7 @@ index 8e2b262..fc9e194 100644
  rebuilds one or more IMAP mailboxes.  When invoked with the
  .B \-m
  switch, it rebuilds the master
-@@ -100,17 +100,17 @@ mailboxes file.  It can be used to recover from
+@@ -100,17 +100,17 @@ mailboxes file.  It can be used to recov
  almost any sort of data corruption.
  .PP
  If
@@ -534,7 +494,7 @@ index 8e2b262..fc9e194 100644
  with the
  .I \-f
  switch in order to fix the quota root files.
-@@ -167,7 +167,7 @@ where problems are reported, but not fixed.
+@@ -167,7 +167,7 @@ where problems are reported, but not fix
  .TP
  .B \-G
  Force re-parsing of the underlying message (checks GUID correctness).
@@ -543,11 +503,9 @@ index 8e2b262..fc9e194 100644
  including corrupted data files.
  .TP
  .B \-R
-diff --git a/man/smmapd.8 b/man/smmapd.8
-index 4feef08..5685f47 100644
---- a/man/smmapd.8
-+++ b/man/smmapd.8
-@@ -66,7 +66,7 @@ mailbox exists, that it is postable and it is under quota.
+--- cyrus-imapd.orig/man/smmapd.8
++++ cyrus-imapd/man/smmapd.8
+@@ -66,7 +66,7 @@ mailbox exists, that it is postable and
  It accepts commands on its standard input and responds on its standard
  output.
  It MUST be invoked by
@@ -556,21 +514,17 @@ index 4feef08..5685f47 100644
  with those descriptors attached to a remote client connection.
  .PP
  .B SMMAPD
-diff --git a/man/timsieved.8 b/man/timsieved.8
-index f15c541..8987784 100644
---- a/man/timsieved.8
-+++ b/man/timsieved.8
-@@ -72,4 +72,4 @@ Read configuration options from \fIconfig-file\fR.
+--- cyrus-imapd.orig/man/timsieved.8
++++ cyrus-imapd/man/timsieved.8
+@@ -72,4 +72,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
-diff --git a/man/tls_prune.8 b/man/tls_prune.8
-index db968a9..6549f0f 100644
---- a/man/tls_prune.8
-+++ b/man/tls_prune.8
-@@ -66,4 +66,4 @@ Read configuration options from \fIconfig-file\fR.
+--- cyrus-imapd.orig/man/tls_prune.8
++++ cyrus-imapd/man/tls_prune.8
+@@ -66,4 +66,4 @@ Read configuration options from \fIconfi
  .B /etc/imapd.conf
  .SH SEE ALSO
  .PP

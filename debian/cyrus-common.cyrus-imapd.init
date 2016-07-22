@@ -31,7 +31,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 NAME=cyrmaster
 DAEMON=/usr/sbin/${NAME}
-PIDFILE="/var/run/cyrmaster.pid"
+PIDFILE="/run/cyrus-master.pid"
 DESC="Cyrus IMAPd"
 
 # Check if Cyrus is installed (vs. removed but not purged)

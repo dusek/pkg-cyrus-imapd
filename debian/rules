@@ -86,7 +86,7 @@ override_dh_auto_configure:
 	 --with-openssl \
 	 --with-zlib \
 	 --with-libcap \
-	 --with-pidfile=/var/run/cyrus-master.pid \
+	 --with-pidfile=/run/cyrus-master.pid \
 	 --with-com_err \
 	 --with-syslogfacility=MAIL \
 	 --with-gss_impl=mit \
