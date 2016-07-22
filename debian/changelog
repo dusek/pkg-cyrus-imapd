@@ -1,3 +1,15 @@
+cyrus-imapd (2.5.9-1) unstable; urgency=medium
+
+  * Add libpcre3-dev to Build-Depends
+  * Imported Upstream version 2.5.9
+  * The canonical path to pidfile is not /run/cyrus-master.pid
+  * Rebase patches on top of 2.5.9 release
+  * Fix upgrade errors from SEEN and TLS databases (Closes: #830706)
+  * Migrate /var/run to /run and use tmpfiles.d instead of
+    dpkg-statoverride to keep track of permissions on /run files
+
+ -- Ondřej Surý <ondrej@debian.org>  Fri, 22 Jul 2016 09:32:33 +0200
+
 cyrus-imapd (2.5.8-1) unstable; urgency=medium
 
   * Imported Upstream version 2.5.8
