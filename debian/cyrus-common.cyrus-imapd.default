@@ -33,7 +33,7 @@
 #CHKCYRUS=0
 
 # Set the path to the PID file
-#PIDFILE=/var/run/cyrmaster.pid
+#PIDFILE=/run/cyrus-master.pid
 
 # Set other Options here. 
 OPTIONS=""

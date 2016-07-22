@@ -6,9 +6,7 @@ After=local-fs.target network.target
 Type=simple
 Environment=LISTENQUEUE=32 CONF=/etc/imapd.conf MASTERCONF=/etc/cyrus.conf
 EnvironmentFile=/etc/default/cyrus-imapd
-ExecStartPre=/usr/sbin/cyrus init-helper start
 ExecStart=/usr/sbin/cyrmaster -l $LISTENQUEUE -C $CONF -M $MASTERCONF $OPTIONS
-ExecStopPost=/usr/sbin/cyrus init-helper stop
 
 [Install]
 WantedBy=multi-user.target

@@ -84,12 +84,12 @@ and get email inside it for those users:
     a)  running /usr/sbin/cyrdeliver  (SLOW)
         You need the lmtpunix service enabled in /etc/cyrus.conf for this
 	to work.
-    b)  delivering using LMTP to /var/run/cyrus/socket/lmtp
+    b)  delivering using LMTP to /run/cyrus/socket/lmtp
         You need the lmtpunix service enabled in /etc/cyrus.conf for this
 	to work.
 
 	Just make sure (and use dpkg-statoverride to do that) that your
-	MTA can get to /var/run/cyrus/socket/lmtp.  It works just like any
+	MTA can get to /run/cyrus/socket/lmtp.  It works just like any
 	file in a Unix system.
 
     Cyrus REQUIRES a valid RFC2822 message, and will refuse messages with

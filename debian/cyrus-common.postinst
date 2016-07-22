@@ -67,12 +67,15 @@ case "$1" in
 	dpkg-statoverride --list /var/spool/cyrus 2>&1 >/dev/null ||
 		dpkg-statoverride --update --add cyrus mail 755 /var/spool/cyrus
 	dpkg-statoverride --list /var/spool/sieve 2>&1 >/dev/null ||
-		dpkg-statoverride --update --add cyrus mail 755 /var/spool/sieve
-	dpkg-statoverride --list /var/run/cyrus 2>&1 >/dev/null ||
-		dpkg-statoverride --update --add cyrus mail 755 /var/run/cyrus
-	dpkg-statoverride --list /var/run/cyrus/socket 2>&1 >/dev/null ||
-		dpkg-statoverride --update --add cyrus mail 750 \
-				 /var/run/cyrus/socket
+	    dpkg-statoverride --update --add cyrus mail 755 /var/spool/sieve
+
+	# Remove old statoverrides
+	if dpkg-statoverride --list /var/run/cyrus 2>&1 >/dev/null; then
+	    dpkg-statoverride --update --remove /var/run/cyrus;
+	fi
+	if dpkg-statoverride --list /var/run/cyrus/socket 2>&1 >/dev/null; then
+	    dpkg-statoverride --remove /var/run/cyrus/socket;
+	fi
 
 	# Add user cyrus to group SASL, if such group exists
 	adduser cyrus sasl || true

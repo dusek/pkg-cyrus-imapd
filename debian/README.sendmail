@@ -62,7 +62,7 @@ Pierre Gambarotto <pierre.gambarotto@enseeiht.fr> says:
 The minimum in order to make it work with sendmail is:
 
 define(`confLOCAL_MAILER', `cyrusv2')
-define(`CYRUSV2_MAILER_ARGS',`FILE /var/run/cyrus/socket/lmtp')
+define(`CYRUSV2_MAILER_ARGS',`FILE /run/cyrus/socket/lmtp')
 MAILER(`cyrusv2')
 
 The CYRUSV2_MAILER_ARGS is the key.

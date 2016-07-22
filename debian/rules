@@ -159,7 +159,6 @@ override_dh_auto_install:
 	# Install debian-provided scripts
 	install -d -m 755 $(TMPPKG)/usr/lib/cyrus/bin/
 	install debian/cyrus-makedirs $(TMPPKG)/usr/lib/cyrus/bin/makedirs
-	install debian/cyrus-init-helper $(TMPPKG)/usr/lib/cyrus/bin/init-helper
 	install -m 755 debian/cyrus-upgrade-db $(TMPPKG)/usr/lib/cyrus/bin/upgrade-db
 	install -m 644 debian/get-backtrace.gdb $(TMPPKG)/usr/lib/cyrus/get-backtrace.gdb
 

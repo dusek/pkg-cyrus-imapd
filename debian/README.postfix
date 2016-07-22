@@ -47,14 +47,14 @@ Unix sockets:
 -------------
 
 For Unix sockets, the Postfix transport is specified as
-"lmtp:unix:/var/run/cyrus/socket/lmtp", (we are using the default Cyrus unix
+"lmtp:unix:/run/cyrus/socket/lmtp", (we are using the default Cyrus unix
 socket location as an example, you can change it in /etc/cyrus.conf and
 /etc/imapd.conf). 
 
 You need a Cyrus lmtpd service listening on that socket, of course, so make
 sure something like:
 
-lmtpunix        cmd="lmtpd" listen="/var/run/cyrus/socket/lmtp"
+lmtpunix        cmd="lmtpd" listen="/run/cyrus/socket/lmtp"
 
 is in the SERVICES section of the /etc/cyrus.conf file.  You also need to make
 sure both Cyrus and Postfix can talk through that socket.  Unix sockets work
@@ -77,13 +77,12 @@ if the socket is not inside the chroot.
 2. Put user postfix in that group:
 	# adduser postfix lmtp
 
-3. Fix the socket directory permissions:
-	# dpkg-statoverride --force --update --add \
-	  cyrus lmtp 750 /var/run/cyrus/socket
+3. Fix the socket directory permissions in tmpfiles definitions:
+	# sed -i sed -i '/socket/s/mail/lmtp/' /usr/lib/tmpfiles.d/cyrus-imapd.conf
 
 4. Restart Postfix and Cyrus IMAPd
-	# /etc/init.d/postfix restart
-	# /etc/init.d/cyrus-imapd restart
+	# service postfix restart
+	# service cyrus-imapd restart
 
 
 TCP sockets:

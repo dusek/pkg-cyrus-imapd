@@ -19,7 +19,6 @@ usr/lib/cyrus/bin/cyr_userseen
 usr/lib/cyrus/bin/cyrdump
 usr/lib/cyrus/bin/deliver
 usr/lib/cyrus/bin/fud
-usr/lib/cyrus/bin/init-helper
 usr/lib/cyrus/bin/ipurge
 usr/lib/cyrus/bin/lmtpd
 usr/lib/cyrus/bin/makedirs

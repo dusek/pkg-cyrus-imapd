@@ -341,7 +341,7 @@ index fb2f5ca..6d05b6e 100644
  .SH FILES
  .TP
 -.B /etc/cyrus.conf, /etc/imapd.conf, /var/run/cyrus-master.pid
-+.B /etc/cyrus.conf, /etc/imapd.conf, /var/run/cyrmaster.pid
++.B /etc/cyrus.conf, /etc/imapd.conf, /run/cyrus-master.pid
  .SH SEE ALSO
  .PP
  \fBcyrus.conf(5)\fR, \fBimapd.conf(5)\fR, \fBimapd(8)\fR,

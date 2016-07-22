@@ -21,16 +21,17 @@ the Debian Exim4 configuration scheme and paths are relative to
 
    cyrus_delivery:
       driver = lmtp
-      socket = /var/run/cyrus/socket/lmtp
+      socket = /run/cyrus/socket/lmtp
       batch_max = 20
       user = mail
 
    (set batch_max to whatever is best for your setup, and make sure you
     allow enough Cyrus lmtp processes to serve that many lmtp connections)
 
-   If that doesn't work, I suggest you create a group for lmtp delivery,
-   add whichever user exim is running as to it, and use dpkg-statoverride
-   to make /var/run/cyrus/socket/lmtp writeable by that group.
+   If that doesn't work, I suggest you create a group for lmtp
+   delivery, add whichever user exim is running as to it, and change
+   the /usr/lib/tmpfiles.d/cyrus-imapd.conf to make /run/cyrus/socket/lmtp
+   writeable by that group.
 
    To then deliver to Cyrus, you will need to comment out the check_local_user
    stanza in conf.d/router/900_exim4-config_local_user (the entire file), and

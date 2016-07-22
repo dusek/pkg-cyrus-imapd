@@ -17,7 +17,7 @@ index 15ec74e..e639d32 100644
  
  <p>Make sure that <tt>saslauthd</tt> is running and that the cyrus
 -user can access the unix domain socket (defaults to <tt>/var/run/mux</tt>).</p>
-+user can access the unix domain socket (defaults to <tt>/var/run/saslauthd/mux</tt>).</p>
++user can access the unix domain socket (defaults to <tt>/run/saslauthd/mux</tt>).</p>
  
  </dd>
  

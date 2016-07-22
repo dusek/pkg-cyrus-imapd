@@ -142,9 +142,37 @@ do_reload() {
     return 0
 }
 
-/usr/sbin/cyrus init-helper "$1"
-RETVAL=$?
-[ "$RETVAL" != 0 ] && exit $RETVAL
+do_tmpfiles() {
+    local tmpfile type path mode user group age argument
+    tmpfile=/usr/lib/tmpfiles.d/$1.conf
+    if [ -r "$tmpfile" ]; then
+	if [ -x /bin/systemd-tmpfiles ]; then
+	    /bin/systemd-tmpfiles --create "$tmpfile"
+	else
+	    while read type path mode user group age argument; do
+		case "$type" in
+		    d)
+			mkdir -p "$path";
+			chmod "$mode" "$path";
+			chown "$user:$group" "$path";
+			;;
+		    L)
+			if [ ! -e "$path" ]; then ln -s "$argument" "$path"; fi
+			;;
+		    \#*)
+			;;
+		    *)
+			log_warning_msg "tmpfile.d type '$type' is not supported yet"
+			;;
+		esac
+	    done < "$tmpfile"
+	fi
+    else
+	log_warning_msg "tmpfiles.d file '$1' doesn't exist or is not readable"
+    fi
+}
+
+do_tmpfiles cyrus-imapd
 
 case "$1" in
     start)

@@ -45,9 +45,11 @@ about:
    The imapd.conf and cyrus.conf configuration files are in /etc. The PAM
    policy files are in /etc/pam.d.
 
-   Feel free to use dpkg-statoverride to change the permission of
-   /var/run/cyrus/socket, the cyrus packages will not override your
-   configuration if dpkg-statoverride is used.  In fact, you will most
+   The permissions on /run/cyrus and /run/cyrus/socket are now managed
+   by tmpfiles.d mechanism from systemd (with a help of small shell
+   wrapper to also support sysvinit as init).  To change the
+   permissions on socket directory, you'll nee to edit
+   /usr/lib/tmpfiles.d/cyrus-imapd.conf file.  In fact, you will most
    likely have to do so for postfix to deliver to Cyrus, for example.
 
 2. Cyrus Murder, the Cyrus IMAPd/POP3 aggregator is available.
@@ -202,7 +204,7 @@ General notes and hints:
    postman and that will help wonders.  cyrdeliver can also be used to
    inject mail, but it will simply open an LMTP socket to cyrus and
    deliver through that -- this is much slower than using LMTP directly.
-   The UNIX socket is in /var/run/cyrus/socket/lmtp.  Use dpkg-statoverride
+   The UNIX socket is in /run/cyrus/socket/lmtp.  Use tmpfiles.d
    if you need to change the permissions of the socket directory.
 
  o You can use /usr/sbin/cyrus-makedirs to generate the needed directories
@@ -287,5 +289,5 @@ A daily maintenance cronjob uses ctl_mboxlist(8) to dump the mailboxes database
 to /var/backup. That backup copy can be used as a last-resort copy if the hot
 backups become corrupted somehow.
 
- -- Ondřej Surý <ondrej@debian.org>, Wed, 20 Apr 2016 17:30:05 +0200
+ -- Ondřej Surý <ondrej@debian.org>, Fri, 22 Jul 2016 09:25:48 +0200
 

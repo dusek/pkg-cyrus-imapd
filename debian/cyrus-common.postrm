@@ -23,11 +23,9 @@ case "$1" in
 			;;
 		purge)
 			for i in /var/lib/cyrus /var/spool/sieve \
-				 /var/spool/cyrus \
-				 /var/run/cyrus /var/run/cyrus/socket ; do
+				 /var/spool/cyrus; do
 				dpkg-statoverride --quiet --remove $i || true
 			done
-			rm -rf /var/run/cyrus || true
 			rm -f /usr/lib/cyrus/cyrus-db-types.active || true
 			rm -f /usr/lib/cyrus/cyrus-hardwired-config.active || true
 
