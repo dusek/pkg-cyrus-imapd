@@ -53,7 +53,7 @@ checkpointbdb() {
 
 upgradedb() {
     TMPFILE=$(mktemp /tmp/$1.XXXXXXXX)
-    /usr/sbin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
+    /usr/lib/cyrus/bin/cvt_cyrusdb $CONFIG_DIR/$1 $2 $TMPFILE $3
     rm -f $CONFIG_DIR/$1
     mv $TMPFILE $CONFIG_DIR/$1
     chown cyrus:mail $CONFIG_DIR/$1
