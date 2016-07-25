@@ -1,3 +1,10 @@
+cyrus-imapd (2.5.9-2) unstable; urgency=medium
+
+  * Fix cvt_cyrusdb path to /usr/lib/cyrus/bin/cvt_cyrusdb (Closes: #832393)
+  * Rename *.tmpfiles to *.tmpfile to get the cyrus-imapd file installed
+
+ -- Ondřej Surý <ondrej@debian.org>  Mon, 25 Jul 2016 14:19:05 +0200
+
 cyrus-imapd (2.5.9-1) unstable; urgency=medium
 
   * Add libpcre3-dev to Build-Depends
