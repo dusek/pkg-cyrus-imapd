@@ -111,6 +111,8 @@ EXTRA_PROGRAMS = tools/htmlstrip
 check_PROGRAMS =
 service_PROGRAMS =
 user_PROGRAMS =
+noinst_HEADERS =
+noinst_LTLIBRARIES =
 CLEANFILES =
 EXTRA_DIST = \
 	$(wildcard tools/vzic/*)
@@ -249,7 +251,7 @@ endif # PTCLIENT
 
 if PERL
 SUBDIRS += perl/annotator perl/imap
-noinst_LTLIBRARIES = perl/libcyrus.la perl/libcyrus_min.la
+noinst_LTLIBRARIES += perl/libcyrus.la perl/libcyrus_min.la
 endif # PERL
 
 if SIEVE
@@ -260,6 +262,7 @@ noinst_LIBRARIES = perl/sieve/lib/libisieve.a
 endif # PERL
 
 BUILT_SOURCES += sieve/addr.c sieve/sieve.c sieve/sieve_err.c
+noinst_LTLIBRARIES += sieve/libcyrus_sieve_lex.la
 lib_LTLIBRARIES += sieve/libcyrus_sieve.la
 check_PROGRAMS += sieve/test
 user_PROGRAMS += sieve/sievec sieve/sieved
@@ -351,8 +354,11 @@ EXTRA_DIST += \
 	lib/charset/windows-1250.t \
 	lib/charset/windows-1251.t \
 	lib/charset/windows-1252.t \
+	lib/charset/windows-1254.t \
 	lib/charset/windows-1255.t \
 	lib/charset/windows-1256.t \
+	lib/charset/windows-1258.t \
+	lib/charset/windows-874.t \
 	lib/imapoptions \
 	lib/test/cyrusdb.c \
 	lib/test/cyrusdb.INPUT \
@@ -505,6 +511,7 @@ dist_noinst_SCRIPTS = \
 	tools/convert-sieve.pl \
 	tools/dohash \
 	tools/fixsearchpath.pl \
+	tools/git-version.sh \
 	tools/jenkins-build.sh \
 	tools/masssievec \
 	tools/migrate-metadata \
@@ -717,7 +724,7 @@ nodist_include_HEADERS = \
 nobase_include_HEADERS = sieve/sieve_interface.h
 nobase_nodist_include_HEADERS = sieve/sieve_err.h
 
-noinst_HEADERS = \
+noinst_HEADERS += \
 	lib/byteorder64.h \
 	lib/gai.h \
 	lib/libconfig.h \
@@ -963,6 +970,7 @@ imap_libcyrus_imap_la_SOURCES += \
 	imap/httpd.h \
 	imap/jcal.c \
 	imap/jcal.h \
+	imap/json_support.h \
 	imap/proxy.c \
 	imap/proxy.h \
 	imap/smtpclient.c \
@@ -1068,6 +1076,7 @@ imap_httpd_SOURCES = \
 	imap/http_timezone.c \
 	imap/httpd.c \
 	imap/jcal.c \
+	imap/json_support.h \
 	imap/mutex_fake.c \
 	imap/proxy.c \
 	imap/smtpclient.c \
@@ -1425,13 +1434,27 @@ ptclient_ptloader_LDADD += $(AFS_LIBS)
 ptclient_ptloader_LDFLAGS += $(AFS_LDFLAGS)
 endif
 
+# Each new version of flex seems to generate new sign-comparison
+# warnings, while they switch code around between int/yy_size_t.
+#
+# This is a pain because most of us Cyrus devs build with -Werror.
+#
+# Instead of continuing to maintain an ever-growing, increasingly
+# precarious set of post-hoc fixes (see: the former lex-fix rule),
+# let's just ignore sign-comparison warnings from flex-generated
+# sources only.
+sieve_libcyrus_sieve_lex_la_SOURCES = \
+	sieve/addr-lex.l \
+	sieve/sieve-lex.l
+sieve_libcyrus_sieve_lex_la_LIBADD =
+sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) -Wno-sign-compare
+
 nodist_sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/sieve_err.c \
 	sieve/sieve_err.h
 sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/bytecode.h \
 	sieve/addr.y \
-	sieve/addr-lex.l \
 	sieve/bc_dump.c \
 	sieve/bc_emit.c \
 	sieve/bc_eval.c \
@@ -1446,13 +1469,16 @@ sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/message.h \
 	sieve/script.c \
 	sieve/script.h \
-	sieve/sieve-lex.l \
 	sieve/sieve.y \
 	sieve/tree.c \
 	sieve/tree.h \
 	sieve/varlist.c \
 	sieve/varlist.h
-sieve_libcyrus_sieve_la_LIBADD = $(COM_ERR_LIBS) lib/libcyrus_min.la lib/libcyrus.la
+sieve_libcyrus_sieve_la_LIBADD = \
+    sieve/libcyrus_sieve_lex.la \
+    $(COM_ERR_LIBS) \
+    lib/libcyrus_min.la \
+    lib/libcyrus.la
 sieve_libcyrus_sieve_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 
 LD_SIEVE_ADD = sieve/libcyrus_sieve.la $(LD_BASIC_ADD)
@@ -1483,37 +1509,20 @@ timsieved_timsieved_SOURCES = \
 
 timsieved_timsieved_LDADD = sieve/libcyrus_sieve.la $(LD_SERVER_ADD)
 
-# TODO: Should not really stay around, but GNU software is hard to
-# contribute fixes to. Needed when building with the following:
-# CFLAGS="-g -fPIC -W -Wall -Wextra -Werror"
-lex-fix: sieve/addr-lex.c sieve/sieve-lex.c
-	grep -E '^yy_size_t sieveleng;$$' sieve/sieve-lex.c && \
-    	sed -r -i -e 's/int yyl;/yy_size_t yyl;/g' sieve/sieve-lex.c || :
-
-	grep -E ' yy_size_t  _yybytes_len ' sieve/sieve-lex.c && \
-    	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/sieve-lex.c || :
-
-	grep -E ' yy_size_t  _yybytes_len ' sieve/addr-lex.c && \
-    	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/addr-lex.c || :
-
-	grep -E '^static int yy_n_chars;' sieve/sieve-lex.c && \
-    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/sieve-lex.c || :
-
-	grep -E '^static int yy_n_chars;' sieve/addr-lex.c && \
-    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/addr-lex.c || :
-
-GIT_VERSION = $(PACKAGE_VERSION)@git_version@
+# The lex-fix rule is now obsolete, but let's leave a crumb here for a
+# while so that custom build scripts that expect it to exist don't choke.
+lex-fix:
 
 snapshot::
-	@echo "Creating snapshot $(PACKAGE_NAME)-$(GIT_VERSION)"
+	@echo "Creating snapshot $(PACKAGE_NAME)-$(PACKAGE_VERSION)"
 	@$(MKDIR_P) snapshot
-	@git archive --format=tar --prefix=$(PACKAGE_NAME)-$(GIT_VERSION)/ HEAD | tar -C snapshot/ -x -f -
-	@echo "/* $(PACKAGE_NAME) $(GIT_VERSION) */" > snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@echo "#define _CYRUS_VERSION \"$(GIT_VERSION)\"" >> snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@touch snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion
+	@git archive --format=tar --prefix=$(PACKAGE_NAME)-$(PACKAGE_VERSION)/ HEAD | tar -C snapshot/ -x -f -
+	@echo "/* $(PACKAGE_NAME) $(PACKAGE_VERSION) */" > snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@echo "#define _CYRUS_VERSION \"$(PACKAGE_VERSION)\"" >> snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@touch snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion
 	@echo "creating tarfile"
-	tar -C snapshot -c -f - $(PACKAGE_NAME)-$(GIT_VERSION) | gzip -9 > $(PACKAGE_NAME)-$(GIT_VERSION).tar.gz
+	tar -C snapshot -c -f - $(PACKAGE_NAME)-$(PACKAGE_VERSION) | gzip -9 > $(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
 	@rm -rf snapshot
 
 man/imapd.conf.5: $(top_srcdir)/tools/config2man $(top_srcdir)/lib/imapoptions
@@ -1567,7 +1576,7 @@ distgit:
 
 xversion xversion.h:
 	@echo "/* Development version */" > xversion.h.tmp
-	@echo "#define _CYRUS_VERSION \"$(GIT_VERSION)\"" >> xversion.h.tmp
+	@echo "#define _CYRUS_VERSION \"$(PACKAGE_VERSION)\"" >> xversion.h.tmp
 	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> xversion.h.tmp
 	@cmp -s xversion.h.tmp xversion.h || mv xversion.h.tmp xversion.h
 	@rm -f xversion.h.tmp

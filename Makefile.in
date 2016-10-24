@@ -236,31 +236,33 @@ bin_PROGRAMS = imtest/imtest$(EXEEXT)
 @PTCLIENT_TRUE@	ptclient/ptloader
 
 @PERL_TRUE@am__append_31 = perl/annotator perl/imap
-@PERL_TRUE@@SIEVE_TRUE@am__append_32 = perl/sieve/managesieve
-@SIEVE_TRUE@am__append_33 = sieve/addr.c sieve/sieve.c sieve/sieve_err.c
-@SIEVE_TRUE@am__append_34 = sieve/libcyrus_sieve.la
-@SIEVE_TRUE@am__append_35 = sieve/test
-@SIEVE_TRUE@am__append_36 = sieve/sievec sieve/sieved
-@SERVER_TRUE@@SIEVE_TRUE@am__append_37 = timsieved/timsieved
-@CUNIT_TRUE@am__append_38 = cunit/registers.h $(CUNIT_PROJECT)
-@CUNIT_TRUE@am__append_39 = cunit/registers.h $(CUNIT_PROJECT)
-@CUNIT_TRUE@am__append_40 = cunit/unit
-@CUNIT_TRUE@@SIEVE_TRUE@am__append_41 = cunit/sieve.testc
-@CUNIT_TRUE@@SIEVE_TRUE@am__append_42 = sieve/libcyrus_sieve.la
-@HAVE_CLAMAV_FALSE@am__append_43 = \
+@PERL_TRUE@am__append_32 = perl/libcyrus.la perl/libcyrus_min.la
+@PERL_TRUE@@SIEVE_TRUE@am__append_33 = perl/sieve/managesieve
+@SIEVE_TRUE@am__append_34 = sieve/addr.c sieve/sieve.c sieve/sieve_err.c
+@SIEVE_TRUE@am__append_35 = sieve/libcyrus_sieve_lex.la
+@SIEVE_TRUE@am__append_36 = sieve/libcyrus_sieve.la
+@SIEVE_TRUE@am__append_37 = sieve/test
+@SIEVE_TRUE@am__append_38 = sieve/sievec sieve/sieved
+@SERVER_TRUE@@SIEVE_TRUE@am__append_39 = timsieved/timsieved
+@CUNIT_TRUE@am__append_40 = cunit/registers.h $(CUNIT_PROJECT)
+@CUNIT_TRUE@am__append_41 = cunit/registers.h $(CUNIT_PROJECT)
+@CUNIT_TRUE@am__append_42 = cunit/unit
+@CUNIT_TRUE@@SIEVE_TRUE@am__append_43 = cunit/sieve.testc
+@CUNIT_TRUE@@SIEVE_TRUE@am__append_44 = sieve/libcyrus_sieve.la
+@HAVE_CLAMAV_FALSE@am__append_45 = \
 @HAVE_CLAMAV_FALSE@	imap/cyr_virusscan.c
 
-@HTTPD_FALSE@am__append_44 = \
+@HTTPD_FALSE@am__append_46 = \
 @HTTPD_FALSE@	imap/ctl_zoneinfo.c
 
-@AUTOCREATE_TRUE@am__append_45 = \
+@AUTOCREATE_TRUE@am__append_47 = \
 @AUTOCREATE_TRUE@	imap/autocreate.h \
 @AUTOCREATE_TRUE@	imap/autocreate.c
 
-@SIEVE_TRUE@am__append_46 = sieve/libcyrus_sieve.la
-@JANSSON_TRUE@am__append_47 = $(JANSSON_LIBS)
-@JANSSON_TRUE@am__append_48 = $(JANSSON_CFLAGS)
-@HTTPD_TRUE@am__append_49 = \
+@SIEVE_TRUE@am__append_48 = sieve/libcyrus_sieve.la
+@JANSSON_TRUE@am__append_49 = $(JANSSON_LIBS)
+@JANSSON_TRUE@am__append_50 = $(JANSSON_CFLAGS)
+@HTTPD_TRUE@am__append_51 = \
 @HTTPD_TRUE@	imap/caldav_db.c \
 @HTTPD_TRUE@	imap/caldav_db.h \
 @HTTPD_TRUE@	imap/carddav_db.c \
@@ -286,6 +288,7 @@ bin_PROGRAMS = imtest/imtest$(EXEEXT)
 @HTTPD_TRUE@	imap/httpd.h \
 @HTTPD_TRUE@	imap/jcal.c \
 @HTTPD_TRUE@	imap/jcal.h \
+@HTTPD_TRUE@	imap/json_support.h \
 @HTTPD_TRUE@	imap/proxy.c \
 @HTTPD_TRUE@	imap/proxy.h \
 @HTTPD_TRUE@	imap/smtpclient.c \
@@ -297,62 +300,61 @@ bin_PROGRAMS = imtest/imtest$(EXEEXT)
 @HTTPD_TRUE@	imap/zoneinfo_db.c \
 @HTTPD_TRUE@	imap/zoneinfo_db.h
 
-@HTTPD_TRUE@am__append_50 = \
+@HTTPD_TRUE@am__append_52 = \
 @HTTPD_TRUE@	imap/http_err.c \
 @HTTPD_TRUE@	imap/tz_err.c
 
-@AUTOCREATE_TRUE@am__append_51 = \
+@AUTOCREATE_TRUE@am__append_53 = \
 @AUTOCREATE_TRUE@	imap/autocreate.c \
 @AUTOCREATE_TRUE@	imap/autocreate.h
 
-@SIEVE_TRUE@am__append_52 = imap/lmtp_sieve.c imap/lmtp_sieve.h imap/smtpclient.c
-@SIEVE_TRUE@am__append_53 = sieve/libcyrus_sieve.la
-@AUTOCREATE_TRUE@am__append_54 = \
-@AUTOCREATE_TRUE@	imap/autocreate.c \
-@AUTOCREATE_TRUE@	imap/autocreate.h
-
+@SIEVE_TRUE@am__append_54 = imap/lmtp_sieve.c imap/lmtp_sieve.h imap/smtpclient.c
 @SIEVE_TRUE@am__append_55 = sieve/libcyrus_sieve.la
-@USE_BERKELEY_TRUE@am__append_56 = lib/cyrusdb_berkeley.c
-@USE_SQL_TRUE@am__append_57 = lib/cyrusdb_sql.c
-@GMTOFF_TM_TRUE@am__append_58 = lib/gmtoff_tm.c
-@GMTOFF_TM_FALSE@am__append_59 = lib/gmtoff_gmtime.c
-@NONBLOCK_FCNTL_TRUE@am__append_60 = lib/nonblock_fcntl.c
-@NONBLOCK_FCNTL_FALSE@am__append_61 = lib/nonblock_ioctl.c
-@IPV6_noGETADDRINFO_TRUE@am__append_62 = lib/getaddrinfo.c
-@IPV6_noGETNAMEINFO_TRUE@am__append_63 = lib/getnameinfo.c
-@LOCK_FCNTL_TRUE@am__append_64 = lib/lock_fcntl.c
-@LOCK_FCNTL_FALSE@am__append_65 = lib/lock_flock.c
-@MAP_SHARED_TRUE@am__append_66 = lib/map_shared.c
-@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_TRUE@am__append_67 = lib/map_stupidshared.c
-@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@am__append_68 = lib/map_nommap.c
-@NNTPD_TRUE@am__append_69 = \
+@AUTOCREATE_TRUE@am__append_56 = \
+@AUTOCREATE_TRUE@	imap/autocreate.c \
+@AUTOCREATE_TRUE@	imap/autocreate.h
+
+@SIEVE_TRUE@am__append_57 = sieve/libcyrus_sieve.la
+@USE_BERKELEY_TRUE@am__append_58 = lib/cyrusdb_berkeley.c
+@USE_SQL_TRUE@am__append_59 = lib/cyrusdb_sql.c
+@GMTOFF_TM_TRUE@am__append_60 = lib/gmtoff_tm.c
+@GMTOFF_TM_FALSE@am__append_61 = lib/gmtoff_gmtime.c
+@NONBLOCK_FCNTL_TRUE@am__append_62 = lib/nonblock_fcntl.c
+@NONBLOCK_FCNTL_FALSE@am__append_63 = lib/nonblock_ioctl.c
+@IPV6_noGETADDRINFO_TRUE@am__append_64 = lib/getaddrinfo.c
+@IPV6_noGETNAMEINFO_TRUE@am__append_65 = lib/getnameinfo.c
+@LOCK_FCNTL_TRUE@am__append_66 = lib/lock_fcntl.c
+@LOCK_FCNTL_FALSE@am__append_67 = lib/lock_flock.c
+@MAP_SHARED_TRUE@am__append_68 = lib/map_shared.c
+@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_TRUE@am__append_69 = lib/map_stupidshared.c
+@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@am__append_70 = lib/map_nommap.c
+@NNTPD_TRUE@am__append_71 = \
 @NNTPD_TRUE@	man/fetchnews.8 \
 @NNTPD_TRUE@	man/nntpd.8
 
-@NNTPD_FALSE@am__append_70 = \
+@NNTPD_FALSE@am__append_72 = \
 @NNTPD_FALSE@	man/fetchnews.8 \
 @NNTPD_FALSE@	man/nntpd.8
 
-@HTTPD_TRUE@am__append_71 = \
+@HTTPD_TRUE@am__append_73 = \
 @HTTPD_TRUE@	man/ctl_zoneinfo.8 \
 @HTTPD_TRUE@	man/httpd.8
 
-@HTTPD_FALSE@am__append_72 = \
+@HTTPD_FALSE@am__append_74 = \
 @HTTPD_FALSE@	man/ctl_zoneinfo.8 \
 @HTTPD_FALSE@	man/httpd.8
 
-@ZEPHYR_TRUE@am__append_73 = notifyd/notify_zephyr.c notifyd/notify_zephyr.h
-@HAVE_LDAP_TRUE@am__append_74 = ptclient/ldap.c
-@HAVE_LDAP_TRUE@am__append_75 = $(LDAP_LIBS)
-@HAVE_LDAP_TRUE@am__append_76 = $(LDAP_LDFLAGS)
-@USE_AFSKRB_TRUE@am__append_77 = ptclient/afskrb.c
-@USE_AFSKRB_TRUE@am__append_78 = $(AFS_LIBS)
-@USE_AFSKRB_TRUE@am__append_79 = $(AFS_LDFLAGS)
+@ZEPHYR_TRUE@am__append_75 = notifyd/notify_zephyr.c notifyd/notify_zephyr.h
+@HAVE_LDAP_TRUE@am__append_76 = ptclient/ldap.c
+@HAVE_LDAP_TRUE@am__append_77 = $(LDAP_LIBS)
+@HAVE_LDAP_TRUE@am__append_78 = $(LDAP_LDFLAGS)
+@USE_AFSKRB_TRUE@am__append_79 = ptclient/afskrb.c
+@USE_AFSKRB_TRUE@am__append_80 = $(AFS_LIBS)
+@USE_AFSKRB_TRUE@am__append_81 = $(AFS_LDFLAGS)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/cmulocal/berkdb.m4 \
 	$(top_srcdir)/cmulocal/bsd_sockets.m4 \
-	$(top_srcdir)/cmulocal/c-attribute.m4 \
 	$(top_srcdir)/cmulocal/c-fpic.m4 \
 	$(top_srcdir)/cmulocal/common.m4 \
 	$(top_srcdir)/cmulocal/cyrus.m4 $(top_srcdir)/cmulocal/ipv6.m4 \
@@ -484,9 +486,10 @@ am__imap_libcyrus_imap_la_SOURCES_DIST = imap/annotate.c \
 	imap/http_dav.c imap/http_dav.h imap/http_dblookup.c \
 	imap/http_ischedule.c imap/http_proxy.c imap/http_proxy.h \
 	imap/http_rss.c imap/http_timezone.c imap/httpd.c imap/httpd.h \
-	imap/jcal.c imap/jcal.h imap/proxy.c imap/proxy.h \
-	imap/smtpclient.c imap/smtpclient.h imap/spool.c imap/spool.h \
-	imap/xcal.c imap/xcal.h imap/zoneinfo_db.c imap/zoneinfo_db.h
+	imap/jcal.c imap/jcal.h imap/json_support.h imap/proxy.c \
+	imap/proxy.h imap/smtpclient.c imap/smtpclient.h imap/spool.c \
+	imap/spool.h imap/xcal.c imap/xcal.h imap/zoneinfo_db.c \
+	imap/zoneinfo_db.h
 @HTTPD_TRUE@am__objects_1 = imap/imap_libcyrus_imap_la-caldav_db.lo \
 @HTTPD_TRUE@	imap/imap_libcyrus_imap_la-carddav_db.lo \
 @HTTPD_TRUE@	imap/imap_libcyrus_imap_la-dav_db.lo \
@@ -729,11 +732,10 @@ am__objects_30 = lib/arrayu64.lo lib/assert.lo lib/hash.lo \
 am_perl_libcyrus_min_la_OBJECTS = $(am__objects_30)
 perl_libcyrus_min_la_OBJECTS = $(am_perl_libcyrus_min_la_OBJECTS)
 @PERL_TRUE@am_perl_libcyrus_min_la_rpath =
-sieve_libcyrus_sieve_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
-	lib/libcyrus_min.la lib/libcyrus.la
+sieve_libcyrus_sieve_la_DEPENDENCIES = sieve/libcyrus_sieve_lex.la \
+	$(am__DEPENDENCIES_1) lib/libcyrus_min.la lib/libcyrus.la
 am_sieve_libcyrus_sieve_la_OBJECTS =  \
 	sieve/sieve_libcyrus_sieve_la-addr.lo \
-	sieve/sieve_libcyrus_sieve_la-addr-lex.lo \
 	sieve/sieve_libcyrus_sieve_la-bc_dump.lo \
 	sieve/sieve_libcyrus_sieve_la-bc_emit.lo \
 	sieve/sieve_libcyrus_sieve_la-bc_eval.lo \
@@ -743,7 +745,6 @@ am_sieve_libcyrus_sieve_la_OBJECTS =  \
 	sieve/sieve_libcyrus_sieve_la-interp.lo \
 	sieve/sieve_libcyrus_sieve_la-message.lo \
 	sieve/sieve_libcyrus_sieve_la-script.lo \
-	sieve/sieve_libcyrus_sieve_la-sieve-lex.lo \
 	sieve/sieve_libcyrus_sieve_la-sieve.lo \
 	sieve/sieve_libcyrus_sieve_la-tree.lo \
 	sieve/sieve_libcyrus_sieve_la-varlist.lo
@@ -757,6 +758,17 @@ sieve_libcyrus_sieve_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
 	$(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
 @SIEVE_TRUE@am_sieve_libcyrus_sieve_la_rpath = -rpath $(libdir)
+sieve_libcyrus_sieve_lex_la_DEPENDENCIES =
+am_sieve_libcyrus_sieve_lex_la_OBJECTS =  \
+	sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo \
+	sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo
+sieve_libcyrus_sieve_lex_la_OBJECTS =  \
+	$(am_sieve_libcyrus_sieve_lex_la_OBJECTS)
+sieve_libcyrus_sieve_lex_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(sieve_libcyrus_sieve_lex_la_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
+@SIEVE_TRUE@am_sieve_libcyrus_sieve_lex_la_rpath =
 @SERVER_TRUE@@SIEVE_TRUE@am__EXEEXT_1 = notifyd/notifytest$(EXEEXT)
 @SIEVE_TRUE@am__EXEEXT_2 = sieve/test$(EXEEXT)
 @CUNIT_TRUE@am__EXEEXT_3 = cunit/unit$(EXEEXT)
@@ -847,7 +859,7 @@ am__DEPENDENCIES_4 = lib/libcyrus.la lib/libcyrus_min.la \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am__DEPENDENCIES_5 = imap/libcyrus_imap.la $(am__DEPENDENCIES_4) \
 	$(am__DEPENDENCIES_1)
-@CUNIT_TRUE@cunit_unit_DEPENDENCIES = $(am__append_42) \
+@CUNIT_TRUE@cunit_unit_DEPENDENCIES = $(am__append_44) \
 @CUNIT_TRUE@	$(am__DEPENDENCIES_5)
 am_imap_arbitron_OBJECTS = imap/arbitron.$(OBJEXT) \
 	imap/cli_fatal.$(OBJEXT) imap/mutex_fake.$(OBJEXT)
@@ -975,7 +987,7 @@ am_imap_imapd_OBJECTS = imap/imap_proxy.$(OBJEXT) imap/imapd.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) master/service.$(OBJEXT) \
 	$(am__objects_34)
 imap_imapd_OBJECTS = $(am_imap_imapd_OBJECTS)
-imap_imapd_DEPENDENCIES = $(am__append_46) $(am__DEPENDENCIES_6)
+imap_imapd_DEPENDENCIES = $(am__append_48) $(am__DEPENDENCIES_6)
 am_imap_ipurge_OBJECTS = imap/cli_fatal.$(OBJEXT) \
 	imap/ipurge.$(OBJEXT) imap/mutex_fake.$(OBJEXT)
 imap_ipurge_OBJECTS = $(am_imap_ipurge_OBJECTS)
@@ -992,7 +1004,7 @@ am_imap_lmtpd_OBJECTS = imap/lmtpd.$(OBJEXT) imap/lmtpengine.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) imap/spool.$(OBJEXT) \
 	master/service.$(OBJEXT) $(am__objects_34) $(am__objects_35)
 imap_lmtpd_OBJECTS = $(am_imap_lmtpd_OBJECTS)
-imap_lmtpd_DEPENDENCIES = $(am__append_53) $(am__DEPENDENCIES_6)
+imap_lmtpd_DEPENDENCIES = $(am__append_55) $(am__DEPENDENCIES_6)
 am_imap_mbexamine_OBJECTS = imap/cli_fatal.$(OBJEXT) \
 	imap/mbexamine.$(OBJEXT) imap/mutex_fake.$(OBJEXT)
 imap_mbexamine_OBJECTS = $(am_imap_mbexamine_OBJECTS)
@@ -1024,7 +1036,7 @@ am_imap_pop3d_OBJECTS = imap/mutex_fake.$(OBJEXT) imap/pop3d.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) master/service.$(OBJEXT) \
 	$(am__objects_34)
 imap_pop3d_OBJECTS = $(am_imap_pop3d_OBJECTS)
-imap_pop3d_DEPENDENCIES = $(am__append_55) $(am__DEPENDENCIES_6)
+imap_pop3d_DEPENDENCIES = $(am__append_57) $(am__DEPENDENCIES_6)
 am_imap_quota_OBJECTS = imap/cli_fatal.$(OBJEXT) \
 	imap/mutex_fake.$(OBJEXT) imap/quota.$(OBJEXT)
 imap_quota_OBJECTS = $(am_imap_quota_OBJECTS)
@@ -1211,34 +1223,35 @@ SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(perl_libcyrus_la_SOURCES) $(perl_libcyrus_min_la_SOURCES) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
 	$(nodist_sieve_libcyrus_sieve_la_SOURCES) \
-	$(cunit_unit_SOURCES) $(imap_arbitron_SOURCES) \
-	$(imap_chk_cyrus_SOURCES) $(imap_ctl_cyrusdb_SOURCES) \
-	$(imap_ctl_deliver_SOURCES) $(imap_ctl_mboxlist_SOURCES) \
-	$(imap_ctl_zoneinfo_SOURCES) $(imap_cvt_cyrusdb_SOURCES) \
-	$(imap_cyr_dbtool_SOURCES) $(imap_cyr_deny_SOURCES) \
-	$(imap_cyr_df_SOURCES) $(imap_cyr_expire_SOURCES) \
-	$(imap_cyr_info_SOURCES) $(imap_cyr_sequence_SOURCES) \
-	$(imap_cyr_synclog_SOURCES) $(imap_cyr_userseen_SOURCES) \
-	$(imap_cyr_virusscan_SOURCES) $(imap_cyrdump_SOURCES) \
-	$(imap_dav_reconstruct_SOURCES) $(imap_deliver_SOURCES) \
-	$(imap_fetchnews_SOURCES) $(imap_fud_SOURCES) \
-	$(imap_httpd_SOURCES) $(nodist_imap_httpd_SOURCES) \
-	$(imap_idled_SOURCES) $(imap_imapd_SOURCES) \
-	$(imap_ipurge_SOURCES) $(imap_lmtpd_SOURCES) \
-	$(imap_mbexamine_SOURCES) $(imap_mbpath_SOURCES) \
-	$(imap_mbtool_SOURCES) $(imap_mupdate_SOURCES) \
-	$(imap_nntpd_SOURCES) $(nodist_imap_nntpd_SOURCES) \
-	$(imap_pop3d_SOURCES) $(imap_quota_SOURCES) \
-	$(imap_reconstruct_SOURCES) $(imap_smmapd_SOURCES) \
-	$(imap_squatter_SOURCES) $(imap_sync_client_SOURCES) \
-	$(imap_sync_reset_SOURCES) $(imap_sync_server_SOURCES) \
-	$(imap_tls_prune_SOURCES) $(imap_unexpunge_SOURCES) \
-	$(imtest_imtest_SOURCES) $(master_master_SOURCES) \
-	$(netnews_remotepurge_SOURCES) $(notifyd_notifyd_SOURCES) \
-	$(notifyd_notifytest_SOURCES) $(ptclient_ptdump_SOURCES) \
-	$(ptclient_ptexpire_SOURCES) $(ptclient_ptloader_SOURCES) \
-	sieve/sievec.c sieve/sieved.c $(sieve_test_SOURCES) \
-	$(timsieved_timsieved_SOURCES) tools/htmlstrip.c
+	$(sieve_libcyrus_sieve_lex_la_SOURCES) $(cunit_unit_SOURCES) \
+	$(imap_arbitron_SOURCES) $(imap_chk_cyrus_SOURCES) \
+	$(imap_ctl_cyrusdb_SOURCES) $(imap_ctl_deliver_SOURCES) \
+	$(imap_ctl_mboxlist_SOURCES) $(imap_ctl_zoneinfo_SOURCES) \
+	$(imap_cvt_cyrusdb_SOURCES) $(imap_cyr_dbtool_SOURCES) \
+	$(imap_cyr_deny_SOURCES) $(imap_cyr_df_SOURCES) \
+	$(imap_cyr_expire_SOURCES) $(imap_cyr_info_SOURCES) \
+	$(imap_cyr_sequence_SOURCES) $(imap_cyr_synclog_SOURCES) \
+	$(imap_cyr_userseen_SOURCES) $(imap_cyr_virusscan_SOURCES) \
+	$(imap_cyrdump_SOURCES) $(imap_dav_reconstruct_SOURCES) \
+	$(imap_deliver_SOURCES) $(imap_fetchnews_SOURCES) \
+	$(imap_fud_SOURCES) $(imap_httpd_SOURCES) \
+	$(nodist_imap_httpd_SOURCES) $(imap_idled_SOURCES) \
+	$(imap_imapd_SOURCES) $(imap_ipurge_SOURCES) \
+	$(imap_lmtpd_SOURCES) $(imap_mbexamine_SOURCES) \
+	$(imap_mbpath_SOURCES) $(imap_mbtool_SOURCES) \
+	$(imap_mupdate_SOURCES) $(imap_nntpd_SOURCES) \
+	$(nodist_imap_nntpd_SOURCES) $(imap_pop3d_SOURCES) \
+	$(imap_quota_SOURCES) $(imap_reconstruct_SOURCES) \
+	$(imap_smmapd_SOURCES) $(imap_squatter_SOURCES) \
+	$(imap_sync_client_SOURCES) $(imap_sync_reset_SOURCES) \
+	$(imap_sync_server_SOURCES) $(imap_tls_prune_SOURCES) \
+	$(imap_unexpunge_SOURCES) $(imtest_imtest_SOURCES) \
+	$(master_master_SOURCES) $(netnews_remotepurge_SOURCES) \
+	$(notifyd_notifyd_SOURCES) $(notifyd_notifytest_SOURCES) \
+	$(ptclient_ptdump_SOURCES) $(ptclient_ptexpire_SOURCES) \
+	$(ptclient_ptloader_SOURCES) sieve/sievec.c sieve/sieved.c \
+	$(sieve_test_SOURCES) $(timsieved_timsieved_SOURCES) \
+	tools/htmlstrip.c
 DIST_SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(com_err_et_libcyrus_com_err_la_SOURCES) \
 	$(am__imap_libcyrus_imap_la_SOURCES_DIST) \
@@ -1248,6 +1261,7 @@ DIST_SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(am__perl_libcyrus_la_SOURCES_DIST) \
 	$(am__perl_libcyrus_min_la_SOURCES_DIST) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
+	$(sieve_libcyrus_sieve_lex_la_SOURCES) \
 	$(am__cunit_unit_SOURCES_DIST) $(imap_arbitron_SOURCES) \
 	$(imap_chk_cyrus_SOURCES) $(imap_ctl_cyrusdb_SOURCES) \
 	$(imap_ctl_deliver_SOURCES) $(imap_ctl_mboxlist_SOURCES) \
@@ -1480,6 +1494,8 @@ NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPENSSL_CFLAGS = @OPENSSL_CFLAGS@
+OPENSSL_LIBS = @OPENSSL_LIBS@
 OTOOL = @OTOOL@
 OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
@@ -1542,7 +1558,6 @@ datarootdir = @datarootdir@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
-git_version = @git_version@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
@@ -1587,7 +1602,7 @@ AM_CPPFLAGS = $(COM_ERR_CPPFLAGS) -I${top_builddir} \
 AM_LDFLAGS = $(COV_LDFLAGS) $(am__append_15)
 BUILT_SOURCES = xversion.h imap/imap_err.c lib/imapopts.c \
 	lib/imapopts.h $(am__append_2) $(am__append_4) \
-	$(am__append_16) $(am__append_33) $(am__append_38)
+	$(am__append_16) $(am__append_34) $(am__append_40)
 DISTCLEANFILES = \
 	imap/imap_err.c \
 	imap/imap_err.h \
@@ -1625,12 +1640,16 @@ MAINTAINERCLEANFILES = \
 	sieve/addr.h \
 	sieve/sieve.h
 
-SUBDIRS = . $(am__append_31) $(am__append_32)
+SUBDIRS = . $(am__append_31) $(am__append_33)
 DIST_SUBDIRS = .
 dist_sysconf_DATA = $(am__append_27)
 lib_LTLIBRARIES = lib/libcyrus_min.la lib/libcyrus.la $(am__append_3) \
-	$(am__append_5) $(am__append_34)
-CLEANFILES = $(am__append_39)
+	$(am__append_5) $(am__append_36)
+noinst_HEADERS = lib/byteorder64.h lib/gai.h lib/libconfig.h lib/md5.h \
+	lib/prot.h lib/ptrarray.h lib/util.h lib/xstrlcat.h \
+	lib/xstrlcpy.h
+noinst_LTLIBRARIES = $(am__append_32) $(am__append_35)
+CLEANFILES = $(am__append_41)
 EXTRA_DIST = $(wildcard tools/vzic/*) $(am__append_25) \
 	$(am__append_26) COPYING INSTALL README.andrew SMakefile \
 	xversion.h com_err/et/et_c.awk com_err/et/et_h.awk \
@@ -1672,20 +1691,22 @@ EXTRA_DIST = $(wildcard tools/vzic/*) $(am__append_25) \
 	lib/charset/koi8-r.t lib/charset/UnicodeData.txt \
 	lib/charset/unifix.txt lib/charset/us-ascii.t \
 	lib/charset/windows-1250.t lib/charset/windows-1251.t \
-	lib/charset/windows-1252.t lib/charset/windows-1255.t \
-	lib/charset/windows-1256.t lib/imapoptions lib/test/cyrusdb.c \
-	lib/test/cyrusdb.INPUT lib/test/cyrusdblong.INPUT \
-	lib/test/cyrusdblong.OUTPUT lib/test/cyrusdb.OUTPUT \
-	lib/test/cyrusdbtxn.INPUT lib/test/cyrusdbtxn.OUTPUT \
-	lib/test/pool.c lib/test/rnddb.c lib/test/testglob2.c \
-	master/CYRUS-MASTER.mib master/conf/cmu-backend.conf \
-	master/conf/cmu-frontend.conf master/conf/normal.conf \
-	master/conf/prefork.conf master/conf/small.conf master/README \
-	netnews/inn.diffs perl/annotator/Daemon.pm \
-	perl/annotator/Makefile.PL.in perl/annotator/MANIFEST \
-	perl/annotator/Message.pm perl/annotator/README \
-	perl/imap/Changes perl/imap/cyradm.sh perl/imap/cyrperl.h \
-	perl/imap/Cyrus/Shell.pm perl/imap/examples/auditmbox.pl \
+	lib/charset/windows-1252.t lib/charset/windows-1254.t \
+	lib/charset/windows-1255.t lib/charset/windows-1256.t \
+	lib/charset/windows-1258.t lib/charset/windows-874.t \
+	lib/imapoptions lib/test/cyrusdb.c lib/test/cyrusdb.INPUT \
+	lib/test/cyrusdblong.INPUT lib/test/cyrusdblong.OUTPUT \
+	lib/test/cyrusdb.OUTPUT lib/test/cyrusdbtxn.INPUT \
+	lib/test/cyrusdbtxn.OUTPUT lib/test/pool.c lib/test/rnddb.c \
+	lib/test/testglob2.c master/CYRUS-MASTER.mib \
+	master/conf/cmu-backend.conf master/conf/cmu-frontend.conf \
+	master/conf/normal.conf master/conf/prefork.conf \
+	master/conf/small.conf master/README netnews/inn.diffs \
+	perl/annotator/Daemon.pm perl/annotator/Makefile.PL.in \
+	perl/annotator/MANIFEST perl/annotator/Message.pm \
+	perl/annotator/README perl/imap/Changes perl/imap/cyradm.sh \
+	perl/imap/cyrperl.h perl/imap/Cyrus/Shell.pm \
+	perl/imap/examples/auditmbox.pl \
 	perl/imap/examples/imapcollate.pl perl/imap/examples/imapdu.pl \
 	perl/imap/examples/test-imsp.pl perl/imap/IMAP/Admin.pm \
 	perl/imap/IMAP/IMSP.pm perl/imap/IMAP/Shell.pm \
@@ -1769,10 +1790,9 @@ EXTRA_DIST = $(wildcard tools/vzic/*) $(am__append_25) \
 	sieve/tests/actionExtensions/serverm/ueamail-flag5 \
 	sieve/tests/actionExtensions/serverm/ueamail-notify2 \
 	sieve/tests/actionExtensions/serverm/ueamail-vacation \
-	timsieved/TODO $(am__append_43) $(am__append_44) \
-	$(am__append_70) $(am__append_72)
+	timsieved/TODO $(am__append_45) $(am__append_46) \
+	$(am__append_72) $(am__append_74)
 @COM_ERR_TRUE@COMPILE_ET_DEP = com_err/et/compile_et
-@PERL_TRUE@noinst_LTLIBRARIES = perl/libcyrus.la perl/libcyrus_min.la
 @PERL_TRUE@@SIEVE_TRUE@noinst_LIBRARIES = perl/sieve/lib/libisieve.a
 TEXINFO_TEX = com_err/et/texinfo.tex
 dist_noinst_SCRIPTS = \
@@ -1791,6 +1811,7 @@ dist_noinst_SCRIPTS = \
 	tools/convert-sieve.pl \
 	tools/dohash \
 	tools/fixsearchpath.pl \
+	tools/git-version.sh \
 	tools/jenkins-build.sh \
 	tools/masssievec \
 	tools/migrate-metadata \
@@ -1867,14 +1888,14 @@ LD_SERVER_ADD = $(LD_UTILITY_ADD) $(LIB_WRAP)
 @CUNIT_TRUE@	cunit/msgid.testc cunit/parseaddr.testc \
 @CUNIT_TRUE@	cunit/parse.testc cunit/prot.testc \
 @CUNIT_TRUE@	cunit/ptrarray.testc cunit/quota.testc \
-@CUNIT_TRUE@	cunit/rfc822tok.testc $(am__append_41) \
+@CUNIT_TRUE@	cunit/rfc822tok.testc $(am__append_43) \
 @CUNIT_TRUE@	cunit/spool.testc cunit/squat.testc \
 @CUNIT_TRUE@	cunit/strarray.testc cunit/strconcat.testc \
 @CUNIT_TRUE@	cunit/times.testc cunit/tok.testc
 @CUNIT_TRUE@cunit_unit_SOURCES = $(cunit_FRAMEWORK) $(cunit_TESTS) \
 @CUNIT_TRUE@		imap/mutex_fake.c imap/spool.c
 
-@CUNIT_TRUE@cunit_unit_LDADD = $(am__append_42) $(LD_UTILITY_ADD) \
+@CUNIT_TRUE@cunit_unit_LDADD = $(am__append_44) $(LD_UTILITY_ADD) \
 @CUNIT_TRUE@	-lcunit
 @CUNIT_TRUE@CUNIT_PL = cunit/cunit.pl --project $(CUNIT_PROJECT)
 
@@ -1931,17 +1952,6 @@ nodist_include_HEADERS = \
 
 nobase_include_HEADERS = sieve/sieve_interface.h
 nobase_nodist_include_HEADERS = sieve/sieve_err.h
-noinst_HEADERS = \
-	lib/byteorder64.h \
-	lib/gai.h \
-	lib/libconfig.h \
-	lib/md5.h \
-	lib/prot.h \
-	lib/ptrarray.h \
-	lib/util.h \
-	lib/xstrlcat.h \
-	lib/xstrlcpy.h
-
 imap_arbitron_SOURCES = imap/arbitron.c imap/cli_fatal.c imap/mutex_fake.c
 imap_arbitron_LDADD = $(LD_UTILITY_ADD)
 imap_chk_cyrus_SOURCES = imap/chk_cyrus.c imap/cli_fatal.c imap/mutex_fake.c
@@ -1994,12 +2004,12 @@ imap_idled_LDADD = $(LD_UTILITY_ADD)
 imap_imapd_SOURCES = imap/imap_proxy.c imap/imap_proxy.h imap/imapd.c \
 	imap/imapd.h imap/mutex_fake.c imap/pushstats.c \
 	imap/pushstats.h imap/proxy.c imap/proxy.h master/service.c \
-	$(am__append_45)
-imap_imapd_LDADD = $(am__append_46) $(LD_SERVER_ADD)
+	$(am__append_47)
+imap_imapd_LDADD = $(am__append_48) $(LD_SERVER_ADD)
 imap_ipurge_SOURCES = imap/cli_fatal.c imap/ipurge.c imap/mutex_fake.c
 imap_ipurge_LDADD = $(LD_UTILITY_ADD)
 nodist_imap_libcyrus_imap_la_SOURCES = imap/imap_err.c \
-	imap/mupdate_err.c imap/mupdate_err.h $(am__append_50)
+	imap/mupdate_err.c imap/mupdate_err.h $(am__append_52)
 dist_imap_libcyrus_imap_la_SOURCES = 
 imap_libcyrus_imap_la_SOURCES = imap/annotate.c imap/annotate.h \
 	imap/append.c imap/append.h imap/backend.c imap/backend.h \
@@ -2024,16 +2034,16 @@ imap_libcyrus_imap_la_SOURCES = imap/annotate.c imap/annotate.h \
 	imap/telemetry.c imap/telemetry.h imap/tls.c imap/tls.h \
 	imap/tls_th-lock.c imap/tls_th-lock.h imap/user.c imap/user.h \
 	imap/userdeny_db.c imap/userdeny.h imap/version.c \
-	imap/version.h $(am__append_49)
+	imap/version.h $(am__append_51)
 imap_libcyrus_imap_la_LIBADD = $(COM_ERR_LIBS) $(LIB_UUID) \
-	lib/libcyrus_min.la lib/libcyrus.la $(am__append_47)
+	lib/libcyrus_min.la lib/libcyrus.la $(am__append_49)
 imap_libcyrus_imap_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) \
-	$(am__append_48)
+	$(am__append_50)
 imap_lmtpd_SOURCES = imap/lmtpd.c imap/lmtpd.h imap/lmtpengine.c \
 	imap/lmtpengine.h imap/lmtpstats.c imap/lmtpstats.h \
 	imap/mutex_fake.c imap/proxy.c imap/spool.c master/service.c \
-	$(am__append_51) $(am__append_52)
-imap_lmtpd_LDADD = $(am__append_53) $(LD_SERVER_ADD)
+	$(am__append_53) $(am__append_54)
+imap_lmtpd_LDADD = $(am__append_55) $(LD_SERVER_ADD)
 imap_mbexamine_SOURCES = imap/cli_fatal.c imap/mbexamine.c imap/mutex_fake.c
 imap_mbexamine_LDADD = $(LD_UTILITY_ADD)
 imap_mbpath_SOURCES = imap/cli_fatal.c imap/mbpath.c imap/mutex_fake.c
@@ -2087,6 +2097,7 @@ imap_httpd_SOURCES = \
 	imap/http_timezone.c \
 	imap/httpd.c \
 	imap/jcal.c \
+	imap/json_support.h \
 	imap/mutex_fake.c \
 	imap/proxy.c \
 	imap/smtpclient.c \
@@ -2097,8 +2108,8 @@ imap_httpd_SOURCES = \
 
 imap_httpd_LDADD = $(LD_SERVER_ADD)
 imap_pop3d_SOURCES = imap/mutex_fake.c imap/pop3d.c imap/proxy.c \
-	master/service.c $(am__append_54)
-imap_pop3d_LDADD = $(am__append_55) $(LD_SERVER_ADD)
+	master/service.c $(am__append_56)
+imap_pop3d_LDADD = $(am__append_57) $(LD_SERVER_ADD)
 imap_quota_SOURCES = imap/cli_fatal.c imap/mutex_fake.c imap/quota.c imap/quota.h
 imap_quota_LDADD = $(LD_UTILITY_ADD)
 imap_reconstruct_SOURCES = imap/cli_fatal.c imap/mutex_fake.c imap/reconstruct.c
@@ -2135,8 +2146,8 @@ lib_libcyrus_la_SOURCES = lib/acl.c lib/acl_afs.c lib/auth.c \
 	lib/lsort.c lib/mappedfile.c lib/mkgmtime.c lib/parseaddr.c \
 	lib/prot.c lib/ptrarray.c lib/rfc822tok.c lib/signals.c \
 	lib/stristr.c lib/times.c lib/tok.c lib/wildmat.c \
-	$(am__append_56) $(am__append_57) $(am__append_58) \
-	$(am__append_59) $(am__append_60) $(am__append_61)
+	$(am__append_58) $(am__append_59) $(am__append_60) \
+	$(am__append_61) $(am__append_62) $(am__append_63)
 lib_libcyrus_la_LIBADD = $(LIB_RT) ${LIB_SASL} $(SSL_LIBS)
 lib_libcyrus_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 nodist_lib_libcyrus_min_la_SOURCES = \
@@ -2145,9 +2156,9 @@ nodist_lib_libcyrus_min_la_SOURCES = \
 lib_libcyrus_min_la_SOURCES = lib/arrayu64.c lib/assert.c lib/hash.c \
 	lib/hashu64.c lib/libconfig.c lib/mpool.c lib/retry.c \
 	lib/strarray.c lib/strhash.c lib/util.c lib/vparse.c \
-	lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c $(am__append_62) \
-	$(am__append_63) $(am__append_64) $(am__append_65) \
-	$(am__append_66) $(am__append_67) $(am__append_68)
+	lib/xmalloc.c lib/xstrlcat.c lib/xstrlcpy.c $(am__append_64) \
+	$(am__append_65) $(am__append_66) $(am__append_67) \
+	$(am__append_68) $(am__append_69) $(am__append_70)
 lib_libcyrus_min_la_LIBADD = $(LTLIBOBJS)
 lib_libcyrus_min_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 dist_man_MANS = man/imtest.1 man/installsieve.1 man/lmtptest.1 \
@@ -2163,7 +2174,7 @@ dist_man_MANS = man/imtest.1 man/installsieve.1 man/lmtptest.1 \
 	man/quota.8 man/reconstruct.8 man/rmnews.8 man/smmapd.8 \
 	man/squatter.8 man/sync_client.8 man/sync_reset.8 \
 	man/sync_server.8 man/timsieved.8 man/tls_prune.8 \
-	man/unexpunge.8 $(am__append_69) $(am__append_71)
+	man/unexpunge.8 $(am__append_71) $(am__append_73)
 master_master_SOURCES = \
 	master/cyrusMasterMIB.c \
 	master/cyrusMasterMIB.h \
@@ -2186,7 +2197,7 @@ notifyd_notifyd_SOURCES = imap/mutex_fake.c master/service.c \
 	notifyd/notify_log.c notifyd/notify_log.h \
 	notifyd/notify_mailto.c notifyd/notify_mailto.h \
 	notifyd/notify_null.c notifyd/notify_null.h notifyd/notifyd.c \
-	notifyd/notifyd.h $(am__append_73)
+	notifyd/notifyd.h $(am__append_75)
 notifyd_notifyd_LDADD = $(LD_SERVER_ADD) $(ZEPHYR_LIBS)
 notifyd_notifytest_SOURCES = notifyd/notifytest.c imap/mutex_fake.c
 notifyd_notifytest_LDADD = $(LD_BASIC_ADD)
@@ -2208,11 +2219,27 @@ ptclient_ptdump_LDADD = $(LD_UTILITY_ADD)
 ptclient_ptexpire_SOURCES = imap/cli_fatal.c imap/mutex_fake.c ptclient/ptexpire.c
 ptclient_ptexpire_LDADD = $(LD_UTILITY_ADD)
 ptclient_ptloader_SOURCES = imap/mutex_fake.c ptclient/ptloader.c \
-	ptclient/ptloader.h master/service-thread.c $(am__append_74) \
-	$(am__append_77)
-ptclient_ptloader_LDFLAGS = $(am__append_76) $(am__append_79)
-ptclient_ptloader_LDADD = $(LD_SERVER_ADD) $(am__append_75) \
-	$(am__append_78)
+	ptclient/ptloader.h master/service-thread.c $(am__append_76) \
+	$(am__append_79)
+ptclient_ptloader_LDFLAGS = $(am__append_78) $(am__append_81)
+ptclient_ptloader_LDADD = $(LD_SERVER_ADD) $(am__append_77) \
+	$(am__append_80)
+
+# Each new version of flex seems to generate new sign-comparison
+# warnings, while they switch code around between int/yy_size_t.
+#
+# This is a pain because most of us Cyrus devs build with -Werror.
+#
+# Instead of continuing to maintain an ever-growing, increasingly
+# precarious set of post-hoc fixes (see: the former lex-fix rule),
+# let's just ignore sign-comparison warnings from flex-generated
+# sources only.
+sieve_libcyrus_sieve_lex_la_SOURCES = \
+	sieve/addr-lex.l \
+	sieve/sieve-lex.l
+
+sieve_libcyrus_sieve_lex_la_LIBADD = 
+sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) -Wno-sign-compare
 nodist_sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/sieve_err.c \
 	sieve/sieve_err.h
@@ -2220,7 +2247,6 @@ nodist_sieve_libcyrus_sieve_la_SOURCES = \
 sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/bytecode.h \
 	sieve/addr.y \
-	sieve/addr-lex.l \
 	sieve/bc_dump.c \
 	sieve/bc_emit.c \
 	sieve/bc_eval.c \
@@ -2235,14 +2261,18 @@ sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/message.h \
 	sieve/script.c \
 	sieve/script.h \
-	sieve/sieve-lex.l \
 	sieve/sieve.y \
 	sieve/tree.c \
 	sieve/tree.h \
 	sieve/varlist.c \
 	sieve/varlist.h
 
-sieve_libcyrus_sieve_la_LIBADD = $(COM_ERR_LIBS) lib/libcyrus_min.la lib/libcyrus.la
+sieve_libcyrus_sieve_la_LIBADD = \
+    sieve/libcyrus_sieve_lex.la \
+    $(COM_ERR_LIBS) \
+    lib/libcyrus_min.la \
+    lib/libcyrus.la
+
 sieve_libcyrus_sieve_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY)
 LD_SIEVE_ADD = sieve/libcyrus_sieve.la $(LD_BASIC_ADD)
 sieve_sievec_LDADD = $(LD_SIEVE_ADD)
@@ -2265,7 +2295,6 @@ timsieved_timsieved_SOURCES = \
 	timsieved/timsieved.c
 
 timsieved_timsieved_LDADD = sieve/libcyrus_sieve.la $(LD_SERVER_ADD)
-GIT_VERSION = $(PACKAGE_VERSION)@git_version@
 SUFFIXES = .fig.png
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
@@ -2791,8 +2820,6 @@ sieve/$(DEPDIR)/$(am__dirstamp):
 	@: > sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-addr.lo: sieve/$(am__dirstamp) \
 	sieve/$(DEPDIR)/$(am__dirstamp)
-sieve/sieve_libcyrus_sieve_la-addr-lex.lo: sieve/$(am__dirstamp) \
-	sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-bc_dump.lo: sieve/$(am__dirstamp) \
 	sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-bc_emit.lo: sieve/$(am__dirstamp) \
@@ -2811,8 +2838,6 @@ sieve/sieve_libcyrus_sieve_la-message.lo: sieve/$(am__dirstamp) \
 	sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-script.lo: sieve/$(am__dirstamp) \
 	sieve/$(DEPDIR)/$(am__dirstamp)
-sieve/sieve_libcyrus_sieve_la-sieve-lex.lo: sieve/$(am__dirstamp) \
-	sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-sieve.lo: sieve/$(am__dirstamp) \
 	sieve/$(DEPDIR)/$(am__dirstamp)
 sieve/sieve_libcyrus_sieve_la-tree.lo: sieve/$(am__dirstamp) \
@@ -2824,6 +2849,13 @@ sieve/sieve_libcyrus_sieve_la-sieve_err.lo: sieve/$(am__dirstamp) \
 
 sieve/libcyrus_sieve.la: $(sieve_libcyrus_sieve_la_OBJECTS) $(sieve_libcyrus_sieve_la_DEPENDENCIES) $(EXTRA_sieve_libcyrus_sieve_la_DEPENDENCIES) sieve/$(am__dirstamp)
 	$(AM_V_CCLD)$(sieve_libcyrus_sieve_la_LINK) $(am_sieve_libcyrus_sieve_la_rpath) $(sieve_libcyrus_sieve_la_OBJECTS) $(sieve_libcyrus_sieve_la_LIBADD) $(LIBS)
+sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo: sieve/$(am__dirstamp) \
+	sieve/$(DEPDIR)/$(am__dirstamp)
+sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo: sieve/$(am__dirstamp) \
+	sieve/$(DEPDIR)/$(am__dirstamp)
+
+sieve/libcyrus_sieve_lex.la: $(sieve_libcyrus_sieve_lex_la_OBJECTS) $(sieve_libcyrus_sieve_lex_la_DEPENDENCIES) $(EXTRA_sieve_libcyrus_sieve_lex_la_DEPENDENCIES) sieve/$(am__dirstamp)
+	$(AM_V_CCLD)$(sieve_libcyrus_sieve_lex_la_LINK) $(am_sieve_libcyrus_sieve_lex_la_rpath) $(sieve_libcyrus_sieve_lex_la_OBJECTS) $(sieve_libcyrus_sieve_lex_la_LIBADD) $(LIBS)
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	@list='$(bin_PROGRAMS)'; test -n "$(bindir)" || list=; \
@@ -3863,7 +3895,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@ptclient/$(DEPDIR)/ptdump.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@ptclient/$(DEPDIR)/ptexpire.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@ptclient/$(DEPDIR)/ptloader.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr-lex.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-bc_dump.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-bc_emit.Plo@am__quote@
@@ -3874,11 +3905,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-interp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-message.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-script.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve-lex.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve_err.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-tree.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-varlist.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-addr-lex.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-sieve-lex.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sievec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/sieved.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@sieve/$(DEPDIR)/test.Po@am__quote@
@@ -4865,13 +4897,6 @@ sieve/sieve_libcyrus_sieve_la-addr.lo: sieve/addr.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_la-addr.lo `test -f 'sieve/addr.c' || echo '$(srcdir)/'`sieve/addr.c
 
-sieve/sieve_libcyrus_sieve_la-addr-lex.lo: sieve/addr-lex.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_la-addr-lex.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr-lex.Tpo -c -o sieve/sieve_libcyrus_sieve_la-addr-lex.lo `test -f 'sieve/addr-lex.c' || echo '$(srcdir)/'`sieve/addr-lex.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr-lex.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-addr-lex.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sieve/addr-lex.c' object='sieve/sieve_libcyrus_sieve_la-addr-lex.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_la-addr-lex.lo `test -f 'sieve/addr-lex.c' || echo '$(srcdir)/'`sieve/addr-lex.c
-
 sieve/sieve_libcyrus_sieve_la-bc_dump.lo: sieve/bc_dump.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_la-bc_dump.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-bc_dump.Tpo -c -o sieve/sieve_libcyrus_sieve_la-bc_dump.lo `test -f 'sieve/bc_dump.c' || echo '$(srcdir)/'`sieve/bc_dump.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-bc_dump.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-bc_dump.Plo
@@ -4935,13 +4960,6 @@ sieve/sieve_libcyrus_sieve_la-script.lo: sieve/script.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_la-script.lo `test -f 'sieve/script.c' || echo '$(srcdir)/'`sieve/script.c
 
-sieve/sieve_libcyrus_sieve_la-sieve-lex.lo: sieve/sieve-lex.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_la-sieve-lex.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve-lex.Tpo -c -o sieve/sieve_libcyrus_sieve_la-sieve-lex.lo `test -f 'sieve/sieve-lex.c' || echo '$(srcdir)/'`sieve/sieve-lex.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve-lex.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve-lex.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sieve/sieve-lex.c' object='sieve/sieve_libcyrus_sieve_la-sieve-lex.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_la-sieve-lex.lo `test -f 'sieve/sieve-lex.c' || echo '$(srcdir)/'`sieve/sieve-lex.c
-
 sieve/sieve_libcyrus_sieve_la-sieve.lo: sieve/sieve.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_la-sieve.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve.Tpo -c -o sieve/sieve_libcyrus_sieve_la-sieve.lo `test -f 'sieve/sieve.c' || echo '$(srcdir)/'`sieve/sieve.c
 @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_la-sieve.Plo
@@ -4969,6 +4987,20 @@ sieve/sieve_libcyrus_sieve_la-sieve_err.lo: sieve/sieve_err.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sieve/sieve_err.c' object='sieve/sieve_libcyrus_sieve_la-sieve_err.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_la-sieve_err.lo `test -f 'sieve/sieve_err.c' || echo '$(srcdir)/'`sieve/sieve_err.c
+
+sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo: sieve/addr-lex.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_lex_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-addr-lex.Tpo -c -o sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo `test -f 'sieve/addr-lex.c' || echo '$(srcdir)/'`sieve/addr-lex.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-addr-lex.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-addr-lex.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sieve/addr-lex.c' object='sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_lex_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_lex_la-addr-lex.lo `test -f 'sieve/addr-lex.c' || echo '$(srcdir)/'`sieve/addr-lex.c
+
+sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo: sieve/sieve-lex.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_lex_la_CFLAGS) $(CFLAGS) -MT sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo -MD -MP -MF sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-sieve-lex.Tpo -c -o sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo `test -f 'sieve/sieve-lex.c' || echo '$(srcdir)/'`sieve/sieve-lex.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-sieve-lex.Tpo sieve/$(DEPDIR)/sieve_libcyrus_sieve_lex_la-sieve-lex.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='sieve/sieve-lex.c' object='sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(sieve_libcyrus_sieve_lex_la_CFLAGS) $(CFLAGS) -c -o sieve/sieve_libcyrus_sieve_lex_la-sieve-lex.lo `test -f 'sieve/sieve-lex.c' || echo '$(srcdir)/'`sieve/sieve-lex.c
 
 imtest/imtest_imtest-imtest.o: imtest/imtest.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(imtest_imtest_CFLAGS) $(CFLAGS) -MT imtest/imtest_imtest-imtest.o -MD -MP -MF imtest/$(DEPDIR)/imtest_imtest-imtest.Tpo -c -o imtest/imtest_imtest-imtest.o `test -f 'imtest/imtest.c' || echo '$(srcdir)/'`imtest/imtest.c
@@ -5902,35 +5934,20 @@ lib/imapopts.c: lib/imapoptions tools/config2header
 sieve/sieve_err.h sieve/sieve_err.c: sieve/sieve_err.et $(COMPILE_ET_DEP)
 	cd sieve && $(COMPILE_ET) ../$(top_srcdir)/sieve/sieve_err.et
 
-# TODO: Should not really stay around, but GNU software is hard to
-# contribute fixes to. Needed when building with the following:
-# CFLAGS="-g -fPIC -W -Wall -Wextra -Werror"
-lex-fix: sieve/addr-lex.c sieve/sieve-lex.c
-	grep -E '^yy_size_t sieveleng;$$' sieve/sieve-lex.c && \
-    	sed -r -i -e 's/int yyl;/yy_size_t yyl;/g' sieve/sieve-lex.c || :
-
-	grep -E ' yy_size_t  _yybytes_len ' sieve/sieve-lex.c && \
-    	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/sieve-lex.c || :
-
-	grep -E ' yy_size_t  _yybytes_len ' sieve/addr-lex.c && \
-    	sed -r -i -s 's/\tint i;/\tyy_size_t i;/g' sieve/addr-lex.c || :
-
-	grep -E '^static int yy_n_chars;' sieve/sieve-lex.c && \
-    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/sieve-lex.c || :
-
-	grep -E '^static int yy_n_chars;' sieve/addr-lex.c && \
-    	sed -r -i -s 's/\tyy_size_t yy_buf_size;/\tint yy_buf_size;/g' sieve/addr-lex.c || :
+# The lex-fix rule is now obsolete, but let's leave a crumb here for a
+# while so that custom build scripts that expect it to exist don't choke.
+lex-fix:
 
 snapshot::
-	@echo "Creating snapshot $(PACKAGE_NAME)-$(GIT_VERSION)"
+	@echo "Creating snapshot $(PACKAGE_NAME)-$(PACKAGE_VERSION)"
 	@$(MKDIR_P) snapshot
-	@git archive --format=tar --prefix=$(PACKAGE_NAME)-$(GIT_VERSION)/ HEAD | tar -C snapshot/ -x -f -
-	@echo "/* $(PACKAGE_NAME) $(GIT_VERSION) */" > snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@echo "#define _CYRUS_VERSION \"$(GIT_VERSION)\"" >> snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion.h
-	@touch snapshot/$(PACKAGE_NAME)-$(GIT_VERSION)/xversion
+	@git archive --format=tar --prefix=$(PACKAGE_NAME)-$(PACKAGE_VERSION)/ HEAD | tar -C snapshot/ -x -f -
+	@echo "/* $(PACKAGE_NAME) $(PACKAGE_VERSION) */" > snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@echo "#define _CYRUS_VERSION \"$(PACKAGE_VERSION)\"" >> snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion.h
+	@touch snapshot/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/xversion
 	@echo "creating tarfile"
-	tar -C snapshot -c -f - $(PACKAGE_NAME)-$(GIT_VERSION) | gzip -9 > $(PACKAGE_NAME)-$(GIT_VERSION).tar.gz
+	tar -C snapshot -c -f - $(PACKAGE_NAME)-$(PACKAGE_VERSION) | gzip -9 > $(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
 	@rm -rf snapshot
 
 man/imapd.conf.5: $(top_srcdir)/tools/config2man $(top_srcdir)/lib/imapoptions
@@ -5983,7 +6000,7 @@ distgit:
 
 xversion xversion.h:
 	@echo "/* Development version */" > xversion.h.tmp
-	@echo "#define _CYRUS_VERSION \"$(GIT_VERSION)\"" >> xversion.h.tmp
+	@echo "#define _CYRUS_VERSION \"$(PACKAGE_VERSION)\"" >> xversion.h.tmp
 	@echo "#define CYRUS_GITVERSION \"`git log --abbrev=8 --pretty=\"format:%h %ci\" -1 | cut -d\" \" -f1,2`\"" >> xversion.h.tmp
 	@cmp -s xversion.h.tmp xversion.h || mv xversion.h.tmp xversion.h
 	@rm -f xversion.h.tmp

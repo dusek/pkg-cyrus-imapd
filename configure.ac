@@ -44,7 +44,11 @@ dnl configure.ac for the Cyrus imapd
 dnl
 
 
-AC_INIT([cyrus-imapd], [2.5.9], [http://bugzilla.cyrusimap.org],,[http://www.cyrusimap.org])
+AC_INIT([cyrus-imapd],
+        m4_esyscmd(printf '%s' $(tools/git-version.sh)),
+        [https://github.com/cyrusimap/cyrus-imapd/issues],
+        ,
+        [https://www.cyrusimap.org])
 AC_PREREQ([2.63])
 AC_CONFIG_SRCDIR([imap/imapd.c])
 AC_CONFIG_HEADERS(config.h)
@@ -56,34 +60,6 @@ PKG_PROG_PKG_CONFIG
 
 AM_INIT_AUTOMAKE([-Wall -Werror -Wno-portability foreign dist-bzip2 no-installinfo subdir-objects])
 AC_CONFIG_LIBOBJ_DIR([lib])
-
-dnl if the git repository is here we also have git
-if test -d ".git/"; then
-    git_bin=$(which git 2>/dev/null)
-    if test "x$git_bin" != "x"; then
-        if test -x "/$(which git 2>/dev/null)"; then
-            git_branch=$(git branch -l | grep ^* | sed -e 's/* //g')
-
-            case "$git_branch" in
-                cyrus-imapd-*)
-                        git_tag=$(git tag -l | grep -E "$git_branch\." | sort --version-sort | tail -n 1)
-                        git_revs=$(git log $git_tag..HEAD --pretty=oneline 2>/dev/null | wc -l)
-                        if test "x$git_revs" != "x0"; then
-                            git_version=".$git_revs"
-                        fi
-                    ;;
-
-                master)
-                        git_revs=$(git log 777a1b46..HEAD --pretty=oneline | wc -l)
-                        git_version="-dev$git_revs"
-                    ;;
-
-            esac
-        fi
-    fi
-fi
-
-AC_SUBST(git_version)
 
 dnl Useful hook for distributions
 AC_ARG_WITH(extraident,
@@ -192,7 +168,6 @@ else
   AC_MSG_ERROR(The Cyrus IMAPD requires support for long long int)
 fi
 
-CMU_C___ATTRIBUTE__
 CMU_C_FPIC
 
 dnl check for -R, etc. switch
@@ -984,10 +959,13 @@ xno)
     ;;
 x|xyes)
     # default args or --with-openssl
-    # try to enable, search in default system directories
     #
-    ssl_cppflags=
-    ssl_ldflags=
+    # Try pkg-config - OpenSSL >= 0.9.6 has openssl.pc
+    PKG_CHECK_MODULES(OPENSSL, openssl, [with_ssl=yes])
+    ssl_cppflags="$OPENSSL_CFLAGS"
+    ssl_ldflags="$OPENSSL_LIBS"
+    #
+    # If pkg-config doesn't work, search in default system directories
     ;;
 *)
     # --with-openssl=DIR
@@ -995,7 +973,11 @@ x|xyes)
     if test -d "$with_ssl"; then
 	ssl_cppflags="-I${with_ssl}/include"
 	ssl_ldflags=
-	CMU_ADD_LIBPATH_TO(${with_ssl}/lib, ssl_ldflags)
+	if test -d "${with_ssl}/lib64"; then
+	    CMU_ADD_LIBPATH_TO(${with_ssl}/lib64, ssl_ldflags)
+	else
+	    CMU_ADD_LIBPATH_TO(${with_ssl}/lib, ssl_ldflags)
+	fi
 	with_ssl=yes
     else
 	AC_WARN([Disabling OpenSSL - no include files found])
@@ -1646,11 +1628,6 @@ AH_BOTTOM([
 #  else
 #    define O_DSYNC     O_FSYNC         /* BSD */
 #  endif
-#endif
-
-#ifndef HAVE___ATTRIBUTE__
-/* Can't use attributes... */
-#define __attribute__(foo)
 #endif
 
 #ifndef HAVE_SOCKLEN_T
