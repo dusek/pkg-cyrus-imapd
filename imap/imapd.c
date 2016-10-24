@@ -215,11 +215,6 @@ static const char *monthname[] = {
     "jul", "aug", "sep", "oct", "nov", "dec"
 };
 
-static const int max_monthdays[] = {
-    31, 29, 31, 30, 31, 30,
-    31, 31, 30, 31, 30, 31
-};
-
 /* track if we're idling */
 static int idling = 0;
 
@@ -5284,7 +5279,7 @@ static void cmd_copy(char *tag, char *sequence, char *name, int usinguid, int is
     }
 
     /* need permission to delete from source if it's a move */
-    if (ismove && !(imapd_index->myrights & ACL_EXPUNGE))
+    if (!r && ismove && !(imapd_index->myrights & ACL_EXPUNGE))
 	r = IMAP_PERMISSION_DENIED;
 
     /* local mailbox -> local mailbox */
@@ -6536,7 +6531,6 @@ static void getlistargs(char *tag, struct listargs *listargs)
     c = prot_getc(imapd_in);
     if (c == '(') {
 	listargs->cmd = LIST_CMD_EXTENDED;
-	listargs->ret = 0;
 	c = getlistselopts(tag, listargs);
 	if (c == EOF) {
 	    eatline(imapd_in, c);
@@ -6570,7 +6564,6 @@ static void getlistargs(char *tag, struct listargs *listargs)
     c = prot_getc(imapd_in);
     if (c == '(') {
 	listargs->cmd = LIST_CMD_EXTENDED;
-	listargs->ret = 0;
 	for (;;) {
 	    c = getastring(imapd_in, imapd_out, &buf);
 	    if (*buf.s)
@@ -6601,7 +6594,6 @@ static void getlistargs(char *tag, struct listargs *listargs)
     /* Check for and parse LIST-EXTENDED return options */
     if (c == ' ') {
 	listargs->cmd = LIST_CMD_EXTENDED;
-	listargs->ret = 0;
 	c = getlistretopts(tag, listargs);
 	if (c == EOF) {
 	    eatline(imapd_in, c);
@@ -10940,7 +10932,8 @@ static int getlistselopts(char *tag, struct listargs *args)
 	lcase(buf.s);
 
 	if (!strcmp(buf.s, "subscribed")) {
-	    args->sel |= LIST_SEL_SUBSCRIBED | LIST_RET_SUBSCRIBED;
+	    args->sel |= LIST_SEL_SUBSCRIBED;
+	    args->ret |= LIST_RET_SUBSCRIBED;
 	} else if (!strcmp(buf.s, "remote")) {
 	    args->sel |= LIST_SEL_REMOTE;
 	} else if (!strcmp(buf.s, "recursivematch")) {
@@ -11557,12 +11550,15 @@ static int list_cb(char *name, int matchlen, int maycreate,
 
     list_callback_calls++;
 
+    /* list_response will calculate haschildren/hasnochildren flags later
+     * if they're required but not yet set, but it's a little cheaper to
+     * precalculate them now while we're iterating the mailboxes anyway.
+     */
     if (last_name_is_ancestor)
 	rock->last_attributes |= MBOX_ATTRIBUTE_HASCHILDREN;
-
-    /* tidy up flags */
     if (!(rock->last_attributes & MBOX_ATTRIBUTE_HASCHILDREN))
 	rock->last_attributes |= MBOX_ATTRIBUTE_HASNOCHILDREN;
+
     perform_output(name, matchlen, rock);
     if (!maycreate)
 	rock->last_attributes |= MBOX_ATTRIBUTE_NOINFERIORS;
@@ -11839,14 +11835,24 @@ static int list_data_remote(char *tag, struct listargs *listargs)
     if (listargs->cmd & LIST_CMD_LSUB) {
 	prot_printf(backend_inbox->out, "%s Lsub ", tag);
     } else {
-	prot_printf(backend_inbox->out, "%s List (subscribed", tag);
-	if (listargs->sel & LIST_SEL_REMOTE) {
-	    prot_printf(backend_inbox->out, " remote");
+	const char *select_opts[] = {
+	    /* XXX  MUST be in same order as LIST_SEL_* bitmask */
+	    "subscribed", "remote", "recursivematch",
+	    "special-use", NULL
+	};
+	char c = '(';
+	int i;
+
+	prot_printf(backend_inbox->out, "%s List ", tag);
+	for (i = 0; select_opts[i]; i++) {
+	    unsigned opt = (1 << i);
+
+	    if (!(listargs->sel & opt)) continue;
+
+	    prot_printf(backend_inbox->out, "%c%s", c, select_opts[i]);
+	    c = ' ';
 	}
-	if (listargs->sel & LIST_SEL_RECURSIVEMATCH) {
-	    prot_printf(backend_inbox->out, " recursivematch");
-	}
-	prot_printf(backend_inbox->out, ") ");
+	prot_puts(backend_inbox->out, ") ");
     }
 
     /* print reference argument */
@@ -11871,20 +11877,41 @@ static int list_data_remote(char *tag, struct listargs *listargs)
 
     /* print list return options */
     if (listargs->ret) {
+	const char *return_opts[] = {
+	    /* XXX  MUST be in same order as LIST_RET_* bitmask */
+	    "subscribed", "children", "special-use",
+	    "status ", "myrights", NULL
+	};
 	char c = '(';
+	int i, j;
 
-	prot_printf(backend_inbox->out, " return ");
-	if (listargs->ret & LIST_RET_SUBSCRIBED) {
-	    prot_printf(backend_inbox->out, "%csubscribed", c);
+	prot_puts(backend_inbox->out, " return ");
+	for (i = 0; return_opts[i]; i++) {
+	    unsigned opt = (1 << i);
+
+	    if (!(listargs->ret & opt)) continue;
+
+	    prot_printf(backend_inbox->out, "%c%s", c, return_opts[i]);
 	    c = ' ';
-	}
-	if (listargs->ret & LIST_RET_CHILDREN) {
-	    prot_printf(backend_inbox->out, "%cchildren", c);
-	    c = ' ';
-	}
-	if (listargs->ret & LIST_RET_SPECIALUSE) {
-	    prot_printf(backend_inbox->out, "%cspecial-use", c);
-	    c = ' ';
+
+	    if (opt == LIST_RET_STATUS) {
+		/* print status items */
+		const char *status_items[] = {
+		    /* XXX  MUST be in same order as STATUS_* bitmask */
+		    "messages", "recent", "uidnext", "uidvalidity", "unseen",
+		    "highestmodseq", NULL
+		};
+
+		c = '(';
+		for (j = 0; status_items[j]; j++) {
+		    if (!(listargs->statusitems & (1 << j))) continue;
+
+		    prot_printf(backend_inbox->out, "%c%s", c,
+				status_items[j]);
+		    c = ' ';
+		}
+		(void)prot_putc(')', backend_inbox->out);
+	    }
 	}
 	(void)prot_putc(')', backend_inbox->out);
     }

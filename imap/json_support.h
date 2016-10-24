@@ -1,5 +1,6 @@
-/*
- * Copyright (c) 1994-2008 Carnegie Mellon University.  All rights reserved.
+/* json_support.h -- Helper functions for jansson
+ *
+ * Copyright (c) 1994-2015 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,43 +39,42 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * Copyright 1987 by MIT Student Information Processing Board
- *
- * For copyright info, see mit-sipb-copyright.h.
  */
 
-#include "error_table.h"
-#include "mit-sipb-copyright.h"
-#include "internal.h"
 
-#ifndef lint
-static const char copyright[] __attribute__((__unused__)) =
-    "Copyright 1987,1988 by Student Information Processing Board, Massachusetts Institute of Technology";
-#endif
+#ifndef JSON_SUPPORT_H
+#define JSON_SUPPORT_H
 
-static const char char_set[] =
-	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+#include <config.h>
 
-static char buf[6];
+#include <jansson.h>
 
-const char * error_table_name (num)
-    long num;
-{
-    long ch;
-    int i;
-    char *p;
+/* jansson replacement functions for those missing in older versions */
 
-    /* num = aa aaa abb bbb bcc ccc cdd ddd d?? ??? ??? */
-    p = buf;
-    num >>= ERRCODE_RANGE;
-    /* num = ?? ??? ??? aaa aaa bbb bbb ccc ccc ddd ddd */
-    num &= 077777777;
-    /* num = 00 000 000 aaa aaa bbb bbb ccc ccc ddd ddd */
-    for (i = 4; i >= 0; i--) {
-	ch = (num >> BITS_PER_CHAR * i) & ((1 << BITS_PER_CHAR) - 1);
-	if (ch != 0)
-	    *p++ = char_set[ch-1];
-    }
-    *p = '\0';
-    return(buf);
-}
+#ifndef json_boolean
+#define json_boolean(val)       ((val) ? json_true() : json_false())
+#endif /* json_boolean */
+
+#ifndef json_boolean_value
+#define json_boolean_value(val) ((val) == json_true() ? 1 : 0)
+#endif /* json_boolean_value */
+
+#ifndef json_object_foreach
+#define json_object_foreach(obj, key, val)                      \
+     void *_iter_;                                              \
+     for (_iter_ = json_object_iter(obj);                       \
+          _iter_                                                \
+              && (key = json_object_iter_key(_iter_))           \
+              && (val = json_object_iter_value(_iter_));        \
+          _iter_ = json_object_iter_next(obj, _iter_))
+#endif /* json_object_foreach */
+
+#ifndef json_array_foreach
+#define json_array_foreach(array, index, value)                 \
+    for (index = 0;                                             \
+         index < json_array_size(array)                         \
+             && (value = json_array_get(array, index));         \
+         index++)
+#endif /* json_array_foreach */
+
+#endif /* JSON_SUPPORT_H */

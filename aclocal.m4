@@ -1482,7 +1482,6 @@ AC_SUBST([am__untar])
 
 m4_include([cmulocal/berkdb.m4])
 m4_include([cmulocal/bsd_sockets.m4])
-m4_include([cmulocal/c-attribute.m4])
 m4_include([cmulocal/c-fpic.m4])
 m4_include([cmulocal/common.m4])
 m4_include([cmulocal/cyrus.m4])

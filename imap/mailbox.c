@@ -610,6 +610,10 @@ int mailbox_append_cache(struct mailbox *mailbox,
 			  record->cache_offset, &record->crec);
     if (r) return r;
 
+    /* old-style record */
+    if (!record->cache_crc)
+	return 0;
+
     if (record->cache_crc != crc32_buf(cache_buf(record)))
 	return IMAP_MAILBOX_CHECKSUM;
 
@@ -4063,9 +4067,13 @@ HIDDEN int mailbox_rename_copy(struct mailbox *oldmailbox,
     if (r) goto fail;
     }
 
-    /* copy any mailbox annotations */
+    /* copy any mailbox annotations (but keep the known quota
+     * amount, because we already counted that usage.  XXX horrible
+     * hack */
+    quota_t annotused = newmailbox->i.quota_annot_used;
     r = annotate_rename_mailbox(oldmailbox, newmailbox);
     if (r) goto fail;
+    newmailbox->i.quota_annot_used = annotused;
 
     /* mark the "used" back to zero, so it updates the new quota! */
     mailbox_set_quotaroot(newmailbox, newquotaroot);

@@ -397,9 +397,6 @@
 /* Do we have zlib? */
 #undef HAVE_ZLIB
 
-/* define if your compiler has __attribute__ */
-#undef HAVE___ATTRIBUTE__
-
 /* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
@@ -597,11 +594,6 @@
 #  else
 #    define O_DSYNC     O_FSYNC         /* BSD */
 #  endif
-#endif
-
-#ifndef HAVE___ATTRIBUTE__
-/* Can't use attributes... */
-#define __attribute__(foo)
 #endif
 
 #ifndef HAVE_SOCKLEN_T
