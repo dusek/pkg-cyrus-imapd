@@ -254,7 +254,7 @@ index 3e7c849..c0cab93 100644
 -\fBimapd.conf(5)\fR, \fBmaster(8)\fR
 +\fBimapd.conf(5)\fR, \fBcyrmaster(8)\fR
 diff --git a/man/master.8 b/man/master.8
-index fb2f5ca..6d05b6e 100644
+index fb2f5ca..e119d38 100644
 --- a/man/master.8
 +++ b/man/master.8
 @@ -1,5 +1,5 @@

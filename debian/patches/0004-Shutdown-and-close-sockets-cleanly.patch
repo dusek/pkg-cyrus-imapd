@@ -42,10 +42,10 @@ index fdd56e5..2b4b177 100644
  }
  
 diff --git a/imap/imapd.c b/imap/imapd.c
-index 9ed62a5..78ba537 100644
+index 715fefa..bd2b6af 100644
 --- a/imap/imapd.c
 +++ b/imap/imapd.c
-@@ -1126,6 +1126,10 @@ void shut_down(int code)
+@@ -1121,6 +1121,10 @@ void shut_down(int code)
  #ifdef HAVE_SSL
      tls_shutdown_serverengine();
  #endif

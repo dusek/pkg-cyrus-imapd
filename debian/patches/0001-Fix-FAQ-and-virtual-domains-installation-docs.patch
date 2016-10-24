@@ -9,7 +9,7 @@ Subject: Fix FAQ and virtual domains installation docs
  3 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/doc/faq.html b/doc/faq.html
-index 15ec74e..e639d32 100644
+index 15ec74e..40d0e7d 100644
 --- a/doc/faq.html
 +++ b/doc/faq.html
 @@ -168,7 +168,7 @@ Dec  6 12:58:57 mail3.andrew.cmu.edu imapd[1297]: cannot connect to saslauthd se

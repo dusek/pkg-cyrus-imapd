@@ -15,7 +15,7 @@ Cyrus should not raise problems.
  1 file changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/imap/message.c b/imap/message.c
-index 17342ef..c90607f 100644
+index 777844f..d225609 100644
 --- a/imap/message.c
 +++ b/imap/message.c
 @@ -166,6 +166,8 @@ EXPORTED int message_copy_strict(struct protstream *from, FILE *to,
