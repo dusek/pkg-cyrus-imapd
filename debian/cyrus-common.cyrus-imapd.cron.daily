@@ -27,9 +27,9 @@ CHKCYRUS=0
 [ -r /etc/default/cyrus-imapd ] && . /etc/default/cyrus-imapd
 umask 022
 
-# check wether ctl_mboxlist  and cyrus-hardwired-config.txt exist
+# check whether ctl_mboxlist  and cyrus-hardwired-config.txt exist
 # exit cleanly if they don't
-[ -x /usr/sbin/ctl_mboxlist ] \
+[ -x /usr/lib/cyrus/bin/ctl_mboxlist ] \
 && [ -f /usr/lib/cyrus/cyrus-hardwired-config.txt ] \
 || exit 0
 # Check if Cyrus is installed (vs. removed but not purged)
@@ -40,7 +40,7 @@ grep -qE '^PACKAGE_VERSION[[:blank:]]+2[.][24]' \
 [ -d $bak ] || ( mkdir -p $bak ; chmod 600 $bak )
 [ -f $bakfile ] && mv ${bakfile} ${bakfile}.bak
 #	su "--command=/usr/sbin/ctl_mboxlist -d" - cyrus | ...
-start-stop-daemon --start --exec /usr/sbin/ctl_mboxlist --quiet --chuid cyrus -- -d | gzip -9 >${bakfile}
+start-stop-daemon --start --exec /usr/lib/cyrus/bin/ctl_mboxlist --quiet --chuid cyrus -- -d | gzip -9 >${bakfile}
 
 # 2. clean up all leftover .stage directories in all spools listed in
 #    the default config file
@@ -61,11 +61,11 @@ start-stop-daemon --start --exec /usr/sbin/ctl_mboxlist --quiet --chuid cyrus --
 }
 
 # 3. runs chk_cyrus
-[ -x /usr/sbin/chk_cyrus ] && {
+[ -x /usr/lib/cyrus/bin/chk_cyrus ] && {
 	tmpfile=$(mktemp -t cyrus-daily-cronjob.XXXXXXXXXX)
 	trap 'rm -f "${tmpfile}"' 0
 #	su "--command=/usr/sbin/chk_cyrus" - cyrus | ...
-	start-stop-daemon --start --exec /usr/sbin/chk_cyrus --quiet --chuid cyrus >"${tmpfile}" 2>&1 || cat "${tmpfile}" 1>&2
+	start-stop-daemon --start --exec /usr/lib/cyrus/bin/chk_cyrus --quiet --chuid cyrus >"${tmpfile}" 2>&1 || cat "${tmpfile}" 1>&2
 	rm -f "${tmpfile}"
 	trap '' 0
 }
