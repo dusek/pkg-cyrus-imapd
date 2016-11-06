@@ -15,3 +15,4 @@
 0015-Fix-extra-libpci-in-SNMP_LIBS.patch
 0016-Use-UnicodeData.txt-from-system.patch
 0017-libisieve-has-to-be-noinst_LTLIBRARY-for-PIC-code-to.patch
+0018-Replace-struct-sched_param-with-struct-caldav_sched_.patch

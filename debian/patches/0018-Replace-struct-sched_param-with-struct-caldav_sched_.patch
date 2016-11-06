@@ -1,0 +1,224 @@
+From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@sury.org>
+Date: Sun, 6 Nov 2016 21:05:09 +0100
+Subject: Replace 'struct sched_param' with 'struct caldav_sched_param'
+
+---
+ imap/http_caldav.c       | 36 ++++++++++++++++++------------------
+ imap/http_caldav_sched.h |  6 +++---
+ imap/http_ischedule.c    |  4 ++--
+ 3 files changed, 23 insertions(+), 23 deletions(-)
+
+diff --git a/imap/http_caldav.c b/imap/http_caldav.c
+index 98c0f70..ef8caae 100644
+--- a/imap/http_caldav.c
++++ b/imap/http_caldav.c
+@@ -362,7 +362,7 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
+ 			  struct caldav_db *caldavdb, int overwrite,
+ 			  unsigned flags);
+ 
+-static void sched_request(const char *organizer, struct sched_param *sparam,
++static void sched_request(const char *organizer, struct caldav_sched_param *sparam,
+ 			  icalcomponent *oldical, icalcomponent *newical,
+ 			  const char *att_update);
+ static void sched_reply(const char *userid,
+@@ -1154,7 +1154,7 @@ static int caldav_delete_sched(struct transaction_t *txn,
+ 	const char *userid, *organizer, **hdr;
+ 	icalcomponent *ical, *comp;
+ 	icalproperty *prop;
+-	struct sched_param sparam;
++	struct caldav_sched_param sparam;
+ 
+ 	/* Load message containing the resource and parse iCal data */
+ 	ical = record_to_ical(mailbox, record);
+@@ -2441,7 +2441,7 @@ static int caldav_post(struct transaction_t *txn)
+     icalproperty_method meth = 0;
+     icalproperty *prop = NULL;
+     const char *uid = NULL, *organizer = NULL;
+-    struct sched_param sparam;
++    struct caldav_sched_param sparam;
+ 
+     if (!(namespace_calendar.allow & ALLOW_CAL_SCHED) || !txn->req_tgt.flags) {
+ 	/* POST to regular calendar collection */
+@@ -2726,7 +2726,7 @@ static int caldav_put(struct transaction_t *txn,
+ 	    /* Scheduling object resource */
+ 	    const char *userid;
+ 	    struct caldav_data *cdata;
+-	    struct sched_param sparam;
++	    struct caldav_sched_param sparam;
+ 	    icalcomponent *oldical = NULL;
+ 	    int r;
+ 
+@@ -5359,12 +5359,12 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
+ }
+ 
+ 
+-int caladdress_lookup(const char *addr, struct sched_param *param)
++int caladdress_lookup(const char *addr, struct caldav_sched_param *param)
+ {
+     const char *userid = addr;
+     int islocal = 1, found = 1;
+ 
+-    memset(param, 0, sizeof(struct sched_param));
++    memset(param, 0, sizeof(struct caldav_sched_param));
+ 
+     if (!addr) return HTTP_NOT_FOUND;
+ 
+@@ -5571,7 +5571,7 @@ struct remote_rock {
+ static void busytime_query_remote(const char *server __attribute__((unused)),
+ 				  void *data, void *rock)
+ {
+-    struct sched_param *remote = (struct sched_param *) data;
++    struct caldav_sched_param *remote = (struct caldav_sched_param *) data;
+     struct remote_rock *rrock = (struct remote_rock *) rock;
+     icalcomponent *comp;
+     struct proplist *list;
+@@ -5675,7 +5675,7 @@ static void busytime_query_remote(const char *server __attribute__((unused)),
+ 
+ static void free_sched_param(void *data)
+ {
+-    struct sched_param *sched_param = (struct sched_param *) data;
++    struct caldav_sched_param *sched_param = (struct caldav_sched_param *) data;
+ 
+     if (sched_param) {
+ 	struct proplist *prop, *next;
+@@ -5700,14 +5700,14 @@ int sched_busytime_query(struct transaction_t *txn,
+     char mailboxname[MAX_MAILBOX_BUFFER];
+     icalproperty *prop = NULL, *next;
+     const char *uid = NULL, *organizer = NULL;
+-    struct sched_param sparam;
++    struct caldav_sched_param sparam;
+     struct auth_state *org_authstate = NULL;
+     xmlNodePtr root = NULL;
+     xmlNsPtr ns[NUM_NAMESPACE];
+     struct propfind_ctx fctx;
+     struct calquery_filter calfilter;
+     struct hash_table remote_table;
+-    struct sched_param *remote = NULL;
++    struct caldav_sched_param *remote = NULL;
+ 
+     if (!calendarprefix) {
+ 	calendarprefix = config_getstring(IMAPOPT_CALENDARPREFIX);
+@@ -5811,7 +5811,7 @@ int sched_busytime_query(struct transaction_t *txn,
+ 	    remote = hash_lookup(key, &remote_table);
+ 	    if (!remote) {
+ 		/* New remote - add it to the hash table */
+-		remote = xzmalloc(sizeof(struct sched_param));
++		remote = xzmalloc(sizeof(struct caldav_sched_param));
+ 		if (sparam.server) remote->server = xstrdup(sparam.server);
+ 		remote->port = sparam.port;
+ 		remote->flags = sparam.flags;
+@@ -5945,7 +5945,7 @@ static void free_sched_data(void *data)
+ 
+ /* Deliver scheduling object to a remote recipient */
+ static void sched_deliver_remote(const char *recipient,
+-				 struct sched_param *sparam,
++				 struct caldav_sched_param *sparam,
+ 				 struct sched_data *sched_data)
+ {
+     int r;
+@@ -6250,7 +6250,7 @@ static int deliver_merge_pollstatus(icalcomponent *ical, icalcomponent *request)
+ 
+ 
+ static void sched_pollstatus(const char *organizer,
+-			     struct sched_param *sparam, icalcomponent *ical,
++			     struct caldav_sched_param *sparam, icalcomponent *ical,
+ 			     const char *voter)
+ {
+     struct auth_state *authstate;
+@@ -6376,7 +6376,7 @@ deliver_merge_pollstatus(icalcomponent *ical __attribute__((unused)),
+ }
+ 
+ static void sched_pollstatus(const char *organizer __attribute__((unused)),
+-			     struct sched_param *sparam __attribute__((unused)),
++			     struct caldav_sched_param *sparam __attribute__((unused)),
+ 			     icalcomponent *ical __attribute__((unused)),
+ 			     const char *voter __attribute__((unused)))
+ {
+@@ -6708,7 +6708,7 @@ static int deliver_merge_request(const char *attendee,
+ 
+ /* Deliver scheduling object to local recipient */
+ static void sched_deliver_local(const char *recipient,
+-				struct sched_param *sparam,
++				struct caldav_sched_param *sparam,
+ 				struct sched_data *sched_data,
+ 				struct auth_state *authstate)
+ {
+@@ -6986,7 +6986,7 @@ void sched_deliver(const char *recipient, void *data, void *rock)
+ {
+     struct sched_data *sched_data = (struct sched_data *) data;
+     struct auth_state *authstate = (struct auth_state *) rock;
+-    struct sched_param sparam;
++    struct caldav_sched_param sparam;
+     int islegal;
+ 
+     /* Check SCHEDULE-FORCE-SEND value */
+@@ -7325,7 +7325,7 @@ static unsigned propcmp(icalcomponent *oldical, icalcomponent *newical,
+ 
+ 
+ /* Create and deliver an organizer scheduling request */
+-static void sched_request(const char *organizer, struct sched_param *sparam,
++static void sched_request(const char *organizer, struct caldav_sched_param *sparam,
+ 			  icalcomponent *oldical, icalcomponent *newical,
+ 			  const char *att_update)
+ {
+@@ -7607,7 +7607,7 @@ static icalcomponent *trim_attendees(icalcomponent *comp, const char *userid,
+ 	 prop;
+ 	 prop = nextprop) {
+ 	const char *att = get_recipient(prop);
+-	struct sched_param sparam;
++	struct caldav_sched_param sparam;
+ 
+ 	nextprop = icalcomponent_get_next_property(copy, recip_kind);
+ 
+diff --git a/imap/http_caldav_sched.h b/imap/http_caldav_sched.h
+index 5d8b2a9..9b66b81 100644
+--- a/imap/http_caldav_sched.h
++++ b/imap/http_caldav_sched.h
+@@ -109,7 +109,7 @@ struct proplist {
+ };
+ 
+ /* Each calendar user address has the following scheduling protocol params */
+-struct sched_param {
++struct caldav_sched_param {
+     char *userid;	/* Userid corresponding to calendar address */ 
+     char *server;	/* Remote server user lives on */
+     unsigned port;	/* Remote server port, default = 80 */
+@@ -119,7 +119,7 @@ struct sched_param {
+ 
+ extern icalarray *rscale_calendars;
+ extern const char *get_icalcomponent_errstr(icalcomponent *ical);
+-extern int isched_send(struct sched_param *sparam, const char *recipient,
++extern int isched_send(struct caldav_sched_param *sparam, const char *recipient,
+ 		       icalcomponent *ical, xmlNodePtr *xml);
+ 
+ extern int sched_busytime_query(struct transaction_t *txn,
+@@ -127,6 +127,6 @@ extern int sched_busytime_query(struct transaction_t *txn,
+ extern void sched_deliver(const char *recipient, void *data, void *rock);
+ extern xmlNodePtr xml_add_schedresponse(xmlNodePtr root, xmlNsPtr dav_ns,
+ 					xmlChar *recipient, xmlChar *status);
+-extern int caladdress_lookup(const char *addr, struct sched_param *param);
++extern int caladdress_lookup(const char *addr, struct caldav_sched_param *param);
+ 
+ #endif /* HTTP_CALDAV_SCHED_H */
+diff --git a/imap/http_ischedule.c b/imap/http_ischedule.c
+index fef11a0..e08bc80 100644
+--- a/imap/http_ischedule.c
++++ b/imap/http_ischedule.c
+@@ -540,7 +540,7 @@ static int meth_post_isched(struct transaction_t *txn,
+ 
+ 		while ((recipient = tok_next(&tok))) {
+ 		    /* Is recipient remote or local? */
+-		    struct sched_param sparam;
++		    struct caldav_sched_param sparam;
+ 		    int r = caladdress_lookup(recipient, &sparam);
+ 
+ 		    /* Don't allow scheduling with remote users via iSchedule */
+@@ -583,7 +583,7 @@ static int meth_post_isched(struct transaction_t *txn,
+ }
+ 
+ 
+-int isched_send(struct sched_param *sparam, const char *recipient,
++int isched_send(struct caldav_sched_param *sparam, const char *recipient,
+ 		icalcomponent *ical, xmlNodePtr *xml)
+ {
+     int r = 0;
