@@ -1,3 +1,10 @@
+cyrus-imapd (2.5.10-3) unstable; urgency=medium
+
+  * Rely on default tls_ciphers and tls_versions configurations
+    (Closes: #846082)
+
+ -- Ondřej Surý <ondrej@debian.org>  Wed, 07 Dec 2016 11:23:20 +0100
+
 cyrus-imapd (2.5.10-2) unstable; urgency=medium
 
   * Replace 'struct sched_param' with 'struct caldav_sched_param'
