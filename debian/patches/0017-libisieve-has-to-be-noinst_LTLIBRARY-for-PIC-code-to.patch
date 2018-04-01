@@ -1,4 +1,4 @@
-From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@sury.org>
+From: =?utf-8?b?T25kxZllaiBTdXLDvQ==?= <ondrej@sury.org>
 Date: Tue, 22 Sep 2015 11:47:11 +0200
 Subject: libisieve has to be noinst_LTLIBRARY for PIC code to compile
 
@@ -8,7 +8,7 @@ Subject: libisieve has to be noinst_LTLIBRARY for PIC code to compile
  2 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 69c84a0..c3fc51b 100644
+index 3d0c568..a10ad76 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -258,7 +258,7 @@ if SIEVE
@@ -20,7 +20,7 @@ index 69c84a0..c3fc51b 100644
  endif # PERL
  
  BUILT_SOURCES += sieve/addr.c sieve/sieve.c sieve/sieve_err.c
-@@ -1400,7 +1400,7 @@ perl_libcyrus_la_LIBADD = $(lib_libcyrus_la_LIBADD)
+@@ -1402,7 +1402,7 @@ nodist_perl_libcyrus_min_la_SOURCES = $(nodist_lib_libcyrus_min_la_SOURCES)
  perl_libcyrus_min_la_SOURCES = $(lib_libcyrus_min_la_SOURCES)
  perl_libcyrus_min_la_LIBADD = $(lib_libcyrus_min_la_LIBADD)
  

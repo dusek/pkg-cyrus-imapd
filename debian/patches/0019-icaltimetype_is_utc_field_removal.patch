@@ -1,26 +1,48 @@
-From 1966c22fc4249a1157a4d4c1224138ce78653514 Mon Sep 17 00:00:00 2001
 From: Ken Murchison <murch@andrew.cmu.edu>
 Date: Sat, 21 Oct 2017 19:04:08 -0400
 Subject: [PATCH] Account for the removal of icaltimetype.is_utc field in
  upcoming libical
-Bug-Debian: https://bugs.debian.org/883951
 
 ---
- configure.ac             |  5 +++++
- imap/http_caldav.c       |  2 +-
- imap/http_caldav_sched.c |  4 ++--
- imap/http_tzdist.c       | 22 +++++++++++-----------
- imap/ical_support.c      |  9 +++++++++
- imap/ical_support.h      |  2 ++
- imap/jmap_ical.c         |  4 ++--
- imap/xcal.c              |  4 ++--
- 8 files changed, 34 insertions(+), 18 deletions(-)
+ Makefile.am            |  4 ++++
+ configure.ac           |  5 +++++
+ imap/http_caldav.c     |  2 +-
+ imap/http_timezone.c   | 22 +++++++++++-----------
+ imap/ical_support.c    | 11 +++++++++++
+ imap/ical_support.h    |  6 ++++++
+ imap/xcal.c            |  4 ++--
+ tools/vzic/test-vzic.c |  2 +-
+ 8 files changed, 41 insertions(+), 15 deletions(-)
+ create mode 100644 imap/ical_support.c
+ create mode 100644 imap/ical_support.h
 
-Index: cyrus-imapd-2.5.10/configure.ac
-===================================================================
---- cyrus-imapd-2.5.10.orig/configure.ac
-+++ cyrus-imapd-2.5.10/configure.ac
-@@ -1251,6 +1251,11 @@
+diff --git a/Makefile.am b/Makefile.am
+index a10ad76..cb3c347 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -968,6 +968,8 @@ imap_libcyrus_imap_la_SOURCES += \
+ 	imap/http_timezone.c \
+ 	imap/httpd.c \
+ 	imap/httpd.h \
++	imap/ical_support.c \
++	imap/ical_support.h \
+ 	imap/jcal.c \
+ 	imap/jcal.h \
+ 	imap/json_support.h \
+@@ -1075,6 +1077,8 @@ imap_httpd_SOURCES = \
+ 	imap/http_rss.c \
+ 	imap/http_timezone.c \
+ 	imap/httpd.c \
++	imap/ical_support.c \
++	imap/ical_support.h \
+ 	imap/jcal.c \
+ 	imap/json_support.h \
+ 	imap/mutex_fake.c \
+diff --git a/configure.ac b/configure.ac
+index 1d321d1..1ecb317 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1268,6 +1268,11 @@ dnl
  		    AC_DEFINE(HAVE_RSCALE,[], [Build RSCALE support into httpd?]))
  	fi
  
@@ -32,11 +54,11 @@ Index: cyrus-imapd-2.5.10/configure.ac
  	LIBS="${saved_LIBS}"
  	CPPFLAGS="${saved_CPPFLAGS}"
  fi
-Index: cyrus-imapd-2.5.10/imap/http_caldav.c
-===================================================================
---- cyrus-imapd-2.5.10.orig/imap/http_caldav.c
-+++ cyrus-imapd-2.5.10/imap/http_caldav.c
-@@ -2014,7 +2014,7 @@
+diff --git a/imap/http_caldav.c b/imap/http_caldav.c
+index ce0b094..6ebe529 100644
+--- a/imap/http_caldav.c
++++ b/imap/http_caldav.c
+@@ -2023,7 +2023,7 @@ static struct icaltimetype icaltime_from_rfc3339_string(const char *str)
  	goto fail;
      }
  
@@ -45,26 +67,11 @@ Index: cyrus-imapd-2.5.10/imap/http_caldav.c
      return tt;
  
    fail:
-Index: cyrus-imapd-2.5.10/imap/xcal.c
-===================================================================
---- cyrus-imapd-2.5.10.orig/imap/xcal.c
-+++ cyrus-imapd-2.5.10/imap/xcal.c
-@@ -113,8 +113,8 @@
-     static char str[21];
-     const char *fmt;
- 
--    if (tt.is_date) fmt = "%04d-%02d-%02d";
--    else if (tt.is_utc) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
-+    if (icaltime_is_date(tt)) fmt = "%04d-%02d-%02d";
-+    else if (icaltime_is_utc(tt)) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
-     else fmt = "%04d-%02d-%02dT%02d:%02d:%02d";
- 
-     snprintf(str, sizeof(str), fmt, tt.year, tt.month, tt.day,
-Index: cyrus-imapd-2.5.10/imap/http_timezone.c
-===================================================================
---- cyrus-imapd-2.5.10.orig/imap/http_timezone.c
-+++ cyrus-imapd-2.5.10/imap/http_timezone.c
-@@ -388,7 +388,7 @@
+diff --git a/imap/http_timezone.c b/imap/http_timezone.c
+index 9b12069..6590f56 100644
+--- a/imap/http_timezone.c
++++ b/imap/http_timezone.c
+@@ -388,7 +388,7 @@ static int action_list(struct transaction_t *txn)
  	param = hash_lookup("changedsince", &txn->req_qparams);
  	if (param) {
  	    changedsince = icaltime_from_string(param->s);
@@ -73,7 +80,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  		return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
  					   param, &changedsince);
  	    }
-@@ -396,7 +396,7 @@
+@@ -396,7 +396,7 @@ static int action_list(struct transaction_t *txn)
  
  	name = hash_lookup("tzid", &txn->req_qparams);
  	if (name) {
@@ -82,7 +89,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  		return json_error_response(txn, TZ_INVALID_TZID,
  					   param, &changedsince);
  	    }
-@@ -589,7 +589,7 @@
+@@ -589,7 +589,7 @@ static const struct observance *truncate_vtimezone(icalcomponent *vtz,
  
  	/* Adjust DTSTART observance to UTC */
  	icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
@@ -91,7 +98,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  
  	/* Check DTSTART vs window close */
  	if (!icaltime_is_null_time(end) &&
-@@ -651,7 +651,7 @@
+@@ -651,7 +651,7 @@ static const struct observance *truncate_vtimezone(icalcomponent *vtz,
  		if (!infinite) {
  		    /* Adjust UNTIL to local time (for iterator) */
  		    icaltime_adjust(&rrule.until, 0, 0, 0, obs.offset_from);
@@ -100,7 +107,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  		}
  
  		if (trunc_dtstart) {
-@@ -675,7 +675,7 @@
+@@ -675,7 +675,7 @@ static const struct observance *truncate_vtimezone(icalcomponent *vtz,
  
  		    /* Adjust observance to UTC */
  		    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
@@ -109,7 +116,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  
  		    if (trunc_until && icaltime_compare(obs.onset, end) > 0) {
  			/* Observance is on/after window close */
-@@ -776,7 +776,7 @@
+@@ -776,7 +776,7 @@ static const struct observance *truncate_vtimezone(icalcomponent *vtz,
  
  	    /* Adjust observance to UTC */
  	    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
@@ -118,7 +125,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  
  	    if (!icaltime_is_null_time(end) &&
  		icaltime_compare(obs.onset, end) >= 0) {
-@@ -880,7 +880,7 @@
+@@ -880,7 +880,7 @@ static const struct observance *truncate_vtimezone(icalcomponent *vtz,
  	    case ICAL_DTSTART_PROPERTY:
  		/* Adjust window open to local time */
  		icaltime_adjust(&start, 0, 0, 0, tombstone.offset_from);
@@ -127,7 +134,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  
  		icalproperty_set_dtstart(prop, start);
  		break;
-@@ -1160,7 +1160,7 @@
+@@ -1160,7 +1160,7 @@ static int action_expand(struct transaction_t *txn)
      param = hash_lookup("changedsince", &txn->req_qparams);
      if (param) {
  	changedsince = icaltime_from_string(param->s);
@@ -136,7 +143,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  	    return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
  				       param, &changedsince);
  	}
-@@ -1171,13 +1171,13 @@
+@@ -1171,13 +1171,13 @@ static int action_expand(struct transaction_t *txn)
  	return json_error_response(txn, TZ_INVALID_START, param, NULL);
  
      start = icaltime_from_string(param->s);
@@ -152,7 +159,7 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  	    || icaltime_compare(end, start) <= 0) {  /* end MUST be > start */
  	    return json_error_response(txn, TZ_INVALID_END, param, &end);
  	}
-@@ -1435,7 +1435,7 @@
+@@ -1435,7 +1435,7 @@ static int json_error_response(struct transaction_t *txn, long tz_code,
      else if (param->next) fmt = "multiple %s parameters";
      else if (!param->s || !param->s[0]) fmt = "missing %s value";
      else if (!time) fmt = "unknown %s value";
@@ -161,45 +168,11 @@ Index: cyrus-imapd-2.5.10/imap/http_timezone.c
  
      switch (tz_code) {
      case TZ_INVALID_TZID:
-Index: cyrus-imapd-2.5.10/tools/vzic/test-vzic.c
-===================================================================
---- cyrus-imapd-2.5.10.orig/tools/vzic/test-vzic.c
-+++ cyrus-imapd-2.5.10/tools/vzic/test-vzic.c
-@@ -315,7 +315,7 @@
-   tt.hour = 0;
-   tt.minute = 0;
-   tt.second = 0;
--  tt.is_utc = 0;
-+  icaltime_set_utc(&tt, 0);
-   tt.is_date = 0;
-   tt.zone = "";
- 
-Index: cyrus-imapd-2.5.10/Makefile.am
-===================================================================
---- cyrus-imapd-2.5.10.orig/Makefile.am
-+++ cyrus-imapd-2.5.10/Makefile.am
-@@ -968,6 +968,8 @@
- 	imap/http_timezone.c \
- 	imap/httpd.c \
- 	imap/httpd.h \
-+	imap/ical_support.c \
-+	imap/ical_support.h \
- 	imap/jcal.c \
- 	imap/jcal.h \
- 	imap/json_support.h \
-@@ -1075,6 +1077,8 @@
- 	imap/http_rss.c \
- 	imap/http_timezone.c \
- 	imap/httpd.c \
-+	imap/ical_support.c \
-+	imap/ical_support.h \
- 	imap/jcal.c \
- 	imap/json_support.h \
- 	imap/mutex_fake.c \
-Index: cyrus-imapd-2.5.10/imap/ical_support.c
-===================================================================
+diff --git a/imap/ical_support.c b/imap/ical_support.c
+new file mode 100644
+index 0000000..95f875f
 --- /dev/null
-+++ cyrus-imapd-2.5.10/imap/ical_support.c
++++ b/imap/ical_support.c
 @@ -0,0 +1,11 @@
 +#include <config.h>
 +#include <libical/ical.h>
@@ -212,10 +185,11 @@ Index: cyrus-imapd-2.5.10/imap/ical_support.c
 +    icaltime_set_timezone(t, set ? icaltimezone_get_utc_timezone() : NULL);
 +#endif
 +}
-Index: cyrus-imapd-2.5.10/imap/ical_support.h
-===================================================================
+diff --git a/imap/ical_support.h b/imap/ical_support.h
+new file mode 100644
+index 0000000..0d7de69
 --- /dev/null
-+++ cyrus-imapd-2.5.10/imap/ical_support.h
++++ b/imap/ical_support.h
 @@ -0,0 +1,6 @@
 +#ifndef INCLUDED_ICAL_SUPPORT_H
 +#define INCLUDED_ICAL_SUPPORT_H
@@ -223,3 +197,31 @@ Index: cyrus-imapd-2.5.10/imap/ical_support.h
 +extern void icaltime_set_utc(struct icaltimetype *t, int set);
 +
 +#endif /* INCLUDED_ICAL_SUPPORT_H */
+diff --git a/imap/xcal.c b/imap/xcal.c
+index b5a5b6e..df2889a 100644
+--- a/imap/xcal.c
++++ b/imap/xcal.c
+@@ -113,8 +113,8 @@ const char *icaltime_as_iso_string(const struct icaltimetype tt)
+     static char str[21];
+     const char *fmt;
+ 
+-    if (tt.is_date) fmt = "%04d-%02d-%02d";
+-    else if (tt.is_utc) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
++    if (icaltime_is_date(tt)) fmt = "%04d-%02d-%02d";
++    else if (icaltime_is_utc(tt)) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
+     else fmt = "%04d-%02d-%02dT%02d:%02d:%02d";
+ 
+     snprintf(str, sizeof(str), fmt, tt.year, tt.month, tt.day,
+diff --git a/tools/vzic/test-vzic.c b/tools/vzic/test-vzic.c
+index be1c630..ed52d5e 100644
+--- a/tools/vzic/test-vzic.c
++++ b/tools/vzic/test-vzic.c
+@@ -315,7 +315,7 @@ dump_local_times (icaltimezone *zone, FILE *fp)
+   tt.hour = 0;
+   tt.minute = 0;
+   tt.second = 0;
+-  tt.is_utc = 0;
++  icaltime_set_utc(&tt, 0);
+   tt.is_date = 0;
+   tt.zone = "";
+ 

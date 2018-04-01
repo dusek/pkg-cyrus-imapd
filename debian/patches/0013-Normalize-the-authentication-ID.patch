@@ -16,10 +16,10 @@ By normalize, it is intended that;
  5 files changed, 31 insertions(+)
 
 diff --git a/imap/global.c b/imap/global.c
-index b038d3d..cd51b78 100644
+index 1910d84..37d07da 100644
 --- a/imap/global.c
 +++ b/imap/global.c
-@@ -277,6 +277,8 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
+@@ -278,6 +278,8 @@ EXPORTED int cyrus_init(const char *alt_config, const char *ident, unsigned flag
  				  config_getswitch(IMAPOPT_UNIX_GROUP_ENABLE));
  	libcyrus_config_setswitch(CYRUSOPT_USERNAME_TOLOWER,
  				  config_getswitch(IMAPOPT_USERNAME_TOLOWER));
@@ -68,10 +68,10 @@ index 1f034da..914ea0b 100644
  }
  
 diff --git a/lib/imapoptions b/lib/imapoptions
-index d80f081..5f7c523 100644
+index c2bf8dc..314defe 100644
 --- a/lib/imapoptions
 +++ b/lib/imapoptions
-@@ -2008,6 +2008,11 @@ product version in the capabilities */
+@@ -2037,6 +2037,11 @@ product version in the capabilities */
  /* The absolute path to the zoneinfo db file.  If not specified,
     will be confdir/zoneinfo.db */
  

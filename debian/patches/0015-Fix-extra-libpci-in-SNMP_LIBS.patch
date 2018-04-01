@@ -1,4 +1,5 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Debian Cyrus Team
+ <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
 Subject: Fix extra libpci in SNMP_LIBS
 

@@ -30,7 +30,7 @@ index 86dda00..fb7d757 100644
    my $fstk = [*STDIN, *STDOUT, *STDERR];
    if ($dorc && $systemrc ne '' && -f $systemrc) {
 diff --git a/perl/sieve/scripts/sieveshell.pl b/perl/sieve/scripts/sieveshell.pl
-index d69ed79..09085b3 100644
+index fe1f802..9d9c4be 100644
 --- a/perl/sieve/scripts/sieveshell.pl
 +++ b/perl/sieve/scripts/sieveshell.pl
 @@ -59,7 +59,9 @@ my $deletehelp =     "delete <name>    - delete script.\n";

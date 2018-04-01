@@ -1,4 +1,4 @@
-From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@debian.org>
+From: =?utf-8?b?T25kxZllaiBTdXLDvQ==?= <ondrej@debian.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
 Subject: Fix PATH_MAX on GNU/Hurd
 
@@ -39,7 +39,7 @@ index cddebf1..5eaa843 100644
  #define INADDR_NONE 0xffffffff
  #endif
 diff --git a/master/service.c b/master/service.c
-index 9871d5e..14f10db 100644
+index 3f25729..4479c67 100644
 --- a/master/service.c
 +++ b/master/service.c
 @@ -76,6 +76,10 @@

@@ -1,4 +1,4 @@
-From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@debian.org>
+From: =?utf-8?b?T25kxZllaiBTdXLDvQ==?= <ondrej@debian.org>
 Date: Tue, 4 Aug 2015 10:38:07 +0200
 Subject: Use UnicodeData.txt from system
 
@@ -7,7 +7,7 @@ Subject: Use UnicodeData.txt from system
  1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index 67e60f1..69c84a0 100644
+index 0251145..3d0c568 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1265,10 +1265,10 @@ lib_libcyrus_min_la_LIBADD = $(LTLIBOBJS)

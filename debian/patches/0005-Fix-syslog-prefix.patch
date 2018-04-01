@@ -14,7 +14,7 @@ log prefix.
  4 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/imap/global.c b/imap/global.c
-index bfe081c..b038d3d 100644
+index 0dffcef..1910d84 100644
 --- a/imap/global.c
 +++ b/imap/global.c
 @@ -148,6 +148,9 @@ static int get_facility(const char *name)

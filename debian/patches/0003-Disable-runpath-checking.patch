@@ -1,4 +1,5 @@
-From: Debian Cyrus Team <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
+From: Debian Cyrus Team
+ <pkg-cyrus-imapd-debian-devel@lists.alioth.debian.org>
 Date: Tue, 4 Aug 2015 10:38:04 +0200
 Subject: Disable runpath checking
 
@@ -8,7 +9,7 @@ Subject: Disable runpath checking
  1 file changed, 3 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 91db00f..1eb5c34 100644
+index 34be8a6..1d321d1 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -170,9 +170,6 @@ fi

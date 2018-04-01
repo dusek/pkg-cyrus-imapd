@@ -1,4 +1,4 @@
-From: =?utf-8?q?Ond=C5=99ej_Sur=C3=BD?= <ondrej@sury.org>
+From: =?utf-8?b?T25kxZllaiBTdXLDvQ==?= <ondrej@sury.org>
 Date: Sun, 6 Nov 2016 21:05:09 +0100
 Subject: Replace 'struct sched_param' with 'struct caldav_sched_param'
 
@@ -9,7 +9,7 @@ Subject: Replace 'struct sched_param' with 'struct caldav_sched_param'
  3 files changed, 23 insertions(+), 23 deletions(-)
 
 diff --git a/imap/http_caldav.c b/imap/http_caldav.c
-index 98c0f70..ef8caae 100644
+index a1b18bb..ce0b094 100644
 --- a/imap/http_caldav.c
 +++ b/imap/http_caldav.c
 @@ -362,7 +362,7 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
@@ -21,7 +21,7 @@ index 98c0f70..ef8caae 100644
  			  icalcomponent *oldical, icalcomponent *newical,
  			  const char *att_update);
  static void sched_reply(const char *userid,
-@@ -1154,7 +1154,7 @@ static int caldav_delete_sched(struct transaction_t *txn,
+@@ -1163,7 +1163,7 @@ static int caldav_delete_sched(struct transaction_t *txn,
  	const char *userid, *organizer, **hdr;
  	icalcomponent *ical, *comp;
  	icalproperty *prop;
@@ -30,7 +30,7 @@ index 98c0f70..ef8caae 100644
  
  	/* Load message containing the resource and parse iCal data */
  	ical = record_to_ical(mailbox, record);
-@@ -2441,7 +2441,7 @@ static int caldav_post(struct transaction_t *txn)
+@@ -2450,7 +2450,7 @@ static int caldav_post(struct transaction_t *txn)
      icalproperty_method meth = 0;
      icalproperty *prop = NULL;
      const char *uid = NULL, *organizer = NULL;
@@ -39,7 +39,7 @@ index 98c0f70..ef8caae 100644
  
      if (!(namespace_calendar.allow & ALLOW_CAL_SCHED) || !txn->req_tgt.flags) {
  	/* POST to regular calendar collection */
-@@ -2726,7 +2726,7 @@ static int caldav_put(struct transaction_t *txn,
+@@ -2734,7 +2734,7 @@ static int caldav_put(struct transaction_t *txn,
  	    /* Scheduling object resource */
  	    const char *userid;
  	    struct caldav_data *cdata;
@@ -48,7 +48,7 @@ index 98c0f70..ef8caae 100644
  	    icalcomponent *oldical = NULL;
  	    int r;
  
-@@ -5359,12 +5359,12 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
+@@ -5369,12 +5369,12 @@ static int store_resource(struct transaction_t *txn, icalcomponent *ical,
  }
  
  
@@ -63,7 +63,7 @@ index 98c0f70..ef8caae 100644
  
      if (!addr) return HTTP_NOT_FOUND;
  
-@@ -5571,7 +5571,7 @@ struct remote_rock {
+@@ -5582,7 +5582,7 @@ struct remote_rock {
  static void busytime_query_remote(const char *server __attribute__((unused)),
  				  void *data, void *rock)
  {
@@ -72,7 +72,7 @@ index 98c0f70..ef8caae 100644
      struct remote_rock *rrock = (struct remote_rock *) rock;
      icalcomponent *comp;
      struct proplist *list;
-@@ -5675,7 +5675,7 @@ static void busytime_query_remote(const char *server __attribute__((unused)),
+@@ -5686,7 +5686,7 @@ static void busytime_query_remote(const char *server __attribute__((unused)),
  
  static void free_sched_param(void *data)
  {
@@ -81,7 +81,7 @@ index 98c0f70..ef8caae 100644
  
      if (sched_param) {
  	struct proplist *prop, *next;
-@@ -5700,14 +5700,14 @@ int sched_busytime_query(struct transaction_t *txn,
+@@ -5711,14 +5711,14 @@ int sched_busytime_query(struct transaction_t *txn,
      char mailboxname[MAX_MAILBOX_BUFFER];
      icalproperty *prop = NULL, *next;
      const char *uid = NULL, *organizer = NULL;
@@ -98,7 +98,7 @@ index 98c0f70..ef8caae 100644
  
      if (!calendarprefix) {
  	calendarprefix = config_getstring(IMAPOPT_CALENDARPREFIX);
-@@ -5811,7 +5811,7 @@ int sched_busytime_query(struct transaction_t *txn,
+@@ -5822,7 +5822,7 @@ int sched_busytime_query(struct transaction_t *txn,
  	    remote = hash_lookup(key, &remote_table);
  	    if (!remote) {
  		/* New remote - add it to the hash table */
@@ -107,7 +107,7 @@ index 98c0f70..ef8caae 100644
  		if (sparam.server) remote->server = xstrdup(sparam.server);
  		remote->port = sparam.port;
  		remote->flags = sparam.flags;
-@@ -5945,7 +5945,7 @@ static void free_sched_data(void *data)
+@@ -5956,7 +5956,7 @@ static void free_sched_data(void *data)
  
  /* Deliver scheduling object to a remote recipient */
  static void sched_deliver_remote(const char *recipient,
@@ -116,7 +116,7 @@ index 98c0f70..ef8caae 100644
  				 struct sched_data *sched_data)
  {
      int r;
-@@ -6250,7 +6250,7 @@ static int deliver_merge_pollstatus(icalcomponent *ical, icalcomponent *request)
+@@ -6261,7 +6261,7 @@ static int deliver_merge_pollstatus(icalcomponent *ical, icalcomponent *request)
  
  
  static void sched_pollstatus(const char *organizer,
@@ -125,7 +125,7 @@ index 98c0f70..ef8caae 100644
  			     const char *voter)
  {
      struct auth_state *authstate;
-@@ -6376,7 +6376,7 @@ deliver_merge_pollstatus(icalcomponent *ical __attribute__((unused)),
+@@ -6387,7 +6387,7 @@ deliver_merge_pollstatus(icalcomponent *ical __attribute__((unused)),
  }
  
  static void sched_pollstatus(const char *organizer __attribute__((unused)),
@@ -134,7 +134,7 @@ index 98c0f70..ef8caae 100644
  			     icalcomponent *ical __attribute__((unused)),
  			     const char *voter __attribute__((unused)))
  {
-@@ -6708,7 +6708,7 @@ static int deliver_merge_request(const char *attendee,
+@@ -6719,7 +6719,7 @@ static int deliver_merge_request(const char *attendee,
  
  /* Deliver scheduling object to local recipient */
  static void sched_deliver_local(const char *recipient,
@@ -143,7 +143,7 @@ index 98c0f70..ef8caae 100644
  				struct sched_data *sched_data,
  				struct auth_state *authstate)
  {
-@@ -6986,7 +6986,7 @@ void sched_deliver(const char *recipient, void *data, void *rock)
+@@ -6998,7 +6998,7 @@ void sched_deliver(const char *recipient, void *data, void *rock)
  {
      struct sched_data *sched_data = (struct sched_data *) data;
      struct auth_state *authstate = (struct auth_state *) rock;
@@ -152,7 +152,7 @@ index 98c0f70..ef8caae 100644
      int islegal;
  
      /* Check SCHEDULE-FORCE-SEND value */
-@@ -7325,7 +7325,7 @@ static unsigned propcmp(icalcomponent *oldical, icalcomponent *newical,
+@@ -7337,7 +7337,7 @@ static unsigned propcmp(icalcomponent *oldical, icalcomponent *newical,
  
  
  /* Create and deliver an organizer scheduling request */
@@ -161,7 +161,7 @@ index 98c0f70..ef8caae 100644
  			  icalcomponent *oldical, icalcomponent *newical,
  			  const char *att_update)
  {
-@@ -7607,7 +7607,7 @@ static icalcomponent *trim_attendees(icalcomponent *comp, const char *userid,
+@@ -7619,7 +7619,7 @@ static icalcomponent *trim_attendees(icalcomponent *comp, const char *userid,
  	 prop;
  	 prop = nextprop) {
  	const char *att = get_recipient(prop);
