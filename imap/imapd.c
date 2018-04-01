@@ -58,6 +58,9 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
+#include <stdbool.h>
+#include <errno.h>
 
 #include <sasl/sasl.h>
 
@@ -253,6 +256,14 @@ struct list_rock {
     struct listargs *listargs;
     char *last_name;
     int last_attributes;
+    int (*findall)(struct namespace *namespace,
+		   const char *pattern, int isadmin, const char *userid,
+		   struct auth_state *auth_state, int (*proc)(),
+		   void *rock);
+    int (*findsub)(struct namespace *namespace,
+		   const char *pattern, int isadmin, const char *userid,
+		   struct auth_state *auth_state, int (*proc)(),
+		   void *rock, int force);
 };
 
 /* Information about one mailbox name that LIST returns */
@@ -2858,6 +2869,25 @@ static void cmd_id(char *tag)
     imapd_id.did_id = 1;
 }
 
+static bool deadline_exceeded(const struct timespec *d)
+{
+    struct timespec now;
+
+    if (d->tv_sec <= 0) {
+	/* No deadline configured */
+	return false;
+    }
+
+    errno = 0;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) == -1) {
+	syslog(LOG_ERR, "clock_gettime (%d %m): error reading clock", errno);
+	return false;
+    }
+
+    return now.tv_sec > d->tv_sec ||
+	    (now.tv_sec == d->tv_sec && now.tv_nsec > d->tv_nsec);
+}
+
 /*
  * Perform an IDLE command
  */
@@ -2867,6 +2897,26 @@ static void cmd_idle(char *tag)
     int flags;
     static struct buf arg;
     static int idle_period = -1;
+    static time_t idle_timeout = -1;
+    struct timespec deadline = { 0, 0 };
+
+    if (idle_timeout == -1) {
+	idle_timeout = config_getint(IMAPOPT_IMAPIDLETIMEOUT);
+	if (idle_timeout <= 0) {
+	    idle_timeout = config_getint(IMAPOPT_TIMEOUT);
+	}
+	idle_timeout *= 60; /* unit is minutes */
+    }
+
+    if (idle_timeout > 0) {
+	errno = 0;
+	if (clock_gettime(CLOCK_MONOTONIC, &deadline) == -1) {
+	    syslog(LOG_ERR, "clock_gettime (%d %m): error reading clock",
+		errno);
+	} else {
+	    deadline.tv_sec += idle_timeout;
+	}
+    }
 
     if (!backend_current) {  /* Local mailbox */
 
@@ -2883,6 +2933,13 @@ static void cmd_idle(char *tag)
 
 	index_release(imapd_index);
 	while ((flags = idle_wait(imapd_in->fd))) {
+	    if (deadline_exceeded(&deadline)) {
+		syslog(LOG_DEBUG, "timeout for user '%s' while idling",
+		    imapd_userid);
+		shut_down(0);
+		break;
+	    }
+
 	    if (flags & IDLE_INPUT) {
 		/* Get continuation data */
 		c = getword(imapd_in, &arg);
@@ -2915,7 +2972,8 @@ static void cmd_idle(char *tag)
 	idle_stop(index_mboxname(imapd_index));
     }
     else {  /* Remote mailbox */
-	int done = 0, shutdown = 0;
+	int done = 0;
+	enum { shutdown_skip, shutdown_bye, shutdown_silent } shutdown = shutdown_skip;
 	char buf[2048];
 
 	/* get polling period */
@@ -2947,6 +3005,14 @@ static void cmd_idle(char *tag)
 
 	/* Pipe updates to client while waiting for end of command */
 	while (!done) {
+	    if (deadline_exceeded(&deadline)) {
+		syslog(LOG_DEBUG,
+		    "timeout for user '%s' while idling on remote mailbox",
+		    imapd_userid);
+		shutdown = shutdown_silent;
+		goto done;
+	    }
+
 	    /* Flush any buffered output */
 	    prot_flush(imapd_out);
 
@@ -2955,7 +3021,8 @@ static void cmd_idle(char *tag)
 		(shutdown_file(buf, sizeof(buf)) ||
 		 (imapd_userid && 
 		  userdeny(imapd_userid, config_ident, buf, sizeof(buf))))) {
-		shutdown = done = 1;
+		done = 1;
+		shutdown = shutdown_bye;
 		goto done;
 	    }
 
@@ -2979,12 +3046,20 @@ static void cmd_idle(char *tag)
 	    pipe_until_tag(backend_current, tag, 0);
 	}
 
-	if (shutdown) {
+	switch (shutdown) {
+	case shutdown_bye:
+	    ;
 	    char *p;
 
 	    for (p = buf; *p == '['; p++); /* can't have [ be first char */
 	    prot_printf(imapd_out, "* BYE [ALERT] %s\r\n", p);
+	    /* fallthrough */
+	case shutdown_silent:
 	    shut_down(0);
+	    break;
+	case shutdown_skip:
+	default:
+	    break;
 	}
     }
 
@@ -6015,6 +6090,13 @@ static void cmd_rename(char *tag, char *oldname, char *newname, char *location)
 	return;
     }
 
+    if (location && strcmp(oldname, newname)) {
+	prot_printf(imapd_out,
+		    "%s NO Cross-server or cross-partition move w/rename not supported\r\n",
+		    tag);
+	return;
+    }
+
     /* canonicalize names */
     r = (*imapd_namespace.mboxname_tointernal)(
 	    &imapd_namespace,
@@ -6067,38 +6149,40 @@ static void cmd_rename(char *tag, char *oldname, char *newname, char *location)
 	    char *destserver = NULL;
 	    char *destpart = NULL;
 
-	    destserver = xstrdupnull(location);
 	    c = strchr(location, '!');
 	    if (c) {
-		*c++ = '\0';
-		destpart = xstrdupnull(c);
+		destserver = xstrndup(location, c - location);
+		destpart = xstrdup(c + 1);
 	    } else {
 		destpart = xstrdup(location);
-		free(destserver);
 	    }
 
-	    if (destserver) {
-		if (destpart && !strcmp(destserver,config_servername)) {
-		    // XFER
-		    prot_printf(s->out,
-			    "%s XFER \"%s\" \"%s\" %s\r\n",
-			    tag,
-			    oldname,
-			    newname,
-			    location
-			);
+	    if (*destpart == '\0') {
+		free(destpart);
+		destpart = NULL;
+	    }
 
-		} else {
-		    // RENAME
-		    prot_printf(s->out,
+	    if (!destserver || !strcmp(destserver, mbentry->server)) {
+		/* same server: proxy a rename */
+		prot_printf(s->out,
 			    "%s RENAME \"%s\" \"%s\" %s\r\n",
 			    tag,
 			    oldname,
 			    newname,
-			    location
-			);
-		}
-	    } // (destserver)
+			    location);
+	    } else {
+		/* different server: proxy an xfer */
+		prot_printf(s->out,
+			    "%s XFER \"%s\" %s%s%s\r\n",
+			    tag,
+			    oldname,
+			    destserver,
+			    destpart ? " " : "",
+			    destpart ? destpart : "");
+	    }
+
+	    if (destserver) free(destserver);
+	    if (destpart) free(destpart);
 
 	    res = pipe_until_tag(s, tag, 0);
 
@@ -6145,20 +6229,14 @@ static void cmd_rename(char *tag, char *oldname, char *newname, char *location)
     if (location && !config_partitiondir(location)) {
 	/* invalid partition, assume its a server (remote destination) */
 	char *server;
-
-	if (strcmp(oldname, newname)) {
-	    prot_printf(imapd_out,
-			"%s NO Cross-server or cross-partition move w/rename not supported\r\n",
-			tag);
-	    goto done;
-	}
+	char *partition;
 
 	/* dest partition? */
 	server = location;
-	location = strchr(server, '!');
-	if (location) *location++ = '\0';
+	partition = strchr(location, '!');
+	if (partition) *partition++ = '\0';
 
-	cmd_xfer(tag, oldname, server, location);
+	cmd_xfer(tag, oldname, server, partition);
 
 	goto done;
     }
@@ -7057,6 +7135,18 @@ static void cmd_setacl(char *tag, const char *name,
 
     /* local mailbox */
     if (!r) {
+	char *err;
+
+	/* send BAD response if rights string contains unrecognised chars */
+	if (rights && *rights) {
+	    r = cyrus_acl_checkstr(rights, &err);
+	    if (r) {
+		prot_printf(imapd_out, "%s BAD %s\r\n", tag, err);
+		free(err);
+		return;
+	    }
+	}
+
 	r = mboxlist_setacl(&imapd_namespace, mailboxname, identifier, rights,
 			    imapd_userisadmin || imapd_userisproxyadmin,
 			    proxy_userid, imapd_authstate);
@@ -11163,6 +11253,7 @@ static void freesearchargs(struct searchargs *s)
     freestrlist(s->cc);
     freestrlist(s->bcc);
     freestrlist(s->subject);
+    freestrlist(s->messageid);
     freestrlist(s->body);
     freestrlist(s->text);
     freestrlist(s->header_name);
@@ -11566,10 +11657,19 @@ static int list_cb(char *name, int matchlen, int maycreate,
 	rock->last_attributes |= MBOX_ATTRIBUTE_HASCHILDREN;
 
     /* XXX: is there a cheaper way to figure out \Subscribed? */
-    if (rock->listargs->ret & LIST_RET_SUBSCRIBED)
-	mboxlist_findsub(&imapd_namespace, name, imapd_userisadmin,
-			 imapd_userid, imapd_authstate, set_subscribed,
-			 &rock->last_attributes, 0);
+    if (rock->listargs->ret & LIST_RET_SUBSCRIBED) {
+	char namebuf[MAX_MAILBOX_PATH] = {0};
+
+	/* XXX mboxlist_findsub and mboxlist_findsub_alt need input that uses
+	 * internal namespace separator, but external namespace names
+	 */
+	(*imapd_namespace.mboxname_toexternal)(&imapd_namespace, name, imapd_userid, namebuf);
+	mboxname_hiersep_tointernal(&imapd_namespace, namebuf, strlen(namebuf));
+
+	rock->findsub(&imapd_namespace, namebuf, imapd_userisadmin,
+		      imapd_userid, imapd_authstate, set_subscribed,
+		      &rock->last_attributes, 0);
+    }
 
     return 0;
 }
@@ -11791,6 +11891,8 @@ static void list_data(struct listargs *listargs)
 	struct list_rock rock;
 	memset(&rock, 0, sizeof(struct list_rock));
 	rock.listargs = listargs;
+	rock.findall = findall;
+	rock.findsub = findsub;
 
 	if (listargs->sel & LIST_SEL_SUBSCRIBED) {
 	    for (pattern = listargs->pat.data ; pattern && *pattern ; pattern++) {
@@ -11835,24 +11937,28 @@ static int list_data_remote(char *tag, struct listargs *listargs)
     if (listargs->cmd & LIST_CMD_LSUB) {
 	prot_printf(backend_inbox->out, "%s Lsub ", tag);
     } else {
-	const char *select_opts[] = {
-	    /* XXX  MUST be in same order as LIST_SEL_* bitmask */
-	    "subscribed", "remote", "recursivematch",
-	    "special-use", NULL
-	};
-	char c = '(';
-	int i;
-
 	prot_printf(backend_inbox->out, "%s List ", tag);
-	for (i = 0; select_opts[i]; i++) {
-	    unsigned opt = (1 << i);
 
-	    if (!(listargs->sel & opt)) continue;
+	/* print list selection options */
+	if (listargs->sel) {
+	    const char *select_opts[] = {
+		/* XXX  MUST be in same order as LIST_SEL_* bitmask */
+		"subscribed", "remote", "recursivematch",
+		"special-use", NULL
+	    };
+	    char c = '(';
+	    int i;
 
-	    prot_printf(backend_inbox->out, "%c%s", c, select_opts[i]);
-	    c = ' ';
+	    for (i = 0; select_opts[i]; i++) {
+		unsigned opt = (1 << i);
+
+		if (!(listargs->sel & opt)) continue;
+
+		prot_printf(backend_inbox->out, "%c%s", c, select_opts[i]);
+		c = ' ';
+	    }
+	    prot_puts(backend_inbox->out, ") ");
 	}
-	prot_puts(backend_inbox->out, ") ");
     }
 
     /* print reference argument */

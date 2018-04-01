@@ -170,7 +170,7 @@ static int getbody(void *mc, const char **content_types,
        sieve_bodypart_t as defined in sieve_interface.h, so we can typecast */
     if (!r) message_fetch_part(mydata->content, content_types,
 			       (struct bodypart ***) parts);
-    return (!r ? SIEVE_OK : SIEVE_FAIL);
+    return r ? SIEVE_FAIL : SIEVE_OK;
 }
 
 
@@ -635,7 +635,7 @@ static int send_response(void *ac,
 {
     FILE *sm;
     const char *smbuf[10];
-    char outmsgid[8192], *sievedb;
+    char outmsgid[8192], *sievedb, *subj;
     int i, sl, sm_stat;
     time_t t;
     char datestr[RFC822_DATETIME_MAX+1];
@@ -678,7 +678,9 @@ static int send_response(void *ac,
 	    src->subj[i] = '\0';
 	    break;
 	}
-    fprintf(sm, "Subject: %s\r\n", src->subj);
+    subj = charset_encode_mimeheader(src->subj, strlen(src->subj));
+    fprintf(sm, "Subject: %s\r\n", subj);
+    free(subj);
     if (md->id) fprintf(sm, "In-Reply-To: %s\r\n", md->id);
     fprintf(sm, "Auto-Submitted: auto-replied (vacation)\r\n");
     fprintf(sm, "MIME-Version: 1.0\r\n");

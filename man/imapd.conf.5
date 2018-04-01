@@ -62,6 +62,7 @@ Although there is no limit to the length of a line, a ``\\''
 force it to continue on the next one.  No additional whitespace is
 inserted before or after the ``\\''.  Note that a line that is split
 using ``\\'' character(s) is still considered a single line.
+
 For example
 .IP
 \fIoption\fR:\\
@@ -207,6 +208,7 @@ File containing external (third-party) annotation definitions.
 .PP
 Each line of the file specifies the properties of an annotation and
 has the following form:
+
 .IP
 \fIname\fR, \fIscope\fR, \fIattrib-type\fR, \fIproxy-type\fR,
 \fIattrib-names\fR, \fIacl\fR
@@ -316,6 +318,7 @@ INBOX folders are created under both the following conditions:
 .IP 1.
 The user logins via the IMAP or the POP3 protocol.
 \fIautocreate_quota\fR option must have a value of zero or greater.
+.\"
 .IP 2.
 A message arrives for the user through the \fIlmtpd(8)\fR.
 \fIautocreate_post\fR option must be enabled.
@@ -542,16 +545,22 @@ mailboxes.
 .RE
 .IP "\fBdeletedprefix:\fR DELETED" 5
 .RS 5
-If "delete_mode" set to be "delayed", the prefix for the deleted
-mailboxes hierarchy.  The hierarchy delimiter will be automatically
-appended. 
+With \fBdelete_mode\fR set to \fIdelayed\fR, the
+\fBdeletedprefix\fR setting defines the prefix for the hierarchy of
+deleted mailboxes.
+.PP
+The hierarchy delimiter will be automatically appended.
+
 .RE
 .IP "\fBdelete_mode:\fR delayed" 5
 .RS 5
-The manner in which mailboxes are deleted. "immediate" mode is the
-default behavior in which mailboxes are removed immediately.  In
-"delayed" mode, mailboxes are renamed to a special hiearchy defined
-by the "deletedprefix" option to be removed later by cyr_expire.
+The manner in which mailboxes are deleted. In the default
+\fIdelayed\fR mode, mailboxes that are being deleted are renamed to
+a special mailbox hierarchy under the \fBdeletedprefix\fR, to be
+removed later by \fBcyr_expire(8)\fR.
+.PP
+In \fIimmediate\fR mode, the mailbox is removed from the filesystem
+immediately.
 
 
 Allowed values: \fIimmediate\fR, \fIdelayed\fR
@@ -651,10 +660,12 @@ the RFC 5423.  If not set, "EVENT" notifications are disabled.
 .IP "\fBexpunge_mode:\fR delayed" 5
 .RS 5
 The mode in which messages (and their corresponding cache entries)
-are expunged.  "default" mode is the default behavior in which the
+are expunged.  "default" mode is the old behavior in which the
 message files are purged at the time of the EXPUNGE, but index
-and cache records are retained to facilitate QRESYNC.  In "delayed"
-mode, the message files are also retained, allowing unexpunge to
+and cache records are retained to facilitate QRESYNC.  (Note that
+this behaviour is no longer the default, but is so named for historical
+reasons.)  In "delayed" mode, which is the default since Cyrus 2.5.0,
+the message files are also retained, allowing unexpunge to
 rescue them.  In "immediate" mode, both the message files and the
 index records are removed as soon as possible.  In all cases,
 nothing will be finally purged until all other processes have
@@ -792,7 +803,7 @@ sent across the wire.
 .RE
 .IP "\fBhttptimeout:\fR 5" 5
 .RS 5
-Set the length of the HTTP server's inactivity autologout timer,    
+Set the length of the HTTP server's inactivity autologout timer,
 in minutes.  The default is 5.  The minimum value is 0, which will
 disable persistent connections. 
 .RE
@@ -1323,12 +1334,16 @@ notifications.
 .PP
 The external program will be called with the following
 command line options:
+
 .TP
 .BI \-c " class"
+.\"
 .TP
 .BI \-p " priority"
+.\"
 .TP
 .BI \-u " user"
+.\"
 .TP
 .BI \-m " mailbox"
 .PP
@@ -1349,13 +1364,17 @@ Partition selection mode.
 .PP
 .IP \fIrandom\fR 5
 (pseudo-)random selection
+.\"
 .IP \fIfreespace-most\fR 5
 partition with the most free space (KiB)
+.\"
 .IP \fIfreespace-percent-most\fR 5
 partition with the most free space (%)
+.\"
 .IP \fIfreespace-percent-weighted\fR 5
 each partition is weighted according to its free space (%); the more free space
 the partition has, the more chances it has to be selected
+.\"
 .IP \fIfreespace-percent-weighted-delta\fR 5
 each partition is weighted according to its difference of free space (%)
 compared to the most used partition; the more the partition is lagging behind
@@ -1467,7 +1486,7 @@ the "shared.blah" folder.  By default, an email address of
 .IP "\fBproc_path:\fR <none>" 5
 .RS 5
 Path to proc directory.  Default is NULL - must be an absolute path
-if specified.  If not specified, the path $confdir/proc/ will be 
+if specified.  If not specified, the path $confdir/proc/ will be
 used. 
 .RE
 .IP "\fBproxy_authname:\fR proxy" 5
@@ -1671,7 +1690,7 @@ requires some amount of encryption.
 .RE
 .IP "\fBsasl_option:\fR 0" 5
 .RS 5
-Any SASL option can be set by preceding it with "sasl_".  This
+Any SASL option can be set by preceding it with \fBsasl_\fR.  This
 file overrides the SASL configuration file. 
 .RE
 .IP "\fBsasl_pwcheck_method:\fR <none>" 5
@@ -1719,13 +1738,17 @@ Server selection mode.
 .PP
 .IP \fIrandom\fR 5
 (pseudo-)random selection
+.\"
 .IP \fIfreespace-most\fR 5
 backend with the most (total) free space (KiB)
+.\"
 .IP \fIfreespace-percent-most\fR 5
 backend whose partition has the most free space (%)
+.\"
 .IP \fIfreespace-percent-weighted\fR 5
 same as for partition selection, comparing the free space (%) of the least used
 partition of each backend
+.\"
 .IP \fIfreespace-percent-weighted-delta\fR 5
 same as for partition selection, comparing the free space (%) of the least used
 partition of each backend
@@ -1761,6 +1784,7 @@ the new master on failover.
 .RS 5
 The server information to display in the greeting and capability
 responses. Information is displayed as follows:
+
 .IP
 "off" = no server information in the greeting or capabilities
 .br
@@ -2034,6 +2058,12 @@ The pathname to store temporary files in
 .RS 5
 The length of the IMAP server's inactivity autologout timer,
 in minutes.  The minimum value is 30, the default. 
+.RE
+.IP "\fBimapidletimeout:\fR 0" 5
+.RS 5
+Timeout for idling clients (RFC 2177) in minutes. If set to
+zero (the default) or less, the value of "timeout" will be
+used instead. 
 .RE
 .IP "\fBtls_ca_file:\fR DEFAULT" 5
 Deprecated in favor of \fItls_client_ca_file\fR. 

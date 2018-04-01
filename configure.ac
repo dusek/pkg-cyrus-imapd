@@ -294,7 +294,9 @@ case "$with_mysql" in
 	;;
   yes)
 	# Find mysql_config in $PATH
-	mysql_config=mysql_config
+	AC_PATH_PROG(mysql_config, mysql_config, [])
+	AS_IF([test -z "$mysql_config"],
+	    AC_MSG_ERROR([The mysql_config program was not found]))
 	;;
   *)
 	# Find mysql_config in the specified directory
@@ -455,6 +457,21 @@ if test "$enable_sieve" != "no"; then
 fi
 
 AM_CONDITIONAL([SIEVE], [test "${enable_sieve}" != "no"])
+
+dnl look for an option to disable sign-comparison warnings (needed for
+dnl flex-generated sieve sources when building with -Werror)
+saved_CFLAGS="$CFLAGS"
+NOWARN_SIGN_COMPARE="-Wno-sign-compare"
+CFLAGS="$NOWARN_SIGN_COMPARE"
+AC_MSG_CHECKING([whether the C compiler supports -Wno-sign-compare])
+AC_COMPILE_IFELSE(
+    [AC_LANG_PROGRAM([], [])],
+    [AC_MSG_RESULT([yes])],
+    [NOWARN_SIGN_COMPARE=]
+    [AC_MSG_RESULT([no])]
+)
+CFLAGS="$saved_CFLAGS"
+AC_SUBST([NOWARN_SIGN_COMPARE])
 
 dnl for et routines
 AC_FUNC_CHECK(strerror,AC_DEFINE(HAS_STRERROR,[],[Do we have strerror()?]),
@@ -808,9 +825,9 @@ AM_CONDITIONAL([PTCLIENT], [test "x$enable_afs" = "xyes" -o "$have_ldap" = "yes"
 
 AC_ARG_WITH(
     clamav,
-    [  --with-clamav=DIR use ClamAV from PATH (yes)],
+    [AS_HELP_STRING([--with-clamav=DIR], [use ClamAV from PATH (no)])],
     with_clamav=$withval,
-    with_clamav=yes
+    with_clamav=no
 )
 
 if test "$with_clamav" != no; then
@@ -847,7 +864,7 @@ if test "$with_clamav" != "no"; then
 fi
 
 AC_SUBST(LIB_CLAMAV)
-AM_CONDITIONAL([HAVE_CLAMAV], [test "$have_clamav" = "yes"])
+AM_CONDITIONAL([HAVE_CLAMAV], [test "$with_clamav" != "no"])
 
 AC_ARG_ENABLE(server,
 	[AS_HELP_STRING([--disable-server], [disable compiling servers])])
@@ -1795,6 +1812,7 @@ External dependencies:
    ldap:               $have_ldap
    openssl:            $with_ssl
    pcre:               $cyrus_cv_pcre_utf8
+   clamav:             $with_clamav
 
 Database support:
    bdb:                $use_berkeley

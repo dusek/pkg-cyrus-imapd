@@ -269,6 +269,7 @@ static struct meth_params carddav_params = {
     { (db_open_proc_t) &my_carddav_open,
       (db_close_proc_t) &my_carddav_close,
       (db_lookup_proc_t) &carddav_lookup_resource,
+      (db_release_proc_t) &carddav_data_fini,
       (db_foreach_proc_t) &carddav_foreach,
       (db_write_proc_t) &carddav_write,
       (db_delete_proc_t) &carddav_delete,
@@ -363,9 +364,7 @@ static void my_carddav_auth(const char *userid)
 {
     int r;
     struct buf boxbuf = BUF_INITIALIZER;
-    const char *mailboxname;
-
-    mailboxname = mboxname_user_mbox(userid, NULL);
+    char *mailboxname;
 
     if (httpd_userisadmin ||
 	global_authisa(httpd_authstate, IMAPOPT_PROXYSERVERS)) {
@@ -391,10 +390,12 @@ static void my_carddav_auth(const char *userid)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	if (config_mupdate_server) {
 	    /* Find location of INBOX */
-	    const char *inboxname = mboxname_user_mbox(userid, NULL);
+	    char *inboxname = mboxname_user_mbox(userid, NULL);
 	    mbentry_t *mbentry = NULL;
 
 	    r = http_mlookup(inboxname, &mbentry, NULL);
+	    free(inboxname);
+
 	    if (!r && mbentry->server) {
 		proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				 &backend_cached, NULL, NULL, httpd_in);
@@ -405,6 +406,8 @@ static void my_carddav_auth(const char *userid)
 	}
 	else r = 0;
 
+	/* will have been overwritten */
+	free(mailboxname);
 	mailboxname = mboxname_user_mbox(userid, buf_cstring(&boxbuf));
 
 	/* XXX - set rights */
@@ -415,12 +418,14 @@ static void my_carddav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
     if (r) return;
 
     /* Default addressbook */
     buf_setcstr(&boxbuf, config_getstring(IMAPOPT_ADDRESSBOOKPREFIX));
     buf_printf(&boxbuf, ".%s", DEFAULT_ADDRBOOK);
     mailboxname = mboxname_user_mbox(userid, buf_cstring(&boxbuf));
+    buf_free(&boxbuf);
     r = mboxlist_lookup(mailboxname, NULL, NULL);
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	/* XXX - set rights */
@@ -431,6 +436,7 @@ static void my_carddav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
 }
 
 
@@ -551,10 +557,11 @@ static int carddav_parse_path(const char *path,
         buf_putc(&boxbuf, '.');
         buf_appendmap(&boxbuf, tgt->collection, tgt->collen);
     }
-    parts.box = buf_release(&boxbuf);
+    parts.box = buf_release(&boxbuf); /* tricky, we now need to free parts.box separately */
 
     mboxname_parts_to_internal(&parts, tgt->mboxname);
 
+    free((char *) parts.box); /* n.b. casting away constness */
     mboxname_free_parts(&parts);
 
     return 0;
@@ -830,6 +837,7 @@ static int report_card_query(struct transaction_t *txn,
     fctx->open_db = (db_open_proc_t) &my_carddav_open;
     fctx->close_db = (db_close_proc_t) &my_carddav_close;
     fctx->lookup_resource = (db_lookup_proc_t) &carddav_lookup_resource;
+    fctx->release_resource = (db_release_proc_t) &carddav_data_fini;
     fctx->foreach_resource = (db_foreach_proc_t) &carddav_foreach;
     fctx->proc_by_resource = &propfind_by_resource;
 
@@ -931,6 +939,8 @@ static int report_card_multiget(struct transaction_t *txn,
 	    /* XXX  Check errors */
 
 	    propfind_by_resource(fctx, cdata);
+
+	    carddav_data_fini(cdata);
 
 	    my_carddav_close(fctx->davdb);
 	}
@@ -1153,5 +1163,6 @@ static int store_resource(struct transaction_t *txn, struct vparse_card *vcard,
     append_removestage(stage);
 
 done:
+    carddav_data_fini(cdata);
     return ret;
 }

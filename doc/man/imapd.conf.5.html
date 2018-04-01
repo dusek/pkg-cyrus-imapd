@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.22.3 -->
-<!-- CreationDate: Mon Oct 17 22:16:15 2016 -->
+<!-- CreationDate: Tue May  9 03:22:55 2017 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -64,8 +64,9 @@ used as the last character on a line to force it to continue
 on the next one. No additional whitespace is inserted before
 or after the &rsquo;&rsquo;\&rsquo;&rsquo;. Note that a line
 that is split using &rsquo;&rsquo;\&rsquo;&rsquo;
-character(s) is still considered a single line. For
-example</p>
+character(s) is still considered a single line.</p>
+
+<p style="margin-left:11%; margin-top: 1em">For example</p>
 
 
 <p style="margin-left:22%; margin-top: 1em"><i>option</i>:\</p>
@@ -820,19 +821,24 @@ the most free space will be used for new mailboxes.</p>
 <p style="margin-left:11%;"><b>deletedprefix:</b>
 DELETED</p>
 
-<p style="margin-left:18%;">If &quot;delete_mode&quot; set
-to be &quot;delayed&quot;, the prefix for the deleted
-mailboxes hierarchy. The hierarchy delimiter will be
-automatically appended.</p>
+<p style="margin-left:18%;">With <b>delete_mode</b> set to
+<i>delayed</i>, the <b>deletedprefix</b> setting defines the
+prefix for the hierarchy of deleted mailboxes.</p>
+
+<p style="margin-left:18%; margin-top: 1em">The hierarchy
+delimiter will be automatically appended.</p>
 
 <p style="margin-left:11%;"><b>delete_mode:</b> delayed</p>
 
 <p style="margin-left:18%;">The manner in which mailboxes
-are deleted. &quot;immediate&quot; mode is the default
-behavior in which mailboxes are removed immediately. In
-&quot;delayed&quot; mode, mailboxes are renamed to a special
-hiearchy defined by the &quot;deletedprefix&quot; option to
-be removed later by cyr_expire.</p>
+are deleted. In the default <i>delayed</i> mode, mailboxes
+that are being deleted are renamed to a special mailbox
+hierarchy under the <b>deletedprefix</b>, to be removed
+later by <b>cyr_expire(8)</b>.</p>
+
+<p style="margin-left:18%; margin-top: 1em">In
+<i>immediate</i> mode, the mailbox is removed from the
+filesystem immediately.</p>
 
 <p style="margin-left:18%; margin-top: 1em">Allowed values:
 <i>immediate</i>, <i>delayed</i></p>
@@ -1002,16 +1008,18 @@ delayed</p>
 
 <p style="margin-left:18%;">The mode in which messages (and
 their corresponding cache entries) are expunged.
-&quot;default&quot; mode is the default behavior in which
-the message files are purged at the time of the EXPUNGE, but
+&quot;default&quot; mode is the old behavior in which the
+message files are purged at the time of the EXPUNGE, but
 index and cache records are retained to facilitate QRESYNC.
-In &quot;delayed&quot; mode, the message files are also
-retained, allowing unexpunge to rescue them. In
-&quot;immediate&quot; mode, both the message files and the
-index records are removed as soon as possible. In all cases,
-nothing will be finally purged until all other processes
-have closed the mailbox to ensure they never see data
-disappear under them. In &quot;default&quot; or
+(Note that this behaviour is no longer the default, but is
+so named for historical reasons.) In &quot;delayed&quot;
+mode, which is the default since Cyrus 2.5.0, the message
+files are also retained, allowing unexpunge to rescue them.
+In &quot;immediate&quot; mode, both the message files and
+the index records are removed as soon as possible. In all
+cases, nothing will be finally purged until all other
+processes have closed the mailbox to ensure they never see
+data disappear under them. In &quot;default&quot; or
 &quot;delayed&quot; mode, a later run of
 &quot;cyr_expire&quot; will clean out the retained records
 (and possibly message files). This reduces the amount of I/O
@@ -2513,8 +2521,8 @@ of encryption.</p>
 <p style="margin-left:11%;"><b>sasl_option:</b> 0</p>
 
 <p style="margin-left:18%;">Any SASL option can be set by
-preceding it with &quot;sasl_&quot;. This file overrides the
-SASL configuration file.</p>
+preceding it with <b>sasl_</b>. This file overrides the SASL
+configuration file.</p>
 
 <p style="margin-left:11%;"><b>sasl_pwcheck_method:</b>
 &lt;none&gt;</p>
@@ -3060,6 +3068,12 @@ files in</p>
 <p style="margin-left:18%;">The length of the IMAP
 server&rsquo;s inactivity autologout timer, in minutes. The
 minimum value is 30, the default.</p>
+
+<p style="margin-left:11%;"><b>imapidletimeout:</b> 0</p>
+
+<p style="margin-left:18%;">Timeout for idling clients (RFC
+2177) in minutes. If set to zero (the default) or less, the
+value of &quot;timeout&quot; will be used instead.</p>
 
 <p style="margin-left:11%;"><b>tls_ca_file:</b> DEFAULT</p>
 
