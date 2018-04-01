@@ -429,14 +429,25 @@ static int cache_parserecord(struct buf *cachebase, size_t cache_offset,
 
     offset = cache_offset;
 
-    if (offset >= cachebase->len) {
-	syslog(LOG_ERR, "IOERROR: offset greater than cache size %lu %lu",
-	       offset, cachebase->len);
-	return IMAP_IOERROR;
-    }
-
     for (cache_ent = 0; cache_ent < NUM_CACHE_FIELDS; cache_ent++) {
 	cacheitem = cachebase->s + offset;
+
+	/* bounds checking */
+	if (offset >= cachebase->len) {
+	    syslog(LOG_ERR, "IOERROR: offset greater than cache size "
+		   SIZE_T_FMT " " SIZE_T_FMT "(%d)",
+		   offset, cachebase->len, cache_ent);
+	    return IMAP_IOERROR;
+	}
+
+	if (offset + CACHE_ITEM_SIZE_SKIP + CACHE_ITEM_LEN(cacheitem) > cachebase->len) {
+	    syslog(LOG_ERR, "IOERROR: cache entry truncated "
+		   SIZE_T_FMT " %u " SIZE_T_FMT "(%d)",
+		   offset, CACHE_ITEM_LEN(cacheitem),
+		   cachebase->len, cache_ent);
+	    return IMAP_IOERROR;
+	}
+
 	/* copy locations */
 	crec->item[cache_ent].len = CACHE_ITEM_LEN(cacheitem);
 	crec->item[cache_ent].offset = offset + CACHE_ITEM_SIZE_SKIP;
@@ -449,12 +460,6 @@ static int cache_parserecord(struct buf *cachebase, size_t cache_offset,
 	}
 
 	offset = next - cachebase->s;
-	if (offset > cachebase->len) {
-	    syslog(LOG_ERR, "IOERROR: offset greater than cache size "
-		   SIZE_T_FMT " " SIZE_T_FMT "(%d)",
-		   offset, cachebase->len, cache_ent);
-	    return IMAP_IOERROR;
-	}
     }
 
     /* all fit within the cache, it's gold as far as we can tell */
@@ -2564,10 +2569,13 @@ static int mailbox_update_carddav(struct mailbox *mailbox,
 
 	r = carddav_write(carddavdb, cdata, 0);
 
+	carddav_data_fini(cdata);
+
 	vparse_free(&vparser);
     }
 
 done:
+    carddav_data_fini(cdata);
     message_free_body(body);
     free(body);
 
@@ -2659,6 +2667,7 @@ static int mailbox_update_caldav(struct mailbox *mailbox,
     }
 
 done:
+    caldav_data_fini(cdata);
     message_free_body(body);
     free(body);
 
@@ -3986,6 +3995,17 @@ EXPORTED int mailbox_copy_files(struct mailbox *mailbox, const char *newpart,
 	    r = mailbox_copyfile(oldbuf, newbuf, mf->nolink);
 	    if (r) return r;
 	}
+    }
+
+    // Ensure the directory hierarchy is created, especially for empty mailbox
+    // spool directories (split metadata). Fake the UID as 1 to ensure it is
+    // the mailbox created, not the parent mailbox (trailing slash parsing in
+    // cyrus_mkdir).
+    xstrncpy(newbuf, mboxname_datapath(newpart, newname, 1), MAX_MAILBOX_PATH);
+
+    if (cyrus_mkdir(newbuf, 0755) == -1) {
+       syslog(LOG_ERR, "Could not create directory for '%s'", newbuf);
+       return IMAP_IOERROR;
     }
 
     for (recno = 1; recno <= mailbox->i.num_records; recno++) {

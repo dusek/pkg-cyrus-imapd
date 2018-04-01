@@ -518,11 +518,13 @@ static int new_session_cb(SSL *ssl __attribute__((unused)),
 	/* store the session in our database */
 
 	session_id = SSL_SESSION_get_id(sess, &session_id_length);
-	do {
-	    ret = cyrusdb_store(sessdb, (const char *) session_id,
-			    session_id_length,
-			    (const char *) data, len + sizeof(time_t), NULL);
-	} while (ret == CYRUSDB_AGAIN);
+        if (session_id_length) {
+	    do {
+	        ret = cyrusdb_store(sessdb, (const char *) session_id,
+			        session_id_length,
+			        (const char *) data, len + sizeof(time_t), NULL);
+	    } while (ret == CYRUSDB_AGAIN);
+        }
     }
 
     free(data);
@@ -551,6 +553,7 @@ static void remove_session(const unsigned char *id, int idlen)
     assert(id);
     assert(idlen <= SSL_MAX_SSL_SESSION_ID_LENGTH);
     
+    if (!idlen) return;
     if (!sess_dbopen) return;
 
     do {
@@ -882,7 +885,8 @@ EXPORTED int     tls_init_serverengine(const char *ident,
 
 #if (OPENSSL_VERSION_NUMBER >= 0x0090800fL)
     /* Load DH params for DHE-* key exchanges */
-    SSL_CTX_set_tmp_dh(s_ctx, load_dh_param(server_key_file, server_cert_file));
+    DH* dh_freeme = load_dh_param(server_key_file, server_cert_file);
+    SSL_CTX_set_tmp_dh(s_ctx, dh_freeme);
 #endif
 
 #if (OPENSSL_VERSION_NUMBER >= 0x1000103fL)
@@ -985,6 +989,9 @@ EXPORTED int     tls_init_serverengine(const char *ident,
     }
 
     tls_serverengine = 1;
+#if (OPENSSL_VERSION_NUMBER >= 0x0090800fL)
+    DH_free(dh_freeme);
+#endif
     return (0);
 }
 

@@ -1596,7 +1596,8 @@ int propfind_acl(const xmlChar *name, xmlNsPtr ns,
 	    userid++;
 	}
 
-	rights = cyrus_acl_strtomask(rightstr);
+	cyrus_acl_strtomask(rightstr, &rights);
+	/* XXX and if strtomask fails? */
 
 	/* Add ace XML element for this userid/right pair */
 	ace = xmlNewChild(acl, NULL, BAD_CAST "ace", NULL);
@@ -2050,6 +2051,7 @@ int propfind_fromdb(const xmlChar *name, xmlNsPtr ns,
 			name, ns, NULL, 0);
     xmlAddChild(node, xmlNewCDataBlock(fctx->root->doc,
 				       BAD_CAST buf_cstring(&attrib), buf_len(&attrib)));
+    buf_free(&attrib);
 
     return 0;
 }
@@ -2201,7 +2203,7 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 			      known_namespaces[entry->ns].href,
 			      known_namespaces[entry->ns].prefix);
 
-		    nentry->name = BAD_CAST entry->name;
+		    nentry->name = xmlStrdup(BAD_CAST entry->name);
 		    nentry->ns = fctx->ns[entry->ns];
 		    if (allowed) {
 			nentry->flags = entry->flags;
@@ -2289,8 +2291,10 @@ static int preload_proplist(xmlNodePtr proplist, struct propfind_ctx *fctx)
 		 entry++);
 
 	    /* Skip properties already included by allprop */
-	    if (fctx->mode == PROPFIND_ALL && (entry->flags & PROP_ALLPROP))
+	    if (fctx->mode == PROPFIND_ALL && (entry->flags & PROP_ALLPROP)) {
+                xmlFree(name);
 		continue;
+            }
 
 	    nentry = xzmalloc(sizeof(struct propfind_entry_list));
 	    nentry->name = name;
@@ -2988,6 +2992,7 @@ int meth_copy(struct transaction_t *txn, void *params)
 	}
 	overwrite = OVERWRITE_NO;
     }
+    cparams->davdb.release_resource(ddata);
 
     /* Open source mailbox for reading */
     r = mailbox_open_irl(txn->req_tgt.mboxname, &src_mbox);
@@ -3045,6 +3050,8 @@ int meth_copy(struct transaction_t *txn, void *params)
 	goto done;
     }
 
+    cparams->davdb.release_resource(ddata);
+
     if (get_preferences(txn) & PREFER_REP) flags |= PREFER_REP;
     if ((txn->meth == METH_MOVE) && (dest_mbox == src_mbox))
 	flags |= NO_DUP_CHECK;
@@ -3093,6 +3100,8 @@ int meth_copy(struct transaction_t *txn, void *params)
     }
 
   done:
+    cparams->davdb.release_resource(ddata);
+
     if (ret == HTTP_CREATED) {
 	/* Tell client where to find the new resource */
 	txn->location = dest_tgt.path;
@@ -4089,6 +4098,8 @@ int propfind_by_collection(char *mboxname, int matchlen,
 	    /* XXX  Check errors */
 
 	    r = fctx->proc_by_resource(rock, data);
+
+	    fctx->release_resource(data);
 	}
 	else {
 	    /* Add responses for all contained resources */
@@ -4297,6 +4308,7 @@ EXPORTED int meth_propfind(struct transaction_t *txn, void *params)
     fctx.open_db = fparams->davdb.open_db;
     fctx.close_db = fparams->davdb.close_db;
     fctx.lookup_resource = fparams->davdb.lookup_resource;
+    fctx.release_resource = fparams->davdb.release_resource;
     fctx.foreach_resource = fparams->davdb.foreach_resource;
     fctx.proc_by_resource = &propfind_by_resource;
     fctx.elist = NULL;

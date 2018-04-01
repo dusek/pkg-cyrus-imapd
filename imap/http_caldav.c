@@ -563,6 +563,7 @@ static struct meth_params caldav_params = {
     { (db_open_proc_t) &my_caldav_open,
       (db_close_proc_t) &my_caldav_close,
       (db_lookup_proc_t) &caldav_lookup_resource,
+      (db_release_proc_t) &caldav_data_fini,
       (db_foreach_proc_t) &caldav_foreach,
       (db_write_proc_t) &caldav_write,
       (db_delete_proc_t) &caldav_delete,
@@ -724,7 +725,7 @@ static void my_caldav_init(struct buf *serverinfo)
 
 static void my_caldav_auth(const char *userid)
 {
-    const char *mailboxname;
+    char *mailboxname;
     int r;
 
     /* Generate mailboxname of calendar-home-set */
@@ -752,10 +753,12 @@ static void my_caldav_auth(const char *userid)
     if (r == IMAP_MAILBOX_NONEXISTENT) {
 	if (config_mupdate_server) {
 	    /* Find location of INBOX */
-	    const char *inboxname = mboxname_user_mbox(userid, NULL);
+	    char *inboxname = mboxname_user_mbox(userid, NULL);
 	    mbentry_t *mbentry = NULL;
 
 	    r = http_mlookup(inboxname, &mbentry, NULL);
+	    free(inboxname);
+
 	    if (!r && mbentry->server) {
 		proxy_findserver(mbentry->server, &http_protocol, proxy_userid,
 				 &backend_cached, NULL, NULL, httpd_in);
@@ -767,6 +770,7 @@ static void my_caldav_auth(const char *userid)
 	else r = 0;
 
 	/* will have been overwritten */
+	free(mailboxname);
 	mailboxname = caldav_mboxname(userid, NULL);
 
 	/* Create locally */
@@ -777,6 +781,7 @@ static void my_caldav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
 
     /* Default calendar */
     mailboxname = caldav_mboxname(userid, SCHED_DEFAULT);
@@ -789,6 +794,7 @@ static void my_caldav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
 
     /* Scheduling Inbox */
     mailboxname = caldav_mboxname(userid, SCHED_INBOX);
@@ -801,6 +807,7 @@ static void my_caldav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
 
     /* Scheduling Outbox */
     mailboxname = caldav_mboxname(userid, SCHED_OUTBOX);
@@ -813,6 +820,7 @@ static void my_caldav_auth(const char *userid)
 	if (r) syslog(LOG_ERR, "IOERROR: failed to create %s (%s)",
 		      mailboxname, error_message(r));
     }
+    free(mailboxname);
 }
 
 
@@ -946,10 +954,11 @@ static int caldav_parse_path(const char *path,
 	buf_putc(&boxbuf, '.');
 	buf_appendmap(&boxbuf, tgt->collection, tgt->collen);
     }
-    parts.box = buf_release(&boxbuf);
+    parts.box = buf_release(&boxbuf); /* tricky, we now need to free parts.box separately */
 
     mboxname_parts_to_internal(&parts, tgt->mboxname);
 
+    free((char *) parts.box); /* n.b. casting away constness */
     mboxname_free_parts(&parts);
 
     return 0;
@@ -2699,17 +2708,16 @@ static int caldav_put(struct transaction_t *txn,
 	    goto done;
 	}
 
-	if (organizer) {
-	    const char *nextorg = NULL;
+	const char *nextorg = NULL;
 
-	    prop = icalcomponent_get_first_property(nextcomp,
-						    ICAL_ORGANIZER_PROPERTY);
-	    if (prop) nextorg = icalproperty_get_organizer(prop);
-	    if (!nextorg || strcmp(organizer, nextorg)) {
-		txn->error.precond = CALDAV_SAME_ORGANIZER;
-		ret = HTTP_FORBIDDEN;
-		goto done;
-	    }
+	prop = icalcomponent_get_first_property(nextcomp,
+						ICAL_ORGANIZER_PROPERTY);
+	if (prop) nextorg = icalproperty_get_organizer(prop);
+	if ( (!organizer && nextorg)
+	     || (organizer && (!nextorg || strcmp(organizer, nextorg)))) {
+	    txn->error.precond = CALDAV_SAME_ORGANIZER;
+	    ret = HTTP_FORBIDDEN;
+	    goto done;
 	}
     }
 
@@ -4390,6 +4398,7 @@ static int report_cal_query(struct transaction_t *txn,
     fctx->open_db = (db_open_proc_t) &my_caldav_open;
     fctx->close_db = (db_close_proc_t) &my_caldav_close;
     fctx->lookup_resource = (db_lookup_proc_t) &caldav_lookup_resource;
+    fctx->release_resource = (db_release_proc_t) &caldav_data_fini;
     fctx->foreach_resource = (db_foreach_proc_t) &caldav_foreach;
     fctx->proc_by_resource = &propfind_by_resource;
 
@@ -4848,6 +4857,7 @@ static icalcomponent *busytime_query_local(struct transaction_t *txn,
     fctx->open_db = (db_open_proc_t) &my_caldav_open;
     fctx->close_db = (db_close_proc_t) &my_caldav_close;
     fctx->lookup_resource = (db_lookup_proc_t) &caldav_lookup_resource;
+    fctx->release_resource = (db_release_proc_t) &caldav_data_fini;
     fctx->foreach_resource = (db_foreach_proc_t) &caldav_foreach;
     fctx->proc_by_resource = &busytime_by_resource;
 
@@ -5388,6 +5398,7 @@ int caladdress_lookup(const char *addr, struct sched_param *param)
 	mboxname_userid_to_parts(userid, &parts);
 	parts.box = xstrdupnull(config_getstring(IMAPOPT_CALENDARPREFIX));
 	mboxname_parts_to_internal(&parts, mailboxname);
+	free((char *) parts.box); /* n.b. casting away constness */
 	mboxname_free_parts(&parts);
 
 	r = http_mlookup(mailboxname, &mbentry, NULL);
@@ -6977,6 +6988,7 @@ static void sched_deliver_local(const char *recipient,
     if (ical) icalcomponent_free(ical);
     mailbox_close(&inbox);
     mailbox_close(&mailbox);
+    caldav_data_fini(cdata);
     if (caldavdb) caldav_close(caldavdb);
 }
 
@@ -7681,7 +7693,7 @@ static void sched_reply(const char *userid,
 {
     int r, rights = 0;
     mbentry_t *mbentry = NULL;
-    const char *outboxname;
+    char *outboxname;
     icalcomponent *ical;
     struct sched_data *sched_data;
     struct auth_state *authstate;
@@ -7736,6 +7748,7 @@ static void sched_reply(const char *userid,
 	rights = cyrus_acl_myrights(httpd_authstate, mbentry->acl);
 	mboxlist_entry_free(&mbentry);
     }
+    free(outboxname);
 
     if (!(rights & DACL_REPLY)) {
 	/* DAV:need-privileges */

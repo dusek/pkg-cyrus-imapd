@@ -704,7 +704,10 @@ am__objects_22 = lib/acl.lo lib/acl_afs.lo lib/auth.lo lib/auth_krb.lo \
 	$(am__objects_17) $(am__objects_18) $(am__objects_19) \
 	$(am__objects_20) $(am__objects_21)
 am_perl_libcyrus_la_OBJECTS = $(am__objects_22)
-perl_libcyrus_la_OBJECTS = $(am_perl_libcyrus_la_OBJECTS)
+am__objects_23 = lib/chartable.lo
+nodist_perl_libcyrus_la_OBJECTS = $(am__objects_23)
+perl_libcyrus_la_OBJECTS = $(am_perl_libcyrus_la_OBJECTS) \
+	$(nodist_perl_libcyrus_la_OBJECTS)
 @PERL_TRUE@am_perl_libcyrus_la_rpath =
 perl_libcyrus_min_la_DEPENDENCIES = $(lib_libcyrus_min_la_LIBADD)
 am__perl_libcyrus_min_la_SOURCES_DIST = lib/arrayu64.c lib/assert.c \
@@ -714,23 +717,26 @@ am__perl_libcyrus_min_la_SOURCES_DIST = lib/arrayu64.c lib/assert.c \
 	lib/getaddrinfo.c lib/getnameinfo.c lib/lock_fcntl.c \
 	lib/lock_flock.c lib/map_shared.c lib/map_stupidshared.c \
 	lib/map_nommap.c
-@IPV6_noGETADDRINFO_TRUE@am__objects_23 = lib/getaddrinfo.lo
-@IPV6_noGETNAMEINFO_TRUE@am__objects_24 = lib/getnameinfo.lo
-@LOCK_FCNTL_TRUE@am__objects_25 = lib/lock_fcntl.lo
-@LOCK_FCNTL_FALSE@am__objects_26 = lib/lock_flock.lo
-@MAP_SHARED_TRUE@am__objects_27 = lib/map_shared.lo
-@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_TRUE@am__objects_28 = lib/map_stupidshared.lo
-@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@am__objects_29 =  \
+@IPV6_noGETADDRINFO_TRUE@am__objects_24 = lib/getaddrinfo.lo
+@IPV6_noGETNAMEINFO_TRUE@am__objects_25 = lib/getnameinfo.lo
+@LOCK_FCNTL_TRUE@am__objects_26 = lib/lock_fcntl.lo
+@LOCK_FCNTL_FALSE@am__objects_27 = lib/lock_flock.lo
+@MAP_SHARED_TRUE@am__objects_28 = lib/map_shared.lo
+@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_TRUE@am__objects_29 = lib/map_stupidshared.lo
+@MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@am__objects_30 =  \
 @MAP_SHARED_FALSE@@MAP_STUPIDSHARED_FALSE@	lib/map_nommap.lo
-am__objects_30 = lib/arrayu64.lo lib/assert.lo lib/hash.lo \
+am__objects_31 = lib/arrayu64.lo lib/assert.lo lib/hash.lo \
 	lib/hashu64.lo lib/libconfig.lo lib/mpool.lo lib/retry.lo \
 	lib/strarray.lo lib/strhash.lo lib/util.lo lib/vparse.lo \
 	lib/xmalloc.lo lib/xstrlcat.lo lib/xstrlcpy.lo \
-	$(am__objects_23) $(am__objects_24) $(am__objects_25) \
-	$(am__objects_26) $(am__objects_27) $(am__objects_28) \
-	$(am__objects_29)
-am_perl_libcyrus_min_la_OBJECTS = $(am__objects_30)
-perl_libcyrus_min_la_OBJECTS = $(am_perl_libcyrus_min_la_OBJECTS)
+	$(am__objects_24) $(am__objects_25) $(am__objects_26) \
+	$(am__objects_27) $(am__objects_28) $(am__objects_29) \
+	$(am__objects_30)
+am_perl_libcyrus_min_la_OBJECTS = $(am__objects_31)
+am__objects_32 = lib/imapopts.lo
+nodist_perl_libcyrus_min_la_OBJECTS = $(am__objects_32)
+perl_libcyrus_min_la_OBJECTS = $(am_perl_libcyrus_min_la_OBJECTS) \
+	$(nodist_perl_libcyrus_min_la_OBJECTS)
 @PERL_TRUE@am_perl_libcyrus_min_la_rpath =
 sieve_libcyrus_sieve_la_DEPENDENCIES = sieve/libcyrus_sieve_lex.la \
 	$(am__DEPENDENCIES_1) lib/libcyrus_min.la lib/libcyrus.la
@@ -829,10 +835,10 @@ am__cunit_unit_SOURCES_DIST = cunit/unit.c cunit/cunit.h \
 	cunit/sieve.testc cunit/spool.testc cunit/squat.testc \
 	cunit/strarray.testc cunit/strconcat.testc cunit/times.testc \
 	cunit/tok.testc imap/mutex_fake.c imap/spool.c
-@CUNIT_TRUE@am__objects_31 = cunit/unit.$(OBJEXT) \
+@CUNIT_TRUE@am__objects_33 = cunit/unit.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/syslog.$(OBJEXT) cunit/timeout.$(OBJEXT)
-@CUNIT_TRUE@@SIEVE_TRUE@am__objects_32 = cunit/sieve.$(OBJEXT)
-@CUNIT_TRUE@am__objects_33 = cunit/annotate.$(OBJEXT) \
+@CUNIT_TRUE@@SIEVE_TRUE@am__objects_34 = cunit/sieve.$(OBJEXT)
+@CUNIT_TRUE@am__objects_35 = cunit/annotate.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/backend.$(OBJEXT) cunit/binhex.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/bitvector.$(OBJEXT) cunit/buf.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/byteorder64.$(OBJEXT) \
@@ -846,12 +852,12 @@ am__cunit_unit_SOURCES_DIST = cunit/unit.c cunit/cunit.h \
 @CUNIT_TRUE@	cunit/msgid.$(OBJEXT) cunit/parseaddr.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/parse.$(OBJEXT) cunit/prot.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/ptrarray.$(OBJEXT) cunit/quota.$(OBJEXT) \
-@CUNIT_TRUE@	cunit/rfc822tok.$(OBJEXT) $(am__objects_32) \
+@CUNIT_TRUE@	cunit/rfc822tok.$(OBJEXT) $(am__objects_34) \
 @CUNIT_TRUE@	cunit/spool.$(OBJEXT) cunit/squat.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/strarray.$(OBJEXT) cunit/strconcat.$(OBJEXT) \
 @CUNIT_TRUE@	cunit/times.$(OBJEXT) cunit/tok.$(OBJEXT)
-@CUNIT_TRUE@am_cunit_unit_OBJECTS = $(am__objects_31) \
-@CUNIT_TRUE@	$(am__objects_33) imap/mutex_fake.$(OBJEXT) \
+@CUNIT_TRUE@am_cunit_unit_OBJECTS = $(am__objects_33) \
+@CUNIT_TRUE@	$(am__objects_35) imap/mutex_fake.$(OBJEXT) \
 @CUNIT_TRUE@	imap/spool.$(OBJEXT)
 cunit_unit_OBJECTS = $(am_cunit_unit_OBJECTS)
 am__DEPENDENCIES_4 = lib/libcyrus.la lib/libcyrus_min.la \
@@ -981,11 +987,11 @@ am__imap_imapd_SOURCES_DIST = imap/imap_proxy.c imap/imap_proxy.h \
 	imap/imapd.c imap/imapd.h imap/mutex_fake.c imap/pushstats.c \
 	imap/pushstats.h imap/proxy.c imap/proxy.h master/service.c \
 	imap/autocreate.h imap/autocreate.c
-@AUTOCREATE_TRUE@am__objects_34 = imap/autocreate.$(OBJEXT)
+@AUTOCREATE_TRUE@am__objects_36 = imap/autocreate.$(OBJEXT)
 am_imap_imapd_OBJECTS = imap/imap_proxy.$(OBJEXT) imap/imapd.$(OBJEXT) \
 	imap/mutex_fake.$(OBJEXT) imap/pushstats.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) master/service.$(OBJEXT) \
-	$(am__objects_34)
+	$(am__objects_36)
 imap_imapd_OBJECTS = $(am_imap_imapd_OBJECTS)
 imap_imapd_DEPENDENCIES = $(am__append_48) $(am__DEPENDENCIES_6)
 am_imap_ipurge_OBJECTS = imap/cli_fatal.$(OBJEXT) \
@@ -997,12 +1003,12 @@ am__imap_lmtpd_SOURCES_DIST = imap/lmtpd.c imap/lmtpd.h \
 	imap/lmtpstats.h imap/mutex_fake.c imap/proxy.c imap/spool.c \
 	master/service.c imap/autocreate.c imap/autocreate.h \
 	imap/lmtp_sieve.c imap/lmtp_sieve.h imap/smtpclient.c
-@SIEVE_TRUE@am__objects_35 = imap/lmtp_sieve.$(OBJEXT) \
+@SIEVE_TRUE@am__objects_37 = imap/lmtp_sieve.$(OBJEXT) \
 @SIEVE_TRUE@	imap/smtpclient.$(OBJEXT)
 am_imap_lmtpd_OBJECTS = imap/lmtpd.$(OBJEXT) imap/lmtpengine.$(OBJEXT) \
 	imap/lmtpstats.$(OBJEXT) imap/mutex_fake.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) imap/spool.$(OBJEXT) \
-	master/service.$(OBJEXT) $(am__objects_34) $(am__objects_35)
+	master/service.$(OBJEXT) $(am__objects_36) $(am__objects_37)
 imap_lmtpd_OBJECTS = $(am_imap_lmtpd_OBJECTS)
 imap_lmtpd_DEPENDENCIES = $(am__append_55) $(am__DEPENDENCIES_6)
 am_imap_mbexamine_OBJECTS = imap/cli_fatal.$(OBJEXT) \
@@ -1034,7 +1040,7 @@ am__imap_pop3d_SOURCES_DIST = imap/mutex_fake.c imap/pop3d.c \
 	imap/autocreate.h
 am_imap_pop3d_OBJECTS = imap/mutex_fake.$(OBJEXT) imap/pop3d.$(OBJEXT) \
 	imap/proxy.$(OBJEXT) master/service.$(OBJEXT) \
-	$(am__objects_34)
+	$(am__objects_36)
 imap_pop3d_OBJECTS = $(am_imap_pop3d_OBJECTS)
 imap_pop3d_DEPENDENCIES = $(am__append_57) $(am__DEPENDENCIES_6)
 am_imap_quota_OBJECTS = imap/cli_fatal.$(OBJEXT) \
@@ -1098,12 +1104,12 @@ am__notifyd_notifyd_SOURCES_DIST = imap/mutex_fake.c master/service.c \
 	notifyd/notify_null.c notifyd/notify_null.h notifyd/notifyd.c \
 	notifyd/notifyd.h notifyd/notify_zephyr.c \
 	notifyd/notify_zephyr.h
-@ZEPHYR_TRUE@am__objects_36 = notifyd/notify_zephyr.$(OBJEXT)
+@ZEPHYR_TRUE@am__objects_38 = notifyd/notify_zephyr.$(OBJEXT)
 am_notifyd_notifyd_OBJECTS = imap/mutex_fake.$(OBJEXT) \
 	master/service.$(OBJEXT) notifyd/notify_external.$(OBJEXT) \
 	notifyd/notify_log.$(OBJEXT) notifyd/notify_mailto.$(OBJEXT) \
 	notifyd/notify_null.$(OBJEXT) notifyd/notifyd.$(OBJEXT) \
-	$(am__objects_36)
+	$(am__objects_38)
 notifyd_notifyd_OBJECTS = $(am_notifyd_notifyd_OBJECTS)
 notifyd_notifyd_DEPENDENCIES = $(am__DEPENDENCIES_6) \
 	$(am__DEPENDENCIES_1)
@@ -1122,11 +1128,11 @@ ptclient_ptexpire_DEPENDENCIES = $(am__DEPENDENCIES_5)
 am__ptclient_ptloader_SOURCES_DIST = imap/mutex_fake.c \
 	ptclient/ptloader.c ptclient/ptloader.h \
 	master/service-thread.c ptclient/ldap.c ptclient/afskrb.c
-@HAVE_LDAP_TRUE@am__objects_37 = ptclient/ldap.$(OBJEXT)
-@USE_AFSKRB_TRUE@am__objects_38 = ptclient/afskrb.$(OBJEXT)
+@HAVE_LDAP_TRUE@am__objects_39 = ptclient/ldap.$(OBJEXT)
+@USE_AFSKRB_TRUE@am__objects_40 = ptclient/afskrb.$(OBJEXT)
 am_ptclient_ptloader_OBJECTS = imap/mutex_fake.$(OBJEXT) \
 	ptclient/ptloader.$(OBJEXT) master/service-thread.$(OBJEXT) \
-	$(am__objects_37) $(am__objects_38)
+	$(am__objects_39) $(am__objects_40)
 ptclient_ptloader_OBJECTS = $(am_ptclient_ptloader_OBJECTS)
 @HAVE_LDAP_TRUE@am__DEPENDENCIES_7 = $(am__DEPENDENCIES_1)
 @USE_AFSKRB_TRUE@am__DEPENDENCIES_8 = $(am__DEPENDENCIES_1)
@@ -1220,7 +1226,9 @@ SOURCES = $(perl_sieve_lib_libisieve_a_SOURCES) \
 	$(lib_libcyrus_la_SOURCES) $(nodist_lib_libcyrus_la_SOURCES) \
 	$(lib_libcyrus_min_la_SOURCES) \
 	$(nodist_lib_libcyrus_min_la_SOURCES) \
-	$(perl_libcyrus_la_SOURCES) $(perl_libcyrus_min_la_SOURCES) \
+	$(perl_libcyrus_la_SOURCES) $(nodist_perl_libcyrus_la_SOURCES) \
+	$(perl_libcyrus_min_la_SOURCES) \
+	$(nodist_perl_libcyrus_min_la_SOURCES) \
 	$(sieve_libcyrus_sieve_la_SOURCES) \
 	$(nodist_sieve_libcyrus_sieve_la_SOURCES) \
 	$(sieve_libcyrus_sieve_lex_la_SOURCES) $(cunit_unit_SOURCES) \
@@ -1492,6 +1500,7 @@ MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
+NOWARN_SIGN_COMPARE = @NOWARN_SIGN_COMPARE@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPENSSL_CFLAGS = @OPENSSL_CFLAGS@
@@ -1573,6 +1582,7 @@ localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
+mysql_config = @mysql_config@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -2201,8 +2211,10 @@ notifyd_notifyd_SOURCES = imap/mutex_fake.c master/service.c \
 notifyd_notifyd_LDADD = $(LD_SERVER_ADD) $(ZEPHYR_LIBS)
 notifyd_notifytest_SOURCES = notifyd/notifytest.c imap/mutex_fake.c
 notifyd_notifytest_LDADD = $(LD_BASIC_ADD)
+nodist_perl_libcyrus_la_SOURCES = $(nodist_lib_libcyrus_la_SOURCES)
 perl_libcyrus_la_SOURCES = $(lib_libcyrus_la_SOURCES)
 perl_libcyrus_la_LIBADD = $(lib_libcyrus_la_LIBADD)
+nodist_perl_libcyrus_min_la_SOURCES = $(nodist_lib_libcyrus_min_la_SOURCES)
 perl_libcyrus_min_la_SOURCES = $(lib_libcyrus_min_la_SOURCES)
 perl_libcyrus_min_la_LIBADD = $(lib_libcyrus_min_la_LIBADD)
 perl_sieve_lib_libisieve_a_SOURCES = \
@@ -2239,7 +2251,7 @@ sieve_libcyrus_sieve_lex_la_SOURCES = \
 	sieve/sieve-lex.l
 
 sieve_libcyrus_sieve_lex_la_LIBADD = 
-sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) -Wno-sign-compare
+sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) $(NOWARN_SIGN_COMPARE)
 nodist_sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/sieve_err.c \
 	sieve/sieve_err.h
@@ -2781,6 +2793,7 @@ lib/nonblock_fcntl.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 lib/nonblock_ioctl.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
+lib/chartable.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 perl/$(am__dirstamp):
 	@$(MKDIR_P) perl
 	@: > perl/$(am__dirstamp)
@@ -2809,6 +2822,7 @@ lib/map_shared.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 lib/map_stupidshared.lo: lib/$(am__dirstamp) \
 	lib/$(DEPDIR)/$(am__dirstamp)
 lib/map_nommap.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
+lib/imapopts.lo: lib/$(am__dirstamp) lib/$(DEPDIR)/$(am__dirstamp)
 
 perl/libcyrus_min.la: $(perl_libcyrus_min_la_OBJECTS) $(perl_libcyrus_min_la_DEPENDENCIES) $(EXTRA_perl_libcyrus_min_la_DEPENDENCIES) perl/$(am__dirstamp)
 	$(AM_V_CCLD)$(LINK) $(am_perl_libcyrus_min_la_rpath) $(perl_libcyrus_min_la_OBJECTS) $(perl_libcyrus_min_la_LIBADD) $(LIBS)
@@ -3748,6 +3762,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/bsearch.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/byteorder64.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/charset.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/chartable.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/command.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/crc32.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/cyrusdb.Plo@am__quote@
@@ -3766,6 +3781,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/gmtoff_tm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/hash.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/hashu64.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imapopts.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imapurl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imclient.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@lib/$(DEPDIR)/imparse.Plo@am__quote@

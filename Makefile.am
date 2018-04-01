@@ -1395,8 +1395,10 @@ notifyd_notifyd_LDADD = $(LD_SERVER_ADD) $(ZEPHYR_LIBS)
 notifyd_notifytest_SOURCES = notifyd/notifytest.c imap/mutex_fake.c
 notifyd_notifytest_LDADD = $(LD_BASIC_ADD)
 
+nodist_perl_libcyrus_la_SOURCES = $(nodist_lib_libcyrus_la_SOURCES)
 perl_libcyrus_la_SOURCES = $(lib_libcyrus_la_SOURCES)
 perl_libcyrus_la_LIBADD = $(lib_libcyrus_la_LIBADD)
+nodist_perl_libcyrus_min_la_SOURCES = $(nodist_lib_libcyrus_min_la_SOURCES)
 perl_libcyrus_min_la_SOURCES = $(lib_libcyrus_min_la_SOURCES)
 perl_libcyrus_min_la_LIBADD = $(lib_libcyrus_min_la_LIBADD)
 
@@ -1447,7 +1449,7 @@ sieve_libcyrus_sieve_lex_la_SOURCES = \
 	sieve/addr-lex.l \
 	sieve/sieve-lex.l
 sieve_libcyrus_sieve_lex_la_LIBADD =
-sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) -Wno-sign-compare
+sieve_libcyrus_sieve_lex_la_CFLAGS = $(AM_CFLAGS) $(CFLAG_VISIBILITY) $(NOWARN_SIGN_COMPARE)
 
 nodist_sieve_libcyrus_sieve_la_SOURCES = \
 	sieve/sieve_err.c \

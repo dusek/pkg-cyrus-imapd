@@ -2740,7 +2740,6 @@ static const char *get_config(const char *channel, const char *val)
 static void replica_connect(const char *channel)
 {
     int wait;
-    struct protoent *proto;
     sasl_callback_t *cb;
     int timeout;
 
@@ -2775,61 +2774,9 @@ static void replica_connect(const char *channel)
 	_exit(1);
     }
 
-    /* Disable Nagle's Algorithm => increase throughput
-     *
-     * http://en.wikipedia.org/wiki/Nagle's_algorithm
-     */
-    if (servername[0] != '/') {
-	if (sync_backend->sock >= 0 && (proto = getprotobyname("tcp")) != NULL) {
-	    int on = 1;
-
-	    if (setsockopt(sync_backend->sock, proto->p_proto, TCP_NODELAY,
-			   (void *) &on, sizeof(on)) != 0) {
-		syslog(LOG_ERR, "unable to setsocketopt(TCP_NODELAY): %m");
-	    }
-
-	    /* turn on TCP keepalive if set */
-	    if (config_getswitch(IMAPOPT_TCP_KEEPALIVE)) {
-		int r;
-		int optval = 1;
-		socklen_t optlen = sizeof(optval);
-		struct protoent *proto = getprotobyname("TCP");
-
-		r = setsockopt(sync_backend->sock, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
-		if (r < 0) {
-		    syslog(LOG_ERR, "unable to setsocketopt(SO_KEEPALIVE): %m");
-		}
-#ifdef TCP_KEEPCNT
-		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_CNT);
-		if (optval) {
-		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPCNT, &optval, optlen);
-		    if (r < 0) {
-			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPCNT): %m");
-		    }
-		}
-#endif
-#ifdef TCP_KEEPIDLE
-		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_IDLE);
-		if (optval) {
-		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPIDLE, &optval, optlen);
-		    if (r < 0) {
-			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPIDLE): %m");
-		    }
-		}
-#endif
-#ifdef TCP_KEEPINTVL
-		optval = config_getint(IMAPOPT_TCP_KEEPALIVE_INTVL);
-		if (optval) {
-		    r = setsockopt(sync_backend->sock, proto->p_proto, TCP_KEEPINTVL, &optval, optlen);
-		    if (r < 0) {
-			syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPINTVL): %m");
-		    }
-		}
-#endif
-	    }
-	} else {
-	    syslog(LOG_ERR, "unable to getprotobyname(\"tcp\"): %m");
-	}
+    if (servername[0] != '/' && sync_backend->sock >= 0) {
+	tcp_disable_nagle(sync_backend->sock);
+	tcp_enable_keepalive(sync_backend->sock);
     }
 
 #ifdef HAVE_ZLIB

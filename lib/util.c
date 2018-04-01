@@ -66,8 +66,11 @@
 #endif
 
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 
 #include "exitcodes.h"
+#include "libconfig.h"
 #include "map.h"
 #include "retry.h"
 #include "util.h"
@@ -1624,4 +1627,98 @@ EXPORTED int warmup_file(const char *filename,
     close(fd);
 
     return r;
+}
+
+static int is_tcp_socket(int fd)
+{
+    int so_type;
+    socklen_t so_type_len = sizeof(so_type);
+    struct sockaddr sock_addr;
+    socklen_t sock_addr_len = sizeof(sock_addr);
+
+    if (fd < 0) return 0;
+
+    if (getsockopt(fd, SOL_SOCKET, SO_TYPE, &so_type, &so_type_len) == -1) {
+	if (errno != ENOTSOCK)
+	    syslog(LOG_ERR, "%s: getsockopt(%d): %m", __func__, fd);
+	return 0;
+    }
+
+    if (so_type != SOCK_STREAM) return 0;
+
+    if (getsockname(fd, &sock_addr, &sock_addr_len) == -1) {
+	if (errno != ENOTSOCK)
+	    syslog(LOG_ERR, "%s: getsockname(%d): %m", __func__, fd);
+	return 0;
+    }
+
+    /* XXX be a bit more pedantic? */
+    if (sock_addr.sa_family == AF_UNIX) return 0;
+
+    return 1;
+}
+
+EXPORTED void tcp_enable_keepalive(int fd)
+{
+    if (!is_tcp_socket(fd)) return;
+
+    /* turn on TCP keepalive if set */
+    if (config_getswitch(IMAPOPT_TCP_KEEPALIVE)) {
+	int r;
+	int optval = 1;
+	socklen_t optlen = sizeof(optval);
+	struct protoent *proto = getprotobyname("TCP");
+
+	r = setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &optval, optlen);
+	if (r < 0) {
+	    syslog(LOG_ERR, "unable to setsocketopt(SO_KEEPALIVE): %m");
+	}
+#ifdef TCP_KEEPCNT
+	optval = config_getint(IMAPOPT_TCP_KEEPALIVE_CNT);
+	if (optval) {
+	    r = setsockopt(fd, proto->p_proto, TCP_KEEPCNT, &optval, optlen);
+	    if (r < 0) {
+		syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPCNT): %m");
+	    }
+	}
+#endif
+#ifdef TCP_KEEPIDLE
+	optval = config_getint(IMAPOPT_TCP_KEEPALIVE_IDLE);
+	if (optval) {
+	    r = setsockopt(fd, proto->p_proto, TCP_KEEPIDLE, &optval, optlen);
+	    if (r < 0) {
+		syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPIDLE): %m");
+	    }
+	}
+#endif
+#ifdef TCP_KEEPINTVL
+	optval = config_getint(IMAPOPT_TCP_KEEPALIVE_INTVL);
+	if (optval) {
+	    r = setsockopt(fd, proto->p_proto, TCP_KEEPINTVL, &optval, optlen);
+	    if (r < 0) {
+		syslog(LOG_ERR, "unable to setsocketopt(TCP_KEEPINTVL): %m");
+	    }
+	}
+#endif
+    }
+}
+
+/* Disable Nagle's Algorithm => increase throughput
+ *
+ * http://en.wikipedia.org/wiki/Nagle's_algorithm
+ */
+EXPORTED void tcp_disable_nagle(int fd)
+{
+    if (!is_tcp_socket(fd)) return;
+
+    struct protoent *proto = getprotobyname("tcp");
+    if (!proto) {
+        syslog(LOG_ERR, "unable to getprotobyname(\"tcp\"): %m");
+        return;
+    }
+
+    int on = 1;
+    if (setsockopt(fd, proto->p_proto, TCP_NODELAY, &on, sizeof(on)) != 0) {
+        syslog(LOG_ERR, "unable to setsocketopt(TCP_NODELAY): %m");
+    }
 }

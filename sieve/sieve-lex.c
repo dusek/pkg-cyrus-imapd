@@ -184,7 +184,7 @@ extern FILE *sievein, *sieveout;
 
     /* Note: We specifically omit the test for yy_rule_can_match_eol because it requires
      *       access to the local variable yy_act. Since yyless() is a macro, it would break
-     *       existing scanners that call yyless() from OUTSIDE sievelex. 
+     *       existing scanners that call yyless() from OUTSIDE sievelex.
      *       One obvious solution it to make yy_act a global. I tried that, and saw
      *       a 5% performance hit in a non-sievelineno scanner, because yy_act is
      *       normally declared as a register variable-- so it is not worth it.
@@ -260,7 +260,7 @@ struct yy_buffer_state
 
     int yy_bs_lineno; /**< The line count. */
     int yy_bs_column; /**< The column count. */
-    
+
 	/* Whether to try to fill the input buffer when we reach the
 	 * end of it.
 	 */
@@ -1084,7 +1084,7 @@ yy_find_action:
 			yy_size_t yyl;
 			for ( yyl = 0; yyl < sieveleng; ++yyl )
 				if ( sievetext[yyl] == '\n' )
-					   
+					
     sievelineno++;
 ;
 			}
@@ -1984,7 +1984,7 @@ static int yy_get_next_buffer (void)
 
 	YY_CURRENT_BUFFER_LVALUE->yy_at_bol = (c == '\n');
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_at_bol )
-		   
+		
     sievelineno++;
 ;
 
@@ -2228,9 +2228,9 @@ static void sieveensure_buffer_stack (void)
 								);
 		if ( ! (yy_buffer_stack) )
 			YY_FATAL_ERROR( "out of dynamic memory in sieveensure_buffer_stack()" );
-								  
+
 		memset((yy_buffer_stack), 0, num_to_alloc * sizeof(struct yy_buffer_state*));
-				
+
 		(yy_buffer_stack_max) = num_to_alloc;
 		(yy_buffer_stack_top) = 0;
 		return;
@@ -2259,7 +2259,7 @@ static void sieveensure_buffer_stack (void)
  * @param base the character buffer
  * @param size the size in bytes of the character buffer
  * 
- * @return the newly allocated buffer state object. 
+ * @return the newly allocated buffer state object.
  */
 YY_BUFFER_STATE sieve_scan_buffer  (char * base, yy_size_t  size )
 {
@@ -2375,7 +2375,7 @@ static void yynoreturn yy_fatal_error (yyconst char* msg )
  */
 int sieveget_lineno  (void)
 {
-        
+    
     return sievelineno;
 }
 
