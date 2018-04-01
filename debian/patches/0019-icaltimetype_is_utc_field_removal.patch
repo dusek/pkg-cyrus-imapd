@@ -1,0 +1,225 @@
+From 1966c22fc4249a1157a4d4c1224138ce78653514 Mon Sep 17 00:00:00 2001
+From: Ken Murchison <murch@andrew.cmu.edu>
+Date: Sat, 21 Oct 2017 19:04:08 -0400
+Subject: [PATCH] Account for the removal of icaltimetype.is_utc field in
+ upcoming libical
+Bug-Debian: https://bugs.debian.org/883951
+
+---
+ configure.ac             |  5 +++++
+ imap/http_caldav.c       |  2 +-
+ imap/http_caldav_sched.c |  4 ++--
+ imap/http_tzdist.c       | 22 +++++++++++-----------
+ imap/ical_support.c      |  9 +++++++++
+ imap/ical_support.h      |  2 ++
+ imap/jmap_ical.c         |  4 ++--
+ imap/xcal.c              |  4 ++--
+ 8 files changed, 34 insertions(+), 18 deletions(-)
+
+Index: cyrus-imapd-2.5.10/configure.ac
+===================================================================
+--- cyrus-imapd-2.5.10.orig/configure.ac
++++ cyrus-imapd-2.5.10/configure.ac
+@@ -1251,6 +1251,11 @@
+ 		    AC_DEFINE(HAVE_RSCALE,[], [Build RSCALE support into httpd?]))
+ 	fi
+ 
++	AC_CHECK_MEMBER(icaltimetype.is_utc,
++		AC_DEFINE(ICALTIME_HAS_IS_UTC,[],
++			[Does icaltimetype have is_utc field?]),
++			 [], [#include <libical/ical.h>])
++
+ 	LIBS="${saved_LIBS}"
+ 	CPPFLAGS="${saved_CPPFLAGS}"
+ fi
+Index: cyrus-imapd-2.5.10/imap/http_caldav.c
+===================================================================
+--- cyrus-imapd-2.5.10.orig/imap/http_caldav.c
++++ cyrus-imapd-2.5.10/imap/http_caldav.c
+@@ -2014,7 +2014,7 @@
+ 	goto fail;
+     }
+ 
+-    tt.is_utc = 1;
++    icaltime_set_utc(&tt, 1);
+     return tt;
+ 
+   fail:
+Index: cyrus-imapd-2.5.10/imap/xcal.c
+===================================================================
+--- cyrus-imapd-2.5.10.orig/imap/xcal.c
++++ cyrus-imapd-2.5.10/imap/xcal.c
+@@ -113,8 +113,8 @@
+     static char str[21];
+     const char *fmt;
+ 
+-    if (tt.is_date) fmt = "%04d-%02d-%02d";
+-    else if (tt.is_utc) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
++    if (icaltime_is_date(tt)) fmt = "%04d-%02d-%02d";
++    else if (icaltime_is_utc(tt)) fmt = "%04d-%02d-%02dT%02d:%02d:%02dZ";
+     else fmt = "%04d-%02d-%02dT%02d:%02d:%02d";
+ 
+     snprintf(str, sizeof(str), fmt, tt.year, tt.month, tt.day,
+Index: cyrus-imapd-2.5.10/imap/http_timezone.c
+===================================================================
+--- cyrus-imapd-2.5.10.orig/imap/http_timezone.c
++++ cyrus-imapd-2.5.10/imap/http_timezone.c
+@@ -388,7 +388,7 @@
+ 	param = hash_lookup("changedsince", &txn->req_qparams);
+ 	if (param) {
+ 	    changedsince = icaltime_from_string(param->s);
+-	    if (param->next || !changedsince.is_utc) {  /* once only, UTC */
++	    if (param->next || !icaltime_is_utc(changedsince)) {  /* once only, UTC */
+ 		return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
+ 					   param, &changedsince);
+ 	    }
+@@ -396,7 +396,7 @@
+ 
+ 	name = hash_lookup("tzid", &txn->req_qparams);
+ 	if (name) {
+-	    if (changedsince.is_utc) {
++	    if (icaltime_is_utc(changedsince)) {
+ 		return json_error_response(txn, TZ_INVALID_TZID,
+ 					   param, &changedsince);
+ 	    }
+@@ -589,7 +589,7 @@
+ 
+ 	/* Adjust DTSTART observance to UTC */
+ 	icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+-	obs.onset.is_utc = 1;
++	icaltime_set_utc(&obs.onset, 1);
+ 
+ 	/* Check DTSTART vs window close */
+ 	if (!icaltime_is_null_time(end) &&
+@@ -651,7 +651,7 @@
+ 		if (!infinite) {
+ 		    /* Adjust UNTIL to local time (for iterator) */
+ 		    icaltime_adjust(&rrule.until, 0, 0, 0, obs.offset_from);
+-		    rrule.until.is_utc = 0;
++		    icaltime_set_utc(&rrule.until, 0);
+ 		}
+ 
+ 		if (trunc_dtstart) {
+@@ -675,7 +675,7 @@
+ 
+ 		    /* Adjust observance to UTC */
+ 		    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+-		    obs.onset.is_utc = 1;
++		    icaltime_set_utc(&obs.onset, 1);
+ 
+ 		    if (trunc_until && icaltime_compare(obs.onset, end) > 0) {
+ 			/* Observance is on/after window close */
+@@ -776,7 +776,7 @@
+ 
+ 	    /* Adjust observance to UTC */
+ 	    icaltime_adjust(&obs.onset, 0, 0, 0, -obs.offset_from);
+-	    obs.onset.is_utc = 1;
++	    icaltime_set_utc(&obs.onset, 1);
+ 
+ 	    if (!icaltime_is_null_time(end) &&
+ 		icaltime_compare(obs.onset, end) >= 0) {
+@@ -880,7 +880,7 @@
+ 	    case ICAL_DTSTART_PROPERTY:
+ 		/* Adjust window open to local time */
+ 		icaltime_adjust(&start, 0, 0, 0, tombstone.offset_from);
+-		start.is_utc = 0;
++		icaltime_set_utc(&start, 0);
+ 
+ 		icalproperty_set_dtstart(prop, start);
+ 		break;
+@@ -1160,7 +1160,7 @@
+     param = hash_lookup("changedsince", &txn->req_qparams);
+     if (param) {
+ 	changedsince = icaltime_from_string(param->s);
+-	if (param->next || !changedsince.is_utc) {  /* once only, UTC */
++	if (param->next || !icaltime_is_utc(changedsince)) {  /* once only, UTC */
+ 	    return json_error_response(txn, TZ_INVALID_CHANGEDSINCE,
+ 				       param, &changedsince);
+ 	}
+@@ -1171,13 +1171,13 @@
+ 	return json_error_response(txn, TZ_INVALID_START, param, NULL);
+ 
+     start = icaltime_from_string(param->s);
+-    if (!start.is_utc)  /* MUST be UTC */
++    if (!icaltime_is_utc(start))  /* MUST be UTC */
+ 	return json_error_response(txn, TZ_INVALID_START, param, &start);
+ 
+     param = hash_lookup("end", &txn->req_qparams);
+     if (param) {
+ 	end = icaltime_from_string(param->s);
+-	if (param->next || !end.is_utc  /* once only, UTC */
++	if (param->next || !icaltime_is_utc(end)  /* once only, UTC */
+ 	    || icaltime_compare(end, start) <= 0) {  /* end MUST be > start */
+ 	    return json_error_response(txn, TZ_INVALID_END, param, &end);
+ 	}
+@@ -1435,7 +1435,7 @@
+     else if (param->next) fmt = "multiple %s parameters";
+     else if (!param->s || !param->s[0]) fmt = "missing %s value";
+     else if (!time) fmt = "unknown %s value";
+-    else if (!time->is_utc) fmt = "invalid %s UTC value";
++    else if (!icaltime_is_utc(*time)) fmt = "invalid %s UTC value";
+ 
+     switch (tz_code) {
+     case TZ_INVALID_TZID:
+Index: cyrus-imapd-2.5.10/tools/vzic/test-vzic.c
+===================================================================
+--- cyrus-imapd-2.5.10.orig/tools/vzic/test-vzic.c
++++ cyrus-imapd-2.5.10/tools/vzic/test-vzic.c
+@@ -315,7 +315,7 @@
+   tt.hour = 0;
+   tt.minute = 0;
+   tt.second = 0;
+-  tt.is_utc = 0;
++  icaltime_set_utc(&tt, 0);
+   tt.is_date = 0;
+   tt.zone = "";
+ 
+Index: cyrus-imapd-2.5.10/Makefile.am
+===================================================================
+--- cyrus-imapd-2.5.10.orig/Makefile.am
++++ cyrus-imapd-2.5.10/Makefile.am
+@@ -968,6 +968,8 @@
+ 	imap/http_timezone.c \
+ 	imap/httpd.c \
+ 	imap/httpd.h \
++	imap/ical_support.c \
++	imap/ical_support.h \
+ 	imap/jcal.c \
+ 	imap/jcal.h \
+ 	imap/json_support.h \
+@@ -1075,6 +1077,8 @@
+ 	imap/http_rss.c \
+ 	imap/http_timezone.c \
+ 	imap/httpd.c \
++	imap/ical_support.c \
++	imap/ical_support.h \
+ 	imap/jcal.c \
+ 	imap/json_support.h \
+ 	imap/mutex_fake.c \
+Index: cyrus-imapd-2.5.10/imap/ical_support.c
+===================================================================
+--- /dev/null
++++ cyrus-imapd-2.5.10/imap/ical_support.c
+@@ -0,0 +1,11 @@
++#include <config.h>
++#include <libical/ical.h>
++
++EXPORTED void icaltime_set_utc(struct icaltimetype *t, int set)
++{
++#ifdef ICALTIME_HAS_IS_UTC
++    t->is_utc = set;
++#else
++    icaltime_set_timezone(t, set ? icaltimezone_get_utc_timezone() : NULL);
++#endif
++}
+Index: cyrus-imapd-2.5.10/imap/ical_support.h
+===================================================================
+--- /dev/null
++++ cyrus-imapd-2.5.10/imap/ical_support.h
+@@ -0,0 +1,6 @@
++#ifndef INCLUDED_ICAL_SUPPORT_H
++#define INCLUDED_ICAL_SUPPORT_H
++
++extern void icaltime_set_utc(struct icaltimetype *t, int set);
++
++#endif /* INCLUDED_ICAL_SUPPORT_H */
