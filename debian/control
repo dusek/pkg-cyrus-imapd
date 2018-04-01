@@ -197,6 +197,7 @@ Section: mail
 Pre-Depends: dpkg (>= 1.17.14~),
              ${misc:Pre-Depends}
 Depends: libcyrus-imap-perl (>= ${binary:Version}),
+         cyrus-common (= ${binary:Version}),
          ${misc:Depends},
          ${perl:Depends}
 Suggests: sasl2-bin
